@@ -6,10 +6,9 @@ local ns = EraUI.Classic
 
 local TITLE = "EraUI"
 local WIDTH = 420
--- These are the project's own feedback links; update them to EraUI's real
--- CurseForge project and GitHub repository before release.
+-- EraUI's home on CurseForge and GitHub.
 local CURSEFORGE_URL = "https://www.curseforge.com/wow/addons/eraui"
-local GITHUB_URL = "https://github.com/"
+local GITHUB_URL = "https://github.com/squirtwow/EraUI"
 
 local BODY = "This addon is a work in progress. Some pieces are still being measured against the old interface and will be finished before launch."
     .. "\n\nIf something looks wrong, say so. Every report helps. Reach us on CurseForge or on GitHub issues; the buttons below give you the address to copy."
