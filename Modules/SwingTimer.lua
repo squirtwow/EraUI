@@ -19,7 +19,7 @@ local function Options()
 end
 local function Enabled()
     local _,class=UnitClass("player")
-    return EraUI:GetSetting("enabled") and EraUI:GetSetting("swingTimer") and classes[class]
+    return EraUI:GetSetting("enabled") and EraUI:GetCharSetting("swingTimer") and classes[class]
 end
 local function Layout()
     local p=Options()

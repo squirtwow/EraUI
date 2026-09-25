@@ -208,8 +208,17 @@ SlashCmdList.ERAUI = function(msg)
     elseif msg == "status" then
         PrintStatus()
         return
+    elseif msg == "updates" or msg == "update" or msg == "updates again" then
+        if msg == "updates again" and EraUI.Classic and EraUI.Classic.db then
+            EraUI.Classic.db.updateNotesSeen = "0"
+            EraUI.Classic.MirrorSave()
+            EraUI:Print("Update notes will reappear after you /reload.")
+            return
+        end
+        if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() else EraUI:Print("Update notes are not available.") end
+        return
     elseif msg == "help" then
-        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era status or audit shows diagnostics.")
+        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era status or audit shows diagnostics.")
         EraUI:Print("/era reload reloads the UI; /era reset clears your EraUI settings (reload afterward).")
         return
     elseif msg == "version" then
@@ -222,6 +231,8 @@ SlashCmdList.ERAUI = function(msg)
         if EraUI.Classic then EraUI.Classic.db = nil end
         EraUIClassicDB = nil; EraUIClassicCharDB = nil
         if C_CVar then C_CVar.SetCVar("EraUIClassicSettings", "") end
+        if C_CVar then C_CVar.SetCVar("EraUICharSwing", "") end
+        if C_CVar then C_CVar.SetCVar("EraUIOnboarding", "") end
         EraUIDB = nil
         EraUI:Print("Settings cleared. Use /reload to restore defaults.")
         return

@@ -162,6 +162,71 @@ function EraUI:SetSetting(key, value)
     end
 end
 
+-- Per-character swing timer settings. The Forever client does not reliably
+-- restore per-character SavedVariables, so these toggles live in a CVar
+-- keyed by character name + realm, the same way the onboarding state does.
+EraUI.charSettingKeys = { swingTimer = true, rangedSwingTimer = true }
+local CHAR_SETTING_CVAR = "EraUICharSwing"
+if C_CVar and C_CVar.RegisterCVar then
+    pcall(C_CVar.RegisterCVar, CHAR_SETTING_CVAR, "")
+end
+
+local function CharSettingKey()
+    if UnitFullName then
+        local ok, name = pcall(UnitFullName, "player")
+        if ok and name and not (issecretvalue and issecretvalue(name)) then return name end
+    end
+    local ok, name = pcall(UnitName, "player")
+    return ok and name or "?"
+end
+
+function EraUI:LoadCharSettings()
+    self.charSettings = {}
+    if not (C_CVar and C_CVar.GetCVar) then return end
+    local key = CharSettingKey()
+    local ok, text = pcall(C_CVar.GetCVar, CHAR_SETTING_CVAR)
+    if not ok or not text then return end
+    for entry in text:gmatch("[^;]+") do
+        local k, payload = entry:match("^(.-):(.*)$")
+        if k == key and payload then
+            local flags = payload:match("^([01][01])$")
+            if flags then
+                self.charSettings.swingTimer = flags:sub(1, 1) == "1"
+                self.charSettings.rangedSwingTimer = flags:sub(2, 2) == "1"
+            end
+            return
+        end
+    end
+end
+
+function EraUI:SaveCharSettings()
+    if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
+    local key = CharSettingKey()
+    local existing = {}
+    for entry in (C_CVar.GetCVar(CHAR_SETTING_CVAR) or ""):gmatch("[^;]+") do
+        local k, payload = entry:match("^(.-):(.*)$")
+        if k and payload then existing[k] = payload end
+    end
+    existing[key] = (self.charSettings.swingTimer and "1" or "0")
+        .. (self.charSettings.rangedSwingTimer and "1" or "0")
+    local parts = {}
+    for k, payload in pairs(existing) do parts[#parts + 1] = k .. ":" .. payload end
+    table.sort(parts)
+    pcall(C_CVar.SetCVar, CHAR_SETTING_CVAR, table.concat(parts, ";"))
+end
+
+function EraUI:GetCharSetting(key)
+    if not EraUI.charSettingKeys[key] then return EraUI:GetSetting(key) end
+    return EraUI.charSettings and EraUI.charSettings[key] == true
+end
+
+function EraUI:SetCharSetting(key, value)
+    if not EraUI.charSettingKeys[key] then return EraUI:SetSetting(key, value) end
+    EraUI.charSettings = EraUI.charSettings or {}
+    EraUI.charSettings[key] = value and true or false
+    EraUI:SaveCharSettings()
+end
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -191,6 +256,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         EraUI:Status("v" .. EraUI.version .. " loaded for WoW Forever beta.")
     elseif event == "PLAYER_LOGIN" then
         if not EraUIDB or EraUIDB.enabled == false then return end
+        EraUI:LoadCharSettings()
         for name, module in pairs(EraUI.modules) do
             if type(module.Initialize) == "function" then
                 local ok, err = pcall(module.Initialize, module)

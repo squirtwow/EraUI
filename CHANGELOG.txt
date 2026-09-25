@@ -2,6 +2,11 @@
 
 ## 1.0.1
 - New: Movable world map - drag it by the header and resize it from the corners; your spot and size are remembered.
+- New: Red combo points - switch the floating orbs to red in your class settings.
+- New: "What's new" window that appears once after an update, styled like the rest of EraUI and coloured to your class (`/era updates` reopens it).
+- Changed: Swing timers are now per character - each of your characters keeps its own setting.
+- Fixed: The action bar band and gryphons no longer vanish after dragging a spell.
+- Fixed: The welcome and first-run setup now appear only once per character.
 - Quiet Mode now starts on by default (errors and command replies still show).
 - Class Reminders and Reveal World Map are marked as coming soon until they're ready.
 

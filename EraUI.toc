@@ -58,6 +58,7 @@ Classic\SettingsPanel.lua
 Classic\Welcome.lua
 Classic\Status.lua
 Core\Integration.lua
+Core\Updates.lua
 Modules\QoL.lua
 Modules\ExtraQoL.lua
 Modules\EnergyBar.lua

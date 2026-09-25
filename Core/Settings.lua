@@ -214,6 +214,9 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
     check.state = Text(check, "", 10, true)
     check.state:SetPoint("TOP", check.track, "BOTTOM", 0, -5)
     local checked = EraUI:GetSavedSetting(key) and true or false
+    if EraUI.charSettingKeys and EraUI.charSettingKeys[key] then
+        checked = EraUI:GetCharSetting(key) and true or false
+    end
             
             check:SetChecked(not check.unavailable and checked)
             if check.unavailable then check.state:SetText("SOON") end
@@ -262,9 +265,11 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
     check:SetScript("OnClick", function(self)
         if unavailable or self.dependencyDisabled then return end
         PaintToggle(self)
-        local previous = EraUI:GetSavedSetting(key)
+        local charKey = EraUI.charSettingKeys and EraUI.charSettingKeys[key]
+        local previous
+        if charKey then previous = EraUI:GetCharSetting(key) else previous = EraUI:GetSavedSetting(key) end
         local value = self:GetChecked() and true or false
-        EraUI:SetSetting(key, value)
+        if charKey then EraUI:SetCharSetting(key, value) else EraUI:SetSetting(key, value) end
         UpdateReloadHint(parent)
         if parent.setupMode and reloadSettings[key] then return end
         if key=="cursorRing" or key=="cursorRingClassColour" then
@@ -1019,6 +1024,9 @@ function SettingsModule:Initialize()
         frame:RefreshCastDependencies()
         for key, check in pairs(frame.checks) do
             local checked = EraUI:GetSavedSetting(key) and true or false
+            if EraUI.charSettingKeys and EraUI.charSettingKeys[key] then
+                checked = EraUI:GetCharSetting(key) and true or false
+            end
             
             check:SetChecked(not check.unavailable and checked)
             if check.unavailable then check.state:SetText("SOON") end

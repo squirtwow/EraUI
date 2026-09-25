@@ -23,6 +23,7 @@ for key, value in pairs(EraUI.settingDefaults) do
     if type(value) == "boolean" or type(value) == "number" then ns.DB_DEFAULTS["eraui_"..key] = value end
 end
 ns.DB_DEFAULTS.eraui_showAllSpellRanks = false
+ns.DB_DEFAULTS.updateNotesSeen = "" -- Last "What's new" version the account has seen.
 
 local function Sync()
     if not ns.db then return end
@@ -174,6 +175,7 @@ end
 local welcome, waitingForCombat
 local initialLogin = false
 local welcomeChecked = false
+local welcomeShownThisSession = false
 local function CharacterWelcome()
     EraUIClassicCharDB = EraUIClassicCharDB or {}
     EraUIClassicCharDB.onboarding = EraUIClassicCharDB.onboarding or {}
@@ -369,6 +371,22 @@ function ns.ShowWelcome()
     welcome:Show()
 end
 local firstRun=ns.FirstRun
+local function CheckUpdateNotes()
+    -- "What's new" notes: shown once per version, on the first login with it.
+    -- Fresh installs get the welcome instead, so the notes are marked seen
+    -- without showing. Existing accounts updating into the first notes-enabled
+    -- version see the notes once.
+    if ns.db.updateNotesSeen ~= EraUI.version then
+        local hasSeenWelcome = CharacterWelcome().welcomeSeen or ns.db.erauiWelcomeSeen
+        local showNotes = ns.db.updateNotesSeen ~= "" or hasSeenWelcome
+        ns.db.updateNotesSeen = EraUI.version
+        ns.MirrorSave()
+        if showNotes and not welcomeShownThisSession and not CharacterWelcome().exploreSettings
+            and EraUI.ShowUpdateNotes then
+            C_Timer.After(1.5, EraUI.ShowUpdateNotes)
+        end
+    end
+end
 function ns.FirstRun()
     if not EraUI:GetSetting("enabled") then return end
     if CharacterWelcome().exploreSettings then
@@ -381,6 +399,7 @@ function ns.FirstRun()
             SaveCharOnboarding()
             EraUI:Print("Explore Casting and your class section for more options. Open EraUI settings anytime with /era.")
         end
+        CheckUpdateNotes()
         return
     end
     if not welcomeChecked then
@@ -389,9 +408,11 @@ function ns.FirstRun()
         end
         welcomeChecked = true
         if not CharacterWelcome().welcomeSeen or (initialLogin and EraUI:GetSetting("showWelcomeOnLogin")) then
+            welcomeShownThisSession = true
             ns.ShowWelcome()
         end
     end
+    CheckUpdateNotes()
     -- Retain the native-layout selection/check machinery and its link.
     ns.db.welcomeNote=false
     firstRun()
