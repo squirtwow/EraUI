@@ -676,6 +676,16 @@ local function SkinTarget(frame, unit)
         local main = ns.Path(frame, "TargetFrameContent", "TargetFrameContentMain")
         local contextual = ns.Path(frame, "TargetFrameContent", "TargetFrameContentContextual")
         local host = frame.fcui and frame.fcui.host
+        -- The client re-colours the target name when you target yourself but
+        -- never re-writes the text, so the previous target's name lingers in
+        -- your class colour. Re-assert the name on every target change.
+        local currentUnit = frame.unit or unit
+        if main and main.Name and UnitExists(currentUnit) then
+            local name = UnitName(currentUnit)
+            if name and not (issecretvalue and issecretvalue(name)) and main.Name:GetText() ~= name then
+                main.Name:SetText(name)
+            end
+        end
         if main and main.LevelText and host then
             ns.SetPointOnce(main.LevelText, "CENTER", host, "TOPLEFT", 198, -71)
             local skull = ns.SkullLevel(UnitLevel(frame.unit or unit), frame.unit or unit)

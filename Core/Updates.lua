@@ -6,6 +6,14 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.0.2",
+        sections = {
+            { "Fixed", {
+                "Target frame name no longer sticks to the previous target after targeting yourself.",
+            } },
+        },
+    },
+    {
         version = "1.0.1",
         sections = {
             { "New", {
