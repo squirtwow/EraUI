@@ -1,4 +1,4 @@
-## Interface: 16001, 120100
+## Interface: 16001
 ## Title: EraUI
 ## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
 ## Author: Squirt
