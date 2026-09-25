@@ -1,0 +1,1531 @@
+-- EraUI guild roster.
+-- The 1.x guild tab: the roster the Friends window carried, with the four
+-- sortable columns, the member count and the guild message under them, and
+-- Guild Information, Add Member and Guild Control along the foot. The Forever
+-- client keeps its guild in the Communities window, so this is rebuilt rather
+-- than re-anchored.
+local _, EraUI = ...
+local ns = EraUI.Classic
+
+local ROW_H = 16
+local PILL_BORDER = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-FilterBorder"
+local GUILD_ICON = "Interface\\FriendsFrame\\FriendsFrameScrollIcon"
+local active = false
+local panel, tab
+local clientToggleGuild
+local togglingAt
+local selected
+local sortField, sortReverse = "name", false
+
+local COLUMNS = {
+    { key = "name", label = NAME or "Name", x = 4, w = 96, justify = "LEFT" },
+    { key = "zone", label = ZONE or "Zone", x = 100, w = 112, justify = "LEFT" },
+    { key = "level", label = LEVEL_ABBR or "Lvl", x = 212, w = 34, justify = "LEFT" },
+    { key = "class", label = CLASS or "Class", x = 246, w = 92, justify = "LEFT" },
+}
+local STATUS_COLUMNS = {
+    { key = "name", label = NAME or "Name", x = 4, w = 96, justify = "LEFT" },
+    { key = "rank", label = RANK or "Rank", x = 100, w = 80, justify = "LEFT" },
+    { key = "note", label = LABEL_NOTE or "Note", x = 180, w = 84, justify = "LEFT" },
+    { key = "lastOnline", label = LASTONLINE or "Last Online", x = 264, w = 74, justify = "LEFT" },
+}
+local statusView = false
+local LastOnline
+local DockNotes, SyncBridge
+local ROW_TEXTS = { "Name", "Zone", "Level", "Class" }
+
+local function IsSecret(v)
+    return issecretvalue and issecretvalue(v)
+end
+
+local function Safe(v, fallback)
+    if v == nil or IsSecret(v) then return fallback end
+    return v
+end
+
+local roster = {}
+
+local function ShowOffline()
+    if GetGuildRosterShowOffline then
+        local ok, value = pcall(GetGuildRosterShowOffline)
+        if ok then return value and true or false end
+    end
+    return false
+end
+
+local function CollectRoster()
+    wipe(roster)
+    if not IsInGuild or not IsInGuild() then return 0, 0 end
+    local total, online = 0, 0
+    if GetNumGuildMembers then
+        local ok, a, b = pcall(GetNumGuildMembers)
+        if ok then total, online = Safe(a, 0), Safe(b, 0) end
+    end
+    local showOffline = ShowOffline()
+    for i = 1, total do
+        local ok, name, rank, rankIndex, level, class, zone, note, officerNote, isOnline, status, classFile, _, _, _, _, _, guid = pcall(GetGuildRosterInfo, i)
+        if ok and name and not IsSecret(name) then
+            isOnline = Safe(isOnline, false) and true or false
+            if showOffline or isOnline then
+                roster[#roster + 1] = {
+                    index = i,
+                    name = Ambiguate and Ambiguate(name, "guild") or name,
+                    rank = Safe(rank, ""),
+                    rankIndex = Safe(rankIndex, 0),
+                    level = Safe(level, 0),
+                    class = Safe(class, ""),
+                    classFile = Safe(classFile, nil),
+                    zone = Safe(zone, ""),
+                    note = Safe(note, ""),
+                    officerNote = Safe(officerNote, ""),
+                    online = isOnline,
+                    status = Safe(status, 0),
+                    guid = Safe(guid, nil),
+                }
+            end
+        end
+    end
+    return total, online
+end
+
+local function SortRoster()
+    local key = sortField
+    table.sort(roster, function(a, b)
+        local x, y = a[key], b[key]
+        if key == "rank" then
+            x, y = tonumber(a.rankIndex) or 0, tonumber(b.rankIndex) or 0
+        elseif key == "lastOnline" then
+            x, y = a.online and 0 or 1, b.online and 0 or 1
+        elseif key == "level" then
+            x, y = tonumber(x) or 0, tonumber(y) or 0
+        else
+            x, y = tostring(x):lower(), tostring(y):lower()
+        end
+        if x == y then return tostring(a.name):lower() < tostring(b.name):lower() end
+        if sortReverse then return x > y end
+        return x < y
+    end)
+end
+
+local function SelectedEntry()
+    for _, entry in ipairs(roster) do
+        if entry.index == selected then return entry end
+    end
+end
+ns.GuildSelectedMember = SelectedEntry
+
+local function RowCount()
+    if not panel then return 0 end
+    return math.max(1, math.floor((panel.list:GetHeight() or 0) / ROW_H))
+end
+
+local function UpdateRows()
+    if not panel then return end
+    local offset = math.floor((panel.bar:GetValue() or 0) + 0.5)
+    local shown = RowCount()
+    for i, row in ipairs(panel.rows) do
+        local entry = i <= shown and roster[offset + i] or nil
+        if entry then
+            row.entry = entry
+            row.Name:SetText(entry.name)
+            if statusView then
+                row.Zone:SetText(entry.rank)
+                row.Level:SetText(entry.note)
+                row.Class:SetText(LastOnline(entry))
+            else
+                row.Zone:SetText(entry.zone)
+                row.Level:SetText(entry.level)
+                row.Class:SetText(entry.class)
+            end
+            local color = not statusView and entry.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[entry.classFile]
+            if not entry.online then
+                row.Name:SetTextColor(0.5, 0.5, 0.5)
+                row.Zone:SetTextColor(0.5, 0.5, 0.5)
+                row.Level:SetTextColor(0.5, 0.5, 0.5)
+                row.Class:SetTextColor(0.5, 0.5, 0.5)
+            else
+                row.Name:SetTextColor(1, 0.82, 0)
+                row.Zone:SetTextColor(1, 1, 1)
+                row.Level:SetTextColor(1, 1, 1)
+                if color then
+                    row.Class:SetTextColor(color.r, color.g, color.b)
+                else
+                    row.Class:SetTextColor(1, 1, 1)
+                end
+            end
+            row.Selected:SetShown(entry.index == selected)
+            row:Show()
+        else
+            row.entry = nil
+            row:Hide()
+        end
+    end
+    panel.bar:SetRange(math.max(0, #roster - shown))
+    if panel.status then
+        panel.status:ClearAllPoints()
+        panel.status:SetPoint("BOTTOMRIGHT", panel.listBox, "BOTTOMRIGHT", panel.bar:IsShown() and -32 or -8, 2)
+    end
+    if SyncBridge then SyncBridge() end
+end
+
+local function ApplyView()
+    if not panel then return end
+    local columns = statusView and STATUS_COLUMNS or COLUMNS
+    for i, header in ipairs(panel.headers or {}) do
+        local column = columns[i]
+        header.key = column.key
+        header:SetWidth(column.w)
+        if header.Text then header.Text:SetText(column.label) end
+    end
+    for _, row in ipairs(panel.rows or {}) do
+        for i, key in ipairs(ROW_TEXTS) do
+            local text, column = row[key], columns[i]
+            text:ClearAllPoints()
+            text:SetPoint("LEFT", row, "LEFT", column.x, 0)
+            text:SetWidth(column.w)
+        end
+    end
+end
+
+local function UpdateButtons()
+    if not panel then return end
+    panel.control:SetEnabled(IsGuildLeader and IsGuildLeader() and true or false)
+    panel.add:SetEnabled(CanGuildInvite and CanGuildInvite() and true or false)
+end
+
+local lastMOTD, lastTitle = "", nil
+
+local function GuildMOTD()
+    if InCombatLockdown() then return lastMOTD end
+    if C_GuildInfo and C_GuildInfo.GetMOTD then
+        local ok, text = pcall(C_GuildInfo.GetMOTD)
+        if ok and type(text) == "string" then lastMOTD = text return text end
+    end
+    if GetGuildRosterMOTD then
+        local ok, text = pcall(GetGuildRosterMOTD)
+        if ok and type(text) == "string" then lastMOTD = text return text end
+    end
+    return lastMOTD
+end
+
+local function GuildTitle()
+    if InCombatLockdown() then return lastTitle or GUILD or "Guild" end
+    if not GetGuildInfo then return GUILD or "Guild" end
+    local ok, guildName, rankName = pcall(GetGuildInfo, "player")
+    if not ok or not guildName or IsSecret(guildName) then return lastTitle or GUILD or "Guild" end
+    if rankName and not IsSecret(rankName) then
+        lastTitle = format(GUILD_TITLE_TEMPLATE or "%s of %s", rankName, guildName)
+    else
+        lastTitle = guildName
+    end
+    return lastTitle
+end
+
+local function Refresh()
+    if not panel or not panel:IsShown() then return end
+    local total, online = CollectRoster()
+    SortRoster()
+    panel.totals:SetText(format(GUILD_TOTAL or "%d Guild Members", total))
+    panel.online:SetText(format(GUILD_TOTALONLINE or "(%d Online)", online))
+    panel.motd:SetText(GuildMOTD())
+    panel.offline:SetChecked(ShowOffline())
+    if FriendsFrameTitleText then FriendsFrameTitleText:SetText(GuildTitle()) end
+    UpdateRows()
+    UpdateButtons()
+    if ns.UpdateGuildPopout then ns.UpdateGuildPopout() end
+end
+ns.RefreshGuildRoster = Refresh
+
+local regen = CreateFrame("Frame")
+regen:RegisterEvent("PLAYER_REGEN_ENABLED")
+regen:SetScript("OnEvent", function()
+    if panel and panel:IsShown() then Refresh() end
+end)
+
+local rowMenu
+
+local function NotMe(entry) return entry.name ~= UnitName("player") end
+
+local function ShowRowMenu(entry)
+    if not rowMenu then
+        rowMenu = ns.RowMenu({
+            { WHISPER or "Whisper", function(e) ns.Whisper(e.name) end,
+              function(e) return NotMe(e) and e.online end },
+            { INVITE or "Invite", function(e) if C_PartyInfo and C_PartyInfo.InviteUnit then C_PartyInfo.InviteUnit(e.name) end end,
+              function(e) return NotMe(e) and e.online end },
+            { ADD_FRIEND or "Add Friend", function(e) if C_FriendList and C_FriendList.AddFriend then C_FriendList.AddFriend(e.name) end end,
+              NotMe },
+            { GUILD_PROMOTE or "Promote", function(e) if C_GuildInfo and C_GuildInfo.Promote then C_GuildInfo.Promote(e.name) end end,
+              function(e) return NotMe(e) and CanGuildPromote and CanGuildPromote() end },
+            { GUILD_DEMOTE or "Demote", function(e) if C_GuildInfo and C_GuildInfo.Demote then C_GuildInfo.Demote(e.name) end end,
+              function(e) return NotMe(e) and CanGuildDemote and CanGuildDemote() end },
+            { REMOVE or "Remove", function(e) if C_GuildInfo and C_GuildInfo.Uninvite then C_GuildInfo.Uninvite(e.name) end end,
+              function(e) return NotMe(e) and CanGuildRemove and CanGuildRemove() end },
+        })
+        rowMenu:Follow(panel)
+    end
+    rowMenu:Open(entry, entry.name)
+end
+
+local function Row_OnClick(self, button)
+    if not self.entry then return end
+    if button == "RightButton" then
+        selected = self.entry.index
+        UpdateRows()
+        ShowRowMenu(self.entry)
+        if ns.UpdateGuildPopout then ns.UpdateGuildPopout() end
+        return
+    end
+    selected = self.entry.index
+    if SetGuildRosterSelection then pcall(SetGuildRosterSelection, self.entry.index) end
+    UpdateRows()
+    if panel and panel.popout then panel.popout:Show() end
+    if ns.UpdateGuildPopout then ns.UpdateGuildPopout() end
+end
+
+local function Row_OnDoubleClick(self)
+    if not self.entry or not self.entry.online then return end
+    ns.Whisper(self.entry.name)
+end
+
+local function CreateRow(parent, index)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetHeight(ROW_H)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(index - 1) * ROW_H)
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -(index - 1) * ROW_H)
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+    local sel = row:CreateTexture(nil, "BACKGROUND")
+    sel:SetAllPoints(row)
+    sel:SetTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight")
+    sel:SetBlendMode("ADD")
+    sel:SetVertexColor(1, 0.82, 0, 1)
+    sel:Hide()
+    row.Selected = sel
+
+    local highlight = row:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints(row)
+    highlight:SetTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight")
+    highlight:SetBlendMode("ADD")
+    highlight:SetVertexColor(1, 0.82, 0, 1)
+    highlight:SetTexCoord(0, 0.97, 0, 1)
+    sel:SetTexCoord(0, 0.97, 0, 1)
+
+    for _, column in ipairs(COLUMNS) do
+        local text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        text:SetPoint("LEFT", row, "LEFT", column.x, 0)
+        text:SetWidth(column.w)
+        text:SetJustifyH(column.justify)
+        text:SetWordWrap(false)
+        row[column.key:gsub("^%l", string.upper)] = text
+    end
+    row:SetScript("OnClick", Row_OnClick)
+    row:SetScript("OnDoubleClick", Row_OnDoubleClick)
+    return row
+end
+
+local function Header_OnClick(self)
+    if sortField == self.key then
+        sortReverse = not sortReverse
+    else
+        sortField, sortReverse = self.key, false
+    end
+    if SortGuildRoster then pcall(SortGuildRoster, self.key) end
+    Refresh()
+end
+
+local BLIZZARD_PANELS = { "FriendsListFrame", "IgnoreListFrame", "WhoFrame", "RaidFrame", "QuickJoinFrame", "FriendsFrameBroadcastInput" }
+
+local mousePending = false
+local settle = CreateFrame("Frame")
+settle:RegisterEvent("PLAYER_REGEN_ENABLED")
+settle:SetScript("OnEvent", function()
+    if not mousePending then return end
+    mousePending = false
+    for _, name in ipairs(BLIZZARD_PANELS) do
+        local frame = _G[name]
+        if frame and frame.EnableMouse then
+            frame:EnableMouse(not (frame.fcuiGuildHidden or frame.fcuiWhoHidden))
+        end
+    end
+end)
+
+local function HideBlizzardPanels()
+    for _, name in ipairs(BLIZZARD_PANELS) do
+        local frame = _G[name]
+        if frame and frame:IsShown() then
+            frame:SetAlpha(0)
+            if frame.EnableMouse and not InCombatLockdown() then
+                frame:EnableMouse(false)
+            else
+                mousePending = true
+            end
+            frame.fcuiGuildHidden = true
+        end
+    end
+    local header = FriendsFrame and FriendsFrame.FriendsTabHeader
+    if header then header:SetAlpha(0) end
+    ns.SweepFriendsFrame("fcuiGuildSwept", true)
+    ns.KeepFriendsSwept(panel, "fcuiGuildSwept")
+end
+
+local function ShowBlizzardPanels()
+    for _, name in ipairs(BLIZZARD_PANELS) do
+        local frame = _G[name]
+        if frame and frame.fcuiGuildHidden then
+            frame:SetAlpha(1)
+            if frame.EnableMouse and not InCombatLockdown() then
+                frame:EnableMouse(true)
+            else
+                mousePending = true
+            end
+            frame.fcuiGuildHidden = nil
+        end
+    end
+    local header = FriendsFrame and FriendsFrame.FriendsTabHeader
+    if header then header:SetAlpha(1) end
+    ns.SweepFriendsFrame("fcuiGuildSwept", false)
+end
+
+local function PopoutLine(out, previous, label)
+    local row = CreateFrame("Frame", nil, out)
+    row:SetHeight(14)
+    row:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -4)
+    row:SetPoint("RIGHT", out, "RIGHT", -10, 0)
+    row.Label = row:CreateFontString(nil, "ARTWORK")
+    row.Label:SetFontObject(ns.FONT_GOLD_SMALL or "GameFontNormalSmall")
+    row.Label:SetPoint("LEFT", row, "LEFT", 0, 0)
+    row.Label:SetText(label)
+    row.Value = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    row.Value:SetPoint("LEFT", row.Label, "RIGHT", 4, 0)
+    row.Value:SetJustifyH("LEFT")
+    return row
+end
+
+local function RankArrow(parent, key, anchor, offset, onClick)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(16, 16)
+    button:SetPoint("LEFT", anchor, "RIGHT", offset, 0)
+    ns.SetButtonTex(button, "Normal", key .. "ButtonUp")
+    ns.SetButtonTex(button, "Pushed", key .. "ButtonDown")
+    ns.SetButtonTex(button, "Disabled", key .. "ButtonDisabled")
+    ns.SetButtonTex(button, "Highlight", key .. "ButtonHighlight")
+    for _, state in ipairs({ "Normal", "Pushed", "Disabled", "Highlight" }) do
+        local tex = button["Get" .. state .. "Texture"](button)
+        if tex then tex:SetTexCoord(0.25, 0.75, 0.25, 0.75) end
+    end
+    button:GetHighlightTexture():SetBlendMode("ADD")
+    button:SetScript("OnClick", onClick)
+    return button
+end
+
+local function BuildPopout(host)
+    local out = CreateFrame("Frame", "EraUIClassicGuildMember", host, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    if out.SetBackdrop then
+        out:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 11, right = 12, top = 12, bottom = 11 },
+        })
+    end
+    out:SetSize(206, 250)
+    out:SetPoint("TOPLEFT", host, "TOPRIGHT", -6, -70)
+    out:SetFrameLevel(host:GetFrameLevel() + 10)
+    out:EnableMouse(true)
+    out:Hide()
+
+    out.title = out:CreateFontString(nil, "ARTWORK")
+    out.title:SetFontObject(ns.FONT_GOLD or "GameFontNormal")
+    out.title:SetPoint("LEFT", out, "TOPLEFT", 14, -20)
+    out.title:SetPoint("RIGHT", out, "TOPRIGHT", -32, -20)
+    out.title:SetJustifyH("LEFT")
+
+    out.close = CreateFrame("Button", nil, out, "UIPanelCloseButton")
+    out.close:SetPoint("TOPRIGHT", out, "TOPRIGHT", 2, 2)
+    if ns.SkinCloseButton then ns.SkinCloseButton(out.close, true) end
+    out.close:SetScript("OnClick", function() out:Hide() end)
+
+    out.level = out:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    out.level:SetPoint("TOPLEFT", out, "TOPLEFT", 14, -40)
+
+    out.zone = PopoutLine(out, out.level, (ZONE or "Zone") .. ":")
+    out.rank = PopoutLine(out, out.zone, (RANK or "Rank") .. ":")
+    out.lastOnline = PopoutLine(out, out.rank, (LASTONLINE or "Last Online") .. ":")
+
+    out.promote = RankArrow(out.rank, "scrollUp", out.rank.Value, 6, function()
+        local entry = SelectedEntry()
+        if entry and C_GuildInfo and C_GuildInfo.Promote then C_GuildInfo.Promote(entry.name) end
+    end)
+    out.demote = RankArrow(out.rank, "scrollDown", out.promote, 2, function()
+        local entry = SelectedEntry()
+        if entry and C_GuildInfo and C_GuildInfo.Demote then C_GuildInfo.Demote(entry.name) end
+    end)
+
+    out.guildmaster = ns.PanelButton(out, GUILD_PROMOTE_TO_GM or "Promote to Guild Master", 186)
+    out.guildmaster:SetPoint("BOTTOMLEFT", out, "BOTTOMLEFT", 14, 42)
+    out.guildmaster:SetScript("OnClick", function()
+        local entry = SelectedEntry()
+        if entry and C_GuildInfo and C_GuildInfo.SetLeader then C_GuildInfo.SetLeader(entry.name) end
+    end)
+
+    out.remove = ns.PanelButton(out, REMOVE or "Remove", 90)
+    out.remove:SetPoint("BOTTOMLEFT", out, "BOTTOMLEFT", 14, 16)
+    out.remove:SetScript("OnClick", function()
+        local entry = SelectedEntry()
+        if entry and C_GuildInfo and C_GuildInfo.Uninvite then C_GuildInfo.Uninvite(entry.name) end
+    end)
+
+    out.invite = ns.PanelButton(out, GROUP_INVITE or "Group Invite", 90)
+    out.invite:SetPoint("LEFT", out.remove, "RIGHT", 4, 0)
+    out.invite:SetScript("OnClick", function()
+        local entry = SelectedEntry()
+        if entry and C_PartyInfo and C_PartyInfo.InviteUnit then C_PartyInfo.InviteUnit(entry.name) end
+    end)
+
+    local function NoteHint(self)
+        if not self.mayEdit then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(self.Label:GetText() or "", 1, 1, 1)
+        GameTooltip:AddLine("Out of combat, click the member in the list, then click here to write the note.", nil, nil, nil, true)
+        GameTooltip:Show()
+    end
+
+    local function NoteBox(labelText, anchor, gap)
+        local label = out:CreateFontString(nil, "ARTWORK")
+        label:SetFontObject(ns.FONT_GOLD_SMALL or "GameFontNormalSmall")
+        label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, gap)
+        label:SetText(labelText)
+        local box = CreateFrame("Button", nil, out, BackdropTemplateMixin and "BackdropTemplate" or nil)
+        box:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -3)
+        box:SetPoint("RIGHT", out, "RIGHT", -14, 0)
+        box:SetHeight(40)
+        if box.SetBackdrop then
+            box:SetBackdrop({
+                bgFile = "Interface\\Buttons\\WHITE8X8",
+                edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+                tile = false, edgeSize = 12,
+                insets = { left = 3, right = 3, top = 3, bottom = 3 },
+            })
+            box:SetBackdropColor(0, 0, 0, 0.85)
+            box:SetBackdropBorderColor(0.78, 0.78, 0.78)
+        end
+        box.Text = box:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        box.Text:SetPoint("TOPLEFT", box, "TOPLEFT", 8, -6)
+        box.Text:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -8, 6)
+        box.Text:SetJustifyH("LEFT")
+        box.Text:SetJustifyV("TOP")
+        box.Label = label
+        box:SetScript("OnEnter", NoteHint)
+        box:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return box
+    end
+    out.noteBox = NoteBox((LABEL_NOTE or "Note") .. ":", out.lastOnline, -6)
+    out.officerBox = NoteBox(GUILD_OFFICERNOTE_LABEL or OFFICER_NOTE_COLON or "Officer's Note", out.noteBox, -5)
+    return out
+end
+
+LastOnline = function(entry)
+    if entry.online then return GUILD_ONLINE_LABEL or "Online" end
+    if not GetGuildRosterLastOnline then return "" end
+    local ok, years, months, days, hours = pcall(GetGuildRosterLastOnline, entry.index)
+    if not ok then return "" end
+    years, months, days, hours = Safe(years, 0), Safe(months, 0), Safe(days, 0), Safe(hours, 0)
+    if years and years > 0 then return format(LASTONLINE_YEARS or "%d years", years) end
+    if months and months > 0 then return format(LASTONLINE_MONTHS or "%d months", months) end
+    if days and days > 0 then return format(LASTONLINE_DAYS or "%d days", days) end
+    if hours and hours > 0 then return format(LASTONLINE_HOURS or "%d hours", hours) end
+    return LASTONLINE_MINS or "moments ago"
+end
+
+function ns.UpdateGuildPopout(fromBridge)
+    if not panel or not panel.popout or not panel.popout:IsShown() then return end
+    local out = panel.popout
+    local entry = SelectedEntry()
+    local me = UnitName("player")
+    if not fromBridge and DockNotes then DockNotes() end
+    local live = ns.GuildNotesLive and ns.GuildNotesLive(entry)
+    out.title:SetText(entry and entry.name or (PLAYER_STATUS or "Player Status"))
+    out.level:SetText(entry and format("%s %s %s", LEVEL or "Level", tostring(entry.level), tostring(entry.class)) or "")
+    out.zone.Value:SetText(entry and entry.zone or "")
+    out.rank.Value:SetText(entry and entry.rank or "")
+    out.lastOnline.Value:SetText(entry and LastOnline(entry) or "")
+    local mayNote = ((CanEditPublicNote and CanEditPublicNote()) or (entry and entry.name == me)) and true or false
+    local note = entry and entry.note or ""
+    if note == "" and mayNote and live then note = GUILD_NOTE_EDITLABEL or "Click here to set a Public Note." end
+    out.noteBox.Text:SetText(note)
+    out.noteBox.mayEdit = mayNote
+    local seeOfficer = (C_GuildInfo and C_GuildInfo.CanViewOfficerNote and C_GuildInfo.CanViewOfficerNote())
+        or (CanViewOfficerNote and CanViewOfficerNote()) or false
+    local mayOfficer = (C_GuildInfo and C_GuildInfo.CanEditOfficerNote and C_GuildInfo.CanEditOfficerNote())
+        or (CanEditOfficerNote and CanEditOfficerNote()) or false
+    out.officerBox:SetShown(seeOfficer and true or false)
+    out.officerBox.Label:SetShown(seeOfficer and true or false)
+    if seeOfficer then
+        local officer = entry and entry.officerNote or ""
+        if officer == "" and mayOfficer and live then officer = GUILD_OFFICERNOTE_EDITLABEL or "Click here to set an Officer's Note." end
+        out.officerBox.Text:SetText(officer)
+        out.officerBox.mayEdit = mayOfficer and true or false
+    end
+    local leader = IsGuildLeader and IsGuildLeader() and true or false
+    out:SetHeight(216 + (seeOfficer and 60 or 0) + (leader and 26 or 0))
+
+    local other = entry and entry.name ~= me
+    out.promote:SetEnabled(other and CanGuildPromote and CanGuildPromote() and true or false)
+    out.demote:SetEnabled(other and CanGuildDemote and CanGuildDemote() and true or false)
+    out.remove:SetEnabled(other and CanGuildRemove and CanGuildRemove() and true or false)
+    out.invite:SetEnabled(other and entry.online and true or false)
+    out.guildmaster:SetShown(IsGuildLeader and IsGuildLeader() and true or false)
+    out.guildmaster:SetEnabled(other and entry.online and true or false)
+end
+
+local bridge = { pads = {}, rows = {} }
+local GHOST_ROWS_MAX = 500
+local CLIENT_ROW_H = 20
+
+local function ClientDetail()
+    return CommunitiesFrame and CommunitiesFrame.GuildMemberDetailFrame
+end
+
+local function HidePads()
+    if InCombatLockdown() then return end
+    for _, pad in ipairs(bridge.pads) do
+        if pad:IsShown() then pad:Hide() end
+    end
+    if bridge.NotePad then bridge.NotePad:Hide() end
+    if bridge.OfficerPad then bridge.OfficerPad:Hide() end
+end
+
+local function DressDetail(detail)
+    if bridge.dressed then return end
+    bridge.dressed = true
+    local border = detail.Border
+    if border and border.GetRegions then
+        for _, region in ipairs({ border:GetRegions() }) do
+            if region ~= border.Bg and region.SetDesaturated then region:SetDesaturated(true) end
+        end
+    end
+    for _, box in ipairs({ detail.NoteBackground, detail.OfficerNoteBackground }) do
+        for _, holder in ipairs({ box, box and box.NineSlice }) do
+            if holder and holder.GetRegions then
+                local center = holder.Center
+                for _, region in ipairs({ holder:GetRegions() }) do
+                    if region ~= center and region.SetDesaturated and region.SetVertexColor then
+                        region:SetDesaturated(true)
+                        region:SetVertexColor(1, 1, 1, 1)
+                    end
+                end
+            end
+        end
+    end
+    if ns.SkinCloseButton then pcall(ns.SkinCloseButton, detail.CloseButton, true) end
+    if ns.SkinRedButton then
+        pcall(ns.SkinRedButton, detail.RemoveButton)
+        pcall(ns.SkinRedButton, detail.GroupInviteButton)
+    end
+end
+
+local function ParkDetail()
+    local detail = ClientDetail()
+    if not detail or not bridge.docked then return end
+    bridge.docked = nil
+    detail:Hide()
+    detail:SetParent(CommunitiesFrame)
+    detail:SetFrameStrata(CommunitiesFrame:GetFrameStrata())
+    detail:SetFrameLevel(1000)
+    detail:ClearAllPoints()
+    detail:SetPoint("TOPLEFT", CommunitiesFrame, "TOPRIGHT", -8, -76)
+end
+
+local GHOST_X = 4000
+local GHOST_LIST_OVERHEAD = 91
+
+local function GhostHeight()
+    local members, online = 0, 0
+    if GetNumGuildMembers then members, online = GetNumGuildMembers() end
+    members, online = Safe(members, 0), Safe(online, 0)
+    if not ShowOffline() then members = online end
+    return GHOST_LIST_OVERHEAD + (math.min(members, GHOST_ROWS_MAX) + 12) * CLIENT_ROW_H
+end
+
+local function PlaceGhost(frame)
+    local _, _, _, x = frame:GetPoint(1)
+    if frame:GetNumPoints() ~= 1 or x ~= GHOST_X then
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "TOPRIGHT", GHOST_X, 0)
+    end
+end
+
+local function DropGhost()
+    HidePads()
+    if not bridge.ghost then return end
+    local frame, keep = CommunitiesFrame, bridge.keep
+    bridge.ghost, bridge.keep, bridge.live = nil, nil, nil
+    wipe(bridge.rows)
+    if frame and keep then
+        ParkDetail()
+        local detail = ClientDetail()
+        if detail then detail:Hide() end
+        if frame:IsShown() and HideUIPanel then pcall(HideUIPanel, frame) end
+        frame:SetAttribute("UIPanelLayout-width", keep.widthAttr)
+        frame:SetSize(keep.width, keep.height)
+        frame:SetAlpha(keep.alpha)
+    end
+    ns.guildGhost = nil
+end
+ns.DropGuildGhost = DropGhost
+
+local function RaiseGhost()
+    if not CommunitiesFrame and C_AddOns and C_AddOns.LoadAddOn then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_Communities")
+    end
+    local frame = CommunitiesFrame
+    if not frame or not frame.MemberList or not ClientDetail() or not ShowUIPanel then return false end
+    if bridge.ghost then
+        if not frame:IsShown() then
+            DropGhost()
+            return false
+        end
+        PlaceGhost(frame)
+        local height = GhostHeight()
+        if height > frame:GetHeight() + 1 then frame:SetHeight(height) end
+        return true
+    end
+    if frame:IsShown() then return false end
+    local now = GetTime()
+    if bridge.retryAt and now < bridge.retryAt then return false end
+    local clubId = C_Club and C_Club.GetGuildClubId and C_Club.GetGuildClubId()
+    if not clubId then return false end
+    bridge.keep = {
+        alpha = frame:GetAlpha(), width = frame:GetWidth(), height = frame:GetHeight(),
+        strata = frame:GetFrameStrata(), widthAttr = frame:GetAttribute("UIPanelLayout-width"),
+    }
+    bridge.ghost = true
+    ns.guildGhost = true
+    frame:SetAlpha(0)
+    frame:SetHeight(GhostHeight())
+    frame:SetAttribute("UIPanelLayout-width", 1)
+    if SetCVar then pcall(SetCVar, "lastSelectedClubId", clubId) end
+    pcall(ShowUIPanel, frame)
+    if not frame:IsShown() then
+        DropGhost()
+        bridge.retryAt = now + 2
+        return false
+    end
+    PlaceGhost(frame)
+    return true
+end
+
+local function ReadClientRows()
+    wipe(bridge.rows)
+    local frame = CommunitiesFrame
+    local box = frame.MemberList.ScrollBox
+    if not box or not box.ForEachFrame then return end
+    if C_Club and frame.GetSelectedClubId and frame:GetSelectedClubId() ~= C_Club.GetGuildClubId() then return end
+    box:ForEachFrame(function(row)
+        if row.isInvitation or not row.GetMemberInfo then return end
+        local info = row:GetMemberInfo()
+        local guid = info and info.guid
+        if guid and not IsSecret(guid) then bridge.rows[guid] = row end
+    end)
+end
+
+local lastPadClick = {}
+local function Pad(index)
+    local pad = bridge.pads[index]
+    if pad then return pad end
+    pad = CreateFrame("Button", "EraUIClassicGuildRowPad" .. index, UIParent, "SecureActionButtonTemplate")
+    pad:SetAttribute("type1", "click")
+    pad:SetAttribute("useOnKeyDown", false)
+    pad:RegisterForClicks("AnyUp", "AnyDown")
+    pad:Hide()
+    local highlight = pad:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints(pad)
+    highlight:SetTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight")
+    highlight:SetBlendMode("ADD")
+    highlight:SetVertexColor(1, 0.82, 0, 1)
+    highlight:SetTexCoord(0, 0.97, 0, 1)
+    pad:SetScript("PostClick", function(_, button, down)
+        if down then return end
+        local row = panel and panel.rows[index]
+        if not row or not row.entry then return end
+        local now = GetTime()
+        if button == "LeftButton" and lastPadClick.entry == row.entry and now - (lastPadClick.at or 0) < 0.4 then
+            lastPadClick.entry = nil
+            Row_OnDoubleClick(row)
+            return
+        end
+        lastPadClick.entry, lastPadClick.at = row.entry, now
+        Row_OnClick(row, button)
+    end)
+    bridge.pads[index] = pad
+    return pad
+end
+
+local function NotePad(key)
+    local pad = bridge[key]
+    if pad then return pad end
+    pad = CreateFrame("Button", "EraUIClassicGuild" .. key, UIParent, "SecureActionButtonTemplate")
+    pad:SetAttribute("type1", "click")
+    pad:SetAttribute("useOnKeyDown", false)
+    pad:RegisterForClicks("AnyUp", "AnyDown")
+    pad:Hide()
+    pad:SetScript("PostClick", function(_, _, down)
+        if down then return end
+        SyncBridge()
+    end)
+    bridge[key] = pad
+    return pad
+end
+
+local function PlaceNotePads()
+    local out = panel and panel.popout
+    local entry = SelectedEntry()
+    local theirs = out and out:IsVisible() and entry and entry.guid and not bridge.live and bridge.rows[entry.guid]
+    local scale = UIParent:GetEffectiveScale()
+    for key, box in pairs({ NotePad = out and out.noteBox, OfficerPad = out and out.officerBox }) do
+        local left, bottom = box and box:GetLeft(), box and box:GetBottom()
+        if theirs and box:IsVisible() and box.mayEdit and left and bottom then
+            local pad = NotePad(key)
+            if pad.target ~= theirs then
+                pad:SetAttribute("clickbutton", theirs)
+                pad.target = theirs
+            end
+            local ratio = box:GetEffectiveScale() / scale
+            pad:SetFrameStrata("HIGH")
+            pad:ClearAllPoints()
+            pad:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * ratio, bottom * ratio)
+            pad:SetSize(box:GetWidth() * ratio, box:GetHeight() * ratio)
+            if not pad:IsShown() then pad:Show() end
+        elseif bridge[key] and bridge[key]:IsShown() then
+            bridge[key]:Hide()
+        end
+    end
+end
+
+local function PlacePads()
+    if InCombatLockdown() or not panel then return end
+    local scale = UIParent:GetEffectiveScale()
+    for index, row in ipairs(panel.rows) do
+        local entry = row:IsVisible() and row.entry
+        local theirs = entry and entry.guid and bridge.rows[entry.guid]
+        local left, bottom = row:GetLeft(), row:GetBottom()
+        if theirs and left and bottom then
+            local pad = Pad(index)
+            if pad.target ~= theirs then
+                pad:SetAttribute("clickbutton", theirs)
+                pad.target = theirs
+            end
+            local ratio = row:GetEffectiveScale() / scale
+            pad:SetFrameStrata("HIGH")
+            pad:ClearAllPoints()
+            pad:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * ratio, bottom * ratio)
+            pad:SetSize(row:GetWidth() * ratio, row:GetHeight() * ratio)
+            if not pad:IsShown() then pad:Show() end
+        else
+            if entry and entry.guid then bridge.stale = true end
+            local pad = bridge.pads[index]
+            if pad and pad:IsShown() then pad:Hide() end
+        end
+    end
+end
+
+DockNotes = function()
+    local detail = ClientDetail()
+    local out = panel and panel.popout
+    local host = out and out:GetParent()
+    local entry = SelectedEntry()
+    local live
+    if bridge.ghost and detail and host and detail:IsShown() and panel:IsVisible() and entry and entry.guid then
+        local ok, info = pcall(detail.GetMemberInfo, detail)
+        local guid = ok and info and info.guid
+        if guid and not IsSecret(guid) and guid == entry.guid then live = guid end
+    end
+    local was = bridge.live
+    if live then
+        if not bridge.docked then
+            bridge.docked = true
+            detail:SetParent(UIParent)
+            detail:SetFrameStrata("HIGH")
+            detail:ClearAllPoints()
+            detail:SetPoint("TOPLEFT", host, "TOPRIGHT", -6, -70)
+            detail:SetAlpha(1)
+            DressDetail(detail)
+        end
+        if out:IsShown() then out:Hide() end
+    elseif bridge.docked then
+        ParkDetail()
+    end
+    bridge.live = live
+    return was ~= live
+end
+
+function ns.GuildNotesLive(entry)
+    if bridge.live ~= nil then return true end
+    return bridge.ghost and entry and entry.guid and bridge.rows[entry.guid] and not InCombatLockdown() and true or false
+end
+
+local function MayWriteNotes()
+    if CanEditPublicNote and CanEditPublicNote() then return true end
+    if C_GuildInfo and C_GuildInfo.CanEditOfficerNote and C_GuildInfo.CanEditOfficerNote() then return true end
+    if CanEditOfficerNote and CanEditOfficerNote() then return true end
+    local entry = SelectedEntry()
+    return entry ~= nil and entry.name == UnitName("player")
+end
+
+SyncBridge = function()
+    local want = active and panel and panel:IsVisible() and IsInGuild and IsInGuild() and MayWriteNotes()
+    if not want then
+        if bridge.ghost then DropGhost() end
+        return
+    end
+    if not InCombatLockdown() then
+        if RaiseGhost() then
+            local now = GetTime()
+            if bridge.stale or now - (bridge.readAt or 0) > 2 then
+                bridge.stale, bridge.readAt = nil, now
+                ReadClientRows()
+            end
+            PlacePads()
+        else
+            HidePads()
+        end
+    end
+    if DockNotes() and ns.UpdateGuildPopout then ns.UpdateGuildPopout(true) end
+    if not InCombatLockdown() and bridge.ghost then PlaceNotePads() end
+end
+
+local bridgeWatch = CreateFrame("Frame")
+bridgeWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
+bridgeWatch:SetScript("OnEvent", HidePads)
+bridgeWatch:SetScript("OnUpdate", function(self, elapsed)
+    if bridge.ghost and CommunitiesFrame and CommunitiesFrame:IsShown() then PlaceGhost(CommunitiesFrame) end
+    self.since = (self.since or 0) + elapsed
+    if self.since < 0.25 then return end
+    self.since = 0
+    if bridge.ghost or (active and panel and panel:IsVisible()) then SyncBridge() end
+end)
+
+local function Build()
+    local host = FriendsFrame
+    if not host then return end
+    panel = CreateFrame("Frame", "EraUIClassicGuildPanel", host)
+    panel:SetPoint("TOPLEFT", host, "TOPLEFT", 8, -64)
+    panel:SetPoint("BOTTOMRIGHT", host, "BOTTOMRIGHT", -8, 12)
+    panel:SetFrameLevel(host:GetFrameLevel() + 6)
+    panel:Hide()
+
+    panel.offline = CreateFrame("CheckButton", nil, panel)
+    panel.offline:SetSize(210, 23)
+    panel.offline:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, 30)
+    local pieces = {
+        { 12, 28, "TOPRIGHT", 0.90625, 1 },
+        { 186, 28, nil, 0.09375, 0.90625 },
+        { 12, 28, nil, 0, 0.09375 },
+    }
+    local previous
+    for _, piece in ipairs(pieces) do
+        local tex = panel.offline:CreateTexture(nil, "BACKGROUND")
+        tex:SetTexture(PILL_BORDER)
+        tex:SetSize(piece[1], piece[2])
+        tex:SetTexCoord(piece[4], piece[5], 0, 1)
+        if piece[3] then
+            tex:SetPoint("TOPRIGHT", panel.offline, "TOPRIGHT", 0, 3)
+        else
+            tex:SetPoint("RIGHT", previous, "LEFT", 0, 0)
+        end
+        previous = tex
+    end
+    local box = panel.offline:CreateTexture(nil, "ARTWORK")
+    box:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+    box:SetSize(22, 22)
+    box:SetPoint("RIGHT", panel.offline, "RIGHT", -6, 2)
+    local check = panel.offline:CreateTexture(nil, "OVERLAY")
+    check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    check:SetSize(22, 22)
+    check:SetPoint("CENTER", box, "CENTER", 0, 0)
+    panel.offline:SetCheckedTexture(check)
+    local hover = panel.offline:CreateTexture(nil, "HIGHLIGHT")
+    hover:SetTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+    hover:SetBlendMode("ADD")
+    hover:SetSize(22, 22)
+    hover:SetPoint("CENTER", box, "CENTER", 0, 0)
+    local offlineText = panel.offline:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    offlineText:SetPoint("CENTER", panel.offline, "CENTER", -3, 2)
+    offlineText:SetText(SHOW_OFFLINE_MEMBERS or "Show Offline Members")
+    panel.offline:SetScript("OnClick", function(self)
+        if SetGuildRosterShowOffline then pcall(SetGuildRosterShowOffline, self:GetChecked() and true or false) end
+        if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
+        Refresh()
+    end)
+
+    panel.add = ns.PanelButton(panel, ADDMEMBER or "Add Member", 118)
+    panel.add:SetPoint("BOTTOM", panel, "BOTTOM", 4, -8)
+    panel.add:SetScript("OnClick", function()
+        if StaticPopup_Show then
+            local clubId = C_Club and C_Club.GetGuildClubId and C_Club.GetGuildClubId()
+            StaticPopup_Show("ADD_GUILDMEMBER", nil, nil, { clubId = clubId })
+        end
+    end)
+
+    panel.control = ns.PanelButton(panel, GUILDCONTROL or "Guild Control", 110)
+    panel.control:SetPoint("LEFT", panel.add, "RIGHT", 2, 0)
+    panel.control:SetScript("OnClick", function()
+        if GuildControlUI and GuildControlUI:IsShown() then
+            ns.HidePanel(GuildControlUI)
+        elseif type(GuildControlUI_Show) == "function" then
+            GuildControlUI_Show()
+            C_Timer.After(0, function()
+                if GuildControlUI and GuildControlUI:IsShown() and host:IsShown() and not InCombatLockdown() then
+                    GuildControlUI:ClearAllPoints()
+                    GuildControlUI:SetPoint("TOPLEFT", host, "TOPRIGHT", 6, 0)
+                end
+            end)
+        elseif ToggleGuildControlUI then
+            ToggleGuildControlUI()
+        end
+    end)
+
+    panel.info = ns.PanelButton(panel, GUILD_INFORMATION or "Guild Information", 126)
+    panel.info:SetPoint("RIGHT", panel.add, "LEFT", 1, 0)
+    panel.info:SetScript("OnClick", function()
+        DropGhost()
+        if clientToggleGuild then clientToggleGuild() elseif ToggleGuildFrame then ToggleGuildFrame() end
+    end)
+
+    panel.lowerBar = ns.StoneBar(panel)
+    panel.lowerBar:SetPoint("BOTTOM", panel.info, "TOP", 0, 1)
+    panel.lowerBar:SetPoint("LEFT", host, "LEFT", 5, 0)
+    panel.lowerBar:SetPoint("RIGHT", host, "RIGHT", -5, 0)
+
+    panel.motdBox = ns.SectionBox(panel)
+    panel.motdBox:SetPoint("BOTTOM", panel.lowerBar, "TOP", 0, 1)
+    panel.motdBox:SetPoint("LEFT", host, "LEFT", 5, 0)
+    panel.motdBox:SetPoint("RIGHT", host, "RIGHT", -5, 0)
+    panel.motdBox:SetHeight(74)
+
+    panel.upperBar = ns.StoneBar(panel)
+    panel.upperBar:SetPoint("BOTTOM", panel.motdBox, "TOP", 0, 1)
+    panel.upperBar:SetPoint("LEFT", host, "LEFT", 5, 0)
+    panel.upperBar:SetPoint("RIGHT", host, "RIGHT", -5, 0)
+
+    local motdLabel = panel.motdBox:CreateFontString(nil, "ARTWORK")
+    motdLabel:SetFontObject(ns.FONT_GOLD_SMALL or "GameFontNormalSmall")
+    motdLabel:SetPoint("TOPLEFT", panel.motdBox, "TOPLEFT", 8, -8)
+    local locale = GetLocale and GetLocale() or "enUS"
+    if locale == "enUS" or locale == "enGB" then
+        motdLabel:SetText("Guild Message Of The Day:")
+    else
+        motdLabel:SetText((GUILD_MOTD_LABEL or "Message of the Day") .. ":")
+    end
+
+    panel.motd = panel.motdBox:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    panel.motd:SetPoint("TOPLEFT", motdLabel, "BOTTOMLEFT", 0, -3)
+    panel.motd:SetPoint("BOTTOMRIGHT", panel.motdBox, "BOTTOMRIGHT", -8, 6)
+    panel.motd:SetJustifyH("LEFT")
+    panel.motd:SetJustifyV("TOP")
+
+    local pad
+    local function EditButton()
+        local frame = CommunitiesFrame
+        local info = frame and frame.GuildDetailsFrame and frame.GuildDetailsFrame.Info
+        return info and info.EditMOTDButton
+    end
+    local function MayEdit()
+        if CanEditMOTD then return CanEditMOTD() and true or false end
+        return C_GuildInfo and C_GuildInfo.CanEditMOTD and C_GuildInfo.CanEditMOTD() and true or false
+    end
+    local padWatch = CreateFrame("Frame")
+    padWatch:SetScript("OnUpdate", function(self, elapsed)
+        self.since = (self.since or 0) + elapsed
+        if self.since < 0.2 then return end
+        self.since = 0
+        if InCombatLockdown() then return end
+        local want = active and panel:IsVisible() and MayEdit()
+        if want and not pad then
+            if not EditButton() and C_AddOns and C_AddOns.LoadAddOn then pcall(C_AddOns.LoadAddOn, "Blizzard_Communities") end
+            local button = EditButton()
+            if not button then return end
+            pad = CreateFrame("Button", "EraUIClassicMotdPad", UIParent, "SecureActionButtonTemplate")
+            pad:SetAttribute("type", "click")
+            pad:SetAttribute("clickbutton", button)
+            pad:SetAttribute("useOnKeyDown", false)
+            pad:RegisterForClicks("AnyUp", "AnyDown")
+            pad:SetFrameStrata("HIGH")
+            pad:Hide()
+        end
+        if not pad then return end
+        if not want then
+            if pad:IsShown() then pad:Hide() end
+            return
+        end
+        local box = panel.motdBox
+        local left, bottom = box:GetLeft(), box:GetBottom()
+        if not left or not bottom then return end
+        local ratio = box:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        pad:ClearAllPoints()
+        pad:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left * ratio, bottom * ratio)
+        pad:SetSize(box:GetWidth() * ratio, box:GetHeight() * ratio)
+        if not pad:IsShown() then pad:Show() end
+    end)
+
+    local headerBand = CreateFrame("Frame", nil, panel)
+    headerBand:SetHeight(22)
+    headerBand:SetPoint("TOP", panel, "TOP", 0, 1)
+    headerBand:SetPoint("LEFT", host, "LEFT", 5, 0)
+    headerBand:SetPoint("RIGHT", host, "RIGHT", -5, 0)
+    local headerStone = ns.StoneFill(headerBand, "BACKGROUND")
+    headerStone:SetAllPoints(headerBand)
+    panel.headerBand = headerBand
+
+    local headerRow = CreateFrame("Frame", nil, panel)
+    headerRow:SetHeight(20)
+    headerRow:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    headerRow:SetPoint("RIGHT", panel, "RIGHT", -22, 0)
+    panel.headers = {}
+    local lastHeader
+    for _, column in ipairs(COLUMNS) do
+        lastHeader = ns.ColumnHeader(headerRow, column, lastHeader, Header_OnClick)
+        panel.headers[#panel.headers + 1] = lastHeader
+    end
+
+    panel.listBox = ns.SectionBox(panel)
+    panel.listBox:SetPoint("TOP", headerRow, "BOTTOM", 0, -5)
+    panel.listBox:SetPoint("LEFT", host, "LEFT", 5, 0)
+    panel.listBox:SetPoint("RIGHT", host, "RIGHT", -5, 0)
+    panel.listBox:SetPoint("BOTTOM", panel.upperBar, "TOP", 0, 1)
+
+    panel.totals = panel.listBox:CreateFontString(nil, "ARTWORK")
+    panel.totals:SetFontObject(ns.FONT_GOLD_SMALL or "GameFontNormalSmall")
+    panel.totals:SetPoint("BOTTOMLEFT", panel.listBox, "BOTTOMLEFT", 8, 6)
+
+    panel.online = panel.listBox:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    panel.online:SetPoint("LEFT", panel.totals, "RIGHT", 4, 0)
+    panel.online:SetTextColor(0.1, 1, 0.1)
+
+    panel.status = CreateFrame("Button", nil, panel.listBox)
+    panel.status:SetSize(28, 28)
+    panel.status:SetPoint("BOTTOMRIGHT", panel.listBox, "BOTTOMRIGHT", -8, 2)
+    ns.SetButtonTex(panel.status, "Normal", "sbNextUp")
+    ns.SetButtonTex(panel.status, "Pushed", "sbNextDown")
+    ns.SetButtonTex(panel.status, "Highlight", "mouseHighlight")
+    panel.status:GetHighlightTexture():SetBlendMode("ADD")
+    panel.status:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(statusView and (GUILD_STATUS or "Guild Status") or (PLAYER_STATUS or "Player Status"), 1, 1, 1)
+        GameTooltip:Show()
+    end)
+    panel.status:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    panel.popout = BuildPopout(host)
+    panel.status:SetScript("OnClick", function(self)
+        statusView = not statusView
+        PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+        ApplyView()
+        local columns = statusView and STATUS_COLUMNS or COLUMNS
+        local known = false
+        for _, column in ipairs(columns) do if column.key == sortField then known = true end end
+        if not known then sortField, sortReverse = "name", false end
+        Refresh()
+        if GameTooltip:IsOwned(self) then self:GetScript("OnEnter")(self) end
+    end)
+
+    local list = CreateFrame("Frame", nil, panel.listBox)
+    list:SetPoint("TOPLEFT", panel.listBox, "TOPLEFT", 8, -4)
+    list:SetPoint("BOTTOMRIGHT", panel.totals, "TOPRIGHT", 0, 4)
+    list:SetPoint("RIGHT", panel.listBox, "RIGHT", -26, 0)
+    list:EnableMouseWheel(true)
+    panel.list = list
+
+    panel.bar = ns.ClassicScrollBar(panel, list, function() UpdateRows() end)
+    panel.bar.hideWhenIdle = true
+    if ns.ScrollColumnOn then ns.ScrollColumnOn(panel.bar) end
+    list:SetScript("OnMouseWheel", function(_, delta)
+        panel.bar:SetValue((panel.bar:GetValue() or 0) - delta)
+    end)
+
+    panel.rows = {}
+    for i = 1, 30 do panel.rows[i] = CreateRow(list, i) end
+
+    panel:SetScript("OnShow", function()
+        if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
+        Refresh()
+    end)
+    panel:SetScript("OnHide", function() if panel.popout then panel.popout:Hide() end end)
+
+    local driver = CreateFrame("Frame")
+    for _, event in ipairs({ "GUILD_ROSTER_UPDATE", "PLAYER_GUILD_UPDATE", "GUILD_MOTD" }) do
+        pcall(driver.RegisterEvent, driver, event)
+    end
+    driver:SetScript("OnEvent", function(self)
+        self.dirty = true
+        bridge.stale = true
+    end)
+    driver:SetScript("OnUpdate", function(self, elapsed)
+        self.wait = (self.wait or 0) - elapsed
+        if not self.dirty or self.wait > 0 then return end
+        self.dirty, self.wait = false, 0.33
+        if active then Refresh() end
+    end)
+    panel.driver = driver
+end
+
+local function BlizzardTabs()
+    local tabs = {}
+    for i = 1, 8 do
+        local frame = _G["FriendsFrameTab" .. i]
+        if frame then tabs[#tabs + 1] = frame end
+    end
+    return tabs
+end
+
+local function SelectOurTab(on)
+    if not tab then return end
+    if on then
+        if PanelTemplates_SelectTab then PanelTemplates_SelectTab(tab) end
+        for _, other in ipairs(BlizzardTabs()) do
+            if PanelTemplates_DeselectTab then PanelTemplates_DeselectTab(other) end
+        end
+    else
+        if PanelTemplates_DeselectTab then PanelTemplates_DeselectTab(tab) end
+    end
+    if ns.FitBottomTab then ns.FitBottomTab(tab) end
+    local text = tab.GetFontString and tab:GetFontString()
+    if text and not tab.fcuiNoGuild then
+        if on then text:SetTextColor(1, 1, 1) else text:SetTextColor(1, 0.82, 0) end
+    end
+end
+
+local function DressWindow(on)
+    local icon = FriendsFrameIcon
+    if icon then
+        if on then
+            if not icon.fcuiTexture then icon.fcuiTexture = icon:GetTexture() end
+            icon:SetTexture(GUILD_ICON)
+            icon:SetTexCoord(0, 1, 0, 1)
+        elseif icon.fcuiTexture then
+            icon:SetTexture(icon.fcuiTexture)
+        end
+    end
+    if on and FriendsFrameTitleText then
+        FriendsFrameTitleText:SetText(GuildTitle())
+    elseif not on and ns.RestoreFriendsTitle then
+        ns.RestoreFriendsTitle()
+    end
+end
+
+local function InGuild() return IsInGuild and IsInGuild() and true or false end
+
+local function ShowGuild()
+    if not panel then return end
+    if not InGuild() then return end
+    if ns.HideWhoList then ns.HideWhoList() end
+    HideBlizzardPanels()
+    panel:Show()
+    SelectOurTab(true)
+    DressWindow(true)
+    Refresh()
+    if ns.RefreshMicroButtons then ns.RefreshMicroButtons() end
+end
+
+local function HideGuild()
+    if not panel then return end
+    panel:Hide()
+    DropGhost()
+    SelectOurTab(false)
+    DressWindow(false)
+    ShowBlizzardPanels()
+    if ns.RefreshMicroButtons then ns.RefreshMicroButtons() end
+end
+ns.HideGuildRoster = HideGuild
+
+local function TabGap(tabs)
+    local first, second
+    for _, other in ipairs(tabs) do
+        if other:IsShown() then
+            if not first then first = other elseif not second then second = other end
+        end
+    end
+    if first and second and first:GetRight() and second:GetLeft() then
+        return second:GetLeft() - first:GetRight()
+    end
+    return -14
+end
+
+local function PlaceTab()
+    if not tab then return end
+    if ns.PlaceSocialTabs then ns.PlaceSocialTabs() return end
+    local tabs = BlizzardTabs()
+    local last
+    for _, other in ipairs(tabs) do
+        if other:IsShown() then last = other end
+    end
+    local row = { tab, unpack(tabs) }
+    row[#row + 1] = _G["EraUIClassicCommunitiesTab"]
+    for _, entry in ipairs(row) do
+        if entry.fcuiPad ~= 38 then
+            entry.fcuiPad = 38
+            if ns.FitBottomTab then ns.FitBottomTab(entry) end
+        end
+    end
+    tab:ClearAllPoints()
+    if last then
+        if last:GetHeight() and last:GetHeight() > 0 then tab:SetHeight(last:GetHeight()) end
+        tab:SetPoint("LEFT", last, "RIGHT", TabGap(tabs), 0)
+        tab:SetPoint("BOTTOM", last, "BOTTOM", 0, 0)
+    else
+        tab:SetPoint("BOTTOMLEFT", FriendsFrame, "BOTTOMLEFT", 16, 2)
+    end
+    local communities = _G["EraUIClassicCommunitiesTab"]
+    if communities then
+        communities:ClearAllPoints()
+        communities:SetHeight(tab:GetHeight())
+        communities:SetPoint("LEFT", tab, "RIGHT", TabGap(tabs), 0)
+        communities:SetPoint("BOTTOM", tab, "BOTTOM", 0, 0)
+    end
+end
+
+local function KeepTabState()
+    if not tab then return end
+    local text = tab.GetFontString and tab:GetFontString()
+    if InGuild() then
+        if tab.fcuiNoGuild then
+            tab.fcuiNoGuild = false
+            tab:Enable()
+            if PanelTemplates_DeselectTab then PanelTemplates_DeselectTab(tab) end
+            if ns.FitBottomTab then ns.FitBottomTab(tab) end
+        end
+        local up = panel and panel:IsShown()
+        if text then
+            if up then text:SetTextColor(1, 1, 1) else text:SetTextColor(1, 0.82, 0) end
+        end
+    else
+        if panel and panel:IsShown() then HideGuild() end
+        tab.fcuiNoGuild = true
+        tab:Disable()
+        if text then text:SetTextColor(0.5, 0.5, 0.5) end
+    end
+end
+
+local communitiesTab
+local function BuildCommunitiesTab(host)
+    if communitiesTab or not C_Club then return end
+    communitiesTab = CreateFrame("Button", "EraUIClassicCommunitiesTab", host, "PanelTabButtonTemplate")
+    communitiesTab:SetID(92)
+    communitiesTab:SetText(COMMUNITIES or "Communities")
+    if ns.SkinBottomTab then ns.SkinBottomTab(communitiesTab) end
+    if PanelTemplates_DeselectTab then PanelTemplates_DeselectTab(communitiesTab) end
+    communitiesTab:SetScript("OnClick", function()
+        if InCombatLockdown() then
+            if UIErrorsFrame and ERR_NOT_IN_COMBAT then UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT, 1, 0.1, 0.1) end
+            return
+        end
+        PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+        DropGhost()
+        if panel and panel:IsShown() then HideGuild() end
+        local frame = _G["CommunitiesFrame"]
+        if frame and frame:IsShown() then return end
+        if FriendsFrame and FriendsFrame:IsShown() then ns.HidePanel(FriendsFrame) end
+        local open = clientToggleGuild or ToggleGuildFrame
+        if type(open) == "function" then open() end
+    end)
+end
+
+local function BuildTab()
+    local host = FriendsFrame
+    if not host or tab then return end
+    BuildCommunitiesTab(host)
+    tab = CreateFrame("Button", "EraUIClassicGuildTab", host, "PanelTabButtonTemplate")
+    tab:SetID(90)
+    tab:SetText(GUILD or "Guild")
+    if ns.SkinBottomTab then ns.SkinBottomTab(tab) end
+    SelectOurTab(false)
+    PlaceTab()
+    tab:SetScript("OnClick", function()
+        PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+        ShowGuild()
+    end)
+    for _, other in ipairs(BlizzardTabs()) do
+        other:HookScript("OnClick", function() if active then HideGuild() end end)
+    end
+    if type(FriendsFrame_Update) == "function" then
+        hooksecurefunc("FriendsFrame_Update", function()
+            if active and panel and panel:IsShown() then
+                HideBlizzardPanels()
+                SelectOurTab(true)
+                DressWindow(true)
+            end
+        end)
+    end
+    host:HookScript("OnShow", function() if active then PlaceTab() KeepTabState() end end)
+    host:HookScript("OnHide", function() if panel then HideGuild() end end)
+    local guildWatch = CreateFrame("Frame")
+    guildWatch:RegisterEvent("PLAYER_GUILD_UPDATE")
+    guildWatch:RegisterEvent("GUILD_ROSTER_UPDATE")
+    guildWatch:SetScript("OnEvent", function()
+        if not active then return end
+        KeepTabState()
+        C_Timer.After(1, KeepTabState)
+        C_Timer.After(4, KeepTabState)
+    end)
+    KeepTabState()
+end
+
+local wanted = false
+
+function ns.OpenGuildRoster()
+    if not active or not FriendsFrame then return false end
+    if not panel then Build() end
+    BuildTab()
+    if not ns.ShowPanel(FriendsFrame) then
+        wanted = true
+        return false
+    end
+    wanted = false
+    ShowGuild()
+    return true
+end
+
+local afterFight = CreateFrame("Frame")
+afterFight:RegisterEvent("PLAYER_REGEN_ENABLED")
+afterFight:SetScript("OnEvent", function()
+    if active and wanted then
+        wanted = false
+        ns.OpenGuildRoster()
+    end
+end)
+
+local function SocialShown() return FriendsFrame and FriendsFrame:IsShown() and true or false end
+
+local function ToggleSocial()
+    if not FriendsFrame then return end
+    if SocialShown() then
+        if panel and panel:IsShown() then panel:Hide() end
+        ns.HidePanel(FriendsFrame)
+    else
+        ns.ShowPanel(FriendsFrame)
+    end
+    if ns.RefreshMicroButtons then ns.RefreshMicroButtons() end
+end
+
+local function CloseClientGuildWindows()
+    DropGhost()
+    for _, name in ipairs({ "CommunitiesFrame", "GuildFrame" }) do
+        local frame = _G[name]
+        if frame and frame:IsShown() then ns.HidePanel(frame) end
+    end
+end
+
+local function WrapGuildToggle()
+    if clientToggleGuild or type(ToggleGuildFrame) ~= "function" then return end
+    clientToggleGuild = ToggleGuildFrame
+    local function Run()
+        togglingAt = GetTime()
+        CloseClientGuildWindows()
+        ToggleSocial()
+    end
+    ToggleGuildFrame = function(...)
+        if not active then return clientToggleGuild(...) end
+        if InCombatLockdown() and C_Timer and C_Timer.After then
+            togglingAt = GetTime()
+            C_Timer.After(0, Run)
+        else
+            Run()
+        end
+    end
+end
+
+local GUILD_BIND = "EraUIClassicGuildBind"
+local guildBind
+
+local function UpdateGuildBinding()
+    if not guildBind or InCombatLockdown() then return end
+    ClearOverrideBindings(guildBind)
+    if not active then return end
+    for _, binding in ipairs({ "TOGGLEGUILDTAB", "TOGGLEGUILDFRAME", "TOGGLEGUILD" }) do
+        local key, second = GetBindingKey(binding)
+        for _, k in ipairs({ key, second }) do
+            if k then SetOverrideBindingClick(guildBind, true, k, GUILD_BIND, "LeftButton") end
+        end
+    end
+end
+ns.UpdateGuildBinding = UpdateGuildBinding
+
+local function BuildSecureOpener()
+    if guildBind or InCombatLockdown() then return end
+    if not panel then Build() end
+    guildBind = CreateFrame("Button", GUILD_BIND, UIParent, "SecureActionButtonTemplate")
+    guildBind:RegisterForClicks("AnyUp", "AnyDown")
+    guildBind:SetAttribute("type", "macro")
+    guildBind:SetAttribute("macrotext", "/friends")
+    guildBind:HookScript("OnClick", function()
+        if not active then return end
+        if FriendsFrame and FriendsFrame:IsShown() then
+            CloseClientGuildWindows()
+            ShowGuild()
+        else
+            HideGuild()
+        end
+        if ns.RefreshMicroButtons then ns.RefreshMicroButtons() end
+    end)
+    guildBind:RegisterEvent("UPDATE_BINDINGS")
+    guildBind:RegisterEvent("PLAYER_REGEN_ENABLED")
+    guildBind:RegisterEvent("PLAYER_ENTERING_WORLD")
+    guildBind:SetScript("OnEvent", UpdateGuildBinding)
+    panel:HookScript("OnShow", function()
+        if not active then return end
+        HideBlizzardPanels()
+        SelectOurTab(true)
+        DressWindow(true)
+        Refresh()
+        if ns.RefreshMicroButtons then ns.RefreshMicroButtons() end
+    end)
+    UpdateGuildBinding()
+end
+
+local function HookGuildOpeners()
+    local button = GuildMicroButton
+    if not button or button.fcuiGuildHooked then return end
+    button.fcuiGuildHooked = true
+    button:HookScript("OnClick", function()
+        if not active then return end
+        if togglingAt == GetTime() then return end
+        togglingAt = GetTime()
+        CloseClientGuildWindows()
+        ToggleSocial()
+    end)
+    if ns.MicroButtonFollows then
+        ns.MicroButtonFollows(button, SocialShown)
+    end
+    button:HookScript("OnEnter", function(self)
+        if not active or not GameTooltip:IsOwned(self) then return end
+        local title = SOCIAL_BUTTON or "Social"
+        if type(MicroButtonTooltipText) == "function" then title = MicroButtonTooltipText(title, "TOGGLESOCIAL") end
+        GameTooltip:SetText(title, 1, 1, 1)
+        if NEWBIE_TOOLTIP_SOCIAL then GameTooltip:AddLine(NEWBIE_TOOLTIP_SOCIAL, 1, 0.82, 0, true) end
+        GameTooltip:Show()
+    end)
+end
+
+local function Apply()
+    active = true
+    if not FriendsFrame then ns.MissingPiece("FriendsFrame") return end
+    if not panel then Build() end
+    BuildTab()
+    HookGuildOpeners()
+    WrapGuildToggle()
+    BuildSecureOpener()
+    if communitiesTab then communitiesTab:Show() end
+    if tab then tab:Show() PlaceTab() end
+end
+
+local function Restore()
+    active = false
+    if ns.UpdateGuildBinding then ns.UpdateGuildBinding() end
+    HideGuild()
+    if tab then tab:Hide() end
+    if communitiesTab then communitiesTab:Hide() end
+    if ns.PlaceSocialTabs then ns.PlaceSocialTabs() end
+end
+
+ns.RegisterModule("guildRoster", { apply = Apply, restore = Restore })

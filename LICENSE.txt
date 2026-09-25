@@ -1,0 +1,4 @@
+Copyright (c) 2026 Squirt. All rights reserved.
+
+This is a placeholder license for EraUI. Replace it with the license you
+intend to distribute under (MIT, GPL, all-rights-reserved, etc.).

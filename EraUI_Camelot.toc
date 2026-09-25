@@ -1,0 +1,85 @@
+## Interface: 16001, 120100
+## Title: EraUI
+## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
+## Author: Squirt
+## Version: 1.0.1
+## SavedVariables: EraUIDB, EraUIClassicDB
+## SavedVariablesPerCharacter: EraUIClassicCharDB
+## IconTexture: Interface\AddOns\EraUI\Media\EraUIIcon.tga
+## Category: UI
+## AddonCompartmentFunc: EraUIClassic_OnAddonCompartmentClick
+
+Core\Init.lua
+Core\Utils.lua
+Core\ClassicAssets.lua
+Core\ClassicWidgets.lua
+Core\Settings.lua
+Classic\Core.lua
+Classic\Textures.lua
+Core\Appearance.lua
+Classic\Skin.lua
+Classic\Widgets.lua
+Classic\BarSkins.lua
+Classic\Controls.lua
+Classic\ClassicBar.lua
+Classic\Buttons.lua
+Classic\CastAnim.lua
+Classic\PageArrows.lua
+Classic\EmptySlots.lua
+Classic\UnitFrames.lua
+Classic\CastBars.lua
+Classic\MirrorTimers.lua
+Classic\FloatingComboPoints.lua
+Classic\ComboPoints.lua
+Classic\Minimap.lua
+Classic\NamePlates.lua
+Classic\QuestTracker.lua
+Classic\QuestLog.lua
+Classic\QuestMapPane.lua
+Classic\Panels.lua
+Classic\Bank.lua
+Classic\Guild.lua
+Classic\Social.lua
+Classic\GroupFinder.lua
+Classic\MapFade.lua
+Classic\Bags.lua
+Classic\CharacterSheet.lua
+Classic\StatPanes.lua
+Classic\EquipmentPane.lua
+Classic\SpellBook.lua
+Classic\Professions.lua
+Classic\TradeSkill.lua
+Classic\Trainer.lua
+Classic\Talents.lua
+Classic\Options.lua
+Classic\OptionsWindow.lua
+Classic\GameMenu.lua
+Classic\SettingsPanel.lua
+Classic\Welcome.lua
+Classic\Status.lua
+Core\Integration.lua
+Modules\QoL.lua
+Modules\ExtraQoL.lua
+Modules\EnergyBar.lua
+Modules\ResourceBar.lua
+Modules\RangedSwingTimer.lua
+Modules\SwingTimer.lua
+Modules\Convenience.lua
+Modules\QuestTools.lua
+Modules\ClassAccents.lua
+Modules\AdvancedCastBar.lua
+Modules\ClassTools.lua
+Modules\CursorRing.lua
+Modules\ChatDragging.lua
+Modules\ClassReminderData.lua
+Modules\ClassReminders.lua
+Modules\HunterFeed.lua
+Modules\MageSupplies.lua
+Modules\RoguePoisons.lua
+Modules\PoisonReminders.lua
+Modules\MerchantTools.lua
+Modules\MinimapTools.lua
+Modules\MovableMap.lua
+Modules\SecondaryNames.lua
+Modules\Popups.lua
+Core\Commands.lua
