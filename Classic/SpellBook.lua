@@ -362,9 +362,10 @@ end
 
 local function SkillTab_OnClick(self)
     if InCombatLockdown() then
-        self:SetChecked(state.line == self.line)
+        self:SetChecked(not book.trainingShown and state.line == self.line)
         return
     end
+    if EraUI.modules.TrainingGuide then EraUI.modules.TrainingGuide:Close() end
     state.bank = BANK_PLAYER
     state.line = self.line
     PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN)
@@ -404,6 +405,7 @@ local function CreateSkillTab(parent, i, prev)
 end
 
 local function BookTab_OnClick(self)
+    if not InCombatLockdown() and EraUI.modules.TrainingGuide then EraUI.modules.TrainingGuide:Close() end
     if self.professions then
         if ns.OpenProfessionsBook and ns.OpenProfessionsBook() then
             PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN)
@@ -596,7 +598,7 @@ local function CreateBook()
     end
     f.SetLayer = function(_, on)
         if InCombatLockdown() then return end
-        on = on and true or false
+        on = on and not f.trainingShown and true or false
         if clicks.fcuiLinked then clicks:SetAttribute("unit", on and "player" or "none") end
         clicks:SetShown(on)
     end
@@ -689,19 +691,15 @@ local function CreateBook()
 
     f.TrainTab = CreateSkillTab(f, MAX_SKILL_TABS + 1, nil)
     f.TrainTab:SetNormalTexture("Interface\\Icons\\INV_Misc_Book_09")
-    f.TrainTab.tooltip = "What can I train?"
+    f.TrainTab.tooltip = "Training Guide"
     f.TrainTab:SetScript("OnClick", function(self)
+        if InCombatLockdown() then self:SetChecked(f.trainingShown==true);return end
         self:SetChecked(false)
-        local open = SlashCmdList and SlashCmdList.WHATSTRAINING
-        if type(open) ~= "function" then return end
+        local guide = EraUI.modules.TrainingGuide
+        if not guide or not guide:Enabled() then return end
         PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN)
-        pcall(open, "")
-        local window = _G["WhatsTrainingFloatingFrame"]
-        if window and window:IsShown() and not window.fcuiDocked then
-            window.fcuiDocked = true
-            window:ClearAllPoints()
-            window:SetPoint("TOPLEFT", f, "TOPRIGHT", -28, -12)
-        end
+        guide:BindBook(f)
+        guide:Toggle(f)
     end)
 
     f.BookTabs = {}
@@ -1076,7 +1074,8 @@ local function CreateBook()
         for i = shown + 1, MAX_SKILL_TABS do self.SkillTabs[i]:Hide() end
         local train = self.TrainTab
         if train then
-            local there = state.bank == BANK_PLAYER and SlashCmdList and type(SlashCmdList.WHATSTRAINING) == "function"
+            local guide = EraUI.modules.TrainingGuide
+            local there = state.bank == BANK_PLAYER and guide and guide:Enabled()
             train:SetShown(there and true or false)
             if there then
                 train:ClearAllPoints()
@@ -1128,6 +1127,10 @@ local function CreateBook()
 
     function f:Refresh()
         if not active then return end
+        if self.trainingShown and EraUI.modules.TrainingGuide then
+            EraUI.modules.TrainingGuide:Refresh()
+            return
+        end
         if self.Ranks then
             self.Ranks:SetChecked(not (ns.db and ns.db.spellBookTopRank == true))
             self.Ranks:SetShown(state.bank ~= BANK_PET)

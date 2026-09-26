@@ -53,11 +53,13 @@ local function Layout()
     if iconEdge then iconEdge:SetSize(p.height,p.height) end
     if spark then spark:SetSize(20,p.height*2.2) end
     bar:SetSize(p.width,p.height);bar:ClearAllPoints();bar:SetPoint("CENTER",UIParent,"CENTER",p.x,p.y)
+    EraUI:SaveSettings()
 end
 local function Save()
     bar:StopMovingOrSizing()
     local x,y=bar:GetCenter();local cx,cy=UIParent:GetCenter()
     local p=Options();p.x=x-cx;p.y=y-cy
+    EraUI:SaveSettings()
 end
 local function Hover()
     local allowed=Enabled() and not InCombatLockdown()
@@ -221,14 +223,14 @@ local function Tick()
     local s=castState;if not s then return end
     if s.duration then
         -- Let native formatting consume opaque numeric durations without Lua math.
-        text:SetFormattedText("%.1f / %.1f",s.duration:GetElapsedDuration(),s.duration:GetTotalDuration())
+        text:SetFormattedText("%.1f / %.1f",s.channel and s.duration:GetRemainingDuration()or s.duration:GetElapsedDuration(),s.duration:GetTotalDuration())
     elseif s.start then
-        local elapsed=math.max(0,math.min(s.total,GetTime()-s.start))
-        if not s.nativeDriven then bar:SetValue(s.channel and s.total-elapsed or elapsed) end
-        text:SetFormattedText("%.1f / %.1f",elapsed,s.total)
+        local value=EraUI.CastTiming.Value(s,GetTime())
+        if not s.nativeDriven then bar:SetValue(value) end
+        text:SetFormattedText("%.1f / %.1f",value,s.total)
     end
 end
-function Module:Refresh()
+function Module:Refresh(event,retry)
     if not Enabled() then
         castState=nil;Native(true)
         if bar then Lock();bar:SetScript("OnUpdate",nil);bar:Hide()end
@@ -246,6 +248,12 @@ function Module:Refresh()
         name,_,texture,startMS,endMS,_,_,spellID=UnitChannelInfo("player");channel=true
     end
     if Public(name) and not name then
+        if castState and event=="UNIT_SPELLCAST_CHANNEL_UPDATE"and not retry then
+            -- The event may precede the replacement channel info by one frame.
+            local previous=castState
+            C_Timer.After(0,function()if castState==previous then self:Refresh(event,true)end end)
+            return
+        end
         castState=nil;Native(false);bar:SetScript("OnUpdate",nil);ClearExtras()
         if editing or (not InCombatLockdown() and EraUI.settingsFrame and EraUI.settingsFrame:IsShown()) then
             bar:SetFrameStrata("DIALOG")
@@ -255,14 +263,16 @@ function Module:Refresh()
         else bar:Hide()end
         return
     end
-    local raw=Public(startMS) and Public(endMS) and type(startMS)=="number" and type(endMS)=="number" and endMS>startMS
-    local total=raw and (endMS-startMS)/1000 or nil
+    local fresh=event=="UNIT_SPELLCAST_START"or event=="UNIT_SPELLCAST_CHANNEL_START"
+    local snapshot=EraUI.CastTiming.Snapshot(castState,channel,name,startMS,endMS,spellID,fresh)
+    local raw=snapshot~=nil
+    local total=raw and snapshot.total or nil
     local getter=channel and UnitChannelDuration or UnitCastingDuration
     local duration
-    if getter then local ok,value=pcall(getter,"player");if ok then duration=value end end
+    if not raw and getter then local ok,value=pcall(getter,"player");if ok then duration=value end end
     local durationPublic=Public(duration)
     local driven=false
-    if bar.SetTimerDuration and (not durationPublic or duration) and Enum and Enum.StatusBarTimerDirection and Enum.StatusBarInterpolation then
+    if not raw and bar.SetTimerDuration and (not durationPublic or duration) and Enum and Enum.StatusBarTimerDirection and Enum.StatusBarInterpolation then
         driven=pcall(bar.SetTimerDuration,bar,duration,Enum.StatusBarInterpolation.Immediate,
             channel and Enum.StatusBarTimerDirection.RemainingTime or Enum.StatusBarTimerDirection.ElapsedTime)
     end
@@ -270,7 +280,9 @@ function Module:Refresh()
         castState=nil;bar:SetScript("OnUpdate",nil);bar:Hide();Native(true);return
     end
     if not driven then bar:SetMinMaxValues(0,total)end
-    castState={duration=driven and durationPublic and duration or nil,start=raw and startMS/1000 or nil,total=total,channel=channel,nativeDriven=driven}
+    castState=snapshot or {channel=channel}
+    castState.duration=driven and durationPublic and duration or nil
+    castState.nativeDriven=driven
     spell:SetText(name);icon:SetTexture(texture);text:SetText("")
     Extras(total,channel,spellID)
     local function Update()
@@ -287,7 +299,7 @@ function Module:Initialize()
     events:SetScript("OnEvent",function(_,event)
         if event=="PLAYER_REGEN_DISABLED" and bar then Lock()end
         if event=="UI_SCALE_CHANGED" and bar then Layout()end
-        self:Refresh()
+        self:Refresh(event)
     end)
     self:Refresh()
 end

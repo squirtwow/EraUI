@@ -40,7 +40,7 @@ local settingHelp = {
     actionBars = "Places the main buttons, menu, bags and XP bar on a Classic stone bar at the bottom of the screen. Keeps your spells and keybinds. Also skins extra action buttons. Reload UI to apply or restore the client layout.",
     gryphons = "Show the gryphons at the ends of the action bar. Applies immediately.",
     minimap = "Uses the original round Classic minimap border and zoom-button artwork, fitted to your map size. Reload UI to apply.",
-    unitFrames = "Uses Classic artwork and bar proportions on player, target and focus frames. Keeps native unit data, buffs and controls. Reload UI to apply.",
+    unitFrames = "Uses Classic artwork and bar proportions on player, target and focus frames, with Classic player debuff borders and buff/debuff hover boxes. Keeps native unit data and controls. Reload UI to apply.",
     castBars = "Classic borders and fill on player, target, focus and styled nameplate cast bars. Keeps native timing, colours and interrupt indicators. Reload UI to apply.",
     vendorPrice = "Adds a vendor price to item tooltips only when one is missing. Applies the next time you hover an item.",
     questLevels = "Shows a level in brackets before quest titles in the right-hand quest tracker. Applies immediately.",
@@ -381,8 +381,7 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
             applied = true
             if EraUI.modules.MovableMap then EraUI.modules.MovableMap:Apply() end
         elseif key == "revealMap" then
-            applied = true
-            if EraUI.modules.MovableMap then EraUI.modules.MovableMap:Apply() end
+            applied = true -- MapReveal responds to SetSetting immediately.
         elseif key == "autoSellJunk" or key == "autoRepair" then
             EraUI:Status(label .. " applies on your next merchant visit."); return
         elseif key == "vendorPrice" then
@@ -421,8 +420,14 @@ function SettingsModule:Initialize()
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStart", function(self)self.settingsMoving=true;self:StartMoving()end)
+    frame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing();self.settingsMoving=false
+        if self.RefreshInlineActions then self:RefreshInlineActions()end
+    end)
+    frame:SetScript("OnUpdate",function(self)
+        if self.settingsMoving and self.RefreshInlineActions then self:RefreshInlineActions()end
+    end)
     frame:Hide()
     if UISpecialFrames then table.insert(UISpecialFrames, "EraUISettingsFrame") end
     frame:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8",
@@ -474,6 +479,7 @@ function SettingsModule:Initialize()
     if hasClassControls then categories[12]={className,"CLASS"} end
     categories[13]={"Casting","CASTING"}
     local ResetSearch, ApplySearch
+    local classOrder
     local RenderAppearance
     local section = Text(frame, "", 24)
     section:SetPoint("TOPLEFT", 208, -38)
@@ -492,6 +498,15 @@ function SettingsModule:Initialize()
             tab.text:SetTextColor(active and r or 0.58, active and g or 0.62, active and b or 0.68)
         end
         for _, check in pairs(frame.checks) do check:SetShown(check.category == index and check.classAllowed~=false) end
+        frame.settingsEntries=nil
+        if index==12 then
+            frame.settingsEntries={}
+            for _,key in ipairs(classOrder or {})do
+                local check=frame.checks[key]
+                if check.classAllowed~=false then table.insert(frame.settingsEntries,check)end
+            end
+        end
+        if frame.LayoutSettings then frame:LayoutSettings(true)end
     end
     for i, category in ipairs(categories) do
         local index = i
@@ -537,7 +552,8 @@ function SettingsModule:Initialize()
         end
         tab:SetScript("OnClick", function()
             local state=EraUIClassicCharDB and EraUIClassicCharDB.onboarding
-            if state and state.discoverTabs then state.discoverTabs[index]=nil end
+             if state and state.discoverTabs then state.discoverTabs[index]=nil end
+             if EraUI.SaveCharOnboarding then EraUI.SaveCharOnboarding() end
             SelectCategory(index)
         end)
         tabs[i] = tab
@@ -554,6 +570,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Talents", "talentWindow", 2, 1, 0, "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
     MakeCheck(frame, "Spellbook", "spellbook", 2, 0, 1, "INV_Misc_Book_09", "Classic book and native spell actions.", false)
     MakeCheck(frame, "Combat Spell Dragging", "spellbookCombatDrag", 2, 1, 1, "Spell_Holy_MagicalSentry", "Use native spell buttons to drag spells during combat. Reload to apply.", false)
+    MakeCheck(frame, "Training Guide", "trainingGuide", 2, 0, 2, "INV_Misc_Book_09", "Adds a training tab inside the Classic spellbook, populated immediately with unlearned spells, required levels, availability groups and search. Reference cost totals mark unverified prices with ?. Requires Classic Spellbook. Reload to apply.", false)
     MakeCheck(frame, "Quest Dialogue", "questDialogs", 3, 0, 0, "INV_Misc_Book_09", "Quest offers, rewards and turn-ins.", false)
     MakeCheck(frame, "Quest Tracker", "questTracker", 3, 1, 0, "INV_Misc_Book_09", "Classic quest watch presentation.", false)
     MakeCheck(frame, "Quest Log", "questLog", 3, 0, 1, "INV_Misc_Book_09", "Classic presentation.", false)
@@ -567,7 +584,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Group Finder / PvP", "groupFinderPvp", 5, 1, 0, "INV_Misc_Book_09", "Classic presentation.", false)
     MakeCheck(frame, "Game Menu", "gameMenu", 6, 0, 0, "INV_Misc_Book_09", "Classic menu border and buttons.", false)
     MakeCheck(frame, "Blizzard Settings Skin", "blizzardSettings", 6, 1, 0, "INV_Misc_Book_09", "Classic presentation.", false)
-    MakeCheck(frame, "Tooltips", "tooltipSkin", 6, 0, 1, "INV_Misc_Book_09", "Not implemented; vendor prices are separate.", true)
+    MakeCheck(frame, "Tooltips", "tooltipSkin", 6, 0, 1, "INV_Misc_Book_09", "Classic dark backgrounds and grey borders for item, spell, unit and map-control tooltips, including item comparisons. Reload UI to apply.")
     MakeCheck(frame, "Context Menus", "contextMenus", 6, 1, 1, "INV_Misc_Book_09", "Not implemented yet.", true)
     MakeCheck(frame, "Popups", "popups", 6, 0, 2, "INV_Misc_Book_09", "Classic confirmation prompts.", false)
     MakeCheck(frame, "Loot", "lootWindow", 6, 1, 2, "INV_Misc_Book_09", "Classic loot window and item rows.", false)
@@ -648,7 +665,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Ranged Swing Timer", "rangedSwingTimer", 12, 1, 1, "INV_Weapon_Bow_07", "Ranged attacks and wands. Equip a ranged weapon. Hover + to move or resize.", false)
     frame.checks.rangedSwingTimer.classAllowed=rangedClasses[classToken] or false
     for _,entry in ipairs({
-        {"hunterFeed","Pet Feeding","HUNTER","Movable feeding button when happiness is low, plus Feed Pet duration. Configure food in Class Tools."},
+        {"hunterFeed","Pet Feeding","HUNTER","Feeding button when pet happiness is low, plus Feed Pet duration. Right-click the icon to unlock, drag or scroll to arrange it, then left-click to lock. Use Move / resize below to preview it before learning Feed Pet."},
         {"mageSupplies","Conjuring Suggestions","MAGE","Suggest learned food and water for your target's level. Open Class Tools to conjure."},
         {"mageAutoTrade","Auto-fill Trade","MAGE","Place full stacks of suitable conjured food and water in trade. Stack counts are in Class Tools."},
         {"poisonReminders","Poison Reminders","ROGUE","Missing weapon coatings, low time and charges. Preview while settings are open; right-click header to move/resize."},
@@ -657,9 +674,19 @@ function SettingsModule:Initialize()
         MakeCheck(frame,entry[2],entry[1],12,0,0,"INV_Misc_Bag_10",entry[4],false)
         frame.checks[entry[1]].classAllowed=classToken==entry[3]
     end
-    local reminderClasses={WARLOCK=true,PALADIN=true,SHAMAN=true,PRIEST=true,DRUID=true,WARRIOR=true}
-    MakeCheck(frame,"Class Reminders & Buffs","classReminders",12,0,0,"Spell_Holy_MagicalSentry","Coming soon - being redesigned. Movable reminders, supplies and click-to-buff controls.",true)
-    frame.checks.classReminders.classAllowed=reminderClasses[classToken] or false
+    MakeCheck(frame,"Class Reminders & Buffs","classReminders",12,0,0,"Spell_Holy_MagicalSentry","Big on-screen alerts when a class buff, pet or supply is missing.",false)
+    frame.checks.classReminders.classAllowed=true
+    do
+        local reminders=frame.checks.classReminders
+        local module=EraUI.modules.ClassReminders
+        if reminders and module then
+            module.settingsFrame=frame
+            module.settingsAnchor=reminders
+            reminders:HookScript("OnShow",function()module:AttachOptions(frame,reminders)end)
+            reminders:HookScript("OnHide",function()module:HideOptions()end)
+            reminders:HookScript("OnClick",function()module:UpdateOptionsState()end)
+        end
+    end
     local toolsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
     toolsButton.category=12;toolsButton.classAllowed=hasClassControls
     toolsButton.searchText="class tools pet feeding food water conjure trade poison supplies flash powder options"
@@ -671,18 +698,39 @@ function SettingsModule:Initialize()
     toolsIcon:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
     toolsIcon:SetTexCoord(unpack(classIconCoords[classToken] or classIconCoords.ROGUE))
     local toolsArrow=Text(toolsButton,">",24);toolsArrow:SetPoint("RIGHT",-14,0);toolsArrow:SetTextColor(tr,tg,tb)
-    toolsButton:SetScript("OnEnter",function(self)self:SetBackdropColor(tr*.28,tg*.28,tb*.28,1)end)
-    toolsButton:SetScript("OnLeave",function(self)self:SetBackdropColor(tr*.16,tg*.16,tb*.16,1)end)
     toolsButton.text=Text(toolsButton,"Configure "..className.." Tools",14);toolsButton.text:SetPoint("TOPLEFT",54,-14);toolsButton.text:SetTextColor(tr,tg,tb)
     local toolsDetail=Text(toolsButton,"Click to open options and controls.",12,true)
     toolsDetail:SetPoint("TOPLEFT",54,-40);toolsDetail:SetWidth(266)
     toolsButton.SetChecked=function()end
-    toolsButton:SetScript("OnClick",function()
-        if EraUI.modules.ClassTools then EraUI.modules.ClassTools:Open() end
+    local toolsModule=EraUI.modules.ClassTools and EraUI.modules.ClassTools:ActiveModule()
+    local toolsInline=not not(toolsModule and toolsModule.Attach and toolsModule~=EraUI.modules.ClassReminders)
+    if toolsInline then
+        toolsArrow:Hide()
+        toolsDetail:SetText("Options and controls sit below.")
+    else
+        toolsButton:SetScript("OnEnter",function(self)self:SetBackdropColor(tr*.28,tg*.28,tb*.28,1)end)
+        toolsButton:SetScript("OnLeave",function(self)self:SetBackdropColor(tr*.16,tg*.16,tb*.16,1)end)
+        toolsButton:SetScript("OnClick",function()
+            if EraUI.modules.ClassTools then EraUI.modules.ClassTools:Open() end
+        end)
+    end
+    toolsButton:HookScript("OnShow",function()
+        local tools=EraUI.modules.ClassTools
+        local m=tools and tools:ActiveModule()
+        if m and m.Attach and m~=EraUI.modules.ClassReminders then
+            m.settingsFrame=frame
+            m.settingsAnchor=toolsButton
+            m:Attach(frame,toolsButton)
+        end
+    end)
+    toolsButton:HookScript("OnHide",function()
+        local tools=EraUI.modules.ClassTools
+        local m=tools and tools:ActiveModule()
+        if m and m.HidePanel then m:HidePanel()end
     end)
     frame.checks.classTools=toolsButton
     -- Compact class controls so unavailable features never leave empty cells.
-    local classOrder={"floatingComboPoints","comboPointRed","energyBar","rageBar","manaBar","druidResourceBar","swingTimer","rangedSwingTimer","hunterFeed","mageSupplies","mageAutoTrade","roguePoisons","poisonReminders","classReminders","classTools"}
+    classOrder={"floatingComboPoints","comboPointRed","energyBar","rageBar","manaBar","druidResourceBar","swingTimer","rangedSwingTimer","hunterFeed","mageSupplies","mageAutoTrade","roguePoisons","poisonReminders","classReminders","classTools"}
     local slot=0
     for _,key in ipairs(classOrder) do
         local check=frame.checks[key]
@@ -692,8 +740,8 @@ function SettingsModule:Initialize()
         end
     end
     MakeCheck(frame,"Map Quest Objectives","mapQuestObjectives",3,1,1,"INV_Misc_Map_01","Show Blizzard's quest objectives on the world map. Updates the native map filter.",false)
-    MakeCheck(frame,"Movable World Map","movableMap",3,0,3,"INV_Misc_Map_03","Drag the world map by its edge and resize it from the corners or edges. Your spot and size are remembered.",false)
-    MakeCheck(frame,"Reveal World Map","revealMap",3,1,3,"INV_Misc_Map_02","Coming soon - being worked on. Will show the whole map while keeping unexplored areas marked.",true)
+    MakeCheck(frame,"Movable World Map","movableMap",3,0,3,"INV_Misc_Map_03","Drag the header to move. Resize smoothly from the corners or edges. Normal and expanded map positions and sizes are remembered separately.",false)
+    MakeCheck(frame,"Reveal World Map","revealMap",3,1,3,"INV_Misc_Map_02","Show unexplored terrain with grey shading. Each section returns to normal colours when you explore it. Does not grant exploration credit. Turn off to restore the normal map.",false)
     MakeCheck(frame,"Highlight Reward Upgrades","rewardUpgradeHighlight",3,0,2,"INV_Misc_ArmorKit_17","Suggest a usable reward using your chosen stat profile. You choose the reward.",false)
     local profile=CreateFrame("Button",nil,frame,"BackdropTemplate")
     profile.category=3;profile:SetSize(350,74);profile:SetPoint("TOPLEFT",568,-304)
@@ -789,7 +837,13 @@ function SettingsModule:Initialize()
     local nextPage=SetupButton("Next >",-24,160)
     local previousPage=SetupButton("< Back",-196,92)
     local originalPoints={}
-    for key,check in pairs(frame.checks) do originalPoints[key]={check:GetPoint()} end
+    local content=EraUI:CreateSettingsViewport(frame)
+    for key,check in pairs(frame.checks) do
+        local _,_,_,x,y=check:GetPoint()
+        check:SetParent(content);check:ClearAllPoints()
+        check:SetPoint("TOPLEFT",content,"TOPLEFT",x-202,y+148)
+        originalPoints[key]={check:GetPoint()}
+    end
     local function Pending()
         local labels={}
         for key in pairs(reloadSettings) do
@@ -900,10 +954,12 @@ function SettingsModule:Initialize()
         end
         results:SetText(#matches==0 and "No matching settings" or (#matches.." found  |  "..page.." / "..pages))
         prev:SetShown(pages>1);next:SetShown(pages>1);prev:SetEnabled(page>1);next:SetEnabled(page<pages)
+        frame.settingsEntries={}
         for i=(page-1)*10+1,math.min(page*10,#matches) do
-            local check=matches[i].check;local slot=(i-1)%10
-            check:ClearAllPoints();check:SetPoint("TOPLEFT",202+(slot%2)*366,-148-math.floor(slot/2)*78);check:Show()
+            local check=matches[i].check
+            table.insert(frame.settingsEntries,check);check:Show()
         end
+        frame:LayoutSettings(true)
     end
     search:SetScript("OnTextChanged",function()if not clearing then page=1;ApplySearch() end end)
     search:SetScript("OnEscapePressed",function()ResetSearch();SelectCategory(frame.selectedCategory or 1,true)end)
@@ -964,12 +1020,10 @@ function SettingsModule:Initialize()
         self:SetScale(math.min(1,math.max(.1,(UIParent:GetWidth()-32)/self:GetWidth()),math.max(.1,(UIParent:GetHeight()-32)/650)))
         section:ClearAllPoints()
         section:SetPoint("TOPLEFT",enabled and 30 or 208,enabled and -84 or -38)
-        for key,check in pairs(self.checks) do
-            local point=originalPoints[key]
-            check:ClearAllPoints()
-            if enabled then check:SetPoint(point[1],point[2],point[3],point[4]-172,point[5])
-            else check:SetPoint(unpack(point)) end
-        end
+        RestorePoints()
+        self.settingsScroll:ClearAllPoints()
+        self.settingsScroll:SetPoint("TOPLEFT",enabled and 30 or 202,-148)
+        self.settingsScroll:SetPoint("BOTTOMRIGHT",-40,72)
         hint:SetWidth(enabled and 330 or 560)
         if enabled then
             self.setupPage=1
@@ -1043,8 +1097,13 @@ function SettingsModule:Initialize()
     local function FitToScreen()
         frame:SetScale(math.min(1, math.max(0.1, (UIParent:GetWidth() - 32) / frame:GetWidth()),
             math.max(0.1, (UIParent:GetHeight() - 32) / 650)))
+        frame:RefreshInlineActions()
     end
     frame:SetScript("OnShow", function() FitToScreen(); Refresh() end)
+    frame:SetScript("OnHide",function(self)
+        self:StopMovingOrSizing();self.settingsMoving=false
+        self:RefreshInlineActions()
+    end)
     frame:RegisterEvent("UI_SCALE_CHANGED")
     frame:RegisterEvent("DISPLAY_SIZE_CHANGED")
     frame:SetScript("OnEvent", function() if frame:IsShown() then FitToScreen() end end)

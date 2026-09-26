@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.0.3"
+EraUI.version = "1.0.4"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
@@ -19,6 +19,10 @@ local defaults = {
     comboPointRed = false,
     energyBar = false,
     classReminders = false,
+    reminderX = 0,
+    reminderY = 120,
+    reminderScale = 1,
+    reminderShards = 5,
     hunterFeed = false,
     mageSupplies = false,
     mageAutoTrade = false,
@@ -91,7 +95,8 @@ local defaults = {
     auctionHouse = true,
     groupFinderPvp = true,
     blizzardSettings = true,
-    tooltipSkin = false,
+    tooltipSkin = true,
+    trainingGuide = true,
     contextMenus = false,
     cleanMinimap = false,
     autoSellJunk = false,
@@ -111,7 +116,7 @@ for _, key in ipairs({"classicChatDragging", "floatingComboPoints", "classColour
     "professions", "trainer", "spellbook", "spellbookCombatDrag", "questDialogs", "questTracker",
     "classicDialogs", "gameMenu", "popups", "socialWindows", "talentWindow",
     "questLog", "bagsBank", "merchantSkin", "mailSkin", "auctionHouse",
-    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "contextMenus"}) do
+    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "trainingGuide", "contextMenus"}) do
     EraUI.reloadSettings[key] = true
 end
 EraUI.settingDefaults = defaults
@@ -168,45 +173,50 @@ end
 EraUI.charSettingKeys = { swingTimer = true, rangedSwingTimer = true }
 local CHAR_SETTING_CVAR = "EraUICharSwing"
 if C_CVar and C_CVar.RegisterCVar then
-    pcall(C_CVar.RegisterCVar, CHAR_SETTING_CVAR, "")
+    local ok, value = pcall(C_CVar.GetCVar, CHAR_SETTING_CVAR)
+    if not ok or value == nil then pcall(C_CVar.RegisterCVar, CHAR_SETTING_CVAR, "") end
 end
 
 local function CharSettingKey()
-    if UnitFullName then
-        local ok, name = pcall(UnitFullName, "player")
-        if ok and name and not (issecretvalue and issecretvalue(name)) then return name end
-    end
-    local ok, name = pcall(UnitName, "player")
-    return ok and name or "?"
+    return EraUI:CharacterIdentity()
 end
 
 function EraUI:LoadCharSettings()
     self.charSettings = {}
+    local saved = self.Persistence and self.Persistence.characterSwing
+    if saved then
+        for key in pairs(self.charSettingKeys) do self.charSettings[key] = saved[key] == true end
+        return
+    end
     if not (C_CVar and C_CVar.GetCVar) then return end
-    local key = CharSettingKey()
+    local key, legacy = CharSettingKey()
+    if not key then return end
     local ok, text = pcall(C_CVar.GetCVar, CHAR_SETTING_CVAR)
     if not ok or not text then return end
+    local records = {}
     for entry in text:gmatch("[^;]+") do
         local k, payload = entry:match("^(.-):(.*)$")
-        if k == key and payload then
-            local flags = payload:match("^([01][01])$")
-            if flags then
-                self.charSettings.swingTimer = flags:sub(1, 1) == "1"
-                self.charSettings.rangedSwingTimer = flags:sub(2, 2) == "1"
-            end
-            return
-        end
+        if k and payload then records[k] = payload end
+    end
+    local flags = (records[key] or records[legacy] or ""):match("^([01][01])$")
+    if flags then
+        self.charSettings.swingTimer = flags:sub(1, 1) == "1"
+        self.charSettings.rangedSwingTimer = flags:sub(2, 2) == "1"
+        if not records[key] then self:SaveCharSettings() end
     end
 end
 
 function EraUI:SaveCharSettings()
+    self:SaveSettings()
     if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
-    local key = CharSettingKey()
+    local key, legacy = CharSettingKey()
+    if not key then return end
     local existing = {}
     for entry in (C_CVar.GetCVar(CHAR_SETTING_CVAR) or ""):gmatch("[^;]+") do
         local k, payload = entry:match("^(.-):(.*)$")
         if k and payload then existing[k] = payload end
     end
+    existing[legacy] = nil -- Claim the old name-only entry once, on migration.
     existing[key] = (self.charSettings.swingTimer and "1" or "0")
         .. (self.charSettings.rangedSwingTimer and "1" or "0")
     local parts = {}
@@ -255,8 +265,10 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         EraUI.db = EraUIDB
         EraUI:Status("v" .. EraUI.version .. " loaded for WoW Forever beta.")
     elseif event == "PLAYER_LOGIN" then
-        if not EraUIDB or EraUIDB.enabled == false then return end
+        if not EraUI.Persistence.character and EraUI.LoadCharOnboarding then EraUI.LoadCharOnboarding() end
+        EraUI.Persistence:LoadCharacter()
         EraUI:LoadCharSettings()
+        if not EraUIDB or EraUIDB.enabled == false then return end
         for name, module in pairs(EraUI.modules) do
             if type(module.Initialize) == "function" then
                 local ok, err = pcall(module.Initialize, module)
@@ -266,5 +278,6 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
                 end
             end
         end
+        EraUI:SaveSettings()
     end
 end)

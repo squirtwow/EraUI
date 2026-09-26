@@ -21,6 +21,23 @@ local COLORS = {
 
 local active = false
 local skinned = {}
+local playerChannel
+local function KeepPlayerChannel(bar)
+    if not active or not playerChannel or EraUI:GetSetting("advancedCastBar")then return end
+    bar:SetMinMaxValues(0,playerChannel.total)
+    bar:SetValue(EraUI.CastTiming.Value(playerChannel,GetTime()))
+    if bar.Spark then
+        bar.Spark:ClearAllPoints()
+        bar.Spark:SetPoint("CENTER",bar:GetStatusBarTexture(),"RIGHT",0,0)
+    end
+end
+local function ReadPlayerChannel(bar,fresh)
+    if not active or EraUI:GetSetting("advancedCastBar")then playerChannel=nil;return end
+    local name,_,_,startMS,endMS,_,_,spellID,empowered=UnitChannelInfo("player")
+    if (issecretvalue and issecretvalue(empowered))or empowered then playerChannel=nil;return end
+    playerChannel=EraUI.CastTiming.Snapshot(playerChannel,true,name,startMS,endMS,spellID,fresh)
+    KeepPlayerChannel(bar)
+end
 
 local function IsSecret(v)
     return issecretvalue and issecretvalue(v)
@@ -201,6 +218,18 @@ local function Skin(bar)
     if not bar then return end
     if not skinned[bar] then
         skinned[bar] = true
+        if bar==PlayerCastingBarFrame then
+            ns.HookMethod(bar,"HandleCastStart",function(b,event)
+                playerChannel=nil
+                if event=="UNIT_SPELLCAST_CHANNEL_START"then ReadPlayerChannel(b,true)end
+            end)
+            ns.HookMethod(bar,"HandleChannelUpdateDelayed",function(b)ReadPlayerChannel(b,false)end)
+            ns.HookMethod(bar,"FinishSpell",function()playerChannel=nil end)
+            ns.HookMethod(bar,"HandleCastStop",function()playerChannel=nil end)
+            ns.HookMethod(bar,"HandleInterruptOrSpellFailed",function()playerChannel=nil end)
+            bar:HookScript("OnHide",function()playerChannel=nil end)
+            bar:HookScript("OnUpdate",KeepPlayerChannel)
+        end
         ns.HookMethod(bar, "SetLook", Dress)
         ns.HookMethod(bar, "UpdateShownState", Dress)
         if bar.AdjustPosition then

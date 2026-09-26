@@ -9,15 +9,6 @@ local function Options()
  return p
 end
 local function Enabled()return E:GetSetting("enabled") and E:GetSetting("poisonReminders")end
-local function Weapon(slot)
- local id=GetInventoryItemID("player",slot)
- if not T.Number(id)then return false end
- local fn=C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
- if not fn then return nil end
- local _,_,_,_,_,classID=fn(id)
- if not T.Number(classID)then return nil end
- return classID==2
-end
 -- Inventory tooltips name the current enchant. Compare against localized poison
 -- family names, rather than assuming every temporary enchant is poison.
 local function PoisonName(slot)
@@ -33,12 +24,10 @@ local function PoisonName(slot)
   end
  end
 end
-function M:Read(slot,has,ms,charges)
- local weapon=Weapon(slot)
- if weapon==false then return nil end
- if weapon==nil or not T.Public(has)then return {text="Weapon data unavailable",warning=false}end
+function M:Read(slot,has,ms,charges,name)
+ if not T.Public(has)then return {text="Weapon data unavailable",warning=false}end
  if not has then return {text="Missing poison",detail="Apply a poison",badge="MISSING",warning=true}end
- local name=PoisonName(slot)
+ name=name or PoisonName(slot)
  local text=name or "Weapon coating (type unconfirmed)"
  local warning=false;local details={}
  if T.Number(ms) and ms>0 then
@@ -57,16 +46,13 @@ function M:Read(slot,has,ms,charges)
  return {text=text,detail=table.concat(details," · "),name=name,badge=warning and "LOW" or name and "READY" or "CHECK",warning=warning}
 end
 function M:Snapshot(slot)
- if C_PaperDollInfo and C_PaperDollInfo.GetTemporaryEnchantmentInfo then
-  local ok,data=pcall(C_PaperDollInfo.GetTemporaryEnchantmentInfo,slot)
-  if not ok then return {text="Coating data unavailable",warning=false}end
-  return self:Read(slot,data~=nil,data and data.remainingTimeMs,data and data.chargesRemaining)
+ local state=T.WeaponCoating(slot)
+ if not state then return {text="Coating data unavailable",warning=false}end
+ if not state.weapon then return nil end
+ if state.has and T.CoatingIsPoison(state)==false then
+  return {text="Different weapon coating",detail="Apply a poison",badge="MISSING",warning=true}
  end
- if not GetWeaponEnchantInfo then return {text="Coating data unavailable",warning=false}end
- local v={pcall(GetWeaponEnchantInfo)}
- if not v[1]then return {text="Coating data unavailable",warning=false}end
- local offset=slot==16 and 0 or 4
- return self:Read(slot,v[offset+2],v[offset+3],v[offset+4])
+ return self:Read(slot,state.has,state.ms,state.charges,T.CoatingName(state))
 end
 local function Layout()
  local p=Options();frame:SetScale(p.scale);frame:ClearAllPoints()
@@ -85,8 +71,9 @@ local function Build()
  header:SetScript("OnDragStop",function()
   frame:StopMovingOrSizing();local x,y=frame:GetCenter();local cx,cy=UIParent:GetCenter()
   local ratio=frame:GetEffectiveScale()/UIParent:GetEffectiveScale();local p=Options();p.x=x*ratio-cx;p.y=y*ratio-cy;Layout()
+  E:SaveSettings()
  end)
- header:SetScript("OnMouseWheel",function(_,delta)if unlocked then Options().scale=Options().scale+delta*.05;Layout()end end)
+ header:SetScript("OnMouseWheel",function(_,delta)if unlocked then Options().scale=Options().scale+delta*.05;Layout();E:SaveSettings()end end)
  header:SetScript("OnEnter",function(self)
   GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Poison reminders")
   GameTooltip:AddLine("Warns when a weapon coating is missing, below 1 minute, or at 10 charges or fewer. Zero-charge enchants are not treated as depleted.",1,1,1,true)

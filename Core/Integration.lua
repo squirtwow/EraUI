@@ -37,6 +37,7 @@ local function Sync()
 end
 local mirrorSave = ns.MirrorSave
 function ns.MirrorSave()
+    EraUI:SaveSettings()
     if ns.db and EraUIDB then
         ns.db.erauiNumericSettingsMirrored=true
         for key, value in pairs(EraUIDB) do
@@ -186,15 +187,11 @@ end
 -- CVar keyed by character and read back at load.
 local ONBOARD_CVAR = "EraUIOnboarding"
 if C_CVar and C_CVar.RegisterCVar then
-    C_CVar.RegisterCVar(ONBOARD_CVAR, "")
+    local ok, value = pcall(C_CVar.GetCVar, ONBOARD_CVAR)
+    if not ok or value == nil then pcall(C_CVar.RegisterCVar, ONBOARD_CVAR, "") end
 end
 local function CharKey()
-    if UnitFullName then
-        local ok, name = pcall(UnitFullName, "player")
-        if ok and name and not (issecretvalue and issecretvalue(name)) then return name end
-    end
-    local ok, name = pcall(UnitName, "player")
-    return ok and name or "?"
+    return EraUI:CharacterIdentity()
 end
 local function SerializeOnboarding(state)
     local flags = (state.welcomeSeen and "1" or "0")
@@ -207,14 +204,17 @@ local function SerializeOnboarding(state)
     return flags .. "," .. version .. "," .. table.concat(tabs, ".")
 end
 local function SaveCharOnboarding()
+    EraUI:SaveSettings()
     if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
-    local key = CharKey()
+    local key, legacy = CharKey()
+    if not key then return end
     local existing = {}
     local text = C_CVar.GetCVar(ONBOARD_CVAR) or ""
     for entry in text:gmatch("[^;]+") do
         local k, payload = entry:match("^(.-):(.*)$")
         if k and payload then existing[k] = payload end
     end
+    existing[legacy] = nil
     existing[key] = SerializeOnboarding(CharacterWelcome())
     local parts = {}
     for k, payload in pairs(existing) do parts[#parts + 1] = k .. ":" .. payload end
@@ -224,28 +224,34 @@ end
 EraUI.SaveCharOnboarding = SaveCharOnboarding
 local function LoadCharOnboarding()
     if not (C_CVar and C_CVar.GetCVar) then return end
-    local key = CharKey()
+    local key, legacy = CharKey()
+    if not key then return end
     local text = C_CVar.GetCVar(ONBOARD_CVAR) or ""
+    local records = {}
     for entry in text:gmatch("[^;]+") do
         local k, payload = entry:match("^(.-):(.*)$")
-        if k == key and payload then
-            local flags, version, tabs = payload:match("^([01][01][01]),(%d+),(.*)$")
-            if flags then
-                local state = CharacterWelcome()
-                state.welcomeSeen = flags:sub(1, 1) == "1"
-                state.setupComplete = flags:sub(2, 2) == "1"
-                state.exploreSettings = flags:sub(3, 3) == "1"
-                state.discoveryHintsVersion = tonumber(version)
-                local tabMap = {}
-                for tab in tabs:gmatch("[^.]+") do
-                    tabMap[tonumber(tab)] = true
-                end
-                state.discoverTabs = tabMap
+        if k and payload then records[k] = payload end
+    end
+    local payload = records[key] or records[legacy]
+    if payload then
+        local flags, version, tabs = payload:match("^([01][01][01]),(%d+),(.*)$")
+        if flags then
+            local state = CharacterWelcome()
+            state.welcomeSeen = flags:sub(1, 1) == "1"
+            state.setupComplete = flags:sub(2, 2) == "1"
+            state.exploreSettings = flags:sub(3, 3) == "1"
+            state.discoveryHintsVersion = tonumber(version)
+            local tabMap = {}
+            for tab in tabs:gmatch("[^.]+") do
+                local index = tonumber(tab)
+                if index then tabMap[index] = true end
             end
-            return
+            state.discoverTabs = tabMap
+            if not records[key] then SaveCharOnboarding() end
         end
     end
 end
+EraUI.LoadCharOnboarding = LoadCharOnboarding
 function ns.CharacterSetupComplete()
     return CharacterWelcome().setupComplete == true
 end
@@ -463,6 +469,8 @@ loader:SetScript("OnEvent",function(_,event,name)
         EraUIDB.showAllSpellRanks = not ns.db.spellBookTopRank
         ns.db.erauiSettingsMenuMigrated = true
     end
+    EraUI.Persistence:LoadAccount()
+    EraUI.Persistence:LoadCharacter()
     for key in pairs(EraUI.reloadSettings) do EraUI.loadedVisualSettings[key]=EraUIDB[key] end
     Sync()
 end)

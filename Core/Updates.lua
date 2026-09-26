@@ -6,6 +6,35 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.0.4",
+        sections = {
+            { "New", {
+                "Training Guide is a searchable tab inside the Classic spellbook. Bundled Forever spell levels populate immediately, with availability groups and reference cost totals (? marks unverified prices).",
+                "Class Reminders rebuilt: big class-coloured alerts with the spell icon, shown while something is missing.",
+                "Pick which aspect, blessing, imbue or demon to track, and the alert uses that name.",
+                "Class reminders cover learned buffs, pets, supplies and weapon coatings. Shaman Advanced options include a separate Windfury Totem reminder.",
+            } },
+            { "Changed", {
+                "Tooltips and Training Guide now default to enabled for fresh settings and resets. Existing saved choices are respected; change either option in /era and reload.",
+                "Reminder options sit below Class Reminders & Buffs in your class tab, with individual reminders under Advanced.",
+                "Drag any alert to move it, pick Small, Normal or Large, and reset positions any time. Alerts stay hidden in combat by default.",
+            } },
+            { "Fixed", {
+                "What's New fits within the screen, with scrollable notes and a fixed title and Got it button.",
+                "The quest sidebar overlays the full-width map, keeping its window steady without squeezing the artwork into empty bands.",
+                "Player channel progress keeps one clock and a stable scale when damage changes the remaining time.",
+                "Map artwork resizes with its border. Normal and expanded layouts are remembered separately, and the Map Pin hover highlight stays on its button.",
+                "Player level text stays gold after leveling. Player debuff borders and aura hover boxes now use Classic styling. Tooltips applies the same dark, grey-bordered style to regular tooltips.",
+                "Expanded class options and search results scroll above the footer. Mage conjure controls hide during combat while settings remain usable.",
+                "Reminders detect dead pets, selected demons and imbues, and the correct off-hand coating. Group checks filter unavailable members; Soulstone needs one protected checked member.",
+                "Hunter feeding reads Forever's current pet happiness and food APIs. It stays clear of settings; right-click to unlock, drag or scroll to arrange it, then left-click to lock.",
+                "Training Guide filters unverified seasonal learning levels. Tooltip borders now have a thin grey bevel and softened corners.",
+                "Settings recovery now includes reminder choices and positions, map size and movable-bar layouts.",
+                "Class-tool preferences and supply quantities are recovered per character, including the realm.",
+            } },
+        },
+    },
+    {
         version = "1.0.3",
         sections = {
             { "Changed", {
@@ -68,6 +97,22 @@ local function EntryForVersion()
     return UPDATES[#UPDATES]
 end
 
+-- The current release and the couple before it, so an update that skipped a
+-- session still shows what changed.
+local HISTORY = 3
+local function Entries()
+    local list = {}
+    local start
+    for i, entry in ipairs(UPDATES) do
+        if entry.version == EraUI.version then start = i; break end
+    end
+    if not start then start = 1 end
+    for i = start, math.min(#UPDATES, start + HISTORY - 1) do
+        list[#list + 1] = UPDATES[i]
+    end
+    return list
+end
+
 local window
 
 local function Build()
@@ -94,8 +139,8 @@ local function Build()
     stripe:SetHeight(3)
     window.stripe = stripe
 
-    local function Text(size, r, g, b, x, y, width)
-        local t = window:CreateFontString(nil, "OVERLAY")
+    local function Text(size, r, g, b, x, y, width, parent)
+        local t = (parent or window):CreateFontString(nil, "OVERLAY")
         local font, _, flags = GameFontHighlight:GetFont()
         t:SetFont(font, size, flags or "")
         t:SetTextColor(r, g, b)
@@ -110,27 +155,72 @@ local function Build()
     window.title = Text(26, 1, 1, 1, 28, -48)
     window.title:SetWidth(500)
 
-    -- Section headers and bullets, laid out once for this version.
-    window.blocks = {}
-    local y = -92
-    for _, section in ipairs(EntryForVersion().sections) do
-        local header = Text(13, 1, .82, 0, 28, y)
-        header:SetText(section[1])
-        y = y - 24
-        local lines = {}
-        for _, text in ipairs(section[2]) do
-            local line = Text(12, .86, .88, .93, 44, y, 480)
-            line:SetText("• " .. text)
-            lines[#lines + 1] = line
-            -- Long bullets wrap; advance by the wrapped height so the next
-            -- line never overlaps this one.
-            local height = line:GetStringHeight() or 18
-            y = y - math.max(18, height + 3)
-        end
-        y = y - 12
-        window.blocks[#window.blocks + 1] = { header = header, lines = lines }
+    local scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 28, -92)
+    scroll:SetPoint("BOTTOMRIGHT", -44, 70)
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), self:GetVerticalScroll() - delta * 40)))
+    end)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(488, 1)
+    scroll:SetScrollChild(content)
+    window.scroll, window.content = scroll, content
+
+    -- Only note text belongs to the scrolling child. Keep the heading and
+    -- dismissal button outside it so long release histories cannot hide them.
+    local flow = {}
+    local function Note(size, r, g, b, indent, text, gap)
+        local t = Text(size, r, g, b, indent, 0, 488 - indent, content)
+        t:SetText(text)
+        flow[#flow + 1] = { text = t, indent = indent, gap = gap }
+        return t
     end
-    window:SetHeight(math.max(240, -y + 70))
+    window.blocks = {}
+    local entries = Entries()
+    for index, entry in ipairs(entries) do
+        if index > 1 then
+            Note(15, 1, .82, 0, 0, "EraUI " .. entry.version, 11)
+        end
+        for _, section in ipairs(entry.sections) do
+            local header = Note(13, 1, .82, 0, 0, section[1], 11)
+            local lines = {}
+            for _, text in ipairs(section[2]) do
+                local line = Note(12, .86, .88, .93, 16, "• " .. text, 6)
+                lines[#lines + 1] = line
+            end
+            flow[#flow + 1] = { gap = 12 }
+            window.blocks[#window.blocks + 1] = { header = header, lines = lines }
+        end
+        if index < #entries then flow[#flow + 1] = { gap = 8 } end
+    end
+
+    function window:LayoutNotes()
+        local width = math.min(560, math.max(1, UIParent:GetWidth() - 40))
+        local contentWidth = math.max(1, width - 72)
+        self:SetWidth(width)
+        self.title:SetWidth(math.max(1, width - 56))
+        content:SetWidth(contentWidth)
+        local y = 0
+        for _, row in ipairs(flow) do
+            if row.text then
+                row.text:SetWidth(math.max(1, contentWidth - row.indent))
+                row.text:ClearAllPoints()
+                row.text:SetPoint("TOPLEFT", row.indent, -y)
+                y = y + math.max(12, row.text:GetStringHeight() or 12)
+            end
+            y = y + row.gap
+        end
+        content:SetHeight(math.max(1, y))
+        self:SetHeight(math.min(640, math.max(1, UIParent:GetHeight() - 40), math.max(240, y + 162)))
+        scroll:UpdateScrollChildRect()
+        scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), scroll:GetVerticalScrollRange()))
+    end
+    window:RegisterEvent("UI_SCALE_CHANGED")
+    window:RegisterEvent("DISPLAY_SIZE_CHANGED")
+    window:SetScript("OnEvent", function(self)
+        if self:IsShown() then self:LayoutNotes() end
+    end)
 
     local button = CreateFrame("Button", nil, window, "BackdropTemplate")
     button:SetSize(120, 34)
@@ -162,6 +252,8 @@ local function Show()
     window.button:SetBackdropColor(r * .2, g * .2, b * .2, 1)
     window.button:SetBackdropBorderColor(r, g, b, 1)
     window:Show()
+    window:LayoutNotes()
+    window.scroll:SetVerticalScroll(0)
 end
 
 EraUI.ShowUpdateNotes = Show

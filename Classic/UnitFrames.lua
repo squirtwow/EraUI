@@ -18,6 +18,18 @@ local PORTRAIT = 64
 local active = false
 local KEYS = { player = "unitFramePlayer", target = "unitFrameTarget", focus = "unitFrameFocus", pet = "unitFramePet", party = "unitFrameParty" }
 local function On(kind) return ns.db == nil or ns.db[KEYS[kind]] ~= false end
+local function KeepPlayerLevelColour()
+    if not active or not On("player") or not PlayerLevelText then return end
+    local r,g,b=PlayerLevelText:GetTextColor()
+    if r~=1 or g~=0.82 or b~=0 then PlayerLevelText:SetTextColor(1,0.82,0) end
+end
+local levelHooked=false
+local function HookPlayerLevelColour()
+    if not levelHooked and PlayerFrame_UpdateLevel then
+        hooksecurefunc("PlayerFrame_UpdateLevel",KeepPlayerLevelColour)
+        levelHooked=true
+    end
+end
 
 local combatPending = false
 local function Busy()
@@ -483,6 +495,7 @@ KeepPlayerAnchors = function()
     if not host then return end
     if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
     if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
+    KeepPlayerLevelColour()
     if PlayerName then
         -- The client can blank the player's own name or show "Unknown", and
         -- its own-surname CVar is not effective on every client, so when
@@ -1192,6 +1205,7 @@ end
 
 local function Apply()
     active = true
+    HookPlayerLevelColour()
     Keeper("player.art", KeepPlayerArt)
     Keeper("party", KeepParty)
     Keeper("pet", KeepPet)

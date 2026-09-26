@@ -1,0 +1,88 @@
+{
+  "build": "1.60.1.70009",
+  "arts": 45,
+  "regions": 572,
+  "tiles": 972,
+  "sources": [
+    {
+      "name": "UiMapArt",
+      "url": "https://wago.tools/db2/UiMapArt/csv?build=1.60.1.70009",
+      "rows": 144,
+      "sha256": "1e2635e147661b322fc2c63be7711230f9525fb88b1dfd7dcf07b4eaa118e968"
+    },
+    {
+      "name": "UiMapArtStyleLayer",
+      "url": "https://wago.tools/db2/UiMapArtStyleLayer/csv?build=1.60.1.70009",
+      "rows": 6,
+      "sha256": "a8322f8c5c119f6c018ba47f750b42a8ad7f00f0881f4cec8ad36a35285af499"
+    },
+    {
+      "name": "UiMapXMapArt",
+      "url": "https://wago.tools/db2/UiMapXMapArt/csv?build=1.60.1.70009",
+      "rows": 60,
+      "sha256": "81092d619701f0b31a3537129ec5667b38630b5291e211034971a1dde05678dc"
+    },
+    {
+      "name": "WorldMapOverlay",
+      "url": "https://wago.tools/db2/WorldMapOverlay/csv?build=1.60.1.70009",
+      "rows": 1081,
+      "sha256": "1c1df50805e6c65b9c840166542a6752c5ebad3fd8b2ca3715842f4ab5483108"
+    },
+    {
+      "name": "WorldMapOverlayTile",
+      "url": "https://wago.tools/db2/WorldMapOverlayTile/csv?build=1.60.1.70009",
+      "rows": 1739,
+      "sha256": "31d8b8c4cae7a1afd312f13a74ba75a461042e00b6e69e2b63809ce9809df02f"
+    }
+  ],
+  "skipped": [
+    {
+      "artID": 1200,
+      "overlayID": 5551,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2031,
+      "overlayID": 5545,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2031,
+      "overlayID": 5546,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2031,
+      "overlayID": 5547,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2031,
+      "overlayID": 5548,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2031,
+      "overlayID": 5549,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2054,
+      "overlayID": 5550,
+      "layer": 0,
+      "reason": "no artwork dimensions"
+    },
+    {
+      "artID": 2160,
+      "overlayID": 5252,
+      "layer": 0,
+      "reason": "no texture records"
+    }
+  ]
+}

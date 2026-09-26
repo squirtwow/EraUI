@@ -1,257 +1,676 @@
 local _,E=...
 local T=E.ClassTools
 local M={};E:RegisterModule("ClassReminders",M)
-local class,panel,window,header,recipientButton,summary
-local rows={};local totemRows={};local shardRow;local unlocked=false
-local recipient="player"
-local function O()return T.Options()end
+local class,panel,rows,dropdown,preview
+local dragging=false
+
+local AURA_MAX=80
+local GROUP_EVERY=5
+local DEFAULT_Y=120
+local SIZES={
+ {key="Small",text=20,icon=40,sub=10,row=108},
+ {key="Normal",text=25,icon=52,sub=12,row=134},
+ {key="Large",text=32,icon=68,sub=14,row=172},
+}
+
 local function Enabled()return E:GetSetting("enabled") and E:GetSetting("classReminders")end
-local function Definitions()return E.ReminderSpells[class] or {}end
-function M:Learned(def)
- for i=#def.ids,1,-1 do if T.Known(def.ids[i])then return def.ids[i]end end
+local function Definitions()return E.ReminderSpells[class]or{}end
+local function Save()if E.Classic and E.Classic.MirrorSave then E.Classic.MirrorSave()end end
+local function Opt(key)return EraUIDB and EraUIDB[key]end
+local function SetOpt(key,value)EraUIDB=EraUIDB or{};EraUIDB[key]=value;Save()end
+local function DefKey(def)return "reminder_"..tostring(class).."_"..def.key end
+local function DefOn(def)
+ local v=Opt(DefKey(def))
+ if v==nil then return not def.off end
+ return v==true
 end
+local function GroupOn()return Opt("reminderGroup")~=false end
+local function CombatOn()return Opt("reminderCombat")==true end
+local function SizeIndex()
+ local v=tonumber(Opt("reminderSize"))or 2
+ if v<1 or v>#SIZES then v=2 end
+ return v
+end
+
 local function Friendly(unit)
- local exists=UnitExists(unit);if not T.Public(exists) or not exists then return false end
- local friendly=UnitCanAssist("player",unit);return T.Public(friendly) and friendly==true
+ local exists=UnitExists(unit)
+ if not T.Public(exists)or not exists then return false end
+ local friendly=UnitCanAssist("player",unit)
+ return T.Public(friendly)and friendly==true
 end
--- A protected/secret aura is unknown, never a missing buff. No native frame is modified.
-function M:Aura(unit,def)
- if not Friendly(unit)then return nil end
- local wanted={};for _,id in ipairs(def.ids)do wanted[id]=true end
- for _,id in ipairs(def.auras or {})do wanted[id]=true end
+local function Eligible(unit,def,choice)
+ if not Friendly(unit)then return false end
+ for _,check in ipairs({{UnitIsConnected,true},{UnitIsDeadOrGhost,false}})do
+  if not check[1]then return false end
+  local ok,value=pcall(check[1],unit)
+  if not ok or not T.Public(value)or value~=check[2]then return false end
+ end
+ if unit~="player"and UnitInRange then
+  local ok,near,checked=pcall(UnitInRange,unit)
+  if not ok or not T.Public(near)or not T.Public(checked)then return false end
+  if checked and not near then return false end
+ end
+ if def.mana or(choice and choice.mana)then
+  local _,c=UnitClass(unit)
+  if not T.Public(c)or c=="WARRIOR"or c=="ROGUE"then return false end
+ end
+ return true
+end
+local groupCache={units={},at=0}
+local function Cache()
+ local now=GetTime()
+ if now-groupCache.at>GROUP_EVERY then groupCache.units={};groupCache.at=now end
+ return groupCache.units
+end
+local function AuraSet(unit,cache)
+ if cache and unit~="player"then
+  local hit=cache[unit]
+  if hit~=nil then return hit end
+ end
  local fn=C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
  if not fn then return nil end
- local unknown=false
- for index=1,80 do
-  local ok,aura=pcall(fn,unit,index,"HELPFUL")
+ local set={}
+ for i=1,AURA_MAX do
+  local ok,aura=pcall(fn,unit,i,"HELPFUL")
   if not ok then return nil end
-  if not aura then if unknown then return nil end;return false end
-  if not T.Public(aura.spellId)then unknown=true
-  elseif wanted[aura.spellId]then
-   local remaining=T.Number(aura.expirationTime) and aura.expirationTime>0 and math.max(0,aura.expirationTime-GetTime()) or nil
-   return true,remaining
-  end
+  if not aura then break end
+  local id=aura.spellId
+   if not T.Public(id)then return nil end
+   if T.Number(id)then set[id]=true end
  end
- return nil
+ if cache and unit~="player"then cache[unit]=set end
+ return set
 end
-local function Duration(seconds)
- if not seconds then return "Active" end
- if seconds>=60 then return math.ceil(seconds/60).."m"end
- return math.ceil(seconds).."s"
+local function AuraByName(unit,match)
+ local fn=C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
+ if not fn then return nil end
+ for i=1,AURA_MAX do
+  local ok,aura=pcall(fn,unit,i,"HELPFUL")
+  if not ok then return nil end
+  if not aura then return false end
+  local name=aura.name
+   if not T.Public(name)then return nil end
+   if type(name)=="string"and name:find(match,1,true)then return true end
+ end
+ return false
 end
-local function Position()
- O().reminderPosition=O().reminderPosition or {x=250,y=-60,scale=1}
- local p=O().reminderPosition;p.scale=math.max(.6,math.min(1.8,tonumber(p.scale)or 1));return p
-end
-local function Layout()
- if not panel or InCombatLockdown()then return end
- local p=Position();panel:SetScale(p.scale);panel:ClearAllPoints()
- panel:SetPoint("CENTER",UIParent,"CENTER",p.x/p.scale,p.y/p.scale)
- panel:SetFrameStrata((unlocked or E.settingsFrame and E.settingsFrame:IsShown()) and "FULLSCREEN_DIALOG" or "MEDIUM")
-end
-local function SavePosition()
- panel:StopMovingOrSizing()
- local x,y=panel:GetCenter();local cx,cy=UIParent:GetCenter();local ratio=panel:GetEffectiveScale()/UIParent:GetEffectiveScale()
- local p=Position();p.x=x*ratio-cx;p.y=y*ratio-cy
-end
-function M:Recipients()
+local function UnitsToCheck(def)
  local list={"player"}
- if Friendly("target")then list[#list+1]="target"end
- if IsInRaid and IsInRaid()then
-  for i=1,(GetNumGroupMembers()or 0)do local unit="raid"..i;if Friendly(unit)then list[#list+1]=unit end end
- else
-  for i=1,(GetNumSubgroupMembers and GetNumSubgroupMembers()or 0)do local unit="party"..i;if Friendly(unit)then list[#list+1]=unit end end
+ if def.group and not def.self and GroupOn()then
+  local raid=false
+  if IsInRaid then local ok,v=pcall(IsInRaid);raid=ok and T.Public(v)and v==true end
+  local n
+  if raid then n=GetNumGroupMembers and GetNumGroupMembers()or 0
+  else n=GetNumSubgroupMembers and GetNumSubgroupMembers()or 0 end
+   local count=T.Number(n)and math.min(n,raid and 40 or 4)or 0
+   local ownGroup
+   if raid and def.subgroup and GetRaidRosterInfo then
+    for i=1,count do
+     local same=UnitIsUnit and UnitIsUnit("player","raid"..i)
+     if T.Public(same)and same then ownGroup=select(3,GetRaidRosterInfo(i));break end
+    end
+   end
+   for i=1,count do
+    local unit=(raid and "raid"or "party")..i
+    local same=UnitIsUnit and UnitIsUnit("player",unit)
+    local subgroup=raid and def.subgroup and GetRaidRosterInfo and select(3,GetRaidRosterInfo(i))
+    local allowed=not(raid and def.subgroup)or(T.Number(ownGroup)and T.Number(subgroup)and ownGroup==subgroup)
+    if T.Public(same)and not same and allowed then list[#list+1]=unit end
+   end
  end
  return list
 end
-local function ChoiceSet(def)
- if def.blessing then return def.key==(O().reminderBlessing or "might")end
- if def.kind=="imbue"then return def.key==(O().reminderImbue or "rockbiter")end
- return O()["reminder_"..def.key]~=false
+local function ItemCount(ids)
+ local n=0
+ for _,id in ipairs(ids or{})do n=n+T.Count(id)end
+ return n
 end
-local function CastTarget(def)return def.self and "player" or recipient end
-local function CountItems(def)
- local total=0;local best
- for _,id in ipairs(def.items or {})do local n=T.Count(id);total=total+n;if n>0 then best=id end end
- return total,best
+local function HighestKnown(ids)
+ local best
+ for _,id in ipairs(ids or{})do if T.Known(id)then best=id end end
+ return best
 end
-function M:State(def)
- if def.kind=="healthstone" then local n=CountItems(def);return n>0,n>0 and ("Ready: "..n)or "Create Healthstone"end
- if def.kind=="soulstone" then
-  local applied,time=self:Aura(recipient,{ids=def.auras})
-  if applied then return true,"Soulstone · "..Duration(time)end
-  local n=CountItems(def)
-  return false,n>0 and "Click to apply Soulstone" or "Create Soulstone"
+-- A reminder never fires for a spell the character cannot use yet.
+local function Applicable(def)
+ if def.minLevel then
+  local level=UnitLevel("player")
+  if not T.Number(level)or level<def.minLevel then return false end
  end
- if def.kind=="imbue"then
-  if not GetWeaponEnchantInfo then return nil,"Unavailable"end
-  local ok,has,ms=pcall(GetWeaponEnchantInfo)
-  if not ok or not T.Public(has)then return nil,"Unavailable"end
-  return has==true,has and ("Weapon enchanted · "..(T.Number(ms)and Duration(ms/1000)or "Active"))or "Missing weapon enchant"
- end
- local active,time=self:Aura(CastTarget(def),def)
- if active==nil then return nil,"Check target / aura unavailable"end
- return active,active and Duration(time)or "Missing · click to buff"
+ if def.ids and not HighestKnown(def.ids)then return false end
+ if def.requires and not HighestKnown(def.requires)then return false end
+ return true
 end
-local function Build()
- if panel then return end
- panel=CreateFrame("Frame","EraUIClassReminderPanel",UIParent,"BackdropTemplate");T.Skin(panel)
- panel:SetSize(330,100);panel:SetMovable(true);panel:SetClampedToScreen(true)
- header=T.Button(panel,"",330,30);header:SetPoint("TOP");T.ReminderHeader(header);header:RegisterForClicks("LeftButtonUp","RightButtonUp")
- header:RegisterForDrag("LeftButton");header:EnableMouseWheel(true)
- header:SetScript("OnClick",function(_,button)
-  if InCombatLockdown()then return end
-  unlocked=button=="RightButton";Layout();M:Refresh()
- end)
- header:SetScript("OnDragStart",function()if unlocked and not InCombatLockdown()then panel:StartMoving()end end)
- header:SetScript("OnDragStop",function()if not InCombatLockdown()then SavePosition();Layout()end end)
- header:SetScript("OnMouseWheel",function(_,delta)if unlocked and not InCombatLockdown()then Position().scale=Position().scale+delta*.05;Layout()end end)
- header:SetScript("OnEnter",function(self)
-  GameTooltip:SetOwner(self,"ANCHOR_RIGHT");GameTooltip:SetText("Class reminders")
-  GameTooltip:AddLine("Right-click to unlock. Drag header to move; scroll to resize. Left-click to lock. Changes wait until combat ends.",1,1,1,true);GameTooltip:Show()
- end)
- header:SetScript("OnLeave",function()GameTooltip:Hide()end)
- recipientButton=T.Button(panel,"",314,24);recipientButton:SetPoint("TOP",0,-36)
- recipientButton:SetScript("OnClick",function()
-  if InCombatLockdown()then return end
-  local units=M:Recipients();local next=1
-  for i,u in ipairs(units)do if u==recipient then next=i%#units+1;break end end
-  recipient=units[next];M:Refresh()
- end)
- summary=T.Text(panel,"",12);summary:SetPoint("TOPLEFT",8,-72);summary:SetWidth(314)
- if class=="WARLOCK"then
-  shardRow=T.ReminderRow(panel,314);shardRow.icon:SetTexture("Interface\\Icons\\INV_Misc_Gem_Amethyst_02");shardRow.label:SetText("Soul Shards")
+local function ChoiceKey(def)return "reminderChoice_"..tostring(class).."_"..def.key end
+local function ChoiceId(def)return tonumber(Opt(ChoiceKey(def)))or 0 end
+local function ChoiceOf(def)
+ if not def.choices then return nil end
+ local id=ChoiceId(def)
+ if id==0 then return nil end
+ for _,choice in ipairs(def.choices)do
+   for _,cid in ipairs(choice.ids or{})do if cid==id and HighestKnown(choice.ids)then return choice end end
  end
- if class=="SHAMAN"then
-  for i,element in ipairs({"Fire","Earth","Water","Air"})do
-   local row=T.ReminderRow(panel,314);row.label:SetText(element.." Totem")
-   row.icon:SetTexture("Interface\\Icons\\"..({"Spell_Fire_SearingTotem","Spell_Nature_StoneSkinTotem","Spell_Nature_ManaRegenTotem","Spell_Nature_GroundingTotem"})[i])
-   totemRows[i]=row
-  end
+ return nil
+end
+local function ChoiceList(def)
+ local list={}
+ for _,choice in ipairs(def.choices or{})do
+  if choice.key=="any"or HighestKnown(choice.ids)then list[#list+1]=choice end
  end
+ return list
+end
+local function CycleChoice(def)
+ local list=ChoiceList(def)
+ if #list==0 then return end
+ local current=ChoiceId(def)
+ local index=0
+ for i,choice in ipairs(list)do
+  if choice.key=="any"and current==0 then index=i end
+  for _,cid in ipairs(choice.ids or{})do if cid==current then index=i end end
+ end
+ local choice=list[index%#list+1]
+ SetOpt(ChoiceKey(def),choice.key=="any"and 0 or choice.ids[1])
+end
+local function AlertText(def)
+ local choice=ChoiceOf(def)
+ if choice then return string.upper(choice.name).."!"end
+ if def.dynamic then
+  local id=HighestKnown(def.ids)
+  local name=id and select(1,T.Spell(id))
+  if name and type(name)=="string"then return string.upper(name).."!"end
+ end
+ return def.text or def.name or"?"
+end
+local function Icon(def)
+ local choice=ChoiceOf(def)
+ local id=HighestKnown(choice and choice.ids or def.ids)
+ if id then local _,icon=T.Spell(id);if icon then return icon end end
+ return def.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+local function DefColor(def)
+ if def.color then return def.color[1],def.color[2],def.color[3]end
+ return T.Colour()
+end
+-- Each alert can be parked on its own spot; unplaced ones keep stacking.
+local function SpotXKey(def)return "reminderPX_"..tostring(class).."_"..def.key end
+local function SpotYKey(def)return "reminderPY_"..tostring(class).."_"..def.key end
+local function Spot(def)
+ local x=tonumber(Opt(SpotXKey(def)))
+ local y=tonumber(Opt(SpotYKey(def)))
+ if x==nil or y==nil then return nil end
+ return x,y
+end
+local function SetSpot(def,x,y)
+ SetOpt(SpotXKey(def),x);SetOpt(SpotYKey(def),y)
+end
+local function ClearSpots()
  for _,def in ipairs(Definitions())do
-  local b=T.ReminderRow(panel,314,true)
-  b.def=def;b:Hide();rows[#rows+1]=b
+  if EraUIDB then EraUIDB[SpotXKey(def)]=nil;EraUIDB[SpotYKey(def)]=nil end
  end
- Layout()
+ Save()
 end
-local function PaintTotems(y,combat)
- if class~="SHAMAN"then return y,0 end
- local enabled=O().reminderTotems~=false
- for i,row in ipairs(totemRows)do
-  if not combat then row:SetShown(enabled)end
-  if enabled then
-   local active,text=nil,"Timer unavailable"
-   row.label:SetText(({"Fire","Earth","Water","Air"})[i].." Totem")
-   if GetTotemInfo then
-    local ok,has,name,start,duration=pcall(GetTotemInfo,i)
-    if ok and T.Public(has)then
-     active=has==true
-     if active and T.Public(name)and T.Number(start)and T.Number(duration)then
-      row.label:SetText(name);text="Remaining: "..Duration(math.max(0,start+duration-GetTime()))
-     elseif not active then text="No active totem"end
+
+local function DefState(def,cache)
+ local kind=def.kind or "aura"
+ if kind=="pet"then
+  local exists=UnitExists("pet")
+  if not T.Public(exists)then return nil end
+   if not exists then return true,"No pet summoned"end
+   local dead=UnitIsDeadOrGhost("pet")
+   if not T.Public(dead)then return nil end
+   if dead then return true,"Pet is dead"end
+   local choice=ChoiceOf(def)
+   if choice and choice.family then
+    if not UnitCreatureFamily or not(C_CreatureInfo and C_CreatureInfo.GetCreatureFamilyInfo)then return nil end
+    local ok,family=pcall(UnitCreatureFamily,"pet")
+    local good,info=pcall(C_CreatureInfo.GetCreatureFamilyInfo,choice.family)
+    if not ok or not good or not T.Public(family)or type(family)~="string"or not info or not T.Public(info.name)then return nil end
+    return family~=info.name,family==info.name and "Selected demon is out"or "Different demon summoned"
+   end
+   return false,"Pet is alive"
+ end
+ if kind=="item"then
+  local n=ItemCount(def.items)
+  return n==0,n>0 and("In bags: "..n)or "None in bags"
+ end
+ if kind=="imbue"then
+   local state=T.WeaponCoating(def.weapon=="off"and 17 or 16)
+   if not state then return nil,"Coating data unavailable"end
+   if not state.weapon then return false,"No weapon equipped"end
+   local hand=(def.weapon=="off")and "Off hand"or "Main hand"
+   if not state.has then return true,hand.." empty"end
+   if class=="ROGUE"then
+    local poison=T.CoatingIsPoison(state)
+    if poison==nil then return nil,"Coating type unconfirmed"end
+    return not poison,poison and(hand.." poison applied")or(hand.." has another coating")
+   end
+   local choice=ChoiceOf(def)
+   if not state.kind then return nil,"Coating type unconfirmed"end
+   if choice then return state.kind~=choice.key,state.kind==choice.key and "Selected imbue applied"or "Different coating applied"end
+   local imbue=state.kind=="rockbiter"or state.kind=="flametongue"or state.kind=="frostbrand"or state.kind=="windfury"
+   return not imbue,imbue and "Weapon imbue applied"or "Different coating applied"
+ end
+ if kind=="shards"then
+  local n=T.Count(6265)
+  local low=tonumber(Opt("reminderShards"))or 5
+  return n<low,n.." of "..low
+ end
+ if kind=="totems"then
+  if not GetTotemInfo then return nil end
+   local unknown=false
+   for i=1,4 do
+    local ok,has,name,_,_,_,_,spell=pcall(GetTotemInfo,i)
+    if not ok or not T.Public(has)then unknown=true
+    elseif has then
+     if not def.ids then return false,"At least one totem active"end
+     if not T.Public(spell)or not T.Public(name)then unknown=true
+     else
+      for _,id in ipairs(def.ids)do
+       local expected=T.Spell(id)
+       if spell==id or(expected and name==expected)then return false,"Windfury Totem active"end
+      end
+     end
     end
    end
-   row.status:SetText(text);T.PaintReminder(row,active,active==false and "INACTIVE" or nil)
-   if not combat then row:ClearAllPoints();row:SetPoint("TOPLEFT",8,y)end
-   y=y-60
+   if unknown then return nil end
+   return true,def.ids and "Windfury Totem missing"or "No totems active"
+ end
+ if kind=="cooldown"then
+  local known,ready=false,false
+  for _,id in ipairs(def.ids or{})do
+   if T.Known(id)then
+    known=true
+    if GetSpellCooldown then
+     local ok,start,dur=pcall(GetSpellCooldown,id)
+     if ok and T.Number(start)and T.Number(dur)and(start==0 or dur==0)then ready=true end
+    end
+   end
+  end
+  if not known then return nil end
+  return ready,ready and "Ready to use"or "On cooldown"
+ end
+ if def.items then
+  local n=ItemCount(def.items)
+  if n==0 then return false,"No stone in bags"end
+ end
+ local choice=ChoiceOf(def)
+ local ids,auras=def.ids,def.auras
+ if choice then ids=choice.ids;auras=nil end
+ local names={}
+ local total,checked,unknown=0,0,false
+ for _,unit in ipairs(UnitsToCheck(def))do
+   if Eligible(unit,def,choice)then
+    local set=AuraSet(unit,cache)
+    if set then
+     checked=checked+1
+    local has=false
+    for _,id in ipairs(ids or{})do if set[id]then has=true break end end
+    if not has then
+     for _,id in ipairs(auras or{})do if set[id]then has=true break end end
+    end
+     if not has and def.nameMatch and not choice then
+      local found=AuraByName(unit,def.nameMatch)
+      if found==nil then unknown=true;has=nil else has=found end
+     end
+     if has and def.anyTarget then return false,unit=="player"and "Soulstone active on you"or "Soulstone active on a group member"end
+     if has==false then
+      total=total+1
+      if #names<3 then
+       if unit=="player"then
+        names[#names+1]="you"
+       else
+        local un=UnitName(unit)
+        names[#names+1]=(T.Public(un)and type(un)=="string"and un)or unit
+       end
+      end
+     end
+    else unknown=true end
+   end
+ end
+ if def.anyTarget then
+  if unknown or checked==0 then return nil end
+  return true,"No checked member has Soulstone"
+ end
+ if total==0 then if unknown or checked==0 then return nil end;return false,"Active"end
+ if total>#names then names[#names+1]="+"..(total-#names).." more"end
+ if #names==1 and names[1]=="you"then return true,"Not active"end
+ return true,"Missing on "..table.concat(names,", ")
+end
+
+-- Alerts are display-only frames, independently draggable.
+local function Row(index)
+ if not panel then return nil end
+ local row=rows[index]
+ if not row then
+   -- Build presentation out of combat.
+  if InCombatLockdown()then return nil end
+  row=CreateFrame("Button",nil,panel)
+  row:SetSize(380,134)
+  row:SetMovable(true)
+  row:SetClampedToScreen(true)
+  row:RegisterForDrag("LeftButton")
+  row.text=row:CreateFontString(nil,"OVERLAY")
+  row.text:SetPoint("TOP",0,0);row.text:SetJustifyH("CENTER")
+  row.text:SetShadowColor(0,0,0,1);row.text:SetShadowOffset(1.5,-1.5)
+  row.iconFrame=CreateFrame("Frame",nil,row,"BackdropTemplate")
+  row.iconFrame:SetSize(52,52)
+  row.iconFrame:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+  row.iconFrame:SetBackdropColor(0,0,0,.55)
+  row.icon=row.iconFrame:CreateTexture(nil,"ARTWORK")
+  row.icon:SetPoint("TOPLEFT",2,-2);row.icon:SetPoint("BOTTOMRIGHT",-2,2);row.icon:SetTexCoord(.07,.93,.07,.93)
+  row.sub=row:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+  row.sub:SetJustifyH("CENTER");row.sub:SetTextColor(.85,.87,.9)
+  row:SetScript("OnDragStart",function(self)
+   if InCombatLockdown()then return end
+   dragging=true
+   self:StartMoving()
+  end)
+  row:SetScript("OnDragStop",function(self)
+   if InCombatLockdown()then dragging=false;return end
+   self:StopMovingOrSizing()
+   if panel and self.def then
+    local left,top=self:GetLeft(),self:GetTop()
+    local pl,pt=panel:GetLeft(),panel:GetTop()
+    if left and top and pl and pt then
+     local x,y=left-pl,top-pt
+     self:ClearAllPoints();self:SetPoint("TOPLEFT",panel,"TOPLEFT",x,y)
+     SetSpot(self.def,x,y)
+    end
+   end
+   dragging=false
+   M:Refresh()
+  end)
+  rows[index]=row
+ end
+ return row
+end
+
+local function Paint()
+ if not panel or dragging then return end
+ local mapOpen=WorldMapFrame and WorldMapFrame:IsShown()
+ if not Enabled()or(mapOpen)or(InCombatLockdown()and not CombatOn())then
+  for _,row in ipairs(rows)do row:Hide()end
+  panel:Hide()
+  return
+ end
+ local size=SIZES[SizeIndex()]
+ local cache=Cache()
+ local n=0
+ local stacked=0
+ for _,def in ipairs(Definitions())do
+  local show=false
+  local detail
+  if Applicable(def)then
+   local on=DefOn(def)
+   if on then
+    local missing,info=DefState(def,cache)
+    if missing==true then show=true;detail=info
+    elseif preview then show=true;detail=(info or "Check unavailable").."  (preview)"end
+   elseif preview then
+    show=true;detail="Switched off"
+   end
+  end
+  if show then
+   n=n+1
+   local row=Row(n)
+   if row then
+    local r,g,b=DefColor(def)
+    row.def=def
+    row.text:SetFont(select(1,GameFontHighlight:GetFont()),size.text,"")
+    row.text:SetText(AlertText(def))
+    row.text:SetTextColor(r,g,b)
+    row.text:SetPoint("TOP",0,0)
+    row.iconFrame:SetSize(size.icon,size.icon)
+    row.iconFrame:SetPoint("TOP",0,-(size.text+4))
+    row.iconFrame:SetBackdropBorderColor(r*.65,g*.65,b*.65,1)
+    row.icon:SetTexture(Icon(def))
+    row.sub:SetFont(select(1,GameFontHighlightSmall:GetFont()),size.sub,"")
+    row.sub:SetPoint("TOP",0,-(size.text+size.icon+8))
+    row.sub:SetText(detail or"")
+    local width=row.text:GetStringWidth()
+     row:SetWidth(math.max(190,math.min(460,(tonumber(width)or 260)+36)))
+     row.sub:SetWidth(row:GetWidth()-8)
+     row.sub:SetWordWrap(true)
+    row:SetHeight(size.row-6)
+    row:EnableMouse(true)
+    local spotX,spotY=Spot(def)
+    row:ClearAllPoints()
+    if spotX then
+     spotX=math.max(-1900,math.min(1900,spotX))
+     spotY=math.max(-1600,math.min(950,spotY))
+     row:SetPoint("TOPLEFT",panel,"TOPLEFT",spotX,spotY)
+    else
+     stacked=stacked+1
+     row:SetPoint("TOP",0,-(stacked-1)*size.row)
+    end
+    row:Show()
+   end
   end
  end
- return y,enabled and 4 or 0
+ for i=n+1,#rows do rows[i]:Hide()end
+ if n==0 then panel:Hide()else panel:SetHeight(math.max(stacked,1)*SIZES[SizeIndex()].row);panel:Show()end
 end
+
+local function Build()
+ if panel then return end
+ rows={}
+ panel=CreateFrame("Frame","EraUIClassReminderAlerts",UIParent)
+ panel:SetSize(460,134)
+ panel:SetPoint("TOP",UIParent,"CENTER",0,DEFAULT_Y)
+ panel:SetFrameStrata("HIGH")
+end
+
+local function ToggleRow(parent,label,get,set,width)
+ local b=CreateFrame("CheckButton",nil,parent)
+ b:SetSize(width or 328,24)
+ b.label=T.Text(b,label,11);b.label:SetPoint("LEFT",8,0);b.label:SetWidth((width or 328)-50)
+ b.label:SetJustifyH("LEFT")
+ b.track=CreateFrame("Frame",nil,b,"BackdropTemplate")
+ b.track:SetSize(30,16);b.track:SetPoint("RIGHT",-6,0)
+ b.track:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+ b.thumb=b.track:CreateTexture(nil,"ARTWORK");b.thumb:SetSize(12,12)
+ local function paint()
+  local v=get()
+  local r,g,bl=T.Colour()
+  b.track:SetBackdropColor(.08,.09,.11,1)
+  b.track:SetBackdropBorderColor(v and r or .28,v and g or .30,v and bl or .34,1)
+  if v then b.thumb:SetColorTexture(r,g,bl,1)else b.thumb:SetColorTexture(.3,.32,.36,1)end
+  b.thumb:ClearAllPoints()
+  b.thumb:SetPoint("CENTER",b.track,v and 6 or -6,0)
+  b.label:SetTextColor(v and r or .7,v and g or .73,v and bl or .78)
+ end
+ b:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  set(not get());paint();M:Refresh()
+ end)
+ paint()
+ b.draw=paint
+ return b
+end
+local function ActionButton(parent,label,width)
+ local b=T.Button(parent,label or"",width or 328,24)
+ b.label:ClearAllPoints();b.label:SetPoint("CENTER")
+ b.label:SetFont(select(1,GameFontHighlight:GetFont()),11,"")
+ local r,g,bl=T.Colour()
+ b:SetBackdropColor(r*.1,g*.1,bl*.1,1)
+ b:SetScript("OnEnter",function(self)self:SetBackdropColor(r*.24,g*.24,bl*.24,1)end)
+ b:SetScript("OnLeave",function(self)self:SetBackdropColor(r*.1,g*.1,bl*.1,1)end)
+ return b
+end
+
+local function BuildOptions(parent,anchor)
+ if dropdown then return dropdown end
+ local items={}
+ dropdown=CreateFrame("Frame",nil,parent,"BackdropTemplate")
+ T.BindInlinePanel(dropdown,anchor)
+ dropdown:SetSize(352,190)
+ dropdown:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
+ dropdown:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+ dropdown:SetBackdropColor(.026,.029,.037,.99)
+ local r,g,b=T.Colour()
+ dropdown:SetBackdropBorderColor(.19,.20,.24,1)
+ local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
+ local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
+ local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
+ local size=ActionButton(dropdown,"",158)
+ size.draw=function()size.label:SetText("Alert size: "..SIZES[SizeIndex()].key.."  >")end
+ size:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  local next=SizeIndex()+1
+  if next>#SIZES then next=1 end
+  SetOpt("reminderSize",next);size.draw();M:Refresh()
+ end)
+ local reset=ActionButton(dropdown,"Reset alert positions",158)
+ reset:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  ClearSpots();M:Refresh()
+ end)
+ local adv=ActionButton(dropdown,"Advanced v")
+ adv:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  local advanced=dropdown.advanced
+  dropdown.advanced=not advanced
+  adv.label:SetText(dropdown.advanced and "Advanced ^"or "Advanced v")
+  M:LayoutDropdown()
+ end)
+ local advRows={}
+ for _,def in ipairs(Definitions())do
+  local key=DefKey(def)
+  local default=not def.off
+  local get=function()
+   local v=Opt(key)
+   if v==nil then return default end
+   return v==true
+  end
+  advRows[#advRows+1]=ToggleRow(dropdown,def.text or def.key,get,function(v)SetOpt(key,v)end,170)
+  if def.choices then
+   local cbtn=ActionButton(dropdown,"",170)
+   cbtn.draw=function()
+    local choice=ChoiceOf(def)
+    cbtn.label:SetText((def.choiceLabel or "Spell")..": "..(choice and choice.name or "Any").."  >")
+   end
+   cbtn:SetScript("OnClick",function()
+    if InCombatLockdown()then return end
+    CycleChoice(def);cbtn.draw();M:Refresh()
+   end)
+   cbtn.draw()
+   advRows[#advRows+1]=cbtn
+  end
+ end
+ items[#items+1]=group;items[#items+1]=combat;items[#items+1]=prev
+ items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
+ for _,frame in ipairs(advRows)do items[#items+1]=frame end
+ dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
+ dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
+ dropdown.items=items
+ dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
+ dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
+ dropdown:Hide()
+ return dropdown
+end
+
+function M:LayoutDropdown()
+ if not dropdown then return end
+ dropdown.group.draw();dropdown.combat.draw();dropdown.prev.draw()
+ local y=-8
+ local function place(frame)
+  if not frame then return end
+  if frame.draw then frame.draw()end
+  frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
+ end
+ place(dropdown.group);place(dropdown.combat);place(dropdown.prev)
+ if dropdown.size then
+  if dropdown.size.draw then dropdown.size.draw()end
+  dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
+ end
+ if dropdown.reset then
+  dropdown.reset:ClearAllPoints();dropdown.reset:SetPoint("TOPLEFT",182,y);dropdown.reset:Show()
+ end
+ y=y-26
+ place(dropdown.adv)
+ local column=0
+ for _,frame in ipairs(dropdown.advRows)do
+  if dropdown.advanced then
+   if frame.draw then frame.draw()end
+   frame:ClearAllPoints()
+   frame:SetPoint("TOPLEFT",12+column*170,y)
+   frame:Show()
+   column=column+1
+   if column>=2 then column=0;y=y-26 end
+  else
+   frame:Hide()
+  end
+ end
+ if column>0 then y=y-26 end
+ dropdown:SetHeight(-y+24)
+ self:UpdateOptionsState()
+end
+function M:UpdateOptionsState()
+ if not dropdown then return end
+ local on=Enabled()
+ dropdown:SetAlpha(on and 1 or .45)
+ for _,frame in ipairs(dropdown.items)do
+  if on then if frame.Enable then frame:Enable()end
+  else if frame.Disable then frame:Disable()end end
+ end
+ if dropdown.offHint then dropdown.offHint:SetShown(not on)end
+end
+function M:OptionsPanel()
+ return dropdown
+end
+function M:AttachOptions(parent,anchor)
+ parent=anchor:GetParent()
+ if not dropdown then BuildOptions(parent,anchor)end
+ if dropdown:GetParent()~=parent then dropdown:SetParent(parent)end
+ dropdown:ClearAllPoints()
+ dropdown:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
+ self:LayoutDropdown()
+ dropdown:Show()
+end
+function M:HideOptions()
+ if dropdown then dropdown:Hide()end
+end
+
 function M:Refresh()
  if not class then local _,c=UnitClass("player");class=c end
  if not E.ReminderSpells[class]then return end
- if not panel then if InCombatLockdown()then return end;Build()end
- local combat=InCombatLockdown()
- if not combat then panel:SetShown(Enabled());Layout()end
- if not Enabled()then return end
- if not combat and not Friendly(recipient)then recipient="player"end
- local name=UnitName(recipient);if not T.Public(name)then name=nil end
- recipientButton.label:SetText("Buff: "..(name or recipient).."  >")
- header.label:SetText(unlocked and "Drag / scroll · left-click to lock" or "Class reminders  +")
- summary:SetText("")
- local y=-68;local shown=0
- if shardRow then
-  local count=T.Count(6265);local low=count<(tonumber(O().shardWarning)or 5)
-  shardRow.status:SetText(count.." in bags � minimum "..(tonumber(O().shardWarning)or 5))
-  T.PaintReminder(shardRow,not low,low and "LOW" or "READY")
-  if not combat then shardRow:ClearAllPoints();shardRow:SetPoint("TOPLEFT",8,y)end
-  y=y-60;shown=shown+1
- end
- for _,row in ipairs(rows)do
-  local def=row.def;local spell=self:Learned(def)
-  local active,text=self:State(def)
-  local visible=spell and ChoiceSet(def) and (unlocked or O().reminderMissingOnly==false or active~=true)
-  if not combat then
-   row:SetShown(not not visible)
-   if visible then
-    row:ClearAllPoints();row:SetPoint("TOPLEFT",8,y);y=y-60;shown=shown+1
-    local name,icon=T.Spell(spell);row.label:SetText(name or def.name);row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-    row:SetAttribute("type","spell");row:SetAttribute("spell",spell);row:SetAttribute("unit",CastTarget(def))
-    if def.kind=="soulstone"then
-     local _,item=CountItems(def)
-     if item then row:SetAttribute("type","item");row:SetAttribute("item","item:"..item)end
-    end
-   end
-  end
-  row.status:SetText(text);T.PaintReminder(row,active)
- end
- local totemCount;y,totemCount=PaintTotems(y,combat)
- if not combat then
-  if shown==0 and totemCount==0 then summary:SetText("All set � no missing learned buffs");y=-94 end
-  panel:SetHeight(-y+8)
- end
-end
-local function Cycle(field,predicate,button)
- local choices={}
- for _,def in ipairs(Definitions())do if predicate(def) and M:Learned(def)then choices[#choices+1]=def end end
- if #choices==0 then button.label:SetText("Learn a matching spell first");return end
- local index=0;for i,def in ipairs(choices)do if def.key==O()[field]then index=i end end
- local chosen=choices[index%#choices+1];O()[field]=chosen.key;button.label:SetText(chosen.name.."  >");M:Refresh()
+ if not panel then Build()end
+ Paint()
 end
 function M:Open()
- if InCombatLockdown()then return end
- if not Enabled()then E:Print("Class reminders are coming soon - still being redesigned.");return end
- self:Refresh()
- if not window then
-  window=T.Window("EraUIReminderOptions",(UnitClass("player")).." · Reminders",420,550)
-  local move=T.Button(window,"Move / resize reminder panel",380,30);move:SetPoint("TOPLEFT",18,-56)
-  move:SetScript("OnClick",function()
-   if InCombatLockdown()then return end
-   if not Enabled()then E:Print("Enable Class Reminders & Buffs in your class settings first.");return end
-   unlocked=true;window:Hide();if E.settingsFrame then E.settingsFrame:Hide()end;M:Refresh()
-  end)
-  T.Toggle(window,"Show only missing buffs","reminderMissingOnly",-94,true,function()M:Refresh()end)
-  local note=T.Text(window,"Choose recipients on the reminder panel. Each button casts one learned spell. Group buffs use their normal reagents. Combat keeps button positions and assignments fixed.",12)
-  note:SetPoint("TOPLEFT",18,-136);note:SetWidth(380)
-  local y=-208
-  if class=="PALADIN" or class=="SHAMAN"then
-   local field=class=="PALADIN" and "reminderBlessing" or "reminderImbue"
-   local predicate=function(d)return class=="PALADIN" and d.blessing or class=="SHAMAN" and d.kind=="imbue"end
-   local choose=T.Button(window,class=="PALADIN" and "Choose tracked blessing >" or "Choose weapon enchant >",380,30);choose:SetPoint("TOPLEFT",18,y);y=y-38
-   choose:SetScript("OnClick",function()if not InCombatLockdown()then Cycle(field,predicate,choose)end end)
-  end
-  for _,def in ipairs(Definitions())do
-   if not def.blessing and def.kind~="imbue"then
-    T.Toggle(window,def.name,"reminder_"..def.key,y,true,function()M:Refresh()end);y=y-34
-   end
-  end
-  if class=="SHAMAN"then T.Toggle(window,"Show totem timers","reminderTotems",y,true,function()M:Refresh()end);y=y-38 end
-  if class=="WARLOCK"then T.Slider(window,"Warn below this many shards","shardWarning",y,0,40,5,function()M:Refresh()end);y=y-65 end
-  window:SetHeight(math.max(350,-y+20))
- end
- window:Show()
+ if InCombatLockdown()then E:Print("Open class reminders after combat.");return end
+ if not class then local _,c=UnitClass("player");class=c end
+ if not E.ReminderSpells[class]then E:Print("No class reminders for this class.");return end
+ if not Enabled()then E:Print("Turn on Class Reminders & Buffs in your class settings first (/era).");return end
+ if E.Classic and E.Classic.OpenOptions then E.Classic.OpenOptions()end
+ C_Timer.After(.25,function()
+  local frame,anchor=M.settingsFrame,M.settingsAnchor
+  if frame and anchor and frame:IsShown()then M:AttachOptions(frame,anchor)end
+ end)
 end
 function M:Initialize()
- local _,c=UnitClass("player");class=c;if not E.ReminderSpells[class]then return end
+ local _,c=UnitClass("player");class=c
+ if not E.ReminderSpells[class]then return end
+ -- Positions saved by the earlier dragging build can be off screen; clear once.
+ if Opt("reminderSpotVersion")~=2 then
+  ClearSpots()
+  SetOpt("reminderSpotVersion",2)
+ end
  self:Refresh()
  local events=CreateFrame("Frame")
- for _,event in ipairs({"PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED","SPELLS_CHANGED","BAG_UPDATE_DELAYED","PLAYER_TARGET_CHANGED","GROUP_ROSTER_UPDATE","UNIT_AURA","PLAYER_TOTEM_UPDATE","UNIT_INVENTORY_CHANGED"})do events:RegisterEvent(event)end
+ for _,event in ipairs({"PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","SPELLS_CHANGED",
+  "BAG_UPDATE_DELAYED","UNIT_AURA","UNIT_PET","PLAYER_TOTEM_UPDATE","UNIT_INVENTORY_CHANGED","GROUP_ROSTER_UPDATE",
+  "PLAYER_LEVEL_UP","PLAYER_EQUIPMENT_CHANGED","UNIT_HEALTH","UNIT_FLAGS","UNIT_CONNECTION"})do
+  pcall(events.RegisterEvent,events,event)
+ end
  local dirty=true;local elapsed=0
- events:SetScript("OnEvent",function()dirty=true end)
+ events:SetScript("OnEvent",function(_,event)
+  if event=="UNIT_AURA"or event=="GROUP_ROSTER_UPDATE"or event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then
+   groupCache.units={};groupCache.at=GetTime()
+  end
+  dirty=true
+ end)
  events:SetScript("OnUpdate",function(_,dt)
   elapsed=elapsed+dt
-  if elapsed>1 or dirty and elapsed>.15 then elapsed=0;dirty=false;M:Refresh()end
+  if(dirty and elapsed>.5)or elapsed>2 then elapsed=0;dirty=false;M:Refresh()end
  end)
 end

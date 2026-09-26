@@ -38,6 +38,7 @@ local function Layout()
         orb:SetPoint("LEFT",row,"LEFT",(i-1)*(p.size+3),0)
     end
     handle:ClearAllPoints();handle:SetAllPoints(row)
+    EraUI:SaveSettings()
 end
 local function Paint(points,max)
     capacity=max
@@ -79,6 +80,7 @@ local function SavePosition()
     row:StopMovingOrSizing()
     local x,y=row:GetCenter();local cx,cy=UIParent:GetCenter();local p=Options()
     p.x=x-cx;p.y=y-cy
+    EraUI:SaveSettings()
 end
 local function Lock()
     SavePosition();editing=false;handle:Hide();row:SetFrameStrata("MEDIUM")

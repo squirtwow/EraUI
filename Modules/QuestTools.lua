@@ -35,6 +35,7 @@ end
 function M:CycleProfile(direction)
  local _,list,i,class=self:Profile()
  EraUIDB.rewardProfiles[class]=(i-1+direction)%#list+1
+ EraUI:SaveSettings()
  self:RefreshRewards()
 end
 function M:ProfileDescription()

@@ -7,8 +7,9 @@ local ranks={
  food={{587,5349,1},{597,1113,5},{990,1114,15},{6129,1487,25},{10144,8075,35},{10145,8076,45},{28612,22895,55}},
  water={{5504,5350,1},{5505,2288,5},{5506,2136,15},{6127,3772,25},{10138,8077,35},{10139,8078,45},{10140,8079,55}},
 }
-local window,heading
+local panel
 local buttons={}
+local actions={}
 local session=0
 local function ValidLevel(unit)
  local player=UnitIsPlayer(unit);if not T.Public(player) or not player then return end
@@ -24,30 +25,95 @@ function M:Suggestion(kind,level)
  return chosen
 end
 local function SetConjure(b,kind,entry)
- b:SetAttribute("type","spell");b:SetAttribute("spell",entry and entry[1]or nil)
- b.label:SetText(entry and ("Conjure "..kind.." · rank "..(function()for i,v in ipairs(ranks[kind])do if v==entry then return i end end end)()) or ("No learned "..kind.." for this level"))
+ b.entry=entry
+ b.label:SetText(InCombatLockdown()and "Conjuring unavailable in combat"or(entry and ("Conjure "..kind.." · rank "..(function()for i,v in ipairs(ranks[kind])do if v==entry then return i end end end)()) or ("No learned "..kind.." for this level")))
+ b:SetEnabled(false) -- Presentation slot; its independent secure overlay handles clicks.
  b:SetAlpha(entry and 1 or .45)
 end
+function M:SyncButtons()
+ if InCombatLockdown()then return end
+ local frame=E.settingsFrame
+ for kind,slot in pairs(buttons)do
+  local visible=slot:IsShown()and frame and frame:IsShown()and slot.entry~=nil
+  local left,top=slot:GetLeft(),slot:GetTop()
+  local clip=frame and frame.settingsScroll
+  if visible and clip then
+   local s,c=slot:GetEffectiveScale(),clip:GetEffectiveScale()
+   visible=left and top and clip:GetTop()and slot:GetBottom()
+    and top*s<=clip:GetTop()*c+.5 and slot:GetBottom()*s>=clip:GetBottom()*c-.5
+    and left*s>=clip:GetLeft()*c-.5 and slot:GetRight()*s<=clip:GetRight()*c+.5
+  end
+  visible=not not(visible and left and top)
+  local action=actions[kind]
+  if visible and not action then
+   -- No parent or anchor points into settings: protected descendants/anchors
+   -- would also restrict scrolling, navigation, closing and scaling that window.
+   action=T.SubButton(UIParent,"",328,24,true);actions[kind]=action
+   action:SetFrameStrata("DIALOG");action:SetFrameLevel(200)
+   action:EnableMouseWheel(true)
+   action:SetScript("OnMouseWheel",function(_,delta)
+    local f=E.settingsFrame
+    if f and f.SetSettingsScroll then f:SetSettingsScroll(f.settingsScroll:GetVerticalScroll()-delta*48)end
+   end)
+  end
+  if action then
+   if visible then
+    action:SetScale(slot:GetEffectiveScale()/UIParent:GetEffectiveScale())
+    action:SetSize(slot:GetWidth(),slot:GetHeight())
+    action:ClearAllPoints();action:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",left,top)
+    action.label:SetText(slot.label:GetText())
+    action:SetAttribute("type","spell");action:SetAttribute("spell",slot.entry[1])
+   else action:SetAttribute("spell",nil)end
+   local rule=visible and "[combat] hide; show"or "hide"
+   if action.visibilityRule~=rule then
+    RegisterStateDriver(action,"visibility",rule);action.visibilityRule=rule
+   end
+  end
+ end
+end
 function M:Refresh()
- if not window or InCombatLockdown()then return end
- local level=ValidLevel("target")
+ if not panel then return end
+ local level=not InCombatLockdown()and ValidLevel("target")
  local active=E:GetSetting("enabled") and E:GetSetting("mageSupplies")
- heading:SetText(not active and "Enable Conjuring Suggestions in Mage settings." or level and ("Target level "..level.." · highest suitable learned ranks") or "Target a player to see suitable food and water.")
+ T.SubState(panel,not not active,"Enable Conjuring Suggestions in Mage settings.")
+ if active then
+  panel.hint:SetText(level and("Target level "..level.." · highest suitable learned ranks")or "Target a player to see suitable food and water.")
+ end
  for kind,b in pairs(buttons)do SetConjure(b,kind,active and self:Suggestion(kind,level))end
+ self:SyncButtons()
+end
+function M:Attach(parent,anchor)
+ parent=anchor:GetParent()
+ if not panel then
+  panel=T.SubPanel(parent,anchor)
+  panel.items={}
+  for _,kind in ipairs({"food","water"})do
+    local b=T.SubButton(panel,"",328,24)
+   buttons[kind]=b
+   panel.items[#panel.items+1]=b
+  end
+  panel.items[#panel.items+1]=T.SubSlider(panel,"Food stacks to offer","mageFoodStacks",0,6,1,function()M:Refresh()end)
+  panel.items[#panel.items+1]=T.SubSlider(panel,"Water stacks to offer","mageWaterStacks",0,6,1,function()M:Refresh()end)
+   T.SubLayout(panel,panel.items,32)
+   panel:HookScript("OnHide",function()M:SyncButtons()end)
+  self:Refresh()
+  return
+ end
+ if panel:GetParent()~=parent then panel:SetParent(parent)end
+ panel:ClearAllPoints();panel:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
+ panel:Show()
+ self:Refresh()
+end
+function M:HidePanel()
+ if panel then panel:Hide()end
 end
 function M:Open()
- if not window then
-  window=T.Window("EraUIMageTools","Mage · Food & Water",420,390)
-  heading=T.Text(window,"",12);heading:SetPoint("TOPLEFT",18,-56);heading:SetWidth(380)
-  for i,kind in ipairs({"food","water"})do
-   local b=T.Button(window,"",380,34,true);b:SetPoint("TOPLEFT",18,-94-(i-1)*42);buttons[kind]=b
-  end
-  T.Slider(window,"Food stacks to offer","mageFoodStacks",-198,0,6,1)
-  T.Slider(window,"Water stacks to offer","mageWaterStacks",-252,0,6,1)
-  local note=T.Text(window,"Auto-fill Trade is toggled in Mage settings. Full stacks only; up to six trade slots. You confirm the trade.",12)
-  note:SetPoint("TOPLEFT",18,-314);note:SetWidth(380)
- end
- window:Show();self:Refresh()
+ if InCombatLockdown()then return end
+ if E.Classic and E.Classic.OpenOptions then E.Classic.OpenOptions()end
+ C_Timer.After(.25,function()
+  local f,a=M.settingsFrame,M.settingsAnchor
+  if f and a and f:IsShown()then M:Attach(f,a)end
+ end)
 end
 function M:FillTrade()
  session=session+1;local current=session
@@ -102,7 +168,7 @@ end
 function M:Initialize()
  local _,class=UnitClass("player");if class~="MAGE"then return end
  local f=CreateFrame("Frame")
- for _,event in ipairs({"PLAYER_TARGET_CHANGED","SPELLS_CHANGED","GET_ITEM_INFO_RECEIVED","TRADE_SHOW","TRADE_CLOSED","TRADE_REQUEST_CANCEL","PLAYER_REGEN_ENABLED"})do f:RegisterEvent(event)end
+ for _,event in ipairs({"PLAYER_TARGET_CHANGED","SPELLS_CHANGED","GET_ITEM_INFO_RECEIVED","TRADE_SHOW","TRADE_CLOSED","TRADE_REQUEST_CANCEL","PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED"})do f:RegisterEvent(event)end
  f:SetScript("OnEvent",function(_,event)
   if event=="TRADE_SHOW"then M:FillTrade()
   elseif event=="TRADE_CLOSED" or event=="TRADE_REQUEST_CANCEL"then session=session+1

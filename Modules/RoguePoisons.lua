@@ -95,6 +95,7 @@ local function Tell(message)if status then status:SetText(message)else E:Print(m
 local function ResetQuantities()
  for i=1,#groups do T.Options()["poisonQuantity"..i]=0;if rows and rows[i]then rows[i].slider:SetValue(0)end end
  T.Options().poisonPowder=0;if rows and rows.powder then rows.powder.slider:SetValue(0)end
+ E:SaveSettings()
 end
 function M:Buy()
  if not Enabled() or InCombatLockdown() or not MerchantOpen() or purchase or crafting then return end
@@ -285,6 +286,7 @@ function M:Open()
    end
    r.slider:SetScript("OnValueChanged",function(_,value)
     local n=math.floor(value+.5);T.Options()[key]=n;r.amount:SetText(n)
+    E:SaveSettings()
     if rows.powder then M:Refresh()end
    end)
    r.slider:SetValue(tonumber(T.Options()[key])or 0)

@@ -22,11 +22,13 @@ end
 local function Layout()
     local p=Options()
     bar:SetSize(p.width,p.height);bar:ClearAllPoints();bar:SetPoint("CENTER",UIParent,"CENTER",p.x,p.y)
+    EraUI:SaveSettings()
 end
 local function Save()
     bar:StopMovingOrSizing()
     local x,y=bar:GetCenter();local cx,cy=UIParent:GetCenter()
     local p=Options();p.x=x-cx;p.y=y-cy
+    EraUI:SaveSettings()
 end
 local function Hover()
     local allowed=Enabled() and not InCombatLockdown()

@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.0.4
+- Added: optional Reveal World Map shows supported unexplored terrain with darker shading, using map metadata generated for the Forever client build.
+- Fixed: What's New is bounded to the screen with scrollable release notes, mouse-wheel support and a fixed heading and Got it button. Layout adapts to UI scale and resolution changes.
+- Changed: Tooltips and Training Guide are enabled by default for fresh settings and resets. Existing saved choices are respected; both options remain configurable in /era and require a reload to change.
+- Added: optional Training Guide tab inside the Classic spellbook, populated immediately from bundled Forever spell metadata. Search unlearned ranks grouped by availability, missing requirements and upcoming levels. Cost totals use labelled Classic base-price references, with unverified prices marked ?; optional trainer quotes refine those references.
+- Fixed: Training Guide excludes unverified seasonal/default learning levels, including the level-1 Heart of the Lion and Aspect of the Viper records. Classic price references exclude seasonal offers.
+- Fixed: hunter feeding uses Forever's current pet happiness and food APIs. Settings explain why the button is hidden when the pet is happy, absent or dead, or while settings are open.
+- Fixed: aura and general tooltip skins use an original thin, bevelled grey border with softened corners and a translucent dark background. Native alpha refreshes cannot expose the modern border while skinned.
+- Fixed: player channel progress uses one public timestamp clock and keeps its scale through damage updates. Advanced channels retain the native duration fallback for restricted timing.
+- Fixed: the map quest list overlays the right side of the full-width map instead of squeezing its artwork into a letterboxed viewport. Older saved map proportions are corrected once.
+- Fixed: opening or closing the world map's quest sidebar keeps the saved outer window size and position, including before the first manual resize.
+- Added: the Tooltips setting now applies Classic dark backgrounds and grey borders to regular item, spell, unit and map-control tooltips, including linked items and comparisons.
+- Fixed: world map artwork follows resizing immediately, with proportional sizing throughout the drag and no delayed growth on release. Normal and expanded map layouts are restored separately when reopened.
+- Fixed: the Map Pin button and hover highlight stay within their intended small top-left control instead of stretching across the map.
+- Fixed: the player-frame level number keeps its Classic gold colour after leveling.
+- Changed: Classic Unit Frames now includes Classic player debuff borders and dark, grey-bordered buff/debuff hover boxes. Native aura text, timers, dispel symbols and controls are retained.
+- Fixed: expanded class options and search results reserve their full height and scroll above the settings footer. Mage supply sliders also reserve room for their labels.
+- Fixed: mage conjure click targets no longer protect the settings window. They stay aligned with visible controls, hide during combat and allow settings navigation, closing and scaling during combat.
+- Fixed: pet reminders detect dead pets and the selected warlock demon. Weapon reminders share coating detection, correctly read the off hand and respect the selected shaman imbue.
+- New: optional Windfury Totem reminder under Shaman Advanced settings. The general totem reminder explicitly checks for at least one active totem.
+- Fixed: group reminders skip duplicate player entries, dead, offline and out-of-range members, and restrict party-only buffs to your raid subgroup. Aura changes invalidate cached checks, missing-member summaries are compact, and Soulstone needs only one protected checked member.
+- Fixed: hunter feeding no longer overlaps settings. Right-click the icon to unlock, drag it to move, scroll to resize and left-click to lock. Positioning previews also work before learning Feed Pet.
+- New: Class Reminders rebuilt as big on-screen alerts, a class-coloured word with the spell icon.
+- New: pick your aspect, blessing, imbue or demon so the alert names it.
+- New: covered for every class: Battle Shout, blessings, seals, aspects, Trueshot Aura, pets, poisons, weapon imbues, Inner Fire, Fortitude, Water Elemental, healthstones, soulstones, soul shards, Mark of the Wild and Thorns.
+- Changed: reminder options now live in your class tab as an Options dropdown, with individual reminders under Advanced.
+- Changed: drag any alert to move it, pick Small, Normal or Large, and reset positions any time; alerts stay hidden in combat by default.
+- Fixed: settings recovery now includes reminder toggles, choices, sizes and positions, map dimensions and movable-bar layouts when Forever loses SavedVariables.
+- Fixed: class-tool preferences, supply quantities, feeding/poison layouts and onboarding are recovered per character. Character identity includes the realm.
+
 ## 1.0.3
 - Changed: Smoother performance - bar placement, client-window scans, loot and unit power updates no longer run on every single frame.
 - Fixed: Combo points no longer vanish mid-fight when the client hides the value.

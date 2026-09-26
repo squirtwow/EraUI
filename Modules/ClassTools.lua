@@ -3,6 +3,59 @@ local T={};E:RegisterModule("ClassTools",T)
 E.ClassTools=T
 function T.Public(v)return not (issecretvalue and issecretvalue(v))end
 function T.Number(v)return T.Public(v) and type(v)=="number" end
+-- Independently checked against SpellItemEnchantment, Forever 1.60.1.70009.
+-- Totem coatings deliberately differ from the caster's own weapon imbues.
+local coatingIDs={
+ rockbiter={29,6,1,503,1663,683,1664,7568},
+ flametongue={5,4,3,523,1665,1666,7567},
+ frostbrand={2,12,524,1667,1668,7566},windfury={283,284,525,1669,7569},
+ flametongueTotem={124,285,543,1683},windfuryTotem={1783,563,564},
+ instant={323,324,325,623,624,625},deadly={7,8,626,627,2630},
+ crippling={22,603},numbing={35,23,643},wound={703,704,705,706},
+ poison={7254,7255,7256,7542,7651},
+}
+local coatingKinds={}
+for kind,ids in pairs(coatingIDs)do for _,id in ipairs(ids)do coatingKinds[id]=kind end end
+local poisonSpells={instant=8681,deadly=2835,crippling=3420,numbing=5763,wound=13220}
+function T.WeaponCoating(slot)
+ local get=GetInventoryItemID
+ if not get then return nil end
+ local ok,id=pcall(get,"player",slot)
+ if not ok or not T.Public(id)then return nil end
+ if not id then return {weapon=false}end
+ local info=C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
+ if not info then return nil end
+ local good,_,_,_,_,_,classID=pcall(info,id)
+ if not good or not T.Number(classID)then return nil end
+ if classID~=2 then return {weapon=false}end
+ local state={weapon=true}
+ if C_PaperDollInfo and C_PaperDollInfo.GetTemporaryEnchantmentInfo then
+  local success,data=pcall(C_PaperDollInfo.GetTemporaryEnchantmentInfo,slot)
+  if not success or not T.Public(data)then return nil end
+  state.has=data~=nil
+  if data then state.id=data.enchantID;state.ms=data.remainingTimeMs;state.charges=data.chargesRemaining end
+ elseif GetWeaponEnchantInfo then
+  local values={pcall(GetWeaponEnchantInfo)}
+  if not values[1]then return nil end
+  local offset=slot==16 and 0 or 4
+  local has=values[offset+2]
+  if not T.Public(has)then return nil end
+  state.has=has==true
+  state.ms=values[offset+3];state.charges=values[offset+4];state.id=values[offset+5]
+ else return nil end
+ if T.Number(state.id)then state.kind=coatingKinds[state.id]end
+ return state
+end
+function T.CoatingIsPoison(state)
+ if state.kind then return state.kind=="poison"or poisonSpells[state.kind]~=nil end
+ -- An unfamiliar enchant is not proof of either poison or a missing poison.
+ return nil
+end
+function T.CoatingName(state)
+ local spell=state.kind and poisonSpells[state.kind]
+ if spell then return T.Spell(spell)end
+ if state.kind=="poison"then return "Poison"end
+end
 function T.Options()
  EraUIClassicCharDB=EraUIClassicCharDB or {}
  EraUIClassicCharDB.classTools=EraUIClassicCharDB.classTools or {}
@@ -86,7 +139,7 @@ function T.Toggle(f,label,key,y,default,changed)
  b:SetScript("OnClick",function()
   if InCombatLockdown()then return end
   local v=T.Options()[key];if v==nil then v=default end
-  T.Options()[key]=not v;draw();if changed then changed()end
+  T.Options()[key]=not v;E:SaveSettings();draw();if changed then changed()end
  end)
  draw();return b
 end
@@ -98,7 +151,7 @@ function T.Slider(f,label,key,y,low,high,default,changed)
  s:SetThumbTexture("Interface\\Buttons\\WHITE8X8")
  local thumb=s:GetThumbTexture();thumb:SetSize(10,18);thumb:SetVertexColor(T.Colour())
  s:SetScript("OnValueChanged",function(_,v)
-  v=math.floor(v+.5);T.Options()[key]=v;title:SetText(label..": "..v)
+  v=math.floor(v+.5);T.Options()[key]=v;E:SaveSettings();title:SetText(label..": "..v)
   if changed then changed(v)end
  end)
  s:SetValue(math.max(low,math.min(high,tonumber(T.Options()[key]) or default)))
@@ -147,4 +200,116 @@ function T:Open()
 end
 function T:Refresh()
  local m=self:ActiveModule();if m and m.Refresh then m:Refresh()end
+end
+
+-- Sub-category panel shown under a settings row by a class tool.
+function T.BindInlinePanel(panel,anchor)
+ anchor.inlinePanel=panel
+ local function changed()
+  local frame=E.settingsFrame
+  if frame and frame.QueueSettingsLayout then frame:QueueSettingsLayout()end
+ end
+ panel:HookScript("OnSizeChanged",changed)
+ panel:HookScript("OnShow",changed)
+ panel:HookScript("OnHide",changed)
+ changed()
+end
+function T.SubPanel(parent,anchor,width)
+ local p=CreateFrame("Frame",nil,parent,"BackdropTemplate")
+ p:SetSize(width or 352,40)
+ p:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
+ p:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+ p:SetBackdropColor(.026,.029,.037,.99)
+ p:SetBackdropBorderColor(.19,.20,.24,1)
+ p.items={}
+ p.hint=T.Text(p,"",10,true)
+ p.hint:SetPoint("BOTTOMLEFT",12,8);p.hint:SetWidth((width or 352)-24);p.hint:SetJustifyH("LEFT")
+ T.BindInlinePanel(p,anchor)
+ return p
+end
+function T.SubToggle(parent,label,key,default,changed,width)
+ local b=CreateFrame("CheckButton",nil,parent)
+ b:SetSize(width or 328,24)
+ b.label=T.Text(b,label,11);b.label:SetPoint("LEFT",8,0);b.label:SetWidth((width or 328)-50);b.label:SetJustifyH("LEFT")
+ b.track=CreateFrame("Frame",nil,b,"BackdropTemplate")
+ b.track:SetSize(30,16);b.track:SetPoint("RIGHT",-6,0)
+ b.track:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+ b.thumb=b.track:CreateTexture(nil,"ARTWORK");b.thumb:SetSize(12,12)
+ local function paint()
+  local v=T.Options()[key]
+  if v==nil then v=default end
+  local r,g,bl=T.Colour()
+  b.track:SetBackdropColor(.08,.09,.11,1)
+  b.track:SetBackdropBorderColor(v and r or .28,v and g or .30,v and bl or .34,1)
+  if v then b.thumb:SetColorTexture(r,g,bl,1)else b.thumb:SetColorTexture(.3,.32,.36,1)end
+  b.thumb:ClearAllPoints();b.thumb:SetPoint("CENTER",b.track,v and 6 or -6,0)
+  b.label:SetTextColor(v and r or .7,v and g or .73,v and bl or .78)
+ end
+ b:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  local v=T.Options()[key]
+  if v==nil then v=default end
+  T.Options()[key]=not v
+  E:SaveSettings()
+  paint()
+  if changed then changed()end
+ end)
+ paint()
+ b.draw=paint
+ return b
+end
+function T.SubButton(parent,label,width,height,secure)
+ local b=T.Button(parent,label or"",width or 328,height or 24,secure)
+ b.label:ClearAllPoints();b.label:SetPoint("CENTER")
+ b.label:SetFont(select(1,GameFontHighlight:GetFont()),11,"")
+ return b
+end
+function T.SubSlider(parent,label,key,low,high,default,changed,width)
+ local b=CreateFrame("Slider",nil,parent,"BackdropTemplate")
+ b.layoutTop=22 -- Reserve the label above the slider, not just the track.
+ b:SetSize(width or 328,12)
+ T.Skin(b)
+ b:SetOrientation("HORIZONTAL");b:SetMinMaxValues(low,high);b:SetValueStep(1);b:SetObeyStepOnDrag(true)
+ b:SetThumbTexture("Interface\\Buttons\\WHITE8X8")
+ b:GetThumbTexture():SetSize(10,16);b:GetThumbTexture():SetVertexColor(T.Colour())
+ b.label=T.Text(b,"",11);b.label:SetPoint("BOTTOMLEFT",0,8)
+ b.draw=function()
+  local v=tonumber(T.Options()[key])
+  if v==nil then v=default end
+  b.label:SetText(label..": "..v)
+ end
+ b:SetScript("OnValueChanged",function(_,value)
+  local n=math.floor(value+.5)
+  T.Options()[key]=n
+  E:SaveSettings()
+  b.label:SetText(label..": "..n)
+  if changed then changed(n)end
+ end)
+ local start=tonumber(T.Options()[key])
+ if start==nil then start=default end
+ b:SetValue(math.max(low,math.min(high,start)))
+ b.draw()
+ return b
+end
+function T.SubLayout(p,items,step)
+ local y=-8
+ step=step or 26
+ for _,f in ipairs(items or{})do
+  if f then
+   if f.draw then f.draw()end
+   y=y-(f.layoutTop or 0)
+   f:ClearAllPoints();f:SetPoint("TOPLEFT",12,y);f:Show()
+   y=y-(f.layoutTop and(f:GetHeight()+8)or step)
+  end
+ end
+ p:SetHeight(math.max(28,-y+24))
+ return y
+end
+function T.SubState(p,on,offHint)
+ p:SetAlpha(on and 1 or .45)
+ for _,f in ipairs(p.items or{})do
+  if on then if f.Enable then f:Enable()end
+  else if f.Disable then f:Disable()end end
+ end
+ if p.hint then p.hint:SetText(on and""or(offHint or""))end
 end

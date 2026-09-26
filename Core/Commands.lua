@@ -217,8 +217,22 @@ SlashCmdList.ERAUI = function(msg)
         end
         if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() else EraUI:Print("Update notes are not available.") end
         return
+    elseif msg == "mapdebug" then
+        if EraUI.modules.MovableMap and EraUI.modules.MovableMap.DumpText then
+            ShowReport(EraUI.modules.MovableMap:DumpText())
+        else
+            EraUI:Print("Map module is not available.")
+        end
+        return
+    elseif msg == "reminders" then
+        if EraUI.modules.ClassReminders and EraUI.modules.ClassReminders.Open then
+            EraUI.modules.ClassReminders:Open()
+        else
+            EraUI:Print("Class reminders are not available.")
+        end
+        return
     elseif msg == "help" then
-        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era status or audit shows diagnostics.")
+        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era reminders opens class reminders; /era status or audit shows diagnostics.")
         EraUI:Print("/era reload reloads the UI; /era reset clears your EraUI settings (reload afterward).")
         return
     elseif msg == "version" then
@@ -228,6 +242,7 @@ SlashCmdList.ERAUI = function(msg)
         ReloadUI()
         return
     elseif msg == "reset" then
+        if not EraUI.Persistence:Reset() then return end
         if EraUI.Classic then EraUI.Classic.db = nil end
         EraUIClassicDB = nil; EraUIClassicCharDB = nil
         if C_CVar then C_CVar.SetCVar("EraUIClassicSettings", "") end
