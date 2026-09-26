@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3
+- Changed: Smoother performance - bar placement, client-window scans, loot and unit power updates no longer run on every single frame.
+- Fixed: Combo points no longer vanish mid-fight when the client hides the value.
+- Fixed: Elite and boss target frames keep their art in combat instead of dropping to the normal frame.
+- Fixed: Pet and target-of-target art refresh after summons and target changes.
+- Fixed: The player frame name no longer goes blank or shows as "Unknown".
+- Fixed: Hide Secondary Names now reliably hides the surname on the player and target frames, and no longer switches itself back off.
+- Fixed: Your level updates on the character sheet the moment you ding with it open.
+- Fixed: Inspecting a second player updates the name and talents instead of keeping the previous one.
+
 ## 1.0.2
 - Fixed: Target frame name no longer sticks to the previous target after targeting yourself.
 

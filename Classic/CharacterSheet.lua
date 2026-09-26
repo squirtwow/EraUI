@@ -359,8 +359,15 @@ local function Build()
         "UNIT_RESISTANCES", "UNIT_INVENTORY_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_LEVEL", "COMBAT_RATING_UPDATE", "UNIT_AURA" }) do
         pcall(watcher.RegisterEvent, watcher, event)
     end
-    watcher:SetScript("OnEvent", function(_, _, unit)
+    watcher:SetScript("OnEvent", function(_, event, unit)
         if unit == nil or unit == "player" then UpdateStats() end
+        -- The level line and the fade over the client's level text were only
+        -- applied when the sheet was laid out, so dinging with the sheet open
+        -- left the old level showing.
+        if event == "UNIT_LEVEL" or event == "PLAYER_LEVEL_UP" then
+            if sheet.level and sheet.level:IsShown() then sheet.level:SetText(LevelLine()) end
+            if CharacterLevelText then ns.Fade(CharacterLevelText) end
+        end
     end)
     doll:HookScript("OnShow", function() if active then UpdateStats() end end)
 end

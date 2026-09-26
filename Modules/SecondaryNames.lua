@@ -67,22 +67,19 @@ function Module:Initialize()
     if FCF_OpenNewWindow then hooksecurefunc("FCF_OpenNewWindow", function() self:HookChatFrames() end) end
     self.events = CreateFrame("Frame")
     self.events:RegisterEvent("PLAYER_ENTERING_WORLD")
-    self.events:RegisterEvent("CVAR_UPDATE")
-    self.events:SetScript("OnEvent", function(_, event, name)
-        if changing then return end
-        if event == "PLAYER_ENTERING_WORLD" then self:Apply(); return end
-        if not EraUI:GetSetting("hideSecondaryNames") or type(name) ~= "string" then return end
-        for _, setting in ipairs(settings) do
-            if name:lower() == setting:lower() then
-                local value = Read(setting)
-                if value and value ~= "0" then
-                    -- Respect changes made in the game's own name settings.
-                    EraUI:SetSetting("hideSecondaryNames", false)
-                    self:Apply()
-                end
-                return
-            end
-        end
+    self.events:SetScript("OnEvent", function()
+        if not changing then self:Apply() end
+    end)
+    -- The client can rewrite these CVars while it redraws name text, which
+    -- used to make the toggle look like it switched itself back off. While
+    -- the toggle is on, quietly re-assert the values every couple of seconds;
+    -- six reads that land on the right value change nothing at all.
+    self.events:SetScript("OnUpdate", function(_, elapsed)
+        if not EraUI:GetSetting("hideSecondaryNames") then return end
+        self.since = (self.since or 0) + elapsed
+        if self.since < 2 then return end
+        self.since = 0
+        if not changing then self:Apply() end
     end)
     self:Apply()
 end

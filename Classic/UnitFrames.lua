@@ -483,6 +483,22 @@ KeepPlayerAnchors = function()
     if not host then return end
     if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
     if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
+    if PlayerName then
+        -- The client can blank the player's own name or show "Unknown", and
+        -- its own-surname CVar is not effective on every client, so when
+        -- secondary names are hidden we strip the surname here too.
+        local name = UnitName("player")
+        if name and not (issecretvalue and issecretvalue(name)) then
+            local text = PlayerName:GetText()
+            if not (issecretvalue and issecretvalue(text)) then
+                if EraUI:GetSetting("hideSecondaryNames") then
+                    if text ~= name then PlayerName:SetText(name) end
+                elseif text == nil or text == "" or text == "Unknown" then
+                    PlayerName:SetText(name)
+                end
+            end
+        end
+    end
 end
 
 local CLASSIFICATION_ART = {
@@ -499,7 +515,15 @@ local function ApplyClassification(frame)
     if not entry or not active then return end
     local container = frame.TargetFrameContainer
     local classification = UnitClassification(entry.unit)
-    if (issecretvalue and issecretvalue(classification)) or classification == nil then classification = "normal" end
+    if issecretvalue and issecretvalue(classification) then
+        -- Combat can hide the classification; keep the last known one rather
+        -- than downgrading an elite or boss frame to a normal one.
+        classification = frame.lastClassification
+    elseif classification == nil then
+        classification = UnitExists(entry.unit) and frame.lastClassification or nil
+    end
+    if classification == nil then classification = "normal" end
+    frame.lastClassification = classification
     local art = CLASSIFICATION_ART[classification] or CLASSIFICATION_ART.normal
     if container.FrameTexture then
         ns.SetTex(container.FrameTexture, art.key)
@@ -548,7 +572,15 @@ local function FillTot(tot, fallbackUnit)
     local own = tot.fcui
     if not own or not own.totHealth then return end
     local unit = tot.unit or fallbackUnit
-    if not unit or not UnitExists(unit) then return end
+    if not unit or not UnitExists(unit) then
+        -- Clear the bars so the previous target-of-target's health cannot
+        -- linger into the next one.
+        own.totHealth:SetMinMaxValues(0, 1)
+        own.totHealth:SetValue(0)
+        own.totPower:SetMinMaxValues(0, 1)
+        own.totPower:SetValue(0)
+        return
+    end
     ns.SetHealth(own.totHealth, unit)
     ns.SetPower(own.totPower, unit)
 end
@@ -682,8 +714,21 @@ local function SkinTarget(frame, unit)
         local currentUnit = frame.unit or unit
         if main and main.Name and UnitExists(currentUnit) then
             local name = UnitName(currentUnit)
-            if name and not (issecretvalue and issecretvalue(name)) and main.Name:GetText() ~= name then
-                main.Name:SetText(name)
+            if name and not (issecretvalue and issecretvalue(name)) then
+                local text = main.Name:GetText()
+                if not (issecretvalue and issecretvalue(text)) then
+                    if EraUI:GetSetting("hideSecondaryNames") then
+                        -- Secondary names hidden: show only the base name.
+                        if text ~= name then main.Name:SetText(name) end
+                    else
+                        -- Leave a name with its surname alone; only a stale or
+                        -- blank label (the client missing a target change) is
+                        -- rewritten.
+                        local matches = text ~= nil and text ~= ""
+                            and (text == name or text:sub(1, #name + 1) == name .. " ")
+                        if not matches then main.Name:SetText(name) end
+                    end
+                end
             end
         end
         if main and main.LevelText and host then
@@ -700,6 +745,18 @@ local function SkinTarget(frame, unit)
             ns.Fade(tot.FrameTexture)
             ns.Fade(tot.HealthBar)
             ns.Fade(tot.ManaBar)
+            -- Re-assert the target-of-target art and name: the client can
+            -- rewrite them, and unlike player/target they had no keeper.
+            local holder = tot.fcui and tot.fcui.artHolder
+            local totArt = holder and ns.OwnTexture(holder, "art", "ARTWORK")
+            if totArt then
+                ns.SetTex(totArt, "targetOfTarget")
+                totArt:SetTexCoord(0.015625, 0.7265625, 0, 0.703125)
+                totArt:SetSize(93, 45)
+                ns.SetPointOnce(totArt, "TOPLEFT", tot, "TOPLEFT", 0, 0)
+                totArt:Show()
+                if tot.Name then ns.SetPointOnce(tot.Name, "BOTTOMLEFT", totArt, "BOTTOMLEFT", 42, 3) end
+            end
         end
         PlaceTot(frame)
     end)
@@ -833,6 +890,26 @@ local function SkinPet()
         ns.SetPointOnce(PetAttackModeTexture, "TOPLEFT", frame, "TOPLEFT", 6, -9)
     end
     if PetHitIndicator then ns.SetPointOnce(PetHitIndicator, "CENTER", frame, "TOPLEFT", 28, -27) end
+end
+
+local function PetArtUndone()
+    local tex = PetFrameTexture
+    if not tex then return false end
+    local atlas = tex.GetAtlas and tex:GetAtlas()
+    if atlas and not (issecretvalue and issecretvalue(atlas)) then return true end
+    local w, h = tex:GetSize()
+    local point, relativeTo, _, x, y = tex:GetPoint(1)
+    if issecretvalue and (issecretvalue(w) or issecretvalue(h) or issecretvalue(point) or issecretvalue(x) or issecretvalue(y)) then
+        return nil
+    end
+    if math.abs((w or 0) - 128) > 0.5 or math.abs((h or 0) - 64) > 0.5 then return true end
+    return point ~= "TOPLEFT" or relativeTo ~= PetFrame or math.abs(x or 0) > 0.5 or math.abs((y or 0) + 2) > 0.5
+end
+
+local function KeepPet()
+    if not active or not On("pet") then return end
+    local undone = PetArtUndone()
+    if undone or undone == nil then SkinPet() end
 end
 
 local function SkinPartyMember(frame)
@@ -1117,10 +1194,11 @@ local function Apply()
     active = true
     Keeper("player.art", KeepPlayerArt)
     Keeper("party", KeepParty)
+    Keeper("pet", KeepPet)
     if not driver then
         driver = CreateFrame("Frame")
         driver:SetScript("OnEvent", OnEvent)
-        for _, event in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER",
+        for _, event in ipairs({ "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_POWER_UPDATE", "UNIT_MAXPOWER", "UNIT_DISPLAYPOWER", "UNIT_POWER_FREQUENT",
             "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
             "GROUP_ROSTER_UPDATE", "PARTY_MEMBER_ENABLE", "PARTY_MEMBER_DISABLE", "PLAYER_REGEN_ENABLED", "UNIT_PET",
             "PLAYER_UPDATE_RESTING", "PLAYER_REGEN_DISABLED", "PLAYER_FLAGS_CHANGED", "UNIT_CLASSIFICATION_CHANGED",
@@ -1129,12 +1207,22 @@ local function Apply()
         end
         driver:SetScript("OnUpdate", function(self, elapsed)
             if not active then return end
-            if frames.player then Update(frames.player, "power") end
-            if TargetFrame and frames[TargetFrame] and TargetFrame:IsShown() then KeepAuraRow(TargetFrame) end
-            if FocusFrame and frames[FocusFrame] and FocusFrame:IsShown() then KeepAuraRow(FocusFrame) end
+            -- Repaint player power only when it actually changed; this used to
+            -- make three unit calls and three bar setters every single frame.
+            local entry = frames.player
+            if entry then
+                local power, max = UnitPower("player"), UnitPowerMax("player")
+                local secret = issecretvalue and (issecretvalue(power) or issecretvalue(max))
+                if secret or power ~= entry.polledPower or max ~= entry.polledMaxPower then
+                    entry.polledPower, entry.polledMaxPower = power, max
+                    Update(entry, "power")
+                end
+            end
             self.since = (self.since or 0) + elapsed
             if self.since < 0.25 then return end
             self.since = 0
+            if TargetFrame and frames[TargetFrame] and TargetFrame:IsShown() then KeepAuraRow(TargetFrame) end
+            if FocusFrame and frames[FocusFrame] and FocusFrame:IsShown() then KeepAuraRow(FocusFrame) end
             WatchRaidManager()
             RepaintKept("pet")
             KeepFrames()

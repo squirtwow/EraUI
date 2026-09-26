@@ -1610,7 +1610,12 @@ end)
 
 local CAST_GAP = 26
 local castWatch = CreateFrame("Frame")
-castWatch:SetScript("OnUpdate", function()
+castWatch:SetScript("OnUpdate", function(self, elapsed)
+    -- Walking every bar system and its buttons is far too heavy for a frame
+    -- tick; ten times a second is smooth for a position that changes rarely.
+    self.since = (self.since or 0) + elapsed
+    if self.since < 0.1 then return end
+    self.since = 0
     local bar = _G["PlayerCastingBarFrame"]
     if not (active and art and bar and bar:IsShown()) then return end
     if bar.isDragging then return end
@@ -2383,8 +2388,14 @@ local function StartWatch()
 
     editWatch = CreateFrame("Frame")
     editWatch:SetScript("OnUpdate", function(self, elapsed)
-        if active then AnchorOpenBags() end
-        if active and not applying and StatusMoved() then StatusBack() end
+        -- Bag anchoring and the status-bar check are event-driven work; they
+        -- were running on every frame before the main throttle below.
+        self.pulse = (self.pulse or 0) + elapsed
+        if self.pulse >= 0.1 then
+            self.pulse = 0
+            if active then AnchorOpenBags() end
+            if active and not applying and StatusMoved() then StatusBack() end
+        end
         local mgr = EditModeManagerFrame
         local editing = mgr and mgr.IsEditModeActive and mgr:IsEditModeActive() and true or false
         local held = active and editing and IsMouseButtonDown and IsMouseButtonDown("LeftButton") and true or false
@@ -2590,7 +2601,15 @@ local function StartWatch()
         if fight then RowsBack() else ns.SafeCall(Apply) end
     end
     local placer = CreateFrame("Frame")
-    placer:SetScript("OnUpdate", PlaceNow)
+    -- The placement pass inspects every bar piece and is expensive. Events and
+    -- explicit calls still place immediately; the idle poll only needs to be
+    -- fast enough to chase the client within a tenth of a second.
+    placer:SetScript("OnUpdate", function(self, elapsed)
+        self.since = (self.since or 0) + elapsed
+        if self.since < 0.1 then return end
+        self.since = 0
+        PlaceNow()
+    end)
     placer:RegisterEvent("PLAYER_TARGET_CHANGED")
     placer:RegisterEvent("PLAYER_FOCUS_CHANGED")
     for _, event in ipairs({ "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED", "PET_BAR_UPDATE", "UPDATE_SHAPESHIFT_FORMS",

@@ -19,6 +19,7 @@ local SHEET = "comboPoint"
 local active = false
 local frame
 local lastPoints = 0
+local lastMax = 0
 
 local function Ring()
     return ns.Path(TargetFrame, "TargetFrameContainer", "Portrait") or TargetFrame
@@ -94,7 +95,7 @@ local function Glint(orb)
 end
 
 local function Number(value)
-    if value == nil or (issecretvalue and issecretvalue(value)) then return 0 end
+    if value == nil or (issecretvalue and issecretvalue(value)) then return nil end
     return value
 end
 
@@ -102,13 +103,19 @@ local function Update()
     if not frame or not active then return end
     local max = Number(UnitPowerMax("player", Enum.PowerType.ComboPoints))
     local points = Number(UnitPower("player", Enum.PowerType.ComboPoints))
-    if max <= 0 or points <= 0 or not UnitExists("target") or not UnitCanAttack("player", "target") then
+    if max then lastMax = max end
+    -- A secret read is "unknown", not zero: keep the last known count so the
+    -- orbs do not vanish for the whole fight while the client hides the value.
+    local shownMax = max or lastMax
+    local shownPoints = points or lastPoints
+    if shownMax <= 0 or shownPoints <= 0 or not UnitExists("target") or not UnitCanAttack("player", "target") then
         frame:Hide()
         for i = 1, POINTS do
             frame.orbs[i].lit:SetAlpha(0)
             frame.orbs[i].shine:SetAlpha(0)
         end
         lastPoints = 0
+        lastMax = 0
         return
     end
     if not frame:IsShown() then
@@ -117,15 +124,15 @@ local function Update()
     end
     for i = 1, POINTS do
         local orb = frame.orbs[i]
-        orb:SetShown(i <= max)
-        if i <= points then
+        orb:SetShown(i <= shownMax)
+        if i <= shownPoints then
             if i > lastPoints then Glint(orb) end
         else
             orb.lit:SetAlpha(0)
             orb.shine:SetAlpha(0)
         end
     end
-    lastPoints = points
+    lastPoints = shownPoints
 end
 
 local function Build()

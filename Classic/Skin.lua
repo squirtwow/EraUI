@@ -479,6 +479,7 @@ function WatchClientWindows()
     windowWatch:SetScript("OnEvent", function(self) self.names = nil end)
     windowWatch:SetScript("OnUpdate", function(self, elapsed)
         self.since = (self.since or 0) + elapsed
+        self.scan = (self.scan or 0) + elapsed
         if not self.names or self.since > 5 then
             self.since = 0
             local names, have = {}, {}
@@ -493,6 +494,10 @@ function WatchClientWindows()
             for _, name in ipairs(NPC_WINDOWS) do Add(name) end
             self.names = names
         end
+        -- One scan of the panel list is ~100 IsShown calls, so the idle poll
+        -- runs ten times a second rather than every frame.
+        if self.scan < 0.1 then return end
+        self.scan = 0
         for _, name in ipairs(self.names) do
             local panel = _G[name]
             if type(panel) == "table" and panel.IsShown then

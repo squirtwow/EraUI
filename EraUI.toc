@@ -2,7 +2,7 @@
 ## Title: EraUI
 ## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
 ## Author: Squirt
-## Version: 1.0.2
+## Version: 1.0.3
 ## SavedVariables: EraUIDB, EraUIClassicDB
 ## SavedVariablesPerCharacter: EraUIClassicCharDB
 ## IconTexture: Interface\AddOns\EraUI\Media\EraUIIcon.tga

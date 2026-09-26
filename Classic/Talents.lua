@@ -634,7 +634,15 @@ local function Build()
         if self.since < 0.2 then return end
         self.since = 0
         local inspect = _G["InspectFrame"]
-        if not (inspect and inspect:IsShown()) then self:Hide() end
+        if not (inspect and inspect:IsShown()) then self:Hide() return end
+        -- Inspecting another player while the window is open used to keep the
+        -- previous player's name and talents; follow the frame's current unit.
+        local shown = inspect.unit
+        if shown and shown ~= inspectUnit then
+            inspectUnit = shown
+            if SetPortraitTexture and frame.portrait then SetPortraitTexture(frame.portrait, inspectUnit) end
+            Refresh()
+        end
     end)
     ns.RegisterClassicWindow(frame, true)
     if ns.CloseOnEscape then ns.CloseOnEscape(frame) end

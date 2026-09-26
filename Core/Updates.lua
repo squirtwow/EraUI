@@ -6,6 +6,23 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.0.3",
+        sections = {
+            { "Changed", {
+                "Smoother performance - a lot of work that ran every frame now runs only when something changes or a few times a second.",
+            } },
+            { "Fixed", {
+                "Combo points no longer vanish mid-fight when the client hides the value.",
+                "Elite and boss target frames keep their art in combat instead of dropping to the normal frame.",
+                "Pet and target-of-target art refresh after summons and target changes.",
+                "The player frame name no longer goes blank or shows as Unknown.",
+                "Hide Secondary Names now reliably hides the surname on the player and target frames, and no longer switches itself back off.",
+                "Your level updates on the character sheet the moment you ding with it open.",
+                "Inspecting a second player updates the name and talents instead of keeping the previous one.",
+            } },
+        },
+    },
+    {
         version = "1.0.2",
         sections = {
             { "Fixed", {
@@ -105,7 +122,10 @@ local function Build()
             local line = Text(12, .86, .88, .93, 44, y, 480)
             line:SetText("• " .. text)
             lines[#lines + 1] = line
-            y = y - 18
+            -- Long bullets wrap; advance by the wrapped height so the next
+            -- line never overlaps this one.
+            local height = line:GetStringHeight() or 18
+            y = y - math.max(18, height + 3)
         end
         y = y - 12
         window.blocks[#window.blocks + 1] = { header = header, lines = lines }

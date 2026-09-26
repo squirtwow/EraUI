@@ -492,7 +492,7 @@ LootPager = function(frame)
     look:SetScript("OnShow", function(self) self.since = 1 end)
     look:SetScript("OnUpdate", function(self, elapsed)
         self.since = (self.since or 0) + elapsed
-        if self.since < 0.02 then return end
+        if self.since < 0.5 then return end
         self.since = 0
         if box.ForEachFrame then box:ForEachFrame(SkinLootElement) end
         UpdateLootPages(frame)
