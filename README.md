@@ -6,19 +6,19 @@ or off in the settings.
 
 ## The classic look
 
-- Action bar — the stone band with gryphons, page arrows, micro menu, bag
+- Action bar: the stone band with gryphons, page arrows, micro menu, bag
   buttons and the experience bar in their original spots (optional one-bar mode
   and default-bar sizing)
-- Unit frames — player, target, target of target, focus, pet and party frames
+- Unit frames: player, target, target of target, focus, pet and party frames
   with the original art and bars
-- Cast bars and mirror timers — player, pet, target and focus cast bars; classic
+- Cast bars and mirror timers: player, pet, target and focus cast bars; classic
   breath and fatigue timers
-- Minimap and nameplates — the round classic minimap with its zone name and old
+- Minimap and nameplates: the round classic minimap with its zone name and old
   tracking, and 1.x-style nameplates
-- Windows — character sheet, spellbook, talents, professions, trade skills,
+- Windows: character sheet, spellbook, talents, professions, trade skills,
   trainers, quest log and tracker, bags and bank, game menu, settings window,
   Who list, guild roster and group finder
-- Combo points — floating orbs in gold or red, draggable and resizable
+- Combo points: floating orbs in gold or red, draggable and resizable
 
 ## Quality of life
 
@@ -27,7 +27,7 @@ or off in the settings.
 - Class colours in chat, optional secondary names, highest-rank spell filtering
 - Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
 - Advanced cast bar with ticks and latency display
-- Movable world map — drag it by its header and resize it from the corners
+- Movable world map: drag it by its header and resize it from the corners
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Coordinates, clean minimap, cursor ring, draggable chat and more
 - A "what's new" window after each update, in your class colour
@@ -38,13 +38,13 @@ or off in the settings.
 
 ## Commands
 
-- `/era` — open the settings window
-- `/era setup` — replay the guided first-run setup
-- `/era welcome` — show the welcome screen again
-- `/era updates` — show the latest update notes again
-- `/era status` — copy-paste diagnostics for bug reports
-- `/era version` — show the loaded version
-- `/era reset` — restore defaults (reload afterwards)
+- `/era` opens the settings window
+- `/era setup` replays the guided first-run setup
+- `/era welcome` shows the welcome screen again
+- `/era updates` shows the latest update notes again
+- `/era status` copies diagnostics for bug reports
+- `/era version` shows the loaded version
+- `/era reset` restores defaults (reload afterwards)
 
 Most options apply immediately; the settings panel marks the few that need a
 reload. Settings are shared across your characters; swing timers are remembered
