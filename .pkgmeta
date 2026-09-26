@@ -1,4 +1,5 @@
 package-as: EraUI
 manual-changelog: CHANGELOG.txt
 ignore:
+  - .github
   - Tools
