@@ -233,7 +233,7 @@ SlashCmdList.ERAUI = function(msg)
         return
     elseif msg == "help" then
         EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era reminders opens class reminders; /era status or audit shows diagnostics.")
-        EraUI:Print("/era reload reloads the UI; /era reset clears your EraUI settings (reload afterward).")
+        EraUI:Print("/era reload reloads the UI; /era reset restores default settings and reloads automatically (outside combat).")
         return
     elseif msg == "version" then
         EraUI:Print("Version " .. EraUI.version)
@@ -243,13 +243,8 @@ SlashCmdList.ERAUI = function(msg)
         return
     elseif msg == "reset" then
         if not EraUI.Persistence:Reset() then return end
-        if EraUI.Classic then EraUI.Classic.db = nil end
-        EraUIClassicDB = nil; EraUIClassicCharDB = nil
-        if C_CVar then C_CVar.SetCVar("EraUIClassicSettings", "") end
-        if C_CVar then C_CVar.SetCVar("EraUICharSwing", "") end
-        if C_CVar then C_CVar.SetCVar("EraUIOnboarding", "") end
-        EraUIDB = nil
-        EraUI:Print("Settings cleared. Use /reload to restore defaults.")
+        EraUI:Print("Resetting settings to defaults. Reloading UI...")
+        ReloadUI()
         return
     end
 

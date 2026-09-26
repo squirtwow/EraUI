@@ -3,6 +3,7 @@ local T=E.ClassTools
 local M={};E:RegisterModule("ClassReminders",M)
 local class,panel,rows,dropdown,preview
 local dragging=false
+local mapHooked
 
 local AURA_MAX=80
 local GROUP_EVERY=5
@@ -26,6 +27,7 @@ local function DefOn(def)
 end
 local function GroupOn()return Opt("reminderGroup")~=false end
 local function CombatOn()return Opt("reminderCombat")==true end
+local function Clickable()return Opt("reminderClickable")==true end
 local function SizeIndex()
  local v=tonumber(Opt("reminderSize"))or 2
  if v<1 or v>#SIZES then v=2 end
@@ -209,15 +211,26 @@ local function ClearSpots()
  Save()
 end
 
+local function PetState()
+ local dead=UnitIsDeadOrGhost("pet")
+ if not T.Public(dead)then return nil end
+ if dead then return "dead"end
+ local exists=UnitExists("pet")
+ if not T.Public(exists)then return nil end
+ return exists and "alive"or "missing"
+end
 local function DefState(def,cache)
  local kind=def.kind or "aura"
+ if kind=="petDead"then
+  local state=PetState()
+  if not state then return nil end
+  return state=="dead",state=="dead"and "Revive your pet"or "Pet is not dead"
+ end
  if kind=="pet"then
-  local exists=UnitExists("pet")
-  if not T.Public(exists)then return nil end
-   if not exists then return true,"No pet summoned"end
-   local dead=UnitIsDeadOrGhost("pet")
-   if not T.Public(dead)then return nil end
-   if dead then return true,"Pet is dead"end
+   local state=PetState()
+   if not state then return nil end
+   if state=="missing"then return true,"No pet summoned"end
+   if state=="dead"then return not def.missingOnly,"Pet is dead"end
    local choice=ChoiceOf(def)
    if choice and choice.family then
     if not UnitCreatureFamily or not(C_CreatureInfo and C_CreatureInfo.GetCreatureFamilyInfo)then return nil end
@@ -336,7 +349,63 @@ local function DefState(def,cache)
  return true,"Missing on "..table.concat(names,", ")
 end
 
--- Alerts are display-only frames, independently draggable.
+-- Only spell-backed reminders have a click action. Ambiguous "Any" selections
+-- need a chosen spell, unless the definition supplies an explicit cast default.
+local function ClickSpell(def)
+ if def.noCast then return nil end
+ local choice=ChoiceOf(def)
+ if def.choices and not choice and not def.castIds then return nil end
+ return HighestKnown(choice and choice.ids or def.castIds or def.ids)
+end
+local function Disarm(row)
+ if InCombatLockdown()or not row.action then return end
+ row.action:SetAttribute("type1",nil)
+ row.action:SetAttribute("macrotext1",nil)
+ row.action:Hide()
+end
+local function DisarmAll()
+ for _,row in ipairs(rows or{})do Disarm(row)end
+end
+local function SyncClick(row,def,missing)
+ if InCombatLockdown()then return end
+ local id=Clickable()and not preview and missing and ClickSpell(def)
+ local name=id and T.Spell(id)
+ if not T.Public(name)or type(name)~="string"or name==""then Disarm(row);return end
+ local x,y=row.iconFrame:GetCenter()
+ if not T.Number(x)or not T.Number(y)then Disarm(row);return end
+ local action=row.action
+ if not action then
+  -- Independent parent AND screen-space anchors: alert rows remain free to
+  -- show, hide, move and recycle while in combat, without protected descendants.
+  action=CreateFrame("Button",nil,UIParent,"SecureActionButtonTemplate,SecureHandlerStateTemplate")
+  row.action=action
+  action:Hide();action:SetFrameStrata("HIGH")
+  action:RegisterForClicks("LeftButtonUp","LeftButtonDown")
+  action:SetAttribute("_onstate-combat",[[
+   if newstate == "1" then
+    self:SetAttribute("type1", nil)
+    self:SetAttribute("macrotext1", nil)
+    self:Hide()
+   end
+  ]])
+  RegisterStateDriver(action,"combat","[combat] 1; 0")
+  local glow=action:CreateTexture(nil,"HIGHLIGHT")
+  glow:SetAllPoints();glow:SetColorTexture(1,1,1,.12)
+ end
+ local ratio=row.iconFrame:GetEffectiveScale()/UIParent:GetEffectiveScale()
+ action:SetSize(row.iconFrame:GetWidth()*ratio,row.iconFrame:GetHeight()*ratio)
+ action:ClearAllPoints();action:SetPoint("CENTER",UIParent,"BOTTOMLEFT",x*ratio,y*ratio)
+ action:SetFrameLevel(row.iconFrame:GetFrameLevel()+5)
+ local group=def.group and not def.subgroup
+ local condition=group and "[nocombat,@target,help,nodead][nocombat,@player]"
+  or(def.self and "[nocombat,@player]"or "[nocombat]")
+ action:SetAttribute("macrotext1","/cast "..condition.." "..name)
+ action:SetAttribute("type1","macro")
+ action:Show()
+end
+
+-- Alerts remain display-only, independently draggable. The optional secure
+-- icon overlay exists only out of combat; text is always the drag handle.
 local function Row(index)
  if not panel then return nil end
  local row=rows[index]
@@ -361,9 +430,11 @@ local function Row(index)
   row.sub:SetJustifyH("CENTER");row.sub:SetTextColor(.85,.87,.9)
   row:SetScript("OnDragStart",function(self)
    if InCombatLockdown()then return end
+   DisarmAll()
    dragging=true
    self:StartMoving()
   end)
+  row:HookScript("OnHide",function(self)Disarm(self)end)
   row:SetScript("OnDragStop",function(self)
    if InCombatLockdown()then dragging=false;return end
    self:StopMovingOrSizing()
@@ -388,7 +459,7 @@ local function Paint()
  if not panel or dragging then return end
  local mapOpen=WorldMapFrame and WorldMapFrame:IsShown()
  if not Enabled()or(mapOpen)or(InCombatLockdown()and not CombatOn())then
-  for _,row in ipairs(rows)do row:Hide()end
+  for _,row in ipairs(rows)do row:Hide();Disarm(row)end
   panel:Hide()
   return
  end
@@ -397,13 +468,14 @@ local function Paint()
  local n=0
  local stacked=0
  for _,def in ipairs(Definitions())do
-  local show=false
-  local detail
+   local show=false
+   local detail
+   local actionable=false
   if Applicable(def)then
    local on=DefOn(def)
    if on then
     local missing,info=DefState(def,cache)
-    if missing==true then show=true;detail=info
+     if missing==true then show=true;detail=info;actionable=true
     elseif preview then show=true;detail=(info or "Check unavailable").."  (preview)"end
    elseif preview then
     show=true;detail="Switched off"
@@ -442,11 +514,12 @@ local function Paint()
      stacked=stacked+1
      row:SetPoint("TOP",0,-(stacked-1)*size.row)
     end
-    row:Show()
+     row:Show()
+     SyncClick(row,def,actionable)
    end
   end
  end
- for i=n+1,#rows do rows[i]:Hide()end
+ for i=n+1,#rows do rows[i]:Hide();Disarm(rows[i])end
  if n==0 then panel:Hide()else panel:SetHeight(math.max(stacked,1)*SIZES[SizeIndex()].row);panel:Show()end
 end
 
@@ -457,6 +530,7 @@ local function Build()
  panel:SetSize(460,134)
  panel:SetPoint("TOP",UIParent,"CENTER",0,DEFAULT_Y)
  panel:SetFrameStrata("HIGH")
+ panel:HookScript("OnHide",DisarmAll)
 end
 
 local function ToggleRow(parent,label,get,set,width)
@@ -509,7 +583,8 @@ local function BuildOptions(parent,anchor)
  local r,g,b=T.Colour()
  dropdown:SetBackdropBorderColor(.19,.20,.24,1)
  local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
- local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
+  local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
+  local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v)end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
  local size=ActionButton(dropdown,"",158)
  size.draw=function()size.label:SetText("Alert size: "..SIZES[SizeIndex()].key.."  >")end
@@ -556,13 +631,14 @@ local function BuildOptions(parent,anchor)
    advRows[#advRows+1]=cbtn
   end
  end
- items[#items+1]=group;items[#items+1]=combat;items[#items+1]=prev
+  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=prev
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
  for _,frame in ipairs(advRows)do items[#items+1]=frame end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
- dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
+  dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
+  dropdown.clickable=clickable
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
  dropdown:Hide()
  return dropdown
@@ -577,7 +653,7 @@ function M:LayoutDropdown()
   if frame.draw then frame.draw()end
   frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
  end
- place(dropdown.group);place(dropdown.combat);place(dropdown.prev)
+  place(dropdown.group);place(dropdown.combat);place(dropdown.clickable);place(dropdown.prev)
  if dropdown.size then
   if dropdown.size.draw then dropdown.size.draw()end
   dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
@@ -634,6 +710,16 @@ function M:Refresh()
  if not class then local _,c=UnitClass("player");class=c end
  if not E.ReminderSpells[class]then return end
  if not panel then Build()end
+ -- Combat can produce the first alert of a session (for example a pet death).
+ -- Prepare ordinary display rows beforehand so that case needs no new frames.
+ if Enabled()and not InCombatLockdown()then
+  for i=#rows+1,#Definitions()do Row(i):Hide()end
+ end
+ if WorldMapFrame and mapHooked~=WorldMapFrame then
+  mapHooked=WorldMapFrame
+  mapHooked:HookScript("OnShow",function()M:Refresh()end)
+  mapHooked:HookScript("OnHide",function()M:Refresh()end)
+ end
  Paint()
 end
 function M:Open()

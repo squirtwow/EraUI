@@ -42,7 +42,7 @@ CreateFrame=function(_,name,parent)local f=Frame(parent);if name then _G[name]=f
 GameFontHighlight={GetFont=function()return "font",12,""end}
 UISpecialFrames={};UnitClass=function()return "Hunter","HUNTER"end
 RAID_CLASS_COLORS={HUNTER={r=.67,g=.83,b=.45}}
-local E={version="1.0.4"}
+local E={version="1.0.5"}
 assert(loadfile("Core/Updates.lua"))("EraUI",E)
 E.ShowUpdateNotes()
 local w=EraUIUpdates;local s=w.scroll
@@ -79,5 +79,5 @@ w.button.scripts.OnClick()
 check(not w:IsShown(),"Got it dismisses the window")
 E.ShowUpdateNotes()
 check(w:IsShown() and s:GetVerticalScroll()==0,"reopening starts at the current release")
-check(w.title.text=="EraUI 1.0.4","current release title remains intact")
+check(w.title.text=="EraUI 1.0.5","current release title remains intact")
 print("Update-note scrolling checks passed: "..checks.." assertions.")

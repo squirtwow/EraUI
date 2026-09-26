@@ -58,7 +58,8 @@ end
 CreateFrame=function()
  local f={scripts={}}
  for _,method in ipairs({"SetSize","SetPoint","SetFrameStrata","Hide","RegisterEvent"})do f[method]=function()end end
- function f:SetScript(name,fn)self.scripts[name]=fn end
+  function f:SetScript(name,fn)self.scripts[name]=fn end
+  function f:HookScript()end
  frames[#frames+1]=f;return f
 end
 local function Session(c)
@@ -82,15 +83,25 @@ local function Session(c)
  return E,check,defs,event
 end
 local E,check,defs,event=Session("HUNTER")
-known[883]=true
+known[883]=true;known[982]=true
 equal(check("pet"),true,"missing hunter pet")
+equal(check("petDead"),false,"absent pet is not reported dead")
 units.pet={exists=true,dead=true}
 local missing,detail=check("pet")
-equal(missing,true,"dead pet is missing");equal(detail,"Pet is dead","dead pet explanation")
+equal(missing,false,"dead hunter pet does not also request Call Pet");equal(detail,"Pet is dead","dead pet explanation")
+equal(check("petDead"),true,"dead hunter pet has dedicated reminder")
+units.pet.exists=false
+equal(check("petDead"),true,"known dead state wins over missing unit")
+equal(check("pet"),false,"dead dismissed unit does not request Call Pet")
+units.pet.exists=true
 units.pet.dead=false;equal(check("pet"),false,"living hunter pet")
+equal(check("petDead"),false,"living pet needs no revival")
 units.pet.dead=secret;equal(check("pet"),nil,"restricted pet death state")
+equal(check("petDead"),nil,"restricted state never proves death")
 known[883]=nil
 equal(up(E.modules.ClassReminders.Refresh,"Applicable")(defs.pet),false,"unlearned Call Pet does not alert")
+known[982]=nil
+equal(up(E.modules.ClassReminders.Refresh,"Applicable")(defs.petDead),false,"unlearned Revive Pet does not alert")
 
 E,check,defs,event=Session("WARLOCK")
 for _,choice in ipairs(defs.pet.choices)do

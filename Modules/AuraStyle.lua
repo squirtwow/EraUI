@@ -82,10 +82,13 @@ local function StyleButton(button)
  border:SetTexture("Interface\\Buttons\\UI-Debuff-Border")
  border:SetTexCoord(0,1,0,1)
  border:SetVertexColor(colour and colour.r or .8,colour and colour.g or 0,colour and colour.b or 0)
- if button.Icon then
-  border:ClearAllPoints();border:SetPoint("CENTER",button.Icon,"CENTER")
-  border:SetSize(button.Icon:GetWidth()+6,button.Icon:GetHeight()+6)
- end
+  if button.Icon then
+   -- Native aura geometry can be secret. Let anchors follow the icon without
+   -- reading or performing arithmetic on its width/height.
+   border:ClearAllPoints()
+   border:SetPoint("TOPLEFT",button.Icon,"TOPLEFT",-3,3)
+   border:SetPoint("BOTTOMRIGHT",button.Icon,"BOTTOMRIGHT",3,-3)
+  end
 end
 local function StyleFrame(frame)
  if not frame then return end

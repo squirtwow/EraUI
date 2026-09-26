@@ -52,6 +52,12 @@ local function Render(pin,state,fullUpdate)
  if not(container and container.GetCurrentLayerIndex)then
   state.status="native canvas unavailable";return
  end
+ -- Showing the map (including Questie quest clicks) can expose the exploration
+ -- pin before the scroll container has built its zoom levels. The native layer
+ -- getter iterates that table without a guard, so wait for canvas initialization.
+ if type(container.zoomLevels)~="table"or not container.zoomLevels[1]then
+  state.status="waiting for native zoom levels";return
+ end
  local index=container:GetCurrentLayerIndex()
  state.layer=index
  local source=data.art[artID] and data.art[artID][index]
@@ -153,6 +159,12 @@ function M:Install()
   self.status="waiting for world map APIs";return false
  end
  self.map=map
+ local container=map:GetCanvasContainer()
+ if container and type(container.OnCanvasSizeChanged)=="function"then
+  -- This runs after the native zoom levels, canvas dimensions and zoom reset
+  -- are ready. Resume an early OnShow/AcquirePin refresh without a polling loop.
+  hooksecurefunc(container,"OnCanvasSizeChanged",function()M:Apply()end)
+ end
  hooksecurefunc(map,"AcquirePin",function(_,template)
   if template==TEMPLATE then M:Apply()end
  end)

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.5
+- Added: optional Clickable reminders (outside combat) in class-reminder settings. Disabled by default; enable it to cast supported spells by clicking their icons. Drag the reminder text to move it. Preview alerts never cast, and combat disables click actions.
+- Added: separate Hunter PET DEAD! reminder with Revive Pet, independently configurable under Advanced. SUMMON PET! now covers missing pets without duplicating the dead-pet alert.
+- Changed: reminder icons have a subtle hover highlight without an instructional tooltip. Choose a specific blessing, shaman imbue or warlock demon under Advanced for its click action. Targetable group buffs use your friendly living target, otherwise yourself.
+- Fixed: compact Classic trainers forward selection and purchases through Blizzard's native controls. Pet ability levels and training-point costs are shown; opening, empty-filter messages and combat presentation are improved.
+- Fixed: EraUI now includes optional Questie tracker compatibility, suppressing duplicate Blizzard tracking both in and out of combat. Disabling Questie's tracker restores native tracking; its Show Blizzard Timer preference is respected.
+- Added: Questie's quest-log actions open the selected quest in EraUI's Classic quest log when enabled, including folded or offscreen entries. Objective and map-icon actions retain map navigation.
+- Fixed: map quest details use the available panel height, with scrolling descriptions and rewards above the bottom action buttons.
+- Fixed: Map Reveal waits for native zoom data and refreshes after canvas sizing, avoiding an early-login map initialization error.
+- Fixed: player debuff borders use anchors instead of arithmetic on restricted icon dimensions, preventing secret-number errors.
+- Changed: /era reset now saves a durable reset request and reloads automatically outside combat. Live settings remain valid until reload, and queued/logout saves cannot restore the old settings. Failed reset requests preserve settings and do not reload.
+
 ## 1.0.4
 - Added: optional Reveal World Map shows supported unexplored terrain with darker shading, using map metadata generated for the Forever client build.
 - Fixed: What's New is bounded to the screen with scrollable release notes, mouse-wheel support and a fixed heading and Got it button. Layout adapts to UI scale and resolution changes.

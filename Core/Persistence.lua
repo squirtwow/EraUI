@@ -4,6 +4,7 @@ local _, E = ...
 local P = {}
 E.Persistence = P
 local PREFIX = "EraUIRecovery1"
+local RESET_CVAR = PREFIX .. "Reset"
 local CHUNK, MAX_CHUNKS = 900, 128
 local LIMIT = CHUNK * MAX_CHUNKS
 local layouts = {
@@ -13,7 +14,7 @@ local layouts = {
     rewardProfiles=true,
 }
 local reminderTypes = {
-    reminderGroup="boolean", reminderCombat="boolean", reminderSize="number",
+    reminderGroup="boolean", reminderCombat="boolean", reminderSize="number", reminderClickable="boolean",
     reminderSpotVersion="number",
 }
 local classes = {WARRIOR=true,PALADIN=true,HUNTER=true,ROGUE=true,PRIEST=true,
@@ -222,7 +223,7 @@ function P:Save()
         if not self.warned then E:Print("Settings recovery could not be saved; keeping the previous backup."); self.warned=true end
         return false
     end
-    if payload == self.lastPayload then return true end
+    if payload == self.lastPayload then return self:FinishReset() end
     local bank = self.bank == "A" and "B" or "A"
     local count = math.ceil(#payload/CHUNK)
     -- Write and verify the inactive bank before publishing its header. Interrupted
@@ -240,7 +241,7 @@ function P:Save()
         return false
     end
     self.bank, self.lastPayload, self.warned = bank, payload, nil
-    return true
+    return self:FinishReset()
 end
 
 function E:SaveSettings()
@@ -250,12 +251,43 @@ function E:SaveSettings()
 end
 
 function P:Reset()
-    -- An empty header invalidates both banks without registering unused CVars.
-    if ReadCVar(PREFIX .. "Head") and not WriteCVar(PREFIX .. "Head", "") then
-        E:Print("Settings recovery could not be cleared. Your settings have been kept.")
+    if InCombatLockdown and InCombatLockdown() then
+        E:Print("Finish combat before resetting EraUI settings.")
+        return false
+    end
+    -- Keep every live table/alias valid until reload. This durable request wins
+    -- over both SavedVariables written at logout and any older recovery banks.
+    if not WriteCVar(RESET_CVAR, "1") then
+        E:Print("The settings reset could not be saved. Your settings have been kept.")
         return false
     end
     self.resetting = true
+    return true
+end
+
+function P:PrepareReset()
+    if ReadCVar(RESET_CVAR) ~= "1" then return end
+    self.resetting = true
+    -- Leave the marker in place on failure, so the next load retries instead of
+    -- silently reviving old preferences. The recovery header is cleared last.
+    for _, name in ipairs({"EraUIClassicSettings", "EraUICharSwing", "EraUIOnboarding", PREFIX .. "Head"}) do
+        local value = ReadCVar(name)
+        if value and value ~= "" and not WriteCVar(name, "") then
+            E:Print("The settings reset could not finish. Reload to retry.")
+            return false
+        end
+    end
+    EraUIDB, EraUIClassicDB, EraUIClassicCharDB = {}, {}, {}
+    self.resetting, self.finishingReset = nil, true
+    return true
+end
+
+function P:FinishReset()
+    if not self.finishingReset then return true end
+    -- Clear the request only after a complete fresh snapshot was verified.
+    -- An interrupted startup therefore retries the reset on the next load.
+    if not WriteCVar(RESET_CVAR, "") then return false end
+    self.finishingReset = nil
     return true
 end
 

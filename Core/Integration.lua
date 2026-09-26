@@ -37,6 +37,7 @@ local function Sync()
 end
 local mirrorSave = ns.MirrorSave
 function ns.MirrorSave()
+    if EraUI.Persistence.resetting then return end
     EraUI:SaveSettings()
     if ns.db and EraUIDB then
         ns.db.erauiNumericSettingsMirrored=true
@@ -204,6 +205,7 @@ local function SerializeOnboarding(state)
     return flags .. "," .. version .. "," .. table.concat(tabs, ".")
 end
 local function SaveCharOnboarding()
+    if EraUI.Persistence.resetting then return end
     EraUI:SaveSettings()
     if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
     local key, legacy = CharKey()

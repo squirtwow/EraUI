@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.0.4"
+EraUI.version = "1.0.5"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
@@ -207,6 +207,7 @@ function EraUI:LoadCharSettings()
 end
 
 function EraUI:SaveCharSettings()
+    if self.Persistence and self.Persistence.resetting then return end
     self:SaveSettings()
     if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
     local key, legacy = CharSettingKey()
@@ -243,6 +244,8 @@ eventFrame:RegisterEvent("PLAYER_LOGIN")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
+        -- A reset is consumed before any saved choices or aliases are loaded.
+        EraUI.Persistence:PrepareReset()
         EraUIDB = EraUIDB or {}
         -- Split old combined settings without turning a previously disabled skin on.
         for key, legacy in pairs({trainer="professions", gameMenu="classicDialogs", popups="classicDialogs"}) do

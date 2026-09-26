@@ -1,6 +1,6 @@
 local _,E=...
 -- One entry per reminder. text is the big alert word; dynamic names use the
--- learned spell instead. kind: aura | pet | item | imbue | totems | shards | cooldown
+-- learned spell instead. kind: aura | pet | petDead | item | imbue | totems | shards | cooldown
 --   ids       learned ranks (highest learned supplies the icon)
 --   requires  at least one of these spells must be learned
 --   auras     extra aura ids that also satisfy the buff
@@ -18,6 +18,9 @@ local _,E=...
 --   subgroup  party-only effects do not check other raid subgroups
 --   mana      skip warriors and rogues, including when druids are shapeshifted
 --   anyTarget one protected group member satisfies this reminder
+--   missingOnly leave dead hunter pets to their separate Revive Pet reminder
+--   castIds   preferred learned spell for clicks when a choice is set to Any
+--   noCast    informational only, even when reminder clicking is enabled
 -- Demon family IDs independently checked in CreatureFamily, build 1.60.1.70009.
 E.ReminderSpells={
  WARRIOR={
@@ -39,7 +42,8 @@ E.ReminderSpells={
   {key="aura",text="AURA!",kind="aura",self=true,off=true,ids={465,10290,643,10291,1032,10292,1033,10293,7294,10294,10295,19746,19876}},
  },
  HUNTER={
-   {key="pet",text="SUMMON PET!",kind="pet",color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastCall",minLevel=10,ids={883}},
+    {key="pet",text="SUMMON PET!",kind="pet",missingOnly=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastCall",minLevel=10,ids={883}},
+    {key="petDead",text="PET DEAD!",kind="petDead",color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastSoothe",minLevel=10,ids={982}},
   {key="aspect",text="ASPECT!",kind="aura",self=true,choiceLabel="Aspect",nameMatch="Aspect of",
    ids={13163,13165,14318,14319,14320,14321,14322,25296,5118,13159,13161,20043,20190},
    castIds={13163,13165,14318,14319,14320,14321,14322,25296},

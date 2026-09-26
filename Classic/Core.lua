@@ -160,6 +160,7 @@ local function MirrorReady()
 end
 
 function ns.MirrorSave()
+    if EraUI.Persistence and EraUI.Persistence.resetting then return end
     if not ns.db or not MirrorReady() then return end
     local pos = ns.db.microPos
     if type(pos) == "table" and pos.point then

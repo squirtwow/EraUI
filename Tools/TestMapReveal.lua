@@ -100,11 +100,25 @@ local function NewMap()
  local map=Frame()
  map.mapID=1411
  map.pins={}
- map.layer=1
  map.masked={}
+ map.container={zoomLevels={{scale=1,layerIndex=1}},layerReads=0}
+ function map.container:GetCurrentLayerIndex()
+  self.layerReads=self.layerReads+1
+  local current=1
+  -- Match the native failure boundary: ipairs(nil) before zoom initialization,
+  -- or a missing entry when an empty zoom table is exposed.
+  for i,level in ipairs(self.zoomLevels)do
+   if 1>=level.scale then current=i else break end
+  end
+  return self.zoomLevels[current].layerIndex
+ end
+ function map.container:OnCanvasSizeChanged()
+  self.zoomLevels={{scale=1,layerIndex=1}}
+  for p in pairs(map.pins)do p:OnCanvasSizeChanged()end
+ end
  function map:GetMapID()return self.mapID end
  function map:GetCanvasContainer()
-  return {GetCurrentLayerIndex=function()return self.layer end}
+  return self.container
  end
  function map:EnumeratePinsByTemplate()
   -- Deliberately use a stateful iterator, rather than a closure-only iterator.
@@ -152,6 +166,38 @@ equal(edge.point[4],549,"Durotar edge x")
 equal(edge.point[5],-427,"Durotar edge y")
 equal(tile(8074092).point[4],500,"second-column position")
 equal(map.masked[edge],true,"native clipping registration")
+
+-- Questie can show the map before Blizzard creates the zoom table. Clear old
+-- reveal tiles, leave native artwork intact, and resume on native readiness.
+local reads=map.container.layerReads
+map.container.zoomLevels=nil
+map:Show()
+equal(visible(pin),0,"early map show clears stale reveal")
+equal(map.container.layerReads,reads,"uninitialized native layer getter is not called")
+equal(M.states[pin].status,"waiting for native zoom levels","missing zoom state is deferred")
+equal(#E.messages,0,"normal initialization does not print an error")
+equal(pin.nativeTexture.shown,true,"early refresh preserves native artwork")
+map.container.zoomLevels={}
+pin:RefreshOverlays(true)
+equal(map.container.layerReads,reads,"empty zoom table is also deferred")
+equal(visible(pin),0,"empty zoom table draws nothing")
+map.container:OnCanvasSizeChanged()
+equal(visible(pin),12,"native canvas completion resumes reveal")
+equal(M.states[pin].status,"ready","readiness refresh completes")
+equal(#E.messages,0,"initialization recovery remains silent")
+
+map.container.zoomLevels=nil
+map:Show()
+E:SetSetting("revealMap",false)
+map.container:OnCanvasSizeChanged()
+equal(visible(pin),0,"readiness cannot override disabled reveal")
+E:SetSetting("revealMap",true)
+map.container.zoomLevels=nil
+map:Hide()
+map.container:OnCanvasSizeChanged()
+equal(visible(pin),0,"readiness cannot draw on a hidden map")
+map:Show()
+equal(visible(pin),12,"reopening after initialization restores reveal")
 
 explored={{offsetX=427,offsetY=78,textureWidth=256,textureHeight=256,fileDataIDs={8073637}}}
 pin:RefreshOverlays(true)
@@ -207,10 +253,10 @@ equal(visible(pin),0,"map/art mismatch clears")
 badArt=nil;badDimensions=true
 pin:RefreshOverlays()
 equal(visible(pin),0,"layer dimension mismatch clears")
-badDimensions=false;map.layer=2
+badDimensions=false;map.container.zoomLevels[1].layerIndex=2
 pin:RefreshOverlays()
 equal(visible(pin),0,"unknown active layer clears")
-map.layer=1;pin.width=500
+map.container.zoomLevels[1].layerIndex=1;pin.width=500
 pin:RefreshOverlays()
 equal(visible(pin),0,"uninitialised pin size draws nothing")
 pin.width=1002;pin:OnCanvasSizeChanged()
@@ -276,8 +322,12 @@ late:Initialize()
 local listener=frames[#frames]
 equal(listener.events.ADDON_LOADED,true,"wait for late-loaded map")
 WorldMapFrame=NewMap()
+WorldMapFrame.container.zoomLevels=nil
 local latePin=WorldMapFrame:AcquirePin("MapExplorationPinTemplate")
 listener:Fire("OnEvent","ADDON_LOADED","Blizzard_WorldMap")
+equal(late.states[latePin].drawn,0,"late-loaded map waits for zoom initialization")
+equal(#E2.messages,0,"late-loaded early pin does not report an error")
+WorldMapFrame.container:OnCanvasSizeChanged()
 equal(late.states[latePin].drawn,12,"saved enabled setting works on late map")
 equal(listener.events.ADDON_LOADED,nil,"late-load listener retired")
 print("Map reveal lifecycle/data checks passed: "..checks.." assertions; 45 maps, 572 regions, 972 textures.")

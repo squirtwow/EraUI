@@ -46,6 +46,15 @@ local function Session(db, char, classic, lateIdentity)
     E.Classic={DB_DEFAULTS={},TOGGLES={},db=classic or {
         erauiMigrated=true,erauiSettingsMenuMigrated=true,
     },OnForever=function() return true end,MirrorSave=function() end,QueueApply=function() end}
+    -- Model the Classic loader rebinding its namespace after the early reset.
+    local classicLoader=CreateFrame("Frame")
+    classicLoader:RegisterEvent("ADDON_LOADED")
+    classicLoader:SetScript("OnEvent",function(_,_,name)
+        if name=="EraUI" and E.Persistence.finishingReset then
+            E.Classic.db=EraUIClassicDB
+            E.Classic.db.erauiMigrated=true;E.Classic.db.erauiSettingsMenuMigrated=true
+        end
+    end)
     assert(loadfile("Core/Integration.lua"))("EraUI",E)
     assert(loadfile("Modules/ClassTools.lua"))("EraUI",E)
     local function fire(event,...)
@@ -78,6 +87,8 @@ local E,flush,fire=Session({reminderSize=3,reminderChoice_HUNTER_aspect=13165,
     eraui_reminderGroup=false,eraui_reminder_HUNTER_pet=false,
 })
 equal(EraUIDB.reminderGroup,false,"legacy group option recovered")
+EraUIDB.reminderClickable=true
+EraUIDB.reminder_HUNTER_petDead=false
 equal(EraUIDB.reminder_HUNTER_pet,false,"legacy individual option recovered")
 equal(E:GetCharSetting("swingTimer"),true,"legacy swing flag imported")
 equal(EraUIClassicCharDB.onboarding.setupComplete,true,"legacy onboarding imported")
@@ -101,6 +112,8 @@ equal(EraUIDB.reminderPX_HUNTER_pet,-165.25,"negative fractional x survives")
 equal(EraUIDB.reminderPY_HUNTER_pet,93.125,"fractional y survives")
 equal(EraUIDB.reminderSpotVersion,2,"migration marker survives")
 equal(EraUIDB.reminderGroup,false,"group false survives")
+equal(EraUIDB.reminderClickable,true,"optional reminder clicks survive missing SavedVariables")
+equal(EraUIDB.reminder_HUNTER_petDead,false,"pet-dead reminder opt-out survives")
 equal(EraUIDB.reminder_HUNTER_pet,false,"individual false survives")
 equal(EraUIDB.profile,"Text ;=: | utf8 café","strings round-trip")
 equal(EraUIDB.mapSize.w,800,"map dimensions survive")
@@ -116,11 +129,13 @@ flush()
 
 -- A reset to defaults must beat an older SavedVariables file and legacy mirror.
 EraUIDB.reminderPX_HUNTER_pet=nil;EraUIDB.reminderPY_HUNTER_pet=nil
+EraUIDB.reminderClickable=false
 E:SetSetting("cursorRingSize",48)
 E.Classic.MirrorSave();flush()
 E,flush,fire=Session({reminderPX_HUNTER_pet=999,cursorRingSize=99})
 equal(EraUIDB.reminderPX_HUNTER_pet,nil,"deleted positions stay deleted")
 equal(EraUIDB.cursorRingSize,48,"reset default beats stale SavedVariables")
+equal(EraUIDB.reminderClickable,false,"disabled reminder clicks stay disabled")
 
 -- Same-name characters on different realms do not share tools or swing toggles.
 flush(); realm="RealmTwo"
@@ -181,6 +196,7 @@ goodHead=cvars.EraUIRecovery1Head
 failWrite="^EraUIRecovery1Head$"
 E:SetSetting("reminderSize",1);flush()
 equal(cvars.EraUIRecovery1Head,goodHead,"failed publication keeps old header")
+failWrite="^EraUIRecovery1Reset$"
 equal(E.Persistence:Reset(),false,"failed reset reported")
 equal(E.Persistence.resetting,nil,"failed reset leaves persistence running")
 failWrite=nil
@@ -223,10 +239,10 @@ flush()
 E:SetSetting("reminderSize",1)
 E.Persistence:Reset()
 flush();fire("PLAYER_LOGOUT")
-equal(cvars.EraUIRecovery1Head,"","reset prevents queued resurrection")
-cvars.EraUICharSwing="";cvars.EraUIOnboarding=""
+equal(cvars.EraUIRecovery1Reset,"1","queued saves and logout retain authoritative reset request")
 E,flush,fire=Session()
 equal(EraUIDB.reminderSize,nil,"reset starts without custom reminder size")
 equal(E.ClassTools.Options().mageWaterStacks,nil,"reset starts without tool quantities")
 flush()
+equal(cvars.EraUIRecovery1Reset,"","verified fresh snapshot completes reset")
 print("Persistence recovery checks passed: " .. checks .. " assertions.")

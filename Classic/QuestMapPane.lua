@@ -17,6 +17,48 @@ local CHECK_GLOW = "Interface\\Buttons\\UI-CheckBox-Highlight"
 local active = false
 local built = false
 local floorTex, parchmentTex
+local detailGeometry = {}
+local metricsQueued = false
+
+local function RememberGeometry(frame)
+    if detailGeometry[frame] then return end
+    local keep = { width = frame:GetWidth(), height = frame:GetHeight(), points = {} }
+    for i = 1, frame:GetNumPoints() do keep.points[i] = { frame:GetPoint(i) } end
+    detailGeometry[frame] = keep
+end
+
+local function RefreshDetailMetrics()
+    if metricsQueued or not active then return end
+    metricsQueued = true
+    C_Timer.After(0, function()
+        metricsQueued = false
+        local details = QuestMapFrame and QuestMapFrame.DetailsFrame
+        if not active or InCombatLockdown() or not details or not details:IsShown() then return end
+        local scroll = details.ScrollFrame
+        if not scroll then return end
+        scroll:UpdateScrollChildRect()
+        -- Re-evaluate native reward clipping after the viewport changes. Keep
+        -- the existing reward content, action scripts and scrollbar behavior.
+        local rewards = details.RewardsFrameContainer and details.RewardsFrameContainer.RewardsFrame
+        if rewards and details.SetRewardsHeight then details:SetRewardsHeight(rewards:GetHeight()) end
+        local offset = scroll:GetVerticalScroll()
+        local maximum = scroll:GetVerticalScrollRange()
+        if offset > maximum then scroll:SetVerticalScroll(math.max(0, maximum)) end
+    end)
+end
+
+local function FitDetails()
+    if not active or InCombatLockdown() or not QuestMapFrame then return end
+    local details, parent = QuestMapFrame.DetailsFrame, QuestMapFrame.QuestsFrame
+    if not details or not parent or not details.ScrollFrame then return end
+    RememberGeometry(details)
+    RememberGeometry(details.ScrollFrame)
+    -- Blizzard ships a fixed 502-high detail panel and a 430-high scroll area.
+    -- Keep their native top/width anchors and let their bottoms follow the map.
+    details:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 2)
+    details.ScrollFrame:SetPoint("BOTTOMLEFT", details, "BOTTOMLEFT", 5, 29)
+    RefreshDetailMetrics()
+end
 
 local function FadeTextures(frame)
     if not frame or not frame.GetRegions then return end
@@ -148,6 +190,7 @@ local function SkinDetails()
     if not active or not QuestMapFrame then return end
     local details = QuestMapFrame.DetailsFrame
     if not details then return end
+    FitDetails()
     if not details.fcuiSkinned then
         details.fcuiSkinned = true
         if details.Bg then details.Bg:SetAlpha(0) end
@@ -190,9 +233,14 @@ local function Build()
         parchmentTex:SetTexCoord(8 / 512, 300 / 512, 4 / 512, 336 / 512)
         parchmentTex:SetPoint("TOPLEFT", details, "TOPLEFT", 0, 0)
         parchmentTex:SetPoint("BOTTOMRIGHT", details, "BOTTOMRIGHT", 0, 0)
+        details:HookScript("OnShow", SkinDetails)
+        details:HookScript("OnSizeChanged", RefreshDetailMetrics)
     end
     ns.HookGlobal("QuestLogQuests_Update", SkinRows)
     ns.HookGlobal("QuestMapFrame_ShowQuestDetails", SkinDetails)
+    local events = CreateFrame("Frame")
+    events:RegisterEvent("PLAYER_REGEN_ENABLED")
+    events:SetScript("OnEvent", FitDetails)
 end
 
 local function Apply()
@@ -201,6 +249,7 @@ local function Apply()
     Build()
     if floorTex then floorTex:Show() end
     if parchmentTex then parchmentTex:Show() end
+    FitDetails()
     SkinRows()
     if QuestMapFrame.DetailsFrame and QuestMapFrame.DetailsFrame:IsShown() then SkinDetails() end
 end
@@ -209,6 +258,12 @@ local function Restore()
     active = false
     if floorTex then floorTex:Hide() end
     if parchmentTex then parchmentTex:Hide() end
+    for frame, keep in pairs(detailGeometry) do
+        frame:ClearAllPoints()
+        frame:SetSize(keep.width, keep.height)
+        for _, point in ipairs(keep.points) do frame:SetPoint(unpack(point)) end
+    end
+    wipe(detailGeometry)
     ns.needsReload = true
 end
 

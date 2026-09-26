@@ -20,6 +20,12 @@ or off in the settings.
 - Windows: character sheet, spellbook, talents, professions, trade skills,
   trainers, quest log and tracker, bags and bank, game menu, settings window,
   Who list, guild roster and group finder
+- Questie integration: quest-log clicks open the selected quest in EraUI's
+  Classic quest log when enabled; objective and map-icon navigation stays on the map.
+  Blizzard's tracker stays hidden while Questie replaces it, including during
+  combat; disabling Questie's tracker restores native tracking
+- Map quest details: the parchment and scrolling description fit the panel's
+  available height, with quest action buttons at the bottom
 - Combo points: floating orbs in gold or red, draggable and resizable
 
 ## Quality of life
@@ -34,7 +40,11 @@ or off in the settings.
   overlays the map without squeezing the artwork
 - Reveal World Map: supported unexplored terrain appears with darker shading
 - Class reminders: class-coloured, independently draggable alerts for buffs,
-  pets, weapon coatings and supplies, with optional party and raid checks
+  pets, weapon coatings and supplies, with optional party and raid checks.
+  Hunters have separate SUMMON PET and PET DEAD alerts. Optional Clickable
+  reminders (off by default) let you cast supported spells by clicking their
+  icons outside combat; drag the text to move. Choose a blessing, imbue or demon
+  under Advanced to make its reminder clickable
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.
@@ -55,7 +65,7 @@ or off in the settings.
 - `/era audit` runs the addon audit report
 - `/era mapdebug` opens map diagnostics
 - `/era version` shows the loaded version
-- `/era reset` restores defaults (reload afterwards)
+- `/era reset` restores default settings and reloads automatically; use it outside combat
 
 Most options apply immediately; the settings panel marks the few that need a
 reload. General settings and reminder layouts are shared across your characters;

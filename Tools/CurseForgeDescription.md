@@ -25,6 +25,8 @@
 - **Cast bars & timers**: player, pet, target and focus cast bars; classic breath and fatigue timers
 - **Minimap & nameplates**: the round classic minimap and 1.x-style nameplates
 - **Windows**: character sheet, spellbook, talents, professions, trade skills, trainers, quest log & tracker, bags & bank, game menu, settings, Who list, guild roster and group finder
+- **Questie integration**: quest-log clicks open the selected quest in EraUI's Classic quest log when enabled; objective and map-icon clicks keep their map navigation. Blizzard's tracker stays hidden while Questie replaces it, both in and out of combat, and returns when Questie's tracker is disabled. Questie's Show Blizzard Timer preference is respected
+- **Map quest details**: parchment and scrolling quest descriptions fit the panel's available height, with quest action buttons at the bottom
 - **Combo points**: floating orbs in gold or red, draggable and resizable
 
 ## ⚙️ Quality of life
@@ -45,12 +47,14 @@
 - Drag each alert independently, choose Small, Normal or Large, and reset positions when needed
 - Use **Show all reminders** to preview and arrange applicable alerts
 - Pick a preferred aspect, blessing, shaman weapon imbue or warlock demon under **Advanced**
-- Pet reminders detect missing or dead pets; selected demons are checked by demon family
+- Hunters have separate **SUMMON PET!** and **PET DEAD!** reminders, using Call Pet and Revive Pet icons; each can be toggled under **Advanced**. Selected warlock demons are checked by demon family
+- Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
+- Choose a specific blessing, shaman imbue or warlock demon under **Advanced** to enable its click action. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
 - Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
 - Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
 - Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup
 - Soulstone application checks whether a checked member is protected, rather than requiring it on everyone
-- Alerts are display-only, silent and hidden during combat by default
+- Alerts are silent and hidden during combat by default. **Show during combat** enables informational alerts; click actions always stay disabled during combat
 
 ## 🐾 Hunter feeding
 
@@ -90,7 +94,7 @@
 - `/era status` opens a selectable diagnostics report
 - `/era audit` runs the addon audit report
 - `/era mapdebug` opens map diagnostics
-- `/era reset` restores defaults; reload afterwards
+- `/era reset` restores default settings and reloads automatically; use it outside combat
 
 ---
 

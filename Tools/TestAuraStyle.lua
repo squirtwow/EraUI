@@ -34,11 +34,13 @@ local function Frame(parent)
  function f:SetTextColor(...)self.colour={...}end
  function f:GetTextColor()return table.unpack(self.colour)end
  function f:SetText(text)self.text=text end
- function f:ClearAllPoints()self.points={}end
- function f:SetPoint(...)self.points={...}end
+ function f:ClearAllPoints()self.points={};self.anchors={}end
+ function f:SetPoint(...)
+  self.points={...};self.anchors=self.anchors or{};self.anchors[self.points[1]]=self.points
+ end
  function f:SetSize(w,h)self.w,self.h=w,h end
- function f:GetWidth()return self.w end
- function f:GetHeight()return self.h end
+ function f:GetWidth()self.dimensionReads=(self.dimensionReads or 0)+1;return self.w end
+ function f:GetHeight()self.dimensionReads=(self.dimensionReads or 0)+1;return self.h end
  all[#all+1]=f;return f
 end
 CreateFrame=function(_,_,parent)return Frame(parent)end
@@ -48,7 +50,7 @@ hooksecurefunc=function(t,key,fn)
  local old=t[key];hooks=hooks+1;t[key]=function(...)old(...);fn(...)end
 end
 SharedTooltip_SetBackdropStyle=function(tip)tip.NineSlice:SetAtlas("NativeBrown");tip.NineSlice:SetAlpha(1)end
-local secret={}
+local secret=setmetatable({}, {__add=function()error("arithmetic on a secret dimension")end})
 issecretvalue=function(v)return v==secret end
 DebuffTypeColor={Magic={r=.2,g=.6,b=1},Poison={r=0,g=.6,b=0},none={r=.8,g=0,b=0}}
 local function Tooltip()
@@ -84,6 +86,31 @@ equal(debuff.Duration.text,"11s","native timer retained")
 equal(debuff.scripts.OnClick,click,"native click script untouched")
 debuff.buttonInfo.debuffType="Poison";DebuffFrame:UpdateAuraButtons()
 equal(debuff.DebuffBorder.colour[2],.6,"pooled border recoloured for next debuff")
+-- Match the reported native update: public Debuff kind, no public dispel type,
+-- restricted aura data and restricted icon geometry. Test either/both axes.
+debuff.buttonInfo={duration=secret,expirationTime=secret,auraInstanceID=secret}
+for _,size in ipairs({{secret,30},{30,secret},{secret,secret}})do
+ debuff.Icon.w,debuff.Icon.h=size[1],size[2]
+ debuff.Icon.dimensionReads=0
+ DebuffFrame:UpdateAuraButtons()
+ equal(debuff.Icon.dimensionReads,0,"styling never reads restricted icon dimensions")
+ equal(debuff.DebuffBorder.texture,"Interface\\Buttons\\UI-Debuff-Border","secret geometry retains Classic border")
+end
+local top=debuff.DebuffBorder.anchors.TOPLEFT
+local bottom=debuff.DebuffBorder.anchors.BOTTOMRIGHT
+equal(top and top[2],debuff.Icon,"top edge follows native icon")
+equal(top and top[3],"TOPLEFT","top edge uses native top-left corner")
+equal(top and top[4],-3,"left edge extends three pixels")
+equal(top and top[5],3,"top edge extends three pixels")
+equal(bottom and bottom[2],debuff.Icon,"bottom edge follows native icon")
+equal(bottom and bottom[3],"BOTTOMRIGHT","bottom edge uses native bottom-right corner")
+equal(bottom and bottom[4],3,"right edge extends three pixels")
+equal(bottom and bottom[5],-3,"bottom edge extends three pixels")
+equal(debuff.buttonInfo.duration,secret,"restricted duration remains untouched")
+equal(debuff.scripts.OnClick,click,"restricted geometry retains native click handler")
+debuff.Icon.w,debuff.Icon.h=40,24
+DebuffFrame:UpdateAuraButtons()
+equal(debuff.Icon.dimensionReads,0,"recycled resized icon also uses native anchoring")
 debuff.buttonInfo.debuffType=secret;DebuffFrame:UpdateAuraButtons()
 equal(debuff.DebuffBorder.atlas,"NativeTypeBorder","restricted debuff type keeps native border")
 local function Backdrop(tip)

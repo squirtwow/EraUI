@@ -6,6 +6,28 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.0.5",
+        sections = {
+            { "New", {
+                "Optional Clickable reminders (outside combat): enable it in your class-reminder options, then click supported icons to cast. It starts off; drag the text to move alerts. Preview alerts never cast.",
+                "Hunters have a separate PET DEAD! reminder with Revive Pet, configurable under Advanced. SUMMON PET! now covers missing pets without duplicating the death alert.",
+                "Questie's quest-log actions open the selected quest in the Classic quest log when enabled. Objective and map-icon clicks keep their map navigation.",
+            } },
+            { "Changed", {
+                "Reminder icons use a subtle hover highlight without a tooltip. Choose a blessing, imbue or demon under Advanced for its click action. Targetable group buffs use your friendly living target, otherwise yourself.",
+                "/era reset restores default settings and reloads automatically. Use it outside combat; a failed reset request keeps your settings and does not reload.",
+            } },
+            { "Fixed", {
+                "Compact Classic trainers use Blizzard's native selection and purchase controls, with pet levels and training-point costs. Opening, empty-filter messages and combat presentation are improved.",
+                "Questie tracker compatibility is included in EraUI: duplicate Blizzard tracking stays hidden in and out of combat and returns when Questie's tracker is disabled. Show Blizzard Timer is respected.",
+                "Map quest descriptions and rewards scroll within the full available panel height, above the bottom action buttons.",
+                "Map Reveal waits for native zoom data before refreshing, preventing an early-login map error.",
+                "Player debuff borders no longer calculate with restricted icon dimensions, preventing secret-number errors.",
+                "Reset keeps live settings valid until reload and prevents queued or logout saves from bringing old choices back. Clickable-reminder preferences are included in settings recovery.",
+            } },
+        },
+    },
+    {
         version = "1.0.4",
         sections = {
             { "New", {

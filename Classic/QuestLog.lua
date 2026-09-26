@@ -965,13 +965,39 @@ local function Build()
 end
 
 function ns.ShowQuestLog(questID)
-    if not active then return end
+    if not active or InCombatLockdown() then return false end
     if not frame then Build() end
     if questID then
+        -- External quest-title clicks must also reveal quests whose category
+        -- was folded in our log. Expand only the containing Classic section.
+        local header, index = nil, 1
+        while index <= (C_QuestLog.GetNumQuestLogEntries() or 0) do
+            local info = C_QuestLog.GetInfo(index)
+            if info and info.isHeader then
+                header = HeaderKey(info)
+                if info.isCollapsed and ExpandQuestHeader then ExpandQuestHeader(info.questLogIndex) end
+            elseif info and info.questID == questID then
+                if header then collapsed[header] = nil end
+                break
+            end
+            index = index + 1
+        end
         selectedID = questID
         C_QuestLog.SetSelectedQuest(questID)
     end
     if frame:IsShown() then UpdateAll() else frame:Show() end
+    if questID and frame:IsShown() then
+        local offset = math.floor(frame.listBar:GetValue() + .5)
+        for index, info in ipairs(entries) do
+            if not info.isHeader and info.questID == questID then
+                if index <= offset then frame.listBar:SetValue(index - 1)
+                elseif index > offset + Rows() then frame.listBar:SetValue(index - Rows()) end
+                break
+            end
+        end
+        frame.detailBar:SetValue(0)
+    end
+    return frame:IsShown()
 end
 
 function ns.HideQuestLog()
@@ -990,6 +1016,25 @@ local function UpdateBinding()
     if key then SetOverrideBindingClick(bindButton, true, key, BIND_NAME, "LeftButton") end
 end
 
+-- Adapt Questie's explicit "open quest log" action only. Its objective/map
+-- navigation and modified-click bindings continue through Questie's own code.
+local questieInstalled = false
+local function InstallQuestie()
+    if questieInstalled or not QuestieLoader or type(QuestieLoader.ImportModule) ~= "function" then return end
+    local ok, utils = pcall(QuestieLoader.ImportModule, QuestieLoader, "TrackerUtils")
+    if not ok or type(utils) ~= "table" or type(utils.ShowQuestLog) ~= "function" then return end
+    local original = utils.ShowQuestLog
+    utils.ShowQuestLog = function(self, quest, ...)
+        local id = type(quest) == "table" and quest.Id
+        if active and EraUI:GetSetting("enabled") and not InCombatLockdown()
+            and type(id) == "number" and id > 0 and (C_QuestLog.GetLogIndexForQuestID(id) or 0) > 0 then
+            if ns.ShowQuestLog(id) then return end
+        end
+        return original(self, quest, ...)
+    end
+    questieInstalled = true
+end
+
 local hooked = false
 local function Init()
     if hooked then return end
@@ -1000,6 +1045,12 @@ local function Init()
     bindButton:RegisterEvent("PLAYER_REGEN_ENABLED")
     bindButton:RegisterEvent("PLAYER_ENTERING_WORLD")
     bindButton:SetScript("OnEvent", UpdateBinding)
+    local questieLoader = CreateFrame("Frame")
+    questieLoader:RegisterEvent("ADDON_LOADED")
+    questieLoader:SetScript("OnEvent", function(_, _, addon)
+        if addon == "Questie" then InstallQuestie() end
+    end)
+    InstallQuestie()
     for _, name in ipairs({ "QuestObjectiveTracker", "CampaignQuestObjectiveTracker" }) do
         local tracker = _G[name]
         if tracker then
@@ -1030,6 +1081,7 @@ end
 
 local function Apply()
     active = true
+    InstallQuestie()
     if QuestLogMicroButton then
         if not originalMicroClick then originalMicroClick = QuestLogMicroButton:GetScript("OnClick") end
         QuestLogMicroButton:SetScript("OnClick", function()

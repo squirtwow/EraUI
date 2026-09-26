@@ -93,6 +93,14 @@ function ns.StatusText()
                 hit.func, hit.combat and " (in combat)" or "", hit.editMode and " (edit mode)" or ""))
         end
     end
+    if ns.TrainerDiagnostics then
+        local ok, details = pcall(ns.TrainerDiagnostics)
+        if ok and details then
+            for _, line in ipairs(details) do Add(line) end
+        elseif not ok then
+            Add("Trainer diagnostics failed: " .. tostring(details))
+        end
+    end
     return table.concat(lines, "\n")
 end
 
