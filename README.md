@@ -1,32 +1,67 @@
 # EraUI
 
-Classic-inspired interface adjustments for World of Warcraft: Forever, with a
-full set of quality-of-life options.
+Classic-era interface for **World of Warcraft: Forever**, with a full set of
+quality-of-life options on top. Every piece is optional and can be switched on
+or off in the settings.
 
-## What it does
+## The classic look
 
-- Restores the Classic-era look to the action bar, unit frames, cast bars,
-  minimap, nameplates, character sheet, spellbook, talents, quests, bags, bank,
-  professions and the other windows.
-- Adds optional quality-of-life features: vendor prices, bag-space display,
-  quest levels, clean minimap, coordinates, auto-sell junk, auto-repair, chat
-  class colours, secondary names, spell-rank preference, gryphons, empty-slot
-  indicators, swing/resource bars, floating combo points, an advanced cast bar,
-  class tools and reminders, and more.
+- Action bar — the stone band with gryphons, page arrows, micro menu, bag
+  buttons and the experience bar in their original spots (optional one-bar mode
+  and default-bar sizing)
+- Unit frames — player, target, target of target, focus, pet and party frames
+  with the original art and bars
+- Cast bars and mirror timers — player, pet, target and focus cast bars; classic
+  breath and fatigue timers
+- Minimap and nameplates — the round classic minimap with its zone name and old
+  tracking, and 1.x-style nameplates
+- Windows — character sheet, spellbook, talents, professions, trade skills,
+  trainers, quest log and tracker, bags and bank, game menu, settings window,
+  Who list, guild roster and group finder
+- Combo points — floating orbs in gold or red, draggable and resizable
 
-## Use
+## Quality of life
 
-Enable EraUI in the client's AddOns menu. Open settings with `/era` (or
-`/eraui`). Most options update immediately; the panel identifies changes that
-need a Reload UI.
+- Vendor prices, bag-space counter, quest levels and map quest objectives
+- Auto-sell junk and auto-repair at vendors
+- Class colours in chat, optional secondary names, highest-rank spell filtering
+- Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
+- Advanced cast bar with ticks and latency display
+- Movable world map — drag it by its header and resize it from the corners
+- Class tools: hunter feeding, mage supplies, rogue poisons
+- Coordinates, clean minimap, cursor ring, draggable chat and more
+- A "what's new" window after each update, in your class colour
 
-- `/era setup` replays the guided first-run setup.
-- `/era version` reports the loaded version.
-- `/era reset` clears EraUI settings; reload afterward to restore defaults.
+## Coming soon
 
-Hide EraUI status messages (Quiet Mode) is on by default; switch it off in settings
-to see startup and setting-change notices. It does not filter player chat or
-messages from other addons.
+- Class reminders and revealing the world map
 
-The addon changes presentation and display options while retaining Blizzard's
-gameplay controls.
+## Commands
+
+- `/era` — open the settings window
+- `/era setup` — replay the guided first-run setup
+- `/era welcome` — show the welcome screen again
+- `/era updates` — show the latest update notes again
+- `/era status` — copy-paste diagnostics for bug reports
+- `/era version` — show the loaded version
+- `/era reset` — restore defaults (reload afterwards)
+
+Most options apply immediately; the settings panel marks the few that need a
+reload. Settings are shared across your characters; swing timers are remembered
+per character, and windows take the class colour of the character you're
+playing. Quiet Mode (hide status messages) is on by default.
+
+## Install
+
+Copy the `EraUI` folder into `Interface/AddOns`, or install through
+[CurseForge](https://www.curseforge.com/wow/addons/eraui), then enable it in the
+client's AddOns menu.
+
+## Links
+
+- CurseForge: <https://www.curseforge.com/wow/addons/eraui>
+- Changelog: [CHANGELOG.txt](CHANGELOG.txt)
+
+## License
+
+All rights reserved. See [LICENSE.txt](LICENSE.txt).
