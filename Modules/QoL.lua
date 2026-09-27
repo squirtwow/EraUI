@@ -56,41 +56,63 @@ end
 
 local questTracker
 local questBlocks = setmetatable({}, { __mode = "k" })
-local questRefreshPending = false
 
-local function QueueQuestRefresh()
-    if questRefreshPending or not C_Timer or not C_Timer.After then return end
-    questRefreshPending = true
-    C_Timer.After(0, function()
-        questRefreshPending = false
-        if questTracker and questTracker.MarkDirty then questTracker:MarkDirty() end
-    end)
+local function Public(value)
+    return not (issecretvalue and issecretvalue(value))
+end
+
+local function PaintQuestTitle(block)
+    local state, label = questBlocks[block], block.HeaderText
+    if not state or not label then return end
+    local title, id = label:GetText(), block.id
+    if not Public(title) or not Public(id) or type(title) ~= "string" then return end
+    -- Restore only our own text. Pool reuse and other addons may have replaced it.
+    if title == state.shown and id == state.questID then
+        title = state.title
+        label:SetText(title)
+    end
+    state.title, state.questID, state.shown = title, id, nil
+    if not EraUI:GetSetting("enabled") or not EraUI:GetSetting("questLevels") then return end
+    if title == "" or title:match("^%[%d+[^%]]*%]") then return end
+    if type(id) ~= "number" or not C_QuestLog or not C_QuestLog.GetQuestDifficultyLevel then return end
+    local ok, level = pcall(C_QuestLog.GetQuestDifficultyLevel, id)
+    if not ok or not Public(level) or type(level) ~= "number" or level <= 0 then return end
+    if not label.GetHeight or not label.IsTruncated then return end
+    local height = label:GetHeight()
+    if not Public(height) or type(height) ~= "number" or height <= 0 then return end
+
+    -- SetHeader writes native layout state, including the accumulated block
+    -- height. Never reenter it or MarkDirty from an addon hook/timer: the native
+    -- tracker also performs restricted aura reads. Paint only the font string,
+    -- retaining the complete original title if a prefix needs more layout space.
+    local shown = "[" .. level .. "] " .. title
+    label:SetText(shown)
+    local newHeight, truncated = label:GetHeight(), label:IsTruncated()
+    if not Public(newHeight) or type(newHeight) ~= "number" or not Public(truncated)
+        or truncated or newHeight > height + .01 then
+        label:SetText(title)
+        return
+    end
+    state.shown = shown
 end
 
 local function HookQuestBlock(_, block)
     if not block or not block.SetHeader or questBlocks[block] then return end
-    questBlocks[block] = true
-    local updating = false
-    hooksecurefunc(block, "SetHeader", function(self, title)
-        if updating or not EraUI:GetSetting("questLevels") then return end
-        if type(title) ~= "string" or title:match("^%[%d+[^%]]*%]") then return end
-        if type(self.id) ~= "number" or not C_QuestLog
-            or not C_QuestLog.GetQuestDifficultyLevel then return end
-        local ok, level = pcall(C_QuestLog.GetQuestDifficultyLevel, self.id)
-        if not ok or type(level) ~= "number" or level <= 0 then return end
-        updating = true
-        -- SetHeader recalculates header height before objectives are laid out.
-        self:SetHeader("[" .. level .. "] " .. title)
-        updating = false
+    questBlocks[block] = {}
+    hooksecurefunc(block, "SetHeader", function(self)
+        -- Native SetHeader has supplied fresh text, possibly for another
+        -- quest using the same pooled block. Do not restore cached text.
+        local state = questBlocks[self]
+        state.title, state.questID, state.shown = nil, nil, nil
+        PaintQuestTitle(self)
     end)
-    -- Newly acquired blocks may already have their title; rebuild next frame.
-    QueueQuestRefresh()
+    PaintQuestTitle(block)
 end
 
 function Module:SetupQuestLevels()
     if questTracker then return end
     local tracker = _G.QuestObjectiveTracker
-    if not tracker or not tracker.AddBlock or not tracker.MarkDirty then return end
+    if not tracker or not tracker.AddBlock then return end
     questTracker = tracker
     hooksecurefunc(tracker, "AddBlock", HookQuestBlock)
     if tracker.GetExistingBlock and C_QuestLog and C_QuestLog.GetNumQuestWatches
@@ -100,12 +122,11 @@ function Module:SetupQuestLevels()
             if id then HookQuestBlock(tracker, tracker:GetExistingBlock(id)) end
         end
     end
-    QueueQuestRefresh()
 end
 
 function Module:RefreshQuestLevels()
     self:SetupQuestLevels()
-    QueueQuestRefresh()
+    for block in pairs(questBlocks) do PaintQuestTitle(block) end
 end
 
 local bagButtonHooked

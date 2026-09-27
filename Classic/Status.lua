@@ -137,7 +137,7 @@ local function Build()
     how:SetJustifyH("LEFT")
     how:SetText("Reporting a bug? Take a screenshot with this window and the problem both in it, or press Select all, "
         .. "copy with Ctrl+C, and paste the text into your report. Say what you did and what you expected. "
-        .. "If it may be another addon, try once with only this one on.")
+        .. "Use Discord below for support, bugs and ideas.")
 
     local box = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     box:SetBackdrop({
@@ -170,21 +170,24 @@ local function Build()
     edit:SetScript("OnEditFocusLost", function(self) self:HighlightText(0, 0) end)
     frame.edit = edit
 
-    local select = ns.PanelButton(frame, "Select all", 100)
+    local select = ns.PanelButton(frame, "Select all", 90)
     select:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22, 20)
     select:SetScript("OnClick", function()
         edit:SetFocus()
         edit:HighlightText()
     end)
-    local close = ns.PanelButton(frame, CLOSE or "Close", 100)
+    local close = ns.PanelButton(frame, CLOSE or "Close", 80)
     close:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 20)
     close:SetScript("OnClick", function() frame:Hide() end)
-    local github = ns.PanelButton(frame, "GitHub issues", 120)
+    local github = ns.PanelButton(frame, "GitHub issues", 110)
     github:SetPoint("RIGHT", close, "LEFT", -6, 0)
     github:SetScript("OnClick", function() ns.CopyLink("EraUI issues on GitHub", ns.GITHUB_URL) end)
-    local curse = ns.PanelButton(frame, "CurseForge", 120)
+    local curse = ns.PanelButton(frame, "CurseForge", 102)
     curse:SetPoint("RIGHT", github, "LEFT", -6, 0)
     curse:SetScript("OnClick", function() ns.CopyLink("EraUI on CurseForge", ns.CURSEFORGE_URL) end)
+    local discord = ns.PanelButton(frame, "Discord", 86)
+    discord:SetPoint("RIGHT", curse, "LEFT", -6, 0)
+    discord:SetScript("OnClick", function() ns.CopyLink("EraUI Discord: support, bugs and ideas", ns.DISCORD_URL) end)
 
     frame:SetScript("OnShow", function(self)
         self.text = ns.StatusText()

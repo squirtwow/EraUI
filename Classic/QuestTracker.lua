@@ -120,14 +120,11 @@ local function StyleString(block, fontString, text, _, colorStyle)
     fontString:SetShadowOffset(1, -1)
     if fontString == block.HeaderText then
         fontString:SetFont(FONT, SIZE_TITLE, "")
-        local level, color = QuestLevelAndColor(block)
+        local _, color = QuestLevelAndColor(block)
         if color then
             fontString:SetTextColor(color.r, color.g, color.b)
-            if EraUI:GetSetting("questLevels") and level and text and not text:find("^%[") then
-                local shown = "[" .. level .. "] " .. text
-                fontString:SetText(shown)
-                if fontString:GetStringWidth() > fontString:GetWidth() then fontString:SetText(text) end
-            end
+            -- QoL paints level prefixes after native SetHeader has finished
+            -- measuring. Keep this in-layout hook limited to font and colour.
         else
             fontString:SetTextColor(unpack(GOLD))
         end

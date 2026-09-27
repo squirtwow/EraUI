@@ -49,6 +49,7 @@ local PIECES = {
 local REP_ROWS = { { 0, 0.171875 }, { 0.1875, 0.359375 }, { 0.375, 0.546875 }, { 0.5625, 0.734375 } }
 
 local art
+local RefreshPlayerCastBar
 local active = false
 local applying = false
 local pending = false
@@ -1427,9 +1428,76 @@ end
 
 local STATUS_INSET = 2
 
+-- Keep only our status-strip anchors in sync with native positioning. Waiting
+-- for StatusMoved's poll lets a native TOP/UIParent anchor render for a frame.
+-- This path does not run a full skin/layout pass or call any native manager.
+local PlaceStatusAnchor
+do
+    local anchors = {}
+    local writing = false
+    local function Public(value)
+        return not (issecretvalue and issecretvalue(value))
+    end
+    local function Put(frame, anchor)
+        writing = true
+        local ok, err = pcall(function()
+            frame:ClearAllPoints()
+            frame:SetPoint(anchor.point, anchor.relative, anchor.relativePoint, anchor.x, anchor.y)
+        end)
+        writing = false
+        if not ok then error(err, 0) end
+    end
+    local function Keep(frame)
+        if writing or applying or not (active and art) or not EraUI:GetSetting("enabled") then return end
+        local anchor = anchors[frame]
+        if not anchor then return end
+        local container = anchor.container
+        local manager = EditModeManagerFrame
+        if frame.isDragging or container.isDragging or container.isInEditMode then return end
+        if manager and manager.IsEditModeActive and manager:IsEditModeActive() then return end
+        if InCombatLockdown() and ((frame.IsProtected and frame:IsProtected())
+            or (container.IsProtected and container:IsProtected())) then return end
+        local point, relative, relativePoint, x, y = frame:GetPoint(1)
+        local count = frame:GetNumPoints()
+        if not (Public(count) and Public(point) and Public(relative) and Public(relativePoint) and Public(x) and Public(y)) then return end
+        if count==1 and point==anchor.point and relative==anchor.relative and relativePoint==anchor.relativePoint
+            and x==anchor.x and y==anchor.y then return end
+        Put(frame, anchor)
+    end
+    PlaceStatusAnchor = function(frame, container, point, relative, relativePoint, x, y)
+        local first = not anchors[frame]
+        -- Publish the new intended anchor before writing it: XP/reputation can
+        -- exchange containers, and a legitimate band relayout must win.
+        local anchor = {container=container, point=point, relative=relative, relativePoint=relativePoint, x=x, y=y}
+        anchors[frame] = anchor
+        Put(frame, anchor)
+        if first then
+            for _, method in ipairs({"SetPoint", "SetAllPoints", "ApplySystemAnchor"}) do
+                if type(frame[method])=="function" then ns.HookMethod(frame, method, Keep) end
+            end
+        end
+    end
+    local watcher = CreateFrame("Frame")
+    watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+    watcher:SetScript("OnEvent", function()
+        for frame in pairs(anchors) do Keep(frame) end
+    end)
+end
+
 local function LayoutStatusBar(container, isTop)
     if not container then return end
-    Anchor(container, isTop and "BOTTOM" or "TOP", "TOP", 0, isTop and 2 or -1, BandNow())
+    -- The fallback layout also runs during fights. Preflight the entire strip
+    -- before touching any geometry if this client protects one of its pieces.
+    if InCombatLockdown() then
+        local function Protected(frame) return frame and frame.IsProtected and frame:IsProtected() end
+        if Protected(container) then return end
+        for _, bar in pairs(container.bars or {}) do
+            if Protected(bar) or Protected(bar.StatusBar) then return end
+        end
+    end
+    Remember(container)
+    PlaceStatusAnchor(container, container, isTop and "BOTTOM" or "TOP", art, "TOP", 0, isTop and 2 or -1)
+    container:SetScale(BandNow())
     local h = isTop and 7 or STRIP_H
     local w = ArtWidth() - STATUS_INSET * 2
     container:SetSize(w, h)
@@ -1453,13 +1521,11 @@ local function LayoutStatusBar(container, isTop)
     FadeDividers(container)
     ns.HookMethod(container, "UpdateDividers", FadeDividers)
     for _, bar in pairs(container.bars or {}) do
-        bar:ClearAllPoints()
-        bar:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+        PlaceStatusAnchor(bar, container, "TOPLEFT", container, "TOPLEFT", 0, 0)
         bar:SetSize(w, h)
         local status = bar.StatusBar
         if status then
-            status:ClearAllPoints()
-            status:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+            PlaceStatusAnchor(status, container, "TOPLEFT", bar, "TOPLEFT", 0, 0)
             status:SetSize(w, h)
             status.fcuiXP = bar.ExhaustionTick ~= nil
             status.fcuiBar = bar
@@ -1601,6 +1667,7 @@ barsWatch:SetScript("OnUpdate", function(self, elapsed)
     if state ~= self.state then
         self.state = state
         pcall(LayoutStatusBars)
+        RefreshPlayerCastBar()
         if two ~= self.two then
             self.two = two
             if ns.QueueApply then ns.QueueApply() end
@@ -1608,51 +1675,104 @@ barsWatch:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
+do
 local CAST_GAP = 26
-local castWatch = CreateFrame("Frame")
-castWatch:SetScript("OnUpdate", function(self, elapsed)
-    -- Walking every bar system and its buttons is far too heavy for a frame
-    -- tick; ten times a second is smooth for a position that changes rarely.
-    self.since = (self.since or 0) + elapsed
-    if self.since < 0.1 then return end
-    self.since = 0
+local castLayouts, castBars = {}, {}
+local castPlacing = false
+local function CastNumber(value)
+    return type(value) == "number" and not (issecretvalue and issecretvalue(value))
+end
+local function PlacePlayerCastBar()
     local bar = _G["PlayerCastingBarFrame"]
-    if not (active and art and bar and bar:IsShown()) then return end
-    if bar.isDragging then return end
+    if castPlacing or applying or not (active and art and bar and bar:IsShown()) then return end
+    if not EraUI:GetSetting("enabled") or EraUI:GetSetting("advancedCastBar") then return end
+    if bar.isDragging or bar.isInEditMode then return end
+    local manager = EditModeManagerFrame
+    if manager and manager.IsEditModeActive and manager:IsEditModeActive() then return end
+    if bar.IsAttachedToPlayerFrame and bar:IsAttachedToPlayerFrame() then return end
+    if InCombatLockdown() and bar.IsProtected and bar:IsProtected() then return end
     if bar.IsInDefaultPosition then
         local ok, default = pcall(bar.IsInDefaultPosition, bar)
-        if ok and default == false then return end
+        if not ok or (issecretvalue and issecretvalue(default)) or default ~= true then return end
     end
-    local screen = UIParent:GetEffectiveScale()
-    local centre = UIParent:GetWidth() / 2
+    local screen, width = UIParent:GetEffectiveScale(), UIParent:GetWidth()
+    if not CastNumber(screen) or screen <= 0 or not CastNumber(width) then return end
+    local centre = width / 2
     local top = 0
-    for _, frame in ipairs({ art, MultiBarBottomLeft, MultiBarBottomRight, StanceBar, PetActionBar, PossessActionBar,
-        MainStatusTrackingBarContainer, SecondaryStatusTrackingBarContainer }) do
-        local onBand = frame == art or (frame and not frame.isDragging and not SystemMoved(frame))
-        if onBand and frame:IsShown() and (frame:GetAlpha() or 1) > 0 and frame:GetTop() and frame:GetLeft() then
-            local from, to = frame, frame
-            local buttons = frame.actionButtons
-            if buttons and buttons[1] and buttons[1]:GetLeft() then
-                from, to = buttons[1], buttons[1]
-                for i = #buttons, 2, -1 do
-                    if buttons[i]:IsShown() and buttons[i]:GetRight() then to = buttons[i] break end
-                end
+    local function Span(frame)
+        local scale, left, right, up = frame:GetEffectiveScale(), frame:GetLeft(), frame:GetRight(), frame:GetTop()
+        if not CastNumber(scale) or scale <= 0 or not CastNumber(left) or not CastNumber(right) or not CastNumber(up) then return end
+        local k = scale / screen
+        return left * k, right * k, up * k
+    end
+    local function Inspect(frame)
+        if not frame or not frame:IsShown() then return end
+        if frame ~= art and (frame.isDragging or SystemMoved(frame)) then return end
+        local alpha = frame:GetAlpha()
+        if not CastNumber(alpha) or alpha <= 0 then return end
+        local from, to = frame, frame
+        local buttons = frame.actionButtons
+        if buttons and buttons[1] and CastNumber(buttons[1]:GetLeft()) then
+            from, to = buttons[1], buttons[1]
+            for i = #buttons, 2, -1 do
+                if buttons[i]:IsShown() and CastNumber(buttons[i]:GetRight()) then to = buttons[i] break end
             end
-            local k = from:GetEffectiveScale() / screen
-            local left, right = math.min(from:GetLeft(), to:GetLeft()) * k, math.max(from:GetRight(), to:GetRight()) * k
-            local up = math.max(from:GetTop(), to:GetTop()) * k
-            if left < centre + 110 and right > centre - 110 and up < 260 and up > top then top = up end
         end
+        local leftA, rightA, topA = Span(from)
+        local leftB, rightB, topB = Span(to)
+        if not leftA or not leftB then return end
+        local left, right, up = math.min(leftA, leftB), math.max(rightA, rightB), math.max(topA, topB)
+        if left < centre + 110 and right > centre - 110 and up < 260 and up > top then top = up end
+    end
+    Inspect(art)
+    -- Names avoid ipairs stopping at a missing optional bar before the pet/XP rows.
+    for _, name in ipairs({ "MultiBarBottomLeft", "MultiBarBottomRight", "StanceBar", "PetActionBar", "PossessActionBar",
+        "MainStatusTrackingBarContainer", "SecondaryStatusTrackingBarContainer" }) do
+        Inspect(_G[name])
     end
     if top <= 0 then return end
-    local mine = bar:GetEffectiveScale() / screen
-    local want = (top + CAST_GAP) / mine
-    local bottom = bar:GetBottom()
-    if bottom and math.abs(bottom - want) > 1 then
+    local scale, bottom = bar:GetEffectiveScale(), bar:GetBottom()
+    if not CastNumber(scale) or scale <= 0 or not CastNumber(bottom) then return end
+    local want = (top + CAST_GAP) / (scale / screen)
+    if math.abs(bottom - want) > 1 then
+        castPlacing = true
         bar:ClearAllPoints()
         bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, want)
+        castPlacing = false
     end
+end
+
+RefreshPlayerCastBar = function()
+    local bar = _G["PlayerCastingBarFrame"]
+    if not (active and art and bar) or castPlacing then return end
+    if not castBars[bar] then
+        castBars[bar] = true
+        bar:HookScript("OnShow", RefreshPlayerCastBar)
+        for _, method in ipairs({ "ApplySystemAnchor", "UpdateSystemSettingBarSize" }) do
+            if type(bar[method]) == "function" then ns.HookMethod(bar, method, RefreshPlayerCastBar) end
+        end
+    end
+    -- OnShow lets Blizzard register/reparent the bar first. Its managed layout
+    -- also runs mid-cast as other frames appear. Finish placement in that same
+    -- call, before rendering, rather than chasing native anchors every 0.1s.
+    local parent = bar.layoutParent
+    local layout = parent and parent.BottomManagedLayoutContainer or bar:GetParent()
+    if layout and not castLayouts[layout] and type(layout.Layout) == "function" then
+        castLayouts[layout] = true
+        ns.HookMethod(layout, "Layout", RefreshPlayerCastBar)
+    end
+    PlacePlayerCastBar()
+end
+local castWatch = CreateFrame("Frame")
+for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "ADDON_LOADED", "PLAYER_REGEN_ENABLED", "UI_SCALE_CHANGED",
+    "DISPLAY_SIZE_CHANGED", "PET_BAR_UPDATE", "UPDATE_SHAPESHIFT_FORMS", "UPDATE_BONUS_ACTIONBAR",
+    "UPDATE_OVERRIDE_ACTIONBAR" }) do
+    castWatch:RegisterEvent(event)
+end
+castWatch:SetScript("OnEvent", function()
+    RefreshPlayerCastBar()
 end)
+end
 
 function ns.StatusBarsBusy()
     if not (active and art) then return false end
@@ -1796,6 +1916,7 @@ local function Apply()
     local ok, err = pcall(Layout)
     applying = false
     Snapshot()
+    RefreshPlayerCastBar()
     if not ok then geterrorhandler()(err) end
 end
 
@@ -2598,7 +2719,7 @@ local function StartWatch()
                 return
             end
         end
-        if fight then RowsBack() else ns.SafeCall(Apply) end
+        if fight then RowsBack(); RefreshPlayerCastBar() else ns.SafeCall(Apply) end
     end
     local placer = CreateFrame("Frame")
     -- The placement pass inspects every bar piece and is expensive. Events and

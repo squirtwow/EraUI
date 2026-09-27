@@ -1,5 +1,9 @@
 # ⚔️ EraUI: Classic WoW, restored.
 
+[![Join the EraUI Discord community](https://img.shields.io/badge/Discord-Join%20EraUI-5865F2?logo=discord&logoColor=white)](https://discord.gg/FVfcDWJncr)
+
+💬 **Support, bugs & ideas:** join our Discord to get help, report issues, suggest features and share your UI.
+
 *The 2004 interface you remember, rebuilt for World of Warcraft: Forever, with the quality-of-life you'd miss. Every feature is optional.*
 
 ---

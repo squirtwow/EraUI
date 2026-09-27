@@ -6,6 +6,34 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.0.6",
+        sections = {
+            { "Added", {
+                "Cast Progress Ring: class/custom colours, size and opacity controls. Fills during casts, drains during channels, with no interruption flash.",
+                "Cursor Trail: independent toggle, class/custom colours, size, opacity and fade controls.",
+                "Discard Cheapest Junk: frees the lowest-value grey stack on the initial right-click of a known lootable corpse when bags are full. Falls back to the next loot click when loot rights are unavailable. Includes Shift bypass, a chat receipt and one-stack-per-loot-window limit.",
+                "Important Debuffs on Portraits: crowd-control icons and countdowns on player, target, focus and party portraits, marked Needs testing.",
+                "Changelog button in /era.",
+                "Discord button in the status window.",
+                "All new gameplay/cursor options default off.",
+            } },
+            { "Fixed", {
+                "Player cast bar jumping vertically.",
+                "XP/status bar jumping to the screen top.",
+                "Train-button hover highlighting while preserving purchases and profession confirmations.",
+                "Class-tool navigation closing settings.",
+                "Quest-level labels causing tracker rebuilds or recursive layout, with prefixes respecting available space.",
+                "Added a centred scroll hint when more settings are below the viewport.",
+            } },
+            { "Changed", {
+                "Removed redundant Configure shortcuts for Druid, Warrior, Paladin, Shaman, Priest and Warlock.",
+                "Clearly labelled Hunter feeding and Mage conjuring/trade sections.",
+                "Hidden ineffective Rogue/Shaman group-reminder options and unsupported Rogue reminder clicking.",
+                "Prevented duplicate Rogue missing-poison alerts while preserving saved choices and supply tools.",
+            } },
+        },
+    },
+    {
         version = "1.0.5",
         sections = {
             { "New", {
@@ -141,7 +169,10 @@ local function Build()
     window = CreateFrame("Frame", "EraUIUpdates", UIParent, "BackdropTemplate")
     window:SetSize(560, 380)
     window:SetPoint("CENTER")
-    window:SetFrameStrata("DIALOG")
+    -- Settings and its nested controls use DIALOG, including independently
+    -- layered class-tool buttons. Raising a peer window can leave those children
+    -- above its backdrop; use the foreground dialog layer for the whole tree.
+    window:SetFrameStrata("FULLSCREEN_DIALOG")
     window:SetClampedToScreen(true)
     window:EnableMouse(true)
     window:SetMovable(true)
@@ -274,6 +305,7 @@ local function Show()
     window.button:SetBackdropColor(r * .2, g * .2, b * .2, 1)
     window.button:SetBackdropBorderColor(r, g, b, 1)
     window:Show()
+    window:Raise()
     window:LayoutNotes()
     window.scroll:SetVerticalScroll(0)
 end

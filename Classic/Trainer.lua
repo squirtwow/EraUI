@@ -13,6 +13,34 @@ local COLORS = { available = { .1, 1, .1 }, unavailable = { 1, .1, .1 }, used = 
 local Refresh, UpdateRows
 local history, phase, lastRefresh = {}, "not refreshed", {}
 
+-- Cosmetic texture only: even a motion-only frame above Train consumes clicks
+-- on Forever. Read cursor geometry without adding anything to mouse hit testing.
+local function TrainHighlight(hovered)
+    if not (panel and panel.trainHighlight) then return end
+    local host = ClassTrainerFrame
+    local train = host and host.TrainButton
+    local enabled = train and train:IsEnabled()
+    if not active or hovered == false or InCombatLockdown() or (issecretvalue and issecretvalue(enabled))
+        or not enabled or not host:IsShown() or not train:IsShown() or not panel:IsShown()
+        or panel.trainBlocker:IsShown() then
+        panel.trainHighlight:Hide()
+        return
+    end
+    local function Number(value)
+        return not (issecretvalue and issecretvalue(value)) and type(value)=="number"
+    end
+    local x, y = GetCursorPosition()
+    local left, bottom, width, height = panel.train:GetRect()
+    local scale = panel.train:GetEffectiveScale()
+    local inside = false
+    if Number(x) and Number(y) and Number(left) and Number(bottom) and Number(width) and Number(height)
+        and Number(scale) and scale>0 and width>0 and height>0 then
+        x, y = x/scale, y/scale
+        inside = x>=left and x<=left+width and y>=bottom and y<=bottom+height
+    end
+    panel.trainHighlight:SetShown(inside)
+end
+
 local function ReadServiceCount()
     if not GetNumTrainerServices then return "unavailable" end
     local ok, count = pcall(GetNumTrainerServices)
@@ -238,6 +266,7 @@ local function UpdateDetail()
     local name, kind, icon, level, rank
     if selected then name, kind, icon, level, rank = GetTrainerServiceInfo(selected) end
     panel.train:SetEnabled(ClassTrainerFrame.TrainButton:IsEnabled())
+    TrainHighlight()
     local pet = PetTrainer()
     panel.points:SetShown(pet)
     if pet then
@@ -358,6 +387,22 @@ local function Build()
     panel.train = ns.PanelButton(panel, TRAIN or "Train", 84)
     panel.train:SetPoint("RIGHT", exit, "LEFT", -3, 0)
     panel.train:EnableMouse(false) -- artwork only; the actual native button is over it
+    -- Draw Exit's same texture on the existing mouse-disabled artwork. No
+    -- separate hover frame, mouse-motion listener or click forwarding is needed.
+    local source = panel.train:GetHighlightTexture()
+    local highlight = panel.train:CreateTexture(nil, "OVERLAY")
+    highlight:SetAllPoints(panel.train)
+    highlight:SetTexture(source:GetTexture())
+    highlight:SetTexCoord(source:GetTexCoord())
+    highlight:SetBlendMode("ADD")
+    highlight:Hide()
+    panel.trainHighlight = highlight
+    panel.train:SetScript("OnUpdate", function(self, elapsed)
+        self.hoverElapsed = (self.hoverElapsed or 0)+elapsed
+        if self.hoverElapsed<.05 then return end
+        self.hoverElapsed = 0
+        TrainHighlight()
+    end)
     -- Combat must not remove the entire presentation and expose an empty
     -- native shell. A transparent input shield blocks only the training click.
     panel.trainBlocker = CreateFrame("Frame", nil, panel, "SecureHandlerBaseTemplate")
@@ -365,6 +410,12 @@ local function Build()
     panel.trainBlocker:SetFrameLevel(panel:GetFrameLevel() + 31)
     panel.trainBlocker:EnableMouse(true)
     panel.trainBlocker:Hide()
+    host.TrainButton:HookScript("OnEnable", function() TrainHighlight() end)
+    host.TrainButton:HookScript("OnDisable", function() TrainHighlight(false) end)
+    host.TrainButton:HookScript("OnHide", function() TrainHighlight(false) end)
+    panel:HookScript("OnHide", function() TrainHighlight(false) end)
+    panel.trainBlocker:HookScript("OnShow", function() TrainHighlight(false) end)
+    panel.trainBlocker:HookScript("OnHide", function() TrainHighlight() end)
     local moneyBox = ns.SkillInsetBox(panel, 16, true)
     moneyBox:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 1, 4)
     moneyBox:SetPoint("RIGHT", panel.train, "LEFT", 1, 0)

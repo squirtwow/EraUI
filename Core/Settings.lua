@@ -13,6 +13,10 @@ local classIconCoords = CLASS_ICON_TCOORDS or {
 }
 
 local settingHelp = {
+    discardCheapestJunk = "With full bags, right-clicking a corpse the client identifies as lootable frees the lowest-value grey stack during that click. If loot rights are unavailable, cleanup waits for a bags-full loot error and the next normal world/loot click. At most one stack per loot window. No separate confirmation; the deleted item is reported in chat. Compares total stack vendor value and skips locked/quest items or unknown prices. Never runs in combat or with an occupied cursor. Hold Shift to bypass.",
+    cursorCastRing = "A thin progress ring follows your cursor, filling during casts and draining during channels. Works independently of Cursor Ring and the normal cast bar. When Cursor Ring is enabled, the cast ring grows as needed to stay outside it with a small gap. Stops quietly on interruption.",
+    poisonReminders = "Shows missing poison, low remaining time and low charges. While enabled, this panel handles missing-poison warnings instead of duplicating the generic Rogue class alerts. Poison Supplies is separate and manages buying/crafting. Preview while settings are open; right-click the header to move or resize.",
+    portraitDebuffs = "Needs testing: this feature has not yet been verified in-game. Shows the highest-priority crowd-control icon and countdown on player, target, focus and party portraits: stuns, fears/incapacitates, silences, then roots. Ordinary slows such as Concussive Shot are excluded. Requires Unit Frames. Applies immediately; off by default.",
     classColourBorders = "Use each player's class colour on normal player, target and focus borders in Dark Mode. Keeps dark interiors, health/power colours and special rare/elite artwork. Reload to apply. Off by default.",
     darkMode = "Dark decorative artwork. Character, party and raid frames keep their appearance. Reload to apply either style; QoL choices are unchanged.",
     trainer = "Classic trainer presentation and training controls, independent of profession window styling.",
@@ -274,6 +278,15 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
         if parent.setupMode and reloadSettings[key] then return end
         if key=="cursorRing" or key=="cursorRingClassColour" then
             if EraUI.modules.CursorRing then EraUI.modules.CursorRing:Refresh()end
+            if EraUI.modules.CursorEffects then EraUI.modules.CursorEffects:Refresh()end
+            return
+        end
+        if key=="cursorCastRing" or key=="cursorCastClassColour" or key=="cursorTrail" or key=="cursorTrailClassColour" then
+            if EraUI.modules.CursorEffects then EraUI.modules.CursorEffects:Refresh()end
+            return
+        end
+        if key=="portraitDebuffs" then
+            if EraUI.modules.PortraitDebuffs then EraUI.modules.PortraitDebuffs:Refresh() end
             return
         end
         if key=="advancedCastBar" or key=="advancedCastClassFill" or key=="advancedCastLatency" or key=="advancedCastTicks" then
@@ -293,6 +306,8 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
         end
         if key=="poisonReminders" then
             if EraUI.modules.PoisonReminders then EraUI.modules.PoisonReminders:Refresh()end
+            local reminders=EraUI.modules.ClassReminders
+            if reminders then reminders:Refresh();reminders:UpdateOptionsState()end
             return
         end
         if key=="hunterFeed" or key=="mageSupplies" or key=="mageAutoTrade" or key=="roguePoisons" or key=="classReminders" then
@@ -328,7 +343,7 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
             return
         end
         if key == "durabilityWarning" and EraUI.modules.ExtraQoL then EraUI.modules.ExtraQoL:CheckDurability() end
-        if key == "fastAutoLoot" or key == "autoGossip" or key == "durabilityWarning" or key == "tooltipIDs" or key == "junkValueSummary" or key == "showWelcomeOnLogin" then
+        if key == "fastAutoLoot" or key == "discardCheapestJunk" or key == "autoGossip" or key == "durabilityWarning" or key == "tooltipIDs" or key == "junkValueSummary" or key == "showWelcomeOnLogin" then
             EraUI:Status(label .. (value and " enabled." or " disabled.")); return
         end
         if key == "coordinates" and EraUI.modules.MinimapTools then
@@ -468,7 +483,7 @@ function SettingsModule:Initialize()
         {"Quality of Life", "QUALITY OF LIFE", "Independent convenience options. Unfinished conversions are marked Later."},
         {"Chat & Names", "CHAT & NAMES", "Player names, chat colours and EraUI notices."},
         {"Automation", "AUTOMATION", "Optional shortcuts, alerts and useful information."},
-        {"Text & Camera", "TEXT & CAMERA", "Choose which labels you see and how far the camera can zoom."},
+        {"Text & Camera", "TEXT & CAMERA", "Cursor effects, visible labels and camera distance."},
     }
     categories[#categories+1] = {"Appearance", "APPEARANCE"}
     local className,classToken=UnitClass("player")
@@ -566,6 +581,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Friendly Nameplates", "friendlyNameplates", 1, 0, 2, "INV_Misc_Book_09", "Classic friendly unit presentation.", false)
     MakeCheck(frame, "Enemy Nameplates", "enemyNameplates", 1, 1, 2, "INV_Misc_Book_09", "Classic enemy and neutral presentation.", false)
     MakeCheck(frame, "Hide Aggro Highlight", "disableAggroHighlight", 1, 0, 3, "INV_Misc_Book_09", "Hide unit-frame threat decoration.", false)
+    MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", 1, 0, 4, "Spell_Nature_Polymorph", "|cffffd24aNeeds testing|r\nPortrait CC icons and countdowns.", false)
     MakeCheck(frame, "Character / Reputation / Skills", "characterPanel", 2, 0, 0, "INV_Misc_Book_09", "Classic panels, rows and bottom tabs.", false)
     MakeCheck(frame, "Talents", "talentWindow", 2, 1, 0, "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
     MakeCheck(frame, "Spellbook", "spellbook", 2, 0, 1, "INV_Misc_Book_09", "Classic book and native spell actions.", false)
@@ -613,6 +629,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Accept Summons", "autoSummon", 9, 1, 3, "Spell_Shadow_Twilight", "Accept after one second outside combat. Hold Shift to bypass.", false)
     MakeCheck(frame, "Accept Resurrection", "autoResurrect", 9, 0, 4, "Spell_Holy_Resurrection", "Accept resurrection requests outside combat. Hold Shift to bypass.", false)
     MakeCheck(frame, "Release in Battlegrounds", "releasePvP", 9, 1, 4, "Ability_DualWield", "Release after one second in battlegrounds only. Hold Shift to bypass.", false)
+    MakeCheck(frame, "Discard Cheapest Junk When Bags Are Full", "discardCheapestJunk", 9, 0, 5, "INV_Misc_Bag_10", "Frees the cheapest grey stack when looting with full bags. Hold Shift to bypass.", false)
     MakeCheck(frame, "Block Duels", "blockDuels", 5, 0, 1, "Ability_DualWield", "Decline duel requests. Hold Shift to handle a request manually.", false)
     MakeCheck(frame, "Block Party Invites", "blockPartyInvites", 5, 1, 1, "INV_Misc_GroupLooking", "Decline invitations, except enabled friend acceptance. Shift bypasses.", false)
     MakeCheck(frame, "Party from Friends", "partyFromFriends", 5, 0, 2, "INV_Misc_GroupLooking", "Accept invites from character friends. Takes priority over invite blocking.", false)
@@ -623,10 +640,14 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Maximum Camera Distance", "maxCameraZoom", 10, 1, 1, "Spell_Nature_FarSight", "Raise the camera limit to 2.6. Scroll out normally; off restores prior limit.", false)
     MakeCheck(frame,"Cursor Ring","cursorRing",10,0,2,"INV_Misc_EngGizmos_18","A ring follows your mouse pointer. Adjust its diameter and thickness below. Applies immediately.",false)
     MakeCheck(frame,"Class-coloured Cursor Ring","cursorRingClassColour",10,1,2,"INV_Misc_ArmorKit_17","Use your current class colour for the mouse ring. Off uses white.",false)
-    local function RingSlider(key,label,column,low,high,default)
+    local function RefreshCursor()
+        if EraUI.modules.CursorRing then EraUI.modules.CursorRing:Refresh()end
+        if EraUI.modules.CursorEffects then EraUI.modules.CursorEffects:Refresh()end
+    end
+    local function RingSlider(key,label,column,low,high,default,row,formatValue)
         local card=CreateFrame("Frame",nil,frame)
-        card.category=10;card.searchText=string.lower("cursor mouse ring "..label)
-        card:SetSize(350,74);card:SetPoint("TOPLEFT",202+column*366,-148-3*78)
+        card.category=10;card.searchText=string.lower("cursor mouse "..label)
+        card:SetSize(350,74);card:SetPoint("TOPLEFT",202+column*366,-148-(row or 3)*78)
         card.text=Text(card,label,14);card.text:SetPoint("TOPLEFT",12,-10)
         local slider=CreateFrame("Slider",nil,card,"BackdropTemplate")
         slider:SetSize(310,12);slider:SetPoint("TOPLEFT",12,-45)
@@ -636,8 +657,8 @@ function SettingsModule:Initialize()
         slider:SetThumbTexture("Interface\\Buttons\\WHITE8X8");slider:GetThumbTexture():SetSize(10,20);slider:GetThumbTexture():SetVertexColor(ClassColour())
         slider:SetScript("OnValueChanged",function(_,value)
             value=math.max(low,math.min(high,math.floor(value+.5)))
-            card.text:SetText(label..": "..value)
-            if not card.syncing then EraUI:SetSetting(key,value);if EraUI.modules.CursorRing then EraUI.modules.CursorRing:Refresh()end end
+            card.text:SetText(label..": "..(formatValue and formatValue(value)or value))
+            if not card.syncing then EraUI:SetSetting(key,value);RefreshCursor()end
         end)
         card.SetChecked=function()
             card.syncing=true;slider:SetValue(math.max(low,math.min(high,tonumber(EraUI:GetSavedSetting(key))or default)));card.syncing=false
@@ -646,6 +667,57 @@ function SettingsModule:Initialize()
     end
     RingSlider("cursorRingSize","Ring diameter",0,24,160,48)
     RingSlider("cursorRingThickness","Ring thickness",1,1,10,2)
+    local function CursorColour(key,classKey,label,column,row)
+        local card=CreateFrame("Button",nil,frame,"BackdropTemplate")
+        card.category=10;card.searchText=string.lower("cursor mouse colour color "..label)
+        card:SetSize(350,74);card:SetPoint("TOPLEFT",202+column*366,-148-row*78)
+        card:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+        card:SetBackdropColor(.026,.029,.037,1);card:SetBackdropBorderColor(.19,.20,.24,1)
+        card.text=Text(card,label,14);card.text:SetPoint("TOPLEFT",12,-12)
+        local hint=Text(card,"Click to choose a custom colour.",12,true);hint:SetPoint("TOPLEFT",12,-38)
+        local swatch=card:CreateTexture(nil,"ARTWORK");swatch:SetSize(24,24);swatch:SetPoint("RIGHT",-12,0)
+        local function RGB()
+            local hex=EraUI:GetSavedSetting(key)
+            if type(hex)~="string"or not hex:match("^%x%x%x%x%x%x$")then hex="FFFFFF"end
+            return tonumber(hex:sub(1,2),16)/255,tonumber(hex:sub(3,4),16)/255,tonumber(hex:sub(5,6),16)/255
+        end
+        card.SetChecked=function()swatch:SetColorTexture(RGB())end
+        local function Save(hex,classColour)
+            EraUI:SetSetting(key,hex);EraUI:SetSetting(classKey,classColour)
+            frame.checks[classKey]:SetChecked(classColour);PaintToggle(frame.checks[classKey])
+            card:SetChecked();RefreshCursor()
+        end
+        card:SetScript("OnClick",function()
+            local picker=ColorPickerFrame
+            if not picker then return end
+            local old=EraUI:GetSavedSetting(key)or "FFFFFF"
+            local oldClass=EraUI:GetSavedSetting(classKey)
+            local r,g,b=RGB()
+            local function Changed()
+                local red,green,blue=picker:GetColorRGB()
+                Save(string.format("%02X%02X%02X",math.floor(red*255+.5),math.floor(green*255+.5),math.floor(blue*255+.5)),false)
+            end
+            local function Cancel()Save(old,oldClass)end
+            if picker.SetupColorPickerAndShow then
+                picker:SetupColorPickerAndShow({r=r,g=g,b=b,hasOpacity=false,swatchFunc=Changed,cancelFunc=Cancel})
+            else
+                picker:Hide();picker.func=nil;picker.hasOpacity=false;picker:SetColorRGB(r,g,b)
+                picker.func=Changed;picker.cancelFunc=Cancel;picker:Show()
+            end
+        end)
+        card:SetChecked();frame.checks[key]=card
+    end
+    MakeCheck(frame,"Cast Progress Ring","cursorCastRing",10,0,4,"Spell_Arcane_Arcane01","A thin ring at the cursor fills during casts and drains during channels. Works independently of Cursor Ring. No interruption flash.",false)
+    MakeCheck(frame,"Class-coloured Cast Ring","cursorCastClassColour",10,1,4,"INV_Misc_ArmorKit_17","Use your class colour. Off uses the custom cast-ring colour below.",false)
+    RingSlider("cursorCastSize","Cast ring diameter",0,24,200,60,5)
+    RingSlider("cursorCastOpacity","Cast ring opacity (%)",1,10,100,90,5)
+    CursorColour("cursorCastColour","cursorCastClassColour","Custom cast-ring colour",0,6)
+    MakeCheck(frame,"Cursor Trail","cursorTrail",10,0,7,"Spell_Arcane_Blink","A short, soft trail follows cursor movement and fades when stationary. Independent of both cursor rings.",false)
+    MakeCheck(frame,"Class-coloured Cursor Trail","cursorTrailClassColour",10,1,7,"INV_Misc_ArmorKit_17","Use your class colour. Off uses the custom trail colour below.",false)
+    RingSlider("cursorTrailSize","Trail size",0,4,32,10,8)
+    RingSlider("cursorTrailOpacity","Trail opacity (%)",1,10,100,55,8)
+    RingSlider("cursorTrailLength","Trail fade",0,10,60,25,9,function(value)return string.format("%.2fs",value/100)end)
+    CursorColour("cursorTrailColour","cursorTrailClassColour","Custom trail colour",1,9)
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)
     MakeCheck(frame, "Red Combo Points", "comboPointRed", 12, 0, 0, "Ability_Rogue_Rupture", "Draw the combo point orbs red instead of gold. Applies immediately.", false)
@@ -687,8 +759,11 @@ function SettingsModule:Initialize()
             reminders:HookScript("OnClick",function()module:UpdateOptionsState()end)
         end
     end
-    local toolsButton=CreateFrame("Button",nil,frame,"BackdropTemplate")
-    toolsButton.category=12;toolsButton.classAllowed=hasClassControls
+    local toolsModule=EraUI.modules.ClassTools and EraUI.modules.ClassTools:ActiveModule()
+    local toolsInline=not not(toolsModule and toolsModule.Attach and toolsModule~=EraUI.modules.ClassReminders)
+    local toolsButton=CreateFrame(toolsInline and "Frame" or "Button",nil,frame,"BackdropTemplate")
+    -- Reminder-only classes already have their full controls on this page.
+    toolsButton.category=12;toolsButton.classAllowed=not not(hasClassControls and toolsModule and toolsModule~=EraUI.modules.ClassReminders)
     toolsButton.searchText="class tools pet feeding food water conjure trade poison supplies flash powder options"
     toolsButton:SetSize(350,74);toolsButton:SetPoint("TOPLEFT",202,-148)
     toolsButton:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
@@ -702,11 +777,13 @@ function SettingsModule:Initialize()
     local toolsDetail=Text(toolsButton,"Click to open options and controls.",12,true)
     toolsDetail:SetPoint("TOPLEFT",54,-40);toolsDetail:SetWidth(266)
     toolsButton.SetChecked=function()end
-    local toolsModule=EraUI.modules.ClassTools and EraUI.modules.ClassTools:ActiveModule()
-    local toolsInline=not not(toolsModule and toolsModule.Attach and toolsModule~=EraUI.modules.ClassReminders)
     if toolsInline then
         toolsArrow:Hide()
-        toolsDetail:SetText("Options and controls sit below.")
+        toolsButton:EnableMouse(false)
+        toolsButton:SetBackdropColor(.026,.029,.037,1)
+        toolsButton:SetBackdropBorderColor(.19,.20,.24,1)
+        toolsButton.text:SetText(classToken=="HUNTER" and "Pet Feeding Options" or "Conjuring & Trade Options")
+        toolsDetail:SetText(classToken=="HUNTER" and "Food choices and feeding-button placement." or "Conjure food/water and set trade quantities.")
     else
         toolsButton:SetScript("OnEnter",function(self)self:SetBackdropColor(tr*.28,tg*.28,tb*.28,1)end)
         toolsButton:SetScript("OnLeave",function(self)self:SetBackdropColor(tr*.16,tg*.16,tb*.16,1)end)
@@ -836,6 +913,11 @@ function SettingsModule:Initialize()
     end
     local nextPage=SetupButton("Next >",-24,160)
     local previousPage=SetupButton("< Back",-196,92)
+    local changelog=SetupButton("Changelog",-178,112)
+    frame.changelogButton=changelog
+    changelog:SetScript("OnClick",function()
+        if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() end
+    end)
     local originalPoints={}
     local content=EraUI:CreateSettingsViewport(frame)
     for key,check in pairs(frame.checks) do
@@ -1016,6 +1098,7 @@ function SettingsModule:Initialize()
         ResetSearch()
         search:SetShown(not enabled)
         self.setupMode=enabled
+        changelog:SetShown(not enabled)
         self:SetWidth(enabled and 800 or 960)
         self:SetScale(math.min(1,math.max(.1,(UIParent:GetWidth()-32)/self:GetWidth()),math.max(.1,(UIParent:GetHeight()-32)/650)))
         section:ClearAllPoints()
@@ -1023,7 +1106,7 @@ function SettingsModule:Initialize()
         RestorePoints()
         self.settingsScroll:ClearAllPoints()
         self.settingsScroll:SetPoint("TOPLEFT",enabled and 30 or 202,-148)
-        self.settingsScroll:SetPoint("BOTTOMRIGHT",-40,72)
+        self.settingsScroll:SetPoint("BOTTOMRIGHT",-40,94)
         hint:SetWidth(enabled and 330 or 560)
         if enabled then
             self.setupPage=1
@@ -1075,6 +1158,7 @@ function SettingsModule:Initialize()
     end)
 
     local function Refresh()
+        changelog:SetShown(not frame.setupMode)
         frame:RefreshCastDependencies()
         for key, check in pairs(frame.checks) do
             local checked = EraUI:GetSavedSetting(key) and true or false
@@ -1136,5 +1220,36 @@ function SettingsModule:ShowSettings()
     self.frame.selectedCategory=1
     self.frame:SetSetupMode(false)
     self.frame:Show()
+end
+
+-- Tool navigation is an explicit show/focus action, never the /era toggle.
+-- Clear search/setup first so the requested class controls have visible anchors.
+function SettingsModule:ShowClassControls(key)
+    if InCombatLockdown() then return end
+    if not self.frame then self:Initialize() end
+    local frame=self.frame
+    frame.selectedCategory=12
+    frame:SetSetupMode(false)
+    frame:Show()
+    local anchor=frame.checks[key]
+    if not anchor or not anchor:IsShown() then return end
+    local module
+    if key=="classReminders" then
+        module=EraUI.modules.ClassReminders
+    else
+        local tools=EraUI.modules.ClassTools
+        module=tools and tools:ActiveModule()
+    end
+    if module then
+        module.settingsFrame,module.settingsAnchor=frame,anchor
+        if key=="classReminders" and module.AttachOptions then
+            module:AttachOptions(frame,anchor)
+        elseif module.Attach then
+            module:Attach(frame,anchor)
+        end
+    end
+    frame:LayoutSettings()
+    local top,contentTop=anchor:GetTop(),frame.settingsContent:GetTop()
+    if top and contentTop then frame:SetSettingsScroll(contentTop-top) end
 end
 

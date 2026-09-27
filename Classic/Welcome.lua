@@ -49,6 +49,7 @@ end
 ns.CopyLink = CopyLink
 ns.CURSEFORGE_URL = CURSEFORGE_URL
 ns.GITHUB_URL = GITHUB_URL
+ns.DISCORD_URL = "https://discord.gg/FVfcDWJncr"
 
 local window
 

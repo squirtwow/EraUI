@@ -8,6 +8,8 @@ end
 unpack = table.unpack or unpack
 function wipe(t) for key in pairs(t) do t[key] = nil end end
 local secure, combat = false, false
+local cursorX, cursorY = -100, -100
+function GetCursorPosition() return cursorX, cursorY end
 local frames, states, hooks, timers, drivers = {}, {}, {}, {}, {}
 local methods = {}
 local function Native(fn, ...)
@@ -71,6 +73,8 @@ function methods:SetWidth(value) states[self].width = value end
 function methods:GetWidth() return self.width end
 function methods:GetHeight() return self.height end
 function methods:GetScale() return self.scale end
+function methods:GetEffectiveScale() return self.scale end
+function methods:GetRect() return 0, 0, self.width, self.height end
 function methods:GetAlpha() return self.alpha end
 function methods:SetAlpha(value)
     if self.native and value == 0 then assert(EraUIClassicTrainer:IsShown(), "native controls hidden before Classic layout appears") end
@@ -102,9 +106,18 @@ end
 function methods:SetShown(value) states[self].shown = value end
 function methods:IsShown() return self.shown end
 function methods:IsEnabled() return self.enabled end
+function methods:IsMouseOver() return self.mouseOver == true end
+function methods:SetMouseClickEnabled(value) states[self].mouseClick = value end
+function methods:SetMouseMotionEnabled(value) states[self].mouseMotion = value end
+function methods:GetHighlightTexture() return self.highlightTexture end
+function methods:GetTexture() return self.texture end
+function methods:SetTexCoord(...) states[self].coords = {...} end
+function methods:GetTexCoord() return unpack(self.coords) end
 function methods:SetEnabled(value)
     assert(not self.native or secure, "addon changed native eligibility")
+    local changed = self.enabled ~= value
     states[self].enabled = value
+    if changed then ScriptHooks(self, value and "OnEnable" or "OnDisable") end
 end
 function methods:EnableMouse(value) states[self].mouse = value end
 function methods:SetText(text) states[self].text = text end
@@ -173,7 +186,13 @@ local ns = {
     TexPath = function() return "classic-rock", "fallback-rock" end,
     ThemeTexture = function() end,
     RegisterModule = function(_, value) module = value end,
-    PanelButton = function(parent) return Frame("Button", nil, parent) end,
+    PanelButton = function(parent)
+        local button = Frame("Button", nil, parent)
+        button.highlightTexture = button:CreateTexture()
+        button.highlightTexture:SetTexture("Interface\\Buttons\\UI-Panel-Button-Highlight")
+        button.highlightTexture:SetTexCoord(0, .625, 0, .6875)
+        return button
+    end,
     SkillInsetBox = function(parent) return Frame("Frame", nil, parent) end,
     DropList = function(items)
         return { items = items, Follow = function() end, Toggle = function() end }
@@ -250,6 +269,19 @@ local function Click(frame)
     if target and target.scripts.OnClick then Native(target.scripts.OnClick, target, "LeftButton") end
     if frame.scripts.PostClick then frame.scripts.PostClick(frame, "LeftButton", false) end
 end
+-- Model the client's observed hit testing: a motion-enabled frame above Train
+-- can consume its input even when that frame has mouse clicks disabled. Direct
+-- calls to Click(nativeButton) alone cannot detect that regression.
+local function ClickAtTrain()
+    local train = ClassTrainerFrame.TrainButton
+    for _, frame in ipairs(frames) do
+        local anchor = frame.points[1]
+        if frame:IsShown() and (frame.mouse or frame.mouseMotion)
+            and frame:GetFrameLevel() > train:GetFrameLevel()
+            and anchor and anchor[2] == EraUIClassicTrainer.train then return end
+    end
+    Click(train)
+end
 Native(NativeRows)
 Event("ADDON_LOADED", "Blizzard_TrainerUI")
 Flush()
@@ -285,14 +317,31 @@ Equal(panel.rows[3]:GetAttribute("clickbutton"), nil, "native refresh immediatel
 Flush()
 Equal(panel.detail.name.text, "Ability 2", "native selection updates detail")
 Equal(panel.train.enabled, true, "eligible native service enables artwork")
-Click(ClassTrainerFrame.TrainButton)
-Equal(purchases[1], 2, "real Train button buys selected service")
+Equal(panel.trainHighlight.kind, "Texture", "hover visual has no frame input surface")
+Equal(panel.train.mouse, false, "artwork stays completely mouse-disabled")
+cursorX, cursorY = 10, 10
+panel.train.scripts.OnUpdate(panel.train, .05)
+Equal(panel.trainHighlight:IsShown(), true, "cursor geometry shows highlight without native events")
+Equal(panel.trainHighlight:GetTexture(), panel.train:GetHighlightTexture():GetTexture(), "Train uses the original Classic highlight artwork")
+cursorX = -10
+panel.train.scripts.OnUpdate(panel.train, .05)
+Equal(panel.trainHighlight:IsShown(), false, "cursor leaving clears highlight")
+panel.train:SetScale(.5)
+cursorX = panel.train:GetWidth()*.75
+panel.train.scripts.OnUpdate(panel.train, .05)
+Equal(panel.trainHighlight:IsShown(), false, "hover uses effective scale rather than raw pixels")
+panel.train:SetScale(1)
+cursorX = 10
+panel.train.scripts.OnUpdate(panel.train, .05)
+ClickAtTrain()
+Equal(purchases[1], 2, "pointer reaches real Train button and buys selected service")
 points = 17
 Event("UNIT_PET_TRAINING_POINTS")
 Flush()
 Equal(panel.points.text, "Training Points: 17", "pet-point events update the footer")
 catalog[2].kind = "used"
 Native(NativeRows)
+Equal(panel.trainHighlight:IsShown(), false, "native disable clears hover before queued refresh")
 Flush()
 Equal(panel.detail.cost.text, "", "learned ability does not display a purchase cost")
 Equal(panel.train.enabled, false, "learned ability retains native disabled state")
@@ -303,7 +352,7 @@ panel.bar:SetValue(6)
 Click(panel.rows[9])
 Flush()
 Equal(panel.detail.name.text, "Ability 14", "last compact page selects offscreen native service")
-Click(ClassTrainerFrame.TrainButton)
+ClickAtTrain()
 Equal(purchases[2], 14, "offscreen ability buys correct index")
 
 -- Native index 0/step mapping, restricted eligibility and confirmation stay native.
@@ -313,7 +362,7 @@ Native(NativeRows)
 Flush()
 Click(panel.rows[9])
 Flush()
-Click(ClassTrainerFrame.TrainButton)
+ClickAtTrain()
 Equal(ClassTrainerFrame.selectedService, 0, "profession step keeps native display index zero")
 Equal(confirmations, 1, "profession confirmation preserved")
 Equal(#purchases, 2, "no direct purchase bypasses confirmation")
@@ -365,9 +414,10 @@ Equal(filters.used, false, "filter retains original control")
 
 combat = true
 Drive(bridge)
+Equal(panel.trainHighlight:IsShown(), false, "combat blocker clears hover feedback")
 local oldSelection = ClassTrainerFrame.selectedService
 Click(panel.rows[2])
-Click(ClassTrainerFrame.TrainButton)
+ClickAtTrain()
 Event("TRAINER_UPDATE")
 Flush()
 Equal(panel.shown, true, "Classic layout stays visible in combat")
@@ -420,5 +470,8 @@ Equal(panel.shown, true, "reenabling restores compact panel")
 Equal(panel.rows[2]:GetAttribute("clickbutton"), pool[1], "reenabling restores click route")
 module.restore()
 Equal(ClassTrainerFrame.ScrollBox.height, 330, "second restore retains original geometry")
-for _, frame in ipairs(frames) do Equal(frame.scripts.OnUpdate, nil, "no polling timers") end
+for _, frame in ipairs(frames) do
+    if frame==panel.train then Equal(type(frame.scripts.OnUpdate), "function", "only visible cosmetic button checks cursor geometry")
+    else Equal(frame.scripts.OnUpdate, nil, "no trainer data or native-control polling") end
+end
 print("Trainer: " .. checks .. " assertions passed")

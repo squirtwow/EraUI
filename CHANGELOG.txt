@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.0.6
+
+### Added
+- Cast Progress Ring: class/custom colours, size and opacity controls. Fills during casts, drains during channels, with no interruption flash.
+- Cursor Trail: independent toggle, class/custom colours, size, opacity and fade controls.
+- Discard Cheapest Junk: frees the lowest-value grey stack on the initial right-click of a known lootable corpse when bags are full. Falls back to the next loot click when loot rights are unavailable. Includes Shift bypass, a chat receipt and one-stack-per-loot-window limit.
+- Important Debuffs on Portraits: crowd-control icons and countdowns on player, target, focus and party portraits, marked Needs testing.
+- Changelog button in /era.
+- Discord button in the status window.
+- All new gameplay/cursor options default off.
+
+### Fixed
+- Player cast bar jumping vertically.
+- XP/status bar jumping to the screen top.
+- Train-button hover highlighting while preserving purchases and profession confirmations.
+- Class-tool navigation closing settings.
+- Quest-level labels causing tracker rebuilds or recursive layout, with prefixes respecting available space.
+- Added a centred scroll hint when more settings are below the viewport.
+
+### Changed
+- Removed redundant Configure shortcuts for Druid, Warrior, Paladin, Shaman, Priest and Warlock.
+- Clearly labelled Hunter feeding and Mage conjuring/trade sections.
+- Hidden ineffective Rogue/Shaman group-reminder options and unsupported Rogue reminder clicking.
+- Prevented duplicate Rogue missing-poison alerts while preserving saved choices and supply tools.
+
 ## 1.0.5
 - Added: optional Clickable reminders (outside combat) in class-reminder settings. Disabled by default; enable it to cast supported spells by clicking their icons. Drag the reminder text to move it. Preview alerts never cast, and combat disables click actions.
 - Added: separate Hunter PET DEAD! reminder with Revive Pet, independently configurable under Advanced. SUMMON PET! now covers missing pets without duplicating the dead-pet alert.

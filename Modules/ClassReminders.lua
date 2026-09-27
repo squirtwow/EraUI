@@ -16,6 +16,20 @@ local SIZES={
 
 local function Enabled()return E:GetSetting("enabled") and E:GetSetting("classReminders")end
 local function Definitions()return E.ReminderSpells[class]or{}end
+local function DedicatedPoisons()
+ return class=="ROGUE"and E:GetSetting("poisonReminders")
+end
+local function ReminderCapabilities()
+ local group,clickable=false,false
+ for _,def in ipairs(Definitions())do
+  if def.group and not def.self and(not def.kind or def.kind=="aura")then group=true end
+  if not def.noCast then
+   if #(def.castIds or def.ids or{})>0 then clickable=true end
+   for _,choice in ipairs(def.choices or{})do if #(choice.ids or{})>0 then clickable=true end end
+  end
+ end
+ return group,clickable
+end
 local function Save()if E.Classic and E.Classic.MirrorSave then E.Classic.MirrorSave()end end
 local function Opt(key)return EraUIDB and EraUIDB[key]end
 local function SetOpt(key,value)EraUIDB=EraUIDB or{};EraUIDB[key]=value;Save()end
@@ -467,11 +481,12 @@ local function Paint()
  local cache=Cache()
  local n=0
  local stacked=0
+ local dedicatedPoisons=DedicatedPoisons()
  for _,def in ipairs(Definitions())do
    local show=false
    local detail
    local actionable=false
-  if Applicable(def)then
+  if not(dedicatedPoisons and(def.key=="poisonMain"or def.key=="poisonOff"))and Applicable(def)then
    local on=DefOn(def)
    if on then
     local missing,info=DefState(def,cache)
@@ -637,6 +652,7 @@ local function BuildOptions(parent,anchor)
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
+ dropdown.groupSupported,dropdown.clickSupported=ReminderCapabilities()
   dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
   dropdown.clickable=clickable
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
@@ -648,12 +664,13 @@ function M:LayoutDropdown()
  if not dropdown then return end
  dropdown.group.draw();dropdown.combat.draw();dropdown.prev.draw()
  local y=-8
- local function place(frame)
+ local function place(frame,supported)
   if not frame then return end
+  if supported==false then frame:Hide();return end
   if frame.draw then frame.draw()end
   frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
  end
-  place(dropdown.group);place(dropdown.combat);place(dropdown.clickable);place(dropdown.prev)
+  place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported);place(dropdown.prev)
  if dropdown.size then
   if dropdown.size.draw then dropdown.size.draw()end
   dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
@@ -688,7 +705,11 @@ function M:UpdateOptionsState()
   if on then if frame.Enable then frame:Enable()end
   else if frame.Disable then frame:Disable()end end
  end
- if dropdown.offHint then dropdown.offHint:SetShown(not on)end
+ if dropdown.offHint then
+  local dedicated=DedicatedPoisons()
+  dropdown.offHint:SetText(dedicated and "Poison Reminders handles missing-poison alerts while enabled."or "Turn on Class Reminders & Buffs to use these options.")
+  dropdown.offHint:SetShown(not on or not not dedicated)
+ end
 end
 function M:OptionsPanel()
  return dropdown
@@ -726,12 +747,8 @@ function M:Open()
  if InCombatLockdown()then E:Print("Open class reminders after combat.");return end
  if not class then local _,c=UnitClass("player");class=c end
  if not E.ReminderSpells[class]then E:Print("No class reminders for this class.");return end
- if not Enabled()then E:Print("Turn on Class Reminders & Buffs in your class settings first (/era).");return end
- if E.Classic and E.Classic.OpenOptions then E.Classic.OpenOptions()end
- C_Timer.After(.25,function()
-  local frame,anchor=M.settingsFrame,M.settingsAnchor
-  if frame and anchor and frame:IsShown()then M:AttachOptions(frame,anchor)end
- end)
+ local settings=E.modules.Settings
+ if settings then settings:ShowClassControls("classReminders")end
 end
 function M:Initialize()
  local _,c=UnitClass("player");class=c

@@ -32,7 +32,7 @@ local function Frame(parent)
  function f:GetVerticalScrollRange()return math.max(0,self.child:GetHeight()-self:GetHeight())end
  function f:GetVerticalScroll()return self.scroll end
  function f:SetVerticalScroll(v)self.scroll=v end
- for _,name in ipairs({"SetFrameStrata","SetClampedToScreen","EnableMouse","SetMovable","RegisterForDrag",
+  for _,name in ipairs({"SetFrameStrata","SetClampedToScreen","EnableMouse","SetMovable","RegisterForDrag","Raise",
   "StartMoving","StopMovingOrSizing","SetBackdrop","SetBackdropColor","SetBackdropBorderColor",
   "SetTextColor","SetJustifyH","EnableMouseWheel","RegisterEvent","SetColorTexture"})do f[name]=function()end end
  return f
@@ -42,7 +42,7 @@ CreateFrame=function(_,name,parent)local f=Frame(parent);if name then _G[name]=f
 GameFontHighlight={GetFont=function()return "font",12,""end}
 UISpecialFrames={};UnitClass=function()return "Hunter","HUNTER"end
 RAID_CLASS_COLORS={HUNTER={r=.67,g=.83,b=.45}}
-local E={version="1.0.5"}
+local E={version="1.0.6"}
 assert(loadfile("Core/Updates.lua"))("EraUI",E)
 E.ShowUpdateNotes()
 local w=EraUIUpdates;local s=w.scroll
@@ -79,5 +79,5 @@ w.button.scripts.OnClick()
 check(not w:IsShown(),"Got it dismisses the window")
 E.ShowUpdateNotes()
 check(w:IsShown() and s:GetVerticalScroll()==0,"reopening starts at the current release")
-check(w.title.text=="EraUI 1.0.5","current release title remains intact")
+check(w.title.text=="EraUI 1.0.6","current release title remains intact")
 print("Update-note scrolling checks passed: "..checks.." assertions.")

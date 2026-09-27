@@ -219,11 +219,8 @@ end
 function M:Open()
  if InCombatLockdown()then return end
  Build()
- if E.Classic and E.Classic.OpenOptions then E.Classic.OpenOptions()end
- C_Timer.After(.25,function()
-  local f,a=M.settingsFrame,M.settingsAnchor
-  if f and a and f:IsShown()then M:Attach(f,a)end
- end)
+ local settings=E.modules.Settings
+ if settings then settings:ShowClassControls("classTools")end
 end
 function M:Initialize()
  local _,class=UnitClass("player");if class~="HUNTER"then return end

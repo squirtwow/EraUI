@@ -3,7 +3,7 @@ local _,E=...
 -- Expanded pages pack complete card + inline-panel blocks into measured rows.
 function E:CreateSettingsViewport(frame)
  local scroll=CreateFrame("ScrollFrame",nil,frame)
- scroll:SetPoint("TOPLEFT",202,-148);scroll:SetPoint("BOTTOMRIGHT",-40,72)
+ scroll:SetPoint("TOPLEFT",202,-148);scroll:SetPoint("BOTTOMRIGHT",-40,94)
  scroll:EnableMouseWheel(true)
  local content=CreateFrame("Frame",nil,scroll)
  content:SetSize(718,1);scroll:SetScrollChild(content)
@@ -18,6 +18,10 @@ function E:CreateSettingsViewport(frame)
  local colour=RAID_CLASS_COLORS and RAID_CLASS_COLORS[class]
  slider:GetThumbTexture():SetVertexColor(colour and colour.r or .7,colour and colour.g or .7,colour and colour.b or .7)
  frame.settingsScrollbar=slider
+ local hint=frame:CreateFontString(nil,"OVERLAY","GameFontNormalSmall")
+ hint:SetPoint("TOP",scroll,"BOTTOM",0,-5);hint:SetHeight(16)
+ hint:SetText("Scroll down for more options");hint:SetTextColor(.9,.75,.42)
+ hint:Hide();frame.settingsScrollHint=hint
  local range=0
  function frame:RefreshInlineActions()
   local mage=E.modules.MageSupplies
@@ -26,7 +30,8 @@ function E:CreateSettingsViewport(frame)
  function frame:SetSettingsScroll(value)
   value=math.max(0,math.min(range,value or 0))
   scroll:SetVerticalScroll(value)
-  if slider:GetValue()~=value then slider:SetValue(value)end
+   if slider:GetValue()~=value then slider:SetValue(value)end
+   hint:SetShown(range>0 and value<range-1)
   self:RefreshInlineActions()
  end
  slider:SetScript("OnValueChanged",function(_,value)frame:SetSettingsScroll(value)end)

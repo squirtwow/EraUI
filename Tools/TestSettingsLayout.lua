@@ -109,6 +109,8 @@ for _,key in ipairs({"SetBackdrop","SetBackdropColor","SetBackdropBorderColor","
  methods[key]=function(self)Guard(self)end
 end
 CreateFrame=Frame
+methods.SetStatusBarTexture=function()end
+methods.SetStatusBarColor=function()end
 InCombatLockdown=function()return combat end
 UnitClass=function()return token,token end
 UnitIsPlayer=function()return true end
@@ -130,7 +132,7 @@ local function Session(c)
  UIParent=Frame("Root");UIParent.w=2560/.65;UIParent.h=1440/.65;UIParent.scale=.65
  GameFontHighlight=Frame("Font");GameFontHighlightSmall=GameFontHighlight
  C_Timer={After=function(_,fn)timers[#timers+1]=fn end}
- EraUIDB={};EraUIClassicCharDB={};UISpecialFrames={}
+  EraUIDB={};EraUIClassicCharDB={};UISpecialFrames={};SlashCmdList={}
  local E={modules={},reloadSettings={},settingDefaults={},charSettingKeys={},settings={enabled=true,mageSupplies=true,hunterFeed=true}}
  function E:RegisterModule(name,m)self.modules[name]=m end
  function E:GetSetting(key)return self.settings[key]end
@@ -138,12 +140,20 @@ local function Session(c)
  function E:SetSetting(key,value)self.settings[key]=value end
  function E:SaveSettings()end
  function E:Print()end
- function E:Status()end
+  function E:Status()end
+  E.Persistence={}
+  E.Classic={DB_DEFAULTS={},TOGGLES={},RELOAD_KEYS={},MirrorSave=function()end,
+   OpenOptions=function()end,ApplyAll=function()end,ToggleChanged=function()end,FirstRun=function()end}
  assert(loadfile("Modules/ClassTools.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminderData.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua"))("EraUI",E)
  assert(loadfile("Modules/HunterFeed.lua"))("EraUI",E)
- assert(loadfile("Modules/MageSupplies.lua"))("EraUI",E)
+  assert(loadfile("Modules/MageSupplies.lua"))("EraUI",E)
+  assert(loadfile("Modules/RoguePoisons.lua"))("EraUI",E)
+  -- Load the real Classic -> settings toggle bridge. Omitting this previously
+  -- let the layout suite pass without exercising broken Configure navigation.
+  assert(loadfile("Core/Integration.lua"))("EraUI",E)
+  assert(loadfile("Core/Commands.lua"))("EraUI",E)
  assert(loadfile("Core/SettingsLayout.lua"))("EraUI",E)
  assert(loadfile("Core/Settings.lua"))("EraUI",E)
  E.modules.ClassReminders:Initialize()
@@ -167,10 +177,66 @@ local function Fits(f,label)
   end
  end
 end
+local function NoCardOverlaps(f,label)
+ local visible={}
+ for key,card in pairs(f.checks)do if card:IsShown()then visible[#visible+1]={key=key,card=card}end end
+ for i=1,#visible do
+  for j=i+1,#visible do
+   local a,b=visible[i].card,visible[j].card
+   local intersects=a:GetLeft()<b:GetRight()-.01 and b:GetLeft()<a:GetRight()-.01
+    and a:GetBottom()<b:GetTop()-.01 and b:GetBottom()<a:GetTop()-.01
+   equal(intersects,false,label.." "..visible[i].key.." / "..visible[j].key.." do not overlap")
+  end
+ end
+end
 for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST","WARLOCK","DRUID"})do
- local E,f=Session(c)
- Fits(f,c.." collapsed")
- local p=E.modules.ClassReminders:OptionsPanel()
+  local E,f=Session(c)
+  f.selectedCategory=1;f:SetSetupMode(false);Flush()
+  NoCardOverlaps(f,c.." HUD")
+  equal(f.checks.portraitDebuffs:IsShown(),true,c.." portrait setting visible on HUD")
+  equal(f.checks.matchFocusSize:IsShown(),true,c.." focus sizing remains visible on HUD")
+  for _,category in ipairs({9,10})do
+   f.selectedCategory=category;f:SetSetupMode(false);Flush()
+   NoCardOverlaps(f,c.." category "..category)
+   equal(f.settingsContent:GetHeight()>=f.settingsScroll:GetHeight(),true,c.." effects/automation scroll extent")
+  end
+  equal(f.checks.cursorCastRing:IsShown(),true,c.." cast ring visible beside existing cursor options")
+  equal(f.checks.cursorTrail:IsShown(),true,c.." trail visible beside existing cursor options")
+  equal(f.settingsScrollHint:IsShown(),true,c.." long page indicates options below")
+  equal(f.settingsScrollHint:GetTop()<f.settingsScroll:GetBottom(),true,c.." hint below clipped controls")
+  equal(f.settingsScrollHint:GetBottom()>=f:GetBottom()+72,true,c.." hint clears footer")
+  f:SetSettingsScroll(99999)
+  equal(f.settingsScrollHint:IsShown(),false,c.." hint disappears at page bottom")
+  f:SetSettingsScroll(0)
+  equal(f.settingsScrollHint:IsShown(),true,c.." hint returns after scrolling up")
+  f.searchBox:SetText("no matching cursor option");Flush()
+  equal(f.settingsScrollHint:IsShown(),false,c.." no scroll hint for empty search")
+  f.searchBox:SetText("");Flush()
+  if c=="DRUID"then
+   local refreshed=0;E.modules.CursorEffects={Refresh=function()refreshed=refreshed+1 end}
+   E.settings.cursorTrailClassColour=true;E.settings.cursorTrailColour="123456"
+   local picker
+   ColorPickerFrame={SetupColorPickerAndShow=function(_,info)picker=info end,GetColorRGB=function()return 1,.5,0 end}
+   f.checks.cursorTrailColour:Fire("OnClick")
+   picker.swatchFunc()
+   equal(E.settings.cursorTrailColour,"FF8000","custom trail colour saved")
+   equal(E.settings.cursorTrailClassColour,false,"custom selection switches off class colour")
+   picker.cancelFunc()
+   equal(E.settings.cursorTrailColour,"123456","colour cancel restores original colour")
+   equal(E.settings.cursorTrailClassColour,true,"colour cancel restores original class mode")
+   equal(refreshed,2,"colour preview and cancellation apply immediately")
+   ColorPickerFrame=nil
+  end
+  f.selectedCategory=12;f:SetSetupMode(false);Flush()
+  Fits(f,c.." collapsed")
+  local p=E.modules.ClassReminders:OptionsPanel()
+  equal(f.checks.classTools:IsShown(),c=="HUNTER"or c=="MAGE"or c=="ROGUE",c.." only useful tool cards shown")
+  equal(p.group:IsShown(),c~="ROGUE"and c~="SHAMAN",c.." group checking matches supported reminders")
+  equal(p.clickable:IsShown(),c~="ROGUE",c.." reminder clicking matches supported actions")
+  if c=="HUNTER"or c=="MAGE"then
+   equal(f.checks.classTools.kind,"Frame",c.." inline heading is not a button")
+   equal(f.checks.classTools.scripts.OnClick,nil,c.." inline heading has no click action")
+  end
  p.adv:Fire("OnClick");Flush();Fits(f,c.." expanded")
  local endHeight=f.settingsContent:GetHeight()
  equal(endHeight>=f.settingsScroll:GetHeight(),true,c.." measured scroll extent")
@@ -183,6 +249,67 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
  f:SetSetupMode(true);Flush()
  equal(f.settingsScroll:GetLeft()-f:GetLeft(),30,c.." setup viewport position")
  f:SetSetupMode(false);Flush();Fits(f,c.." return from setup")
+end
+
+for _,c in ipairs({"DRUID","WARRIOR","PALADIN","SHAMAN","PRIEST","WARLOCK","HUNTER","MAGE","ROGUE"})do
+ local E,f=Session(c)
+ E.settings.classReminders=true
+ local expected=c=="HUNTER"and "HunterFeed"or c=="MAGE"and "MageSupplies"or c=="ROGUE"and "RoguePoisons"or "ClassReminders"
+ equal(E.ClassTools:ActiveModule(),E.modules[expected],c.." real class route")
+ local button=f.checks.classTools
+ local function OpenTools()
+   if button:IsShown() and button.scripts.OnClick then button:Fire("OnClick")else E.ClassTools:Open()end
+  Flush()
+ end
+ OpenTools()
+ equal(f:IsShown(),true,c.." Configure keeps settings open")
+ local key=(c=="HUNTER"or c=="MAGE")and "classTools"or "classReminders"
+ local function Focused(label)
+  equal(f:IsShown(),true,label.." settings shown")
+  equal(f.selectedCategory,12,label.." class tab selected")
+  equal(f.searchBox:GetText(),"",label.." search cleared")
+  local anchor=f.checks[key]
+  equal(anchor:IsShown(),true,label.." destination anchor shown")
+  equal(anchor.inlinePanel:IsShown(),true,label.." actual controls shown")
+  equal(anchor:GetTop()<=f.settingsScroll:GetTop()+.01,true,label.." anchor below viewport top")
+  equal(anchor:GetBottom()>=f.settingsScroll:GetBottom()-.01,true,label.." anchor above viewport bottom")
+ end
+ if c=="ROGUE"then
+  equal(EraUIRogueTools:IsShown(),true,"rogue Configure opens real poison window")
+  equal(Depends(EraUIRogueTools,f),false,"rogue tool window independent of settings")
+  OpenTools();equal(EraUIRogueTools:IsShown(),true,"repeat rogue click leaves poison window open")
+  EraUIRogueTools:Hide()
+ else
+  Focused(c.." first click")
+  OpenTools();Focused(c.." repeat click")
+  f:Hide();f.selectedCategory=1
+  E.ClassTools:Open();Flush();Focused(c.." initially closed")
+  f.searchBox:SetText("no matching control");Flush()
+  E.ClassTools:Open();Flush();Focused(c.." from search")
+  f:SetSetupMode(true)
+  E.ClassTools:Open();Flush();Focused(c.." from setup")
+  equal(f.setupMode,false,c.." tool navigation exits setup")
+ end
+ -- Exercise actual command wiring and disabled reminders on every class,
+ -- including classes whose Configure card opens a different tool module.
+ E.settings.classReminders=false
+ f:Hide();f.selectedCategory=1
+ SlashCmdList.ERAUI("reminders");Flush()
+ key="classReminders";Focused(c.." disabled reminder command")
+ equal(E.settings.classReminders,false,c.." navigation does not enable reminders")
+ equal(E.modules.ClassReminders:OptionsPanel().offHint:IsShown(),true,c.." disabled explanation remains visible")
+ SlashCmdList.ERAUI("reminders");Flush();Focused(c.." repeated reminder command")
+ -- Ordinary /era remains a toggle, using the actual Integration bridge.
+ SlashCmdList.ERAUI("");Flush();equal(f:IsShown(),false,c.." normal slash still closes")
+ SlashCmdList.ERAUI("");Flush();equal(f:IsShown(),true,c.." normal slash still opens")
+ E.ClassTools:Open();f:Hide();Flush()
+ equal(f:IsShown(),false,c.." closing immediately after navigation stays closed")
+ if c=="ROGUE"then EraUIRogueTools:Hide()end
+ combat=true
+ E.ClassTools:Open();E.modules.ClassReminders:Open();Flush()
+ equal(f:IsShown(),false,c.." combat attempt does not open settings")
+ if c=="ROGUE"then equal(EraUIRogueTools:IsShown(),false,"combat attempt does not open poison window")end
+ combat=false
 end
 
 local E,f=Session("MAGE")
