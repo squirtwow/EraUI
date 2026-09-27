@@ -12,6 +12,7 @@ local UPDATES = {
                 "Presets: Classic + Quality of Life, Classic look only, or Quality of Life only (keeps Blizzard's modern interface). The first page of /era setup, or use the Presets button in /era, which shows your current preset. Your Quality of Life choices are never changed.",
                 "Classic Damage Meter: optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown. /era > Interface, off by default.",
                 "Quest tracker choice: with Questie installed, choose the Classic Tracker or Questie's own tracker, in /era setup or when turning Quest Tracker on. Questie's tracker currently lists no quests on WoW Forever, so the Classic Tracker is recommended.",
+                "Other Windows: a switch for the Classic look on windows without one of their own (trade, taxi, macros, calendar, achievements, collections and more). /era > Interface, on by default.",
             } },
             { "Changed", {
                 "Important Debuffs on Portraits works in combat, using the game's own secure display. Enemy targets show stuns first, then fears, silences and roots. Friendly units show any crowd control, and your portrait shows what is controlling you. The icon covers the level badge while shown.",

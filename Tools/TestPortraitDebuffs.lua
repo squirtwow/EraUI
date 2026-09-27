@@ -88,7 +88,8 @@ local function Container(parent)
     function c:SetEditModePreviewEnabled(value) self.preview = value end
     function c:SetUnit(unit) self.unit = unit end
     function c:UpdateAllAuras() self.updates = self.updates + 1 end
-    function c:SetEnabled(value) self.enabled = value end
+    c.enableCalls = 0
+    function c:SetEnabled(value) self.enabled = value; self.enableCalls = self.enableCalls + 1 end
     function c:AddAuraSlot(key, filter, options)
         assert(not self.slots[key], "duplicate slot " .. key)
         local button = SlotButton(self)
@@ -201,6 +202,10 @@ Equal(target.slots.stun.options.candidateFilters.includeSpellIDs[339], nil, "roo
 local function Level(key) return target.slots[key].button.level end
 Equal(Level("stun") > Level("fear") and Level("fear") > Level("silence") and Level("silence") > Level("root")
     and Level("root") > Level("any"), true, "stun draws above fear, silence, root, then any")
+for _, pair in ipairs({ { "any", "root" }, { "root", "silence" }, { "silence", "fear" }, { "fear", "stun" } }) do
+    local lower, higher = target.slots[pair[1]].button, target.slots[pair[2]].button
+    Equal(lower.cooldown.level < higher.level, true, pair[1] .. " sweep and countdown stay below the " .. pair[2] .. " icon")
+end
 
 local BADGE_RIGHT = "Interface\\AddOns\\EraUI\\Media\\PortraitCCMaskRight.tga"
 for key, slot in pairs(target.slots) do
@@ -307,6 +312,19 @@ E.settings.portraitDebuffs = true
 M:Refresh()
 Equal(target.shown and target.enabled, true, "turning back on restores them without rebuilding")
 Equal(#containers, 5, "no duplicate containers")
+local calls = target.enableCalls
+Fire("GROUP_ROSTER_UPDATE"); Fire("PLAYER_ENTERING_WORLD"); M:Refresh()
+Equal(target.enableCalls, calls, "unchanged setting: frequent events never touch the containers")
+combat = true
+E.settings.portraitDebuffs = false
+M:Refresh()
+Equal(target.shown, true, "in combat, switching off waits")
+Equal(target.enableCalls, calls, "no container calls in combat")
+combat = false
+Fire("PLAYER_REGEN_ENABLED")
+Equal(target.shown, false, "applied once combat ends")
+E.settings.portraitDebuffs = true
+M:Refresh()
 Equal(#printed, 0, "nothing failed to build")
 
 -- A client without the aura container: the player display still works and

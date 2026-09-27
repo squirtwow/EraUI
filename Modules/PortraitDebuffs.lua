@@ -108,7 +108,9 @@ local function CreateContainer(owner, portrait, unit, withCategories, small, bad
         return function(button)
             button:SetAllPoints(container)
             button:EnableMouse(false)
-            button:SetFrameLevel(container:GetFrameLevel() + rank)
+            -- Two levels per rank: each slot's sweep and countdown (one level
+            -- up) stay below the next higher-priority slot's icon.
+            button:SetFrameLevel(container:GetFrameLevel() + rank * 2)
             local icon = button:CreateTexture(nil, "ARTWORK")
             ShapeIcon(icon, button, badge)
             button:SetIcon(icon)
@@ -206,15 +208,19 @@ end
 
 -- Setup ---------------------------------------------------------------------------
 
+-- Only when the setting actually changes, and containers never in combat:
+-- group and zone events refresh often, and a no-op call is still a call.
 local function Show(state, shown)
-    if state.kind == "failed" then return end
+    if state.kind == "failed" or state.applied == shown then return end
     if state.kind == "container" then
+        if InCombatLockdown() then M.pending = true; return end
         state.container:SetEnabled(shown)
         state.container:SetShown(shown)
     elseif not shown then
         state.expiry, state.text = nil, nil
         state.overlay:Hide()
     end
+    state.applied = shown
 end
 
 local function Visit(owner, portrait, unit, kind)

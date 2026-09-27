@@ -54,7 +54,8 @@ CreateFrame = function(_, name, parent)
 end
 
 local saved = {}
-local E = {}
+local questieTrackerOn = true
+local E = { modules = { QuestTrackerChoice = { QuestieTrackerOn = function() return questieTrackerOn end } } }
 function E:GetSavedSetting(key) return saved[key] end
 function E:SetSetting(key, value) saved[key] = value end
 assert(loadfile("Core/Presets.lua"))("EraUI", E)
@@ -76,8 +77,16 @@ Equal(P.NAMES.qol, "Quality of Life only", "spelled out in full")
 ClassicLook()
 saved.questTrackerChoice, saved.questTracker = "questie", false
 Equal(P:Current(), "classic", "Questie's tracker chosen still counts as the Classic look")
+questieTrackerOn = false
+Equal(P:Current(), "custom", "an old Questie choice no longer counts once its tracker is off")
+local changes = P:Changes("classic")
+Equal(changes.questTracker, true, "the Classic look turns the Classic tracker back on then")
+questieTrackerOn = true
 saved.questTrackerChoice = ""
 saved.questTracker = true
+local inLook = {}
+for _, key in ipairs(P.LOOK) do inLook[key] = true end
+Equal(inLook.otherWindows, true, "Other Windows belongs to the Classic look")
 
 -- Applying ----------------------------------------------------------------------------------
 

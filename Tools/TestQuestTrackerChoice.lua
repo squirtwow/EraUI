@@ -93,7 +93,8 @@ local function BaseSetSetting(_, key, value) saved[key] = value end
 local function Fresh(opts)
     created, timers, reloads, expandCalls, combat = {}, {}, 0, 0, false
     E.SetSetting = BaseSetSetting -- Each load hooks it; start every scenario unhooked.
-    E.Classic = { db = { erauiSetupComplete = opts.setupComplete ~= false } }
+    -- Setup completion is per character.
+    E.Classic = { CharacterSetupComplete = function() return opts.setupComplete ~= false end }
     E.settingsFrame = nil
     saved = { enabled = true, questTracker = opts.classic ~= false, questTrackerChoice = opts.choice or "" }
     loaded = { questTracker = opts.classic ~= false }
@@ -280,6 +281,27 @@ Equal(Questie.db.profile.trackerEnabled, true, "Questie choice turns Questie's t
 Equal(expandCalls, 0, "a tracker that is not running yet is not clicked")
 Equal(Questie.db.char.isTrackerExpanded, true, "it will load unfolded")
 Equal(M:NeedsReload(), true, "turning Questie's tracker on needs a reload")
+
+-- An old Questie choice is forgotten when the Classic tracker comes back
+-- without Questie's tracker.
+M, Fire = Fresh({ classic = false, choice = "questie", questieTracker = false })
+E:SetSetting("questTracker", true)
+Equal(saved.questTrackerChoice, "", "old Questie choice cleared once its tracker is off")
+M, Fire = Fresh({ classic = false, choice = "questie", questie = false })
+E:SetSetting("questTracker", true)
+Equal(saved.questTrackerChoice, "", "old Questie choice cleared once Questie is gone")
+Equal(Shown(), false, "and no prompt without Questie")
+M, Fire = Fresh({ classic = false, choice = "questie" })
+E:SetSetting("questTracker", true)
+Equal(saved.questTrackerChoice, "questie", "a live Questie tracker keeps the choice until the prompt is answered")
+Equal(Shown(), true, "the prompt asks again")
+
+-- An open /era is refreshed after a choice.
+M, Fire = Fresh({})
+local refreshed = 0
+E.settingsFrame = { checks = {}, IsShown = function() return true end, RefreshHint = function() refreshed = refreshed + 1 end }
+M:SetChoice("questie")
+Equal(refreshed, 1, "an open /era refreshes its reload hint and preset label")
 
 M, Fire = Fresh({ questie = false })
 Equal(M:QuestieInstalled(), false, "no Questie detected")

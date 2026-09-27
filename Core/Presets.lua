@@ -11,7 +11,7 @@ P.LOOK = {
     "actionBars", "unitFrames", "castBars", "minimap", "friendlyNameplates", "enemyNameplates",
     "characterPanel", "spellbook", "talentWindow", "bagsBank", "merchantSkin", "mailSkin", "auctionHouse",
     "professions", "trainer", "questLog", "questDialogs", "questTracker", "socialWindows", "groupFinderPvp",
-    "gameMenu", "blizzardSettings", "lootWindow", "popups", "tooltipSkin",
+    "gameMenu", "blizzardSettings", "lootWindow", "popups", "tooltipSkin", "otherWindows",
 }
 -- Optional looks: Quality of Life only switches them off too; the Classic
 -- look leaves them as chosen.
@@ -21,8 +21,12 @@ P.NAMES = { classic = "Classic look", qol = "Quality of Life only", custom = "Cu
 
 -- With Questie's tracker chosen, EraUI's Quest Tracker option is off on
 -- purpose (see QuestTrackerChoice), which still counts as the Classic look.
+-- Only while Questie is installed with its tracker on: an old choice must
+-- never keep the Classic tracker off after Questie is gone.
 local function QuestieTrackerChosen()
+    local tracker = E.modules and E.modules.QuestTrackerChoice
     return E:GetSavedSetting("questTrackerChoice") == "questie"
+        and tracker ~= nil and tracker:QuestieTrackerOn() == true
 end
 
 local function Wanted(name, key)

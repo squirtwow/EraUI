@@ -5,6 +5,29 @@ local M = {}
 E:RegisterModule("QuestieCompatibility", M)
 local header, refreshing, faded
 local wrapped = setmetatable({}, { __mode = "k" })
+local muted = {} -- frame -> { click, motion } saved while the faded tracker is click-through
+
+-- An invisible frame still takes the mouse, so the faded tracker and its
+-- blocks are made click-through too. Plain widget calls; the faded tracker has
+-- no protected parts (it would not have been faded otherwise).
+local function Mute(frame, depth)
+    if not frame or depth > 6 or muted[frame] then return end
+    if frame.SetMouseClickEnabled and frame.IsMouseClickEnabled and not frame:IsProtected() then
+        muted[frame] = { frame:IsMouseClickEnabled(), frame:IsMouseMotionEnabled() }
+        frame:SetMouseClickEnabled(false)
+        frame:SetMouseMotionEnabled(false)
+    end
+    if frame.GetChildren then
+        for _, child in ipairs({ frame:GetChildren() }) do Mute(child, depth + 1) end
+    end
+end
+local function Unmute()
+    for frame, state in pairs(muted) do
+        frame:SetMouseClickEnabled(state[1])
+        frame:SetMouseMotionEnabled(state[2])
+        muted[frame] = nil
+    end
+end
 local observed = setmetatable({}, { __mode = "k" })
 
 local function Replacing()
@@ -69,6 +92,7 @@ function M:Refresh()
             if frame == _G.ObjectiveTrackerFrame and header:GetAttribute("suppressTracker")
                 and InCombatLockdown() and not frame:IsProtected() then
                 frame:SetAlpha(0)
+                Mute(frame, 0)
                 faded = frame
             end
         end)
@@ -86,6 +110,7 @@ function M:Refresh()
     end
     if faded then
         faded:SetAlpha(1)
+        Unmute()
         faded = nil
     end
     refreshing = false

@@ -168,10 +168,13 @@ local windowSettings = {
     FriendsFrame="socialWindows", CommunitiesFrame="socialWindows", PVPUIFrame="groupFinderPvp",
     PVPFrame="groupFinderPvp", LFGListFrame="groupFinderPvp",
 }
+-- Windows without a switch of their own (trade, taxi, macros, calendar,
+-- achievements, the world map border and so on) follow Other Windows, so the
+-- presets can switch every Classic window.
 function ns.WindowAllowed(frame)
     local name = frame and frame.GetName and frame:GetName()
-    local key = name and windowSettings[name]
-    return not key or EraUI:GetSetting(key) ~= false
+    local key = name and windowSettings[name] or "otherWindows"
+    return EraUI:GetSetting(key) ~= false
 end
 
 local welcome, waitingForCombat

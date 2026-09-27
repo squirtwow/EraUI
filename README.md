@@ -30,6 +30,8 @@ or off in the settings.
 - Windows: character sheet, spellbook, talents, professions, trade skills,
   trainers, quest log and tracker, bags and bank, game menu, settings window,
   Who list, guild roster and group finder
+- Other windows: trade, taxi, macros, calendar, achievements, collections and
+  more, with their own Other Windows switch
 - Damage meter: optional Classic look for Blizzard's damage meter, including
   extra windows and the spell breakdown (off by default)
 - Questie integration: quest-log clicks open the selected quest in EraUI's

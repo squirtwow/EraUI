@@ -28,6 +28,12 @@ local function Setup(options)
     local function Frame(protected)
         local f = { protected=protected, scripts={}, events={}, attrs={}, refs={}, wraps={}, hooks={}, shown=true, updates=0, onShows=0, content=true, alpha=1 }
         function f:SetAlpha(value) self.alpha = value end
+        f.click, f.motion, f.children = true, true, {}
+        function f:IsMouseClickEnabled() return self.click end
+        function f:IsMouseMotionEnabled() return self.motion end
+        function f:SetMouseClickEnabled(value) assert(not combat or secure or not self.protected, "protected mouse change in combat"); self.click = value end
+        function f:SetMouseMotionEnabled(value) assert(not combat or secure or not self.protected, "protected mouse change in combat"); self.motion = value end
+        function f:GetChildren() return table.unpack(self.children) end
         function f:RegisterEvent(event) self.events[event] = true end
         function f:SetScript(event, fn) self.scripts[event] = fn end
         function f:HookScript(event, fn) self.hooks[event] = self.hooks[event] or {}; table.insert(self.hooks[event], fn) end
@@ -198,11 +204,25 @@ end
 -- An unprotected tracker shown in combat: invisible until combat ends, then
 -- hidden through the secure header and returned to full opacity.
 local unprotected = Setup({protected=false})
+local block = { click=true, motion=false, children={} }
+function block:IsProtected() return false end
+function block:IsMouseClickEnabled() return self.click end
+function block:IsMouseMotionEnabled() return self.motion end
+function block:SetMouseClickEnabled(value) self.click = value end
+function block:SetMouseMotionEnabled(value) self.motion = value end
+function block:GetChildren() return end
+unprotected.tracker.children = { block }
 unprotected.combat(true); unprotected.show()
 Equal(unprotected.tracker.alpha, 0, "invisible during combat")
+Equal(unprotected.tracker.click, false, "the invisible tracker never catches clicks")
+Equal(block.click, false, "nor do its quest blocks")
+Equal(unprotected.tracker.motion, false, "and no phantom hover tooltips")
 unprotected.combat(false); unprotected.event("PLAYER_REGEN_ENABLED")
 Equal(unprotected.tracker.shown, false, "hidden securely once combat ends")
 Equal(unprotected.tracker.alpha, 1, "opacity restored for later")
+Equal(unprotected.tracker.click, true, "mouse restored for later")
+Equal(block.click, true, "block mouse restored")
+Equal(block.motion, false, "each frame gets back exactly its own earlier setting")
 
 local absent = Setup({absent=true})
 Equal(absent.tracker.shown, true, "no Questie leaves native tracker alone")

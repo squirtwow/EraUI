@@ -460,5 +460,30 @@ do
  equal(f.checks.vendorPrice.dependencyDisabled,nil,"ordinary QoL options are never greyed out")
  E.settings.unitFrames=true;f:RefreshDependencies()
  equal(portrait.dependencyDisabled,false,"available again with Classic Unit Frames")
+
+ -- Other Windows: the windows without a switch of their own follow it.
+ local function Window(name)return {GetName=function()return name end}end
+ local allowed=E.Classic.WindowAllowed
+ E.settings.otherWindows=false;E.settings.merchantSkin=true
+ equal(allowed(Window("TradeFrame")),false,"Other Windows off: trade window stays modern")
+ equal(allowed(Window(nil)),false,"unnamed extra windows follow Other Windows too")
+ equal(allowed(Window("MerchantFrame")),true,"windows with their own switch ignore Other Windows")
+ E.settings.otherWindows=true
+ equal(allowed(Window("TaxiFrame")),true,"Other Windows on: taxi window skinned")
+ E.settings.merchantSkin=false
+ equal(allowed(Window("MerchantFrame")),false,"merchant still follows its own switch")
+ equal(f.checks.otherWindows~=nil,true,"Other Windows has an /era card")
+
+ -- A Custom look selects no preset; a preset click re-syncs every toggle.
+ for _,key in ipairs(P.LOOK)do E.settings[key]=true end
+ E.settings.minimap=false
+ f:SetSetupMode(true);Flush()
+ equal(choices[1].tag:IsShown()or choices[2].tag:IsShown()or choices[3].tag:IsShown(),false,"Custom look: no preset pre-selected")
+ E.settings.classColourBorders=true;f.checks.classColourBorders:SetChecked(true)
+ choices[3]:Fire("OnClick");Flush()
+ choices[1]:Fire("OnClick");Flush()
+ equal(E.settings.classColourBorders,false,"Quality of Life only switched the optional look off")
+ equal(f.checks.classColourBorders:GetChecked()and true or false,false,"its toggle shows the saved state after the preset click")
+ f:SetSetupMode(false);Flush()
 end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

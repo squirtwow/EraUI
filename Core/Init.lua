@@ -111,6 +111,7 @@ local defaults = {
     blizzardSettings = true,
     tooltipSkin = true,
     damageMeterSkin = false,
+    otherWindows = true,
     trainingGuide = true,
     contextMenus = false,
     cleanMinimap = false,
@@ -131,7 +132,7 @@ for _, key in ipairs({"classicChatDragging", "floatingComboPoints", "classColour
     "professions", "trainer", "spellbook", "spellbookCombatDrag", "questDialogs", "questTracker",
     "classicDialogs", "gameMenu", "popups", "socialWindows", "talentWindow",
     "questLog", "bagsBank", "merchantSkin", "mailSkin", "auctionHouse",
-    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "damageMeterSkin", "trainingGuide", "contextMenus"}) do
+    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "damageMeterSkin", "otherWindows", "trainingGuide", "contextMenus"}) do
     EraUI.reloadSettings[key] = true
 end
 EraUI.settingDefaults = defaults

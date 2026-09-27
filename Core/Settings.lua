@@ -48,6 +48,7 @@ local settingHelp = {
     friendlyNameplates = "Classic artwork and lettering on friendly nameplates. Keeps your existing nameplate visibility settings. Reload UI to apply.",
     enemyNameplates = "Classic artwork and lettering on enemy and neutral nameplates. Keeps native threat colours, casts, targeting and auras. Reload UI to apply.",
     lootWindow = "Classic loot frame and item artwork. Keeps native looting, tooltips and scrolling. Reload UI to apply or restore.",
+    otherWindows = "Classic frames for the windows without a switch of their own: trade, taxi, macros, calendar, achievements, collections, dressing room, inspect, item socketing, guild charter, tabard, pet stable, add-on list, the world map border and group listings. Reload UI to apply or restore.",
     damageMeterSkin = "Classic look for Blizzard's Damage Meter: dark tooltip-style frame with a grey border, Classic bar texture and fonts, and silver header buttons. Covers extra windows and the spell breakdown window. Blizzard's buttons, menus and Edit Mode options (size, bar height, text size, transparency, background, class colours) keep working, and names and numbers are unchanged. Reload UI to apply or restore. Off by default.",
     disableAggroHighlight = "Hide combat and threat glows on Classic player, target and focus frames, including the player status glow. Requires Classic unit frames. Reload UI to apply.",
     questTracker = "Classic text and collapse buttons without modern header plates. Keeps tracking, quest items and completion colours. With Questie's own tracker on, EraUI asks which tracker to use, since only one can show. Reload UI to apply or restore.",
@@ -624,6 +625,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Popups", "popups", 6, 0, 2, "INV_Misc_Book_09", "Classic confirmation prompts.", false)
     MakeCheck(frame, "Loot", "lootWindow", 6, 1, 2, "INV_Misc_Book_09", "Classic loot window and item rows.", false)
     MakeCheck(frame, "Damage Meter", "damageMeterSkin", 6, 0, 3, "INV_Misc_Book_09", "Classic tooltip-style frame, bars and text for Blizzard's damage meter. Reload UI to apply.")
+    MakeCheck(frame, "Other Windows", "otherWindows", 6, 1, 3, "INV_Misc_Book_09", "Classic frames for trade, taxi, macros, calendar, achievements and more. Reload UI to apply.")
     MakeCheck(frame, "Vendor Prices", "vendorPrice", 7, 0, 0, "INV_Misc_Book_09", "Add missing item selling prices.", false)
     MakeCheck(frame, "Bag Space", "bagSpace", 7, 1, 0, "INV_Misc_Book_09", "Show free slots on the backpack.", false)
     MakeCheck(frame, "Quest Levels", "questLevels", 7, 0, 1, "INV_Misc_Book_09", "Show levels on tracked quests.", false)
@@ -958,6 +960,8 @@ function SettingsModule:Initialize()
         presets:SetShown(shown);presetLabel:SetShown(shown)
         if shown then presetLabel:SetText("Preset: "..P.NAMES[P:Current()]) end
     end
+    -- For changes made outside the window (e.g. the quest tracker prompt).
+    function frame:RefreshHint()UpdateReloadHint(self)end
     local originalPoints={}
     local content=EraUI:CreateSettingsViewport(frame)
     for key,check in pairs(frame.checks) do
@@ -1136,10 +1140,20 @@ function SettingsModule:Initialize()
             button.tag:SetTextColor(ClassColour());button.tag:SetShown(selected)
         end
     end
+    -- A preset changes many saved settings at once; the reused toggles must
+    -- show the saved state again before any page displays them.
+    local function SyncChecks()
+        for key,check in pairs(frame.checks) do
+            local checked=EraUI:GetSavedSetting(key) and true or false
+            if EraUI.charSettingKeys and EraUI.charSettingKeys[key] then checked=EraUI:GetCharSetting(key) and true or false end
+            check:SetChecked(not check.unavailable and checked)
+        end
+    end
     for i,preset in ipairs(PRESETS) do
         local button=Choice(preset.name,preset.detail,0,function()
             frame.setupPreset=preset.id
             if EraUI.Presets then EraUI.Presets:Apply(preset.look) end
+            SyncChecks()
             frame:RenderSetup()
         end)
         button:SetSize(236,112);button.detail:SetWidth(200)
@@ -1225,9 +1239,10 @@ function SettingsModule:Initialize()
         if enabled then
             local tracker=EraUI.modules.QuestTrackerChoice
             self.trackerStep=tracker and tracker:QuestieInstalled() or false
-            -- Start on the preset that matches the current look.
+            -- Start on the preset that matches the current look. A Custom
+            -- look selects nothing: only a click applies a preset.
             local current=EraUI.Presets and EraUI.Presets:Current()
-            self.setupPreset=current=="qol" and "qol" or "classicqol"
+            self.setupPreset=current=="qol" and "qol" or current=="classic" and "classicqol" or nil
             self.setupPage=1
             self:RenderSetup()
         else

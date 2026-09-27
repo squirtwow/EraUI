@@ -43,6 +43,11 @@ function M:QuestieInstalled()
     return Questie() ~= nil
 end
 
+function M:QuestieTrackerOn()
+    local db = Questie()
+    return db ~= nil and db.profile.trackerEnabled == true
+end
+
 function M:CurrentChoice()
     return E:GetSavedSetting("questTrackerChoice") or ""
 end
@@ -82,6 +87,8 @@ function M:SetChoice(choice)
         if type(db.char) == "table" then db.char.isTrackerExpanded = true end
     end
     choosing = false
+    -- Keep an open /era current: reload hint, preset label, greyed options.
+    if settings and settings.RefreshHint then settings:RefreshHint() end
 end
 
 function M:UseClassic()
@@ -173,7 +180,7 @@ local function Build()
     body:SetPoint("TOPLEFT", 24, -56)
     body:SetWidth(412)
     body:SetJustifyH("LEFT")
-    body:SetText("Questie's quest tracker is on, so EraUI hides Blizzard's Classic-look tracker to avoid showing two. Pick the one you'd like to use:")
+    body:SetText("Questie is installed, and only one quest tracker can show at a time: EraUI's Classic-look tracker or Questie's own. Pick the one you'd like to use:")
 
     -- Questie's own tracker does not list quests on WoW Forever yet, and still
     -- hides Blizzard's; steer players to the tracker that shows their quests.
@@ -223,8 +230,9 @@ function M:Check(fromToggle)
         -- Players who have not finished setup are asked there instead.
         if askedThisSession or not E:GetSetting("questTracker") then return end
         if self:CurrentChoice() ~= "" then return end
-        local classic = E.Classic and E.Classic.db
-        if classic and not classic.erauiSetupComplete then return end
+        -- Setup is per character; a new character's setup asks this itself.
+        local classic = E.Classic
+        if classic and classic.CharacterSetupComplete and not classic.CharacterSetupComplete() then return end
         askedThisSession = true
     end
     if InCombatLockdown() then pending = true; return end
@@ -255,6 +263,12 @@ function M:Initialize()
     hooksecurefunc(E, "SetSetting", function(_, key, value)
         -- A preset switching the whole Classic look on is not a tracker choice.
         local applyingPreset = E.Presets and E.Presets.applying
-        if key == "questTracker" and value == true and not choosing and not applyingPreset then M:Check(true) end
+        if key == "questTracker" and value == true and not choosing and not applyingPreset then
+            -- Back on the Classic tracker without Questie's: forget the old choice.
+            if M:CurrentChoice() == "questie" and not M:QuestieTrackerOn() then
+                E:SetSetting("questTrackerChoice", "")
+            end
+            M:Check(true)
+        end
     end)
 end
