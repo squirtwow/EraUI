@@ -1221,8 +1221,11 @@ local function Apply()
         end
         driver:SetScript("OnUpdate", function(self, elapsed)
             if not active then return end
-            -- Repaint player power only when it actually changed; this used to
-            -- make three unit calls and three bar setters every single frame.
+            self.since = (self.since or 0) + elapsed
+            if self.since < 0.25 then return end
+            self.since = 0
+            -- Power events drive repaints; this throttled check is only a
+            -- fallback for a change that arrives without an event.
             local entry = frames.player
             if entry then
                 local power, max = UnitPower("player"), UnitPowerMax("player")
@@ -1232,9 +1235,6 @@ local function Apply()
                     Update(entry, "power")
                 end
             end
-            self.since = (self.since or 0) + elapsed
-            if self.since < 0.25 then return end
-            self.since = 0
             if TargetFrame and frames[TargetFrame] and TargetFrame:IsShown() then KeepAuraRow(TargetFrame) end
             if FocusFrame and frames[FocusFrame] and FocusFrame:IsShown() then KeepAuraRow(FocusFrame) end
             WatchRaidManager()
