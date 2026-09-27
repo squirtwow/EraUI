@@ -4,6 +4,16 @@ Classic-era interface for **World of Warcraft: Forever**, with a full set of
 quality-of-life options on top. Every piece is optional and can be switched on
 or off in the settings.
 
+## Presets
+
+- Classic + Quality of Life (recommended), Classic look only, or Quality of
+  Life only, which keeps Blizzard's modern interface
+- Chosen on the first page of `/era setup`, or switched any time with the
+  Presets button in `/era`, which shows your current preset
+- Presets switch only the Classic look; Quality of Life choices are never
+  changed. Options that need a Classic piece, such as the Training Guide, are
+  greyed out while it is off
+
 ## The classic look
 
 - Action bar: the stone band with gryphons, page arrows, micro menu, bag
@@ -20,10 +30,14 @@ or off in the settings.
 - Windows: character sheet, spellbook, talents, professions, trade skills,
   trainers, quest log and tracker, bags and bank, game menu, settings window,
   Who list, guild roster and group finder
+- Damage meter: optional Classic look for Blizzard's damage meter, including
+  extra windows and the spell breakdown (off by default)
 - Questie integration: quest-log clicks open the selected quest in EraUI's
   Classic quest log when enabled; objective and map-icon navigation stays on the map.
-  Blizzard's tracker stays hidden while Questie replaces it, including during
-  combat; disabling Questie's tracker restores native tracking
+  With Questie installed, choose between the Classic tracker and Questie's own
+  tracker (Questie's currently lists no quests on WoW Forever, so the Classic
+  tracker is recommended). Blizzard's tracker stays hidden while Questie's
+  replaces it, including during combat
 - Map quest details: the parchment and scrolling description fit the panel's
   available height, with quest action buttons at the bottom
 - Combo points: floating orbs in gold or red, draggable and resizable
@@ -35,9 +49,12 @@ or off in the settings.
 - Class colours in chat, optional secondary names, highest-rank spell filtering
 - Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
 - Advanced cast bar with ticks and latency display
-- Movable world map: drag its header and resize proportionally from corners or
-  edges. Normal and expanded layouts are remembered separately; the quest list
-  overlays the map without squeezing the artwork
+- Movable world map: drag its header and resize it from corners or edges,
+  scaling the whole window. It stays where you put it, even in combat. Normal
+  and expanded layouts are remembered separately; the quest list overlays the
+  map without squeezing the artwork
+- Important Debuffs on Portraits: crowd-control icons and countdowns on player,
+  target, focus and party portraits, in combat too (off by default)
 - Reveal World Map: supported unexplored terrain appears with darker shading
 - Class reminders: class-coloured, independently draggable alerts for buffs,
   pets, weapon coatings and supplies, with optional party and raid checks.
@@ -56,8 +73,8 @@ or off in the settings.
 
 ## Commands
 
-- `/era` opens the settings window
-- `/era setup` replays the guided first-run setup
+- `/era` opens the settings window, with Presets at the top
+- `/era setup` replays the guided first-run setup, starting with the presets
 - `/era welcome` shows the welcome screen again
 - `/era updates` shows the latest update notes again
 - `/era reminders` opens class-reminder settings

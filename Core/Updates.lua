@@ -6,6 +6,31 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.1.0",
+        sections = {
+            { "Added", {
+                "Presets: Classic + Quality of Life, Classic look only, or Quality of Life only (keeps Blizzard's modern interface). The first page of /era setup, or use the Presets button in /era, which shows your current preset. Your Quality of Life choices are never changed.",
+                "Classic Damage Meter: optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown. /era > Interface, off by default.",
+                "Quest tracker choice: with Questie installed, choose the Classic Tracker or Questie's own tracker, in /era setup or when turning Quest Tracker on. Questie's tracker currently lists no quests on WoW Forever, so the Classic Tracker is recommended.",
+            } },
+            { "Changed", {
+                "Important Debuffs on Portraits works in combat, using the game's own secure display. Enemy targets show stuns first, then fears, silences and roots. Friendly units show any crowd control, and your portrait shows what is controlling you. The icon covers the level badge while shown.",
+                "Movable World Map: resizing scales the whole map window. Your saved size carries over.",
+                "Options that need a Classic piece (for example Training Guide needs the Classic Spellbook) are greyed out while it is off.",
+                "\"QoL\" is now spelled out as Quality of Life.",
+                "Lighter player power bar updates.",
+            } },
+            { "Fixed", {
+                "The world map no longer jumps to its default spot in combat, and no longer causes blocked map messages.",
+                "Level-up \"tainted by EraUI\" error when using Questie's tracker.",
+                "Important Debuffs on Portraits error from 1.0.6.",
+            } },
+            { "Removed", {
+                "Trainer troubleshooting text from the status window.",
+            } },
+        },
+    },
+    {
         version = "1.0.6",
         sections = {
             { "Added", {

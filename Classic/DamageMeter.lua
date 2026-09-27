@@ -99,11 +99,14 @@ end
 
 -- Header -------------------------------------------------------------------
 
-local function SilverDropdown(dropdown, ...)
+-- Silvers the button art and, when given, its letter (the session button's
+-- C/O), again after each of Blizzard's state repaints.
+local function SilverDropdown(dropdown, text, ...)
     if not dropdown then return end
     local keys = { ... }
     local function Paint(self)
         for _, key in ipairs(keys) do Silver(self[key]) end
+        if text then text:SetTextColor(.9, .9, .9) end
     end
     Paint(dropdown)
     ns.HookMethod(dropdown, "OnButtonStateChanged", Paint)
@@ -194,10 +197,11 @@ local function SkinWindow(window)
     local typeDropdown = window.DamageMeterTypeDropdown
     if typeDropdown then Font(typeDropdown.TypeName, ns.FONT_GOLD) end
     local sessionDropdown = window.SessionDropdown
-    if sessionDropdown then Font(sessionDropdown.SessionName, ns.FONT_GOLD) end
-    SilverDropdown(typeDropdown, "Arrow")
-    SilverDropdown(sessionDropdown, "Background", "Arrow")
-    SilverDropdown(window.SettingsDropdown, "Icon")
+    local sessionName = sessionDropdown and sessionDropdown.SessionName
+    Font(sessionName, GameFontHighlight)
+    SilverDropdown(typeDropdown, nil, "Arrow")
+    SilverDropdown(sessionDropdown, sessionName, "Background", "Arrow")
+    SilverDropdown(window.SettingsDropdown, nil, "Icon")
 
     ns.HookMethod(window, "SetMinimized", LayoutWindow)
     ns.HookScriptOnce(window, "OnShow", LayoutWindow)

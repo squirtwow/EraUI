@@ -101,7 +101,6 @@ local function Render(pin,state,fullUpdate)
     if not texture then
      texture=pin:CreateTexture(nil,"ARTWORK",nil,-1)
      state.textures[state.drawn]=texture
-     if map.AddMaskableTexture then map:AddMaskableTexture(texture)end
     end
     texture:SetTexture(cell[3],nil,nil,"TRILINEAR")
     texture:SetSize(width,height)
@@ -112,9 +111,9 @@ local function Render(pin,state,fullUpdate)
     -- remove these shaded tiles as each region becomes explored.
     texture:SetVertexColor(UNEXPLORED_SHADE,UNEXPLORED_SHADE,UNEXPLORED_SHADE,1)
     texture:SetAlpha(1)
-    if (fullUpdate or pin.isWaitingForLoad)and pin.textureLoadGroup then
-     pin.textureLoadGroup:AddTexture(texture)
-    end
+    -- Never added to the pin's native texture load group or the map's mask
+    -- list: those are Blizzard pin data, and addon writes there taint later
+    -- in-combat pin updates.
     texture:Show()
    end
   end

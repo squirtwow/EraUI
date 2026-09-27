@@ -2,10 +2,15 @@ local _,E=...
 local M={};E:RegisterModule("MovableMap",M)
 local frame,border,dragHandle
 local grips={}
-local interaction,restoring,queued,canvasBusy
+local interaction,restoring,queued,placing
 local Restore,StopInteraction
 local overlayApplied
 local overlayLevels={}
+-- Resizing scales the whole window. Blizzard owns the map's width, height,
+-- canvas fit, zoom and pins: refitting them from addon code taints the zoom
+-- and scroll data that in-combat pin updates read, and the client then
+-- blocks those updates.
+local MIN_SCALE=.5
 
 local function Enabled()return E:GetSetting("enabled") and E:GetSetting("movableMap")end
 
@@ -32,8 +37,11 @@ local function SavePosition()
  local x,y=frame:GetCenter();local cx,cy=UIParent:GetCenter();local ratio=Ratio()
  if not x or not y then return end
  Store("mapPosition",{x=x*ratio-cx,y=y*ratio-cy,version=2})
- Store("mapSize",{w=frame:GetWidth(),h=frame:GetHeight(),version=3})
+ Store("mapSize",{scale=frame:GetScale(),version=4})
 end
+-- The world map is not a protected frame, so it may be placed in combat too;
+-- geometry writes carry no taint into Blizzard's Lua.
+local function Movable()return frame and not frame:IsProtected()end
 
 local function OverlayLayout()
  local scroll=frame and frame.ScrollContainer
@@ -41,6 +49,8 @@ local function OverlayLayout()
  if Enabled()then
   -- Leave the native canvas and its pins intact. Only its viewport spans the
   -- full window; the opaque quest panel covers the right side when requested.
+  -- The anchor persists, and Blizzard refits the canvas with it on each open,
+  -- minimise and maximise.
   scroll:SetPoint("RIGHT",frame,"RIGHT",-3,0)
   overlayApplied=true
   local quest=frame.QuestLog
@@ -57,15 +67,6 @@ local function OverlayLayout()
  end
 end
 
--- Only the native map canvas owns its dimensions, zoom, pins and texture pools.
--- OnFrameSizeChanged performs an immediate native fit, without delayed resizes.
-local function FitCanvas()
- if canvasBusy or not frame or not Enabled()or InCombatLockdown()then return end
- canvasBusy=true
- OverlayLayout()
- if frame.OnFrameSizeChanged then frame:OnFrameSizeChanged()end
- canvasBusy=false
-end
 local function FixPinButton()
  local pin=frame and frame.WorldMapTrackingPinButton
  if not pin or InCombatLockdown()then return end
@@ -75,22 +76,38 @@ local function FixPinButton()
  local highlight=pin:GetHighlightTexture()
  if highlight then highlight:ClearAllPoints();highlight:SetAllPoints(pin)end
 end
-local function Metrics()
- local scroll=frame.ScrollContainer
- local cw=scroll and math.max(0,frame:GetWidth()-scroll:GetWidth())or 5
- local ch=scroll and math.max(0,frame:GetHeight()-scroll:GetHeight())or 69
- local canvas=frame.GetCanvas and frame:GetCanvas()
- local w,h=canvas and canvas:GetWidth(),canvas and canvas:GetHeight()
- local aspect=w and h and h>0 and w/h or 1.5
- return cw,ch,aspect
+-- Scales that keep the whole window on screen.
+local function ScaleLimits()
+ local w,h=frame:GetWidth(),frame:GetHeight()
+ if not w or not h or w<=0 or h<=0 then return MIN_SCALE,1 end
+ local maxS=math.min((UIParent:GetWidth()-16)/w,(UIParent:GetHeight()-16)/h)
+ return math.min(MIN_SCALE,maxS),maxS
 end
-local function SizeForWidth(w,cw,ch,aspect)
+local function ClampScale(scale)
+ local minS,maxS=ScaleLimits()
+ return math.max(minS,math.min(maxS,scale))
+end
+-- Saved as a scale since version 4; older records saved the window width.
+local function SavedScale()
+ local size=Record("mapSize")
+ if type(size)~="table"then return nil end
+ if size.version==4 and tonumber(size.scale)then return tonumber(size.scale)end
+ local w=tonumber(size.w)
+ if w and w>0 and frame:GetWidth()>0 then return w/frame:GetWidth()end
+end
+-- No saved scale means Blizzard's own size, including the maximised map,
+-- whose size Blizzard computes for scale 1.
+local function ApplySavedScale()
+ local scale=ClampScale(SavedScale()or 1)
+ if math.abs(frame:GetScale()-scale)>.001 then frame:SetScale(scale)end
+end
+local function PlaceSaved()
+ local pos=Record("mapPosition")
+ if not(pos and tonumber(pos.x)and tonumber(pos.y))then return end
  local ratio=Ratio()
- local maxW=math.min((UIParent:GetWidth()-16)/ratio,((UIParent:GetHeight()-16)/ratio-ch)*aspect+cw)
- maxW=math.max(cw+1,maxW)
- local minW=math.min(maxW,math.max(380,(300-ch)*aspect+cw))
- w=math.max(minW,math.min(maxW,w))
- return w,(w-cw)/aspect+ch
+ placing=true
+ frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",pos.x/ratio,pos.y/ratio)
+ placing=false
 end
 local function QueueRestore()
  if queued or restoring or interaction or not frame or not frame:IsShown()or not Enabled()then return end
@@ -102,60 +119,60 @@ local function QueueRestore()
 end
 local function ResizeTick()
  local s=interaction
- if not s or InCombatLockdown()then return end
- local x,y=GetCursorPosition();x=x/frame:GetEffectiveScale();y=y/frame:GetEffectiveScale()
+ if not s or not Movable()then return end
  if s.kind=="drag"then
+  local x,y=GetCursorPosition();x=x/frame:GetEffectiveScale();y=y/frame:GetEffectiveScale()
   frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"BOTTOMLEFT",s.cx+x-s.x,s.cy+y-s.y)
   return
  end
+ -- Resizes work in screen (UIParent) units, keeping the opposite top corner
+ -- fixed while the window's scale changes.
+ local u=UIParent:GetEffectiveScale()
+ local x,y=GetCursorPosition();x,y=x/u,y/u
  local dx=(x-s.x)*(s.left and -1 or 1);local dy=s.y-y
+ local a=s.aspect
  local delta
- if s.edge=="BOTTOM"then delta=dy*s.aspect
+ if s.edge=="BOTTOM"then delta=dy*a
  elseif s.edge=="LEFT"or s.edge=="RIGHT"then delta=dx
- else delta=(dx+dy/s.aspect)/(1+1/(s.aspect*s.aspect))end
- local w,h=SizeForWidth(s.w+delta,s.cw,s.ch,s.aspect)
- frame:SetSize(w,h)
+ else delta=(dx+dy/a)/(1+1/(a*a))end
+ local scale=ClampScale((s.width+delta)/frame:GetWidth())
+ frame:SetScale(scale)
+ frame:ClearAllPoints();frame:SetPoint(s.left and "TOPRIGHT"or "TOPLEFT",UIParent,"BOTTOMLEFT",s.anchorX/scale,s.top/scale)
 end
 local function BeginResize(edge)
- if not Enabled()or InCombatLockdown()then return end
- local x,y=GetCursorPosition();local scale=frame:GetEffectiveScale()
- local cw,ch,aspect=Metrics();local left=edge=="LEFT"or edge=="BOTTOMLEFT"
- local px=left and frame:GetRight()or frame:GetLeft();local top=frame:GetTop()
- interaction={kind="resize",edge=edge,left=left,x=x/scale,y=y/scale,w=frame:GetWidth(),cw=cw,ch=ch,aspect=aspect}
- frame:ClearAllPoints();frame:SetPoint(left and "TOPRIGHT"or "TOPLEFT",UIParent,"BOTTOMLEFT",px,top)
+ if not Enabled()or not Movable()then return end
+ local u=UIParent:GetEffectiveScale()
+ local x,y=GetCursorPosition()
+ local scale=frame:GetScale()
+ local w,h=frame:GetWidth(),frame:GetHeight()
+ if not w or not h or w<=0 or h<=0 then return end
+ local left=edge=="LEFT"or edge=="BOTTOMLEFT"
+ interaction={kind="resize",edge=edge,left=left,x=x/u,y=y/u,width=w*scale,aspect=w/h,
+  anchorX=(left and frame:GetRight()or frame:GetLeft())*scale,top=frame:GetTop()*scale}
+ frame:ClearAllPoints();frame:SetPoint(left and "TOPRIGHT"or "TOPLEFT",UIParent,"BOTTOMLEFT",interaction.anchorX/scale,interaction.top/scale)
 end
 StopInteraction=function()
  if not interaction then return end
- if InCombatLockdown()then interaction=nil;return end
+ if not Movable()then interaction=nil;return end
  ResizeTick()
  interaction=nil
  local x,y=frame:GetCenter();local cx,cy=UIParent:GetCenter();local ratio=Ratio()
  if not x or not y then return end
+ placing=true
  frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",x-cx/ratio,y-cy/ratio)
+ placing=false
  SavePosition()
 end
 Restore=function()
- if not frame or not Enabled()or restoring or interaction or InCombatLockdown()then return end
+ if not frame or not Enabled()or restoring or interaction or not Movable()then return end
  restoring=true
  OverlayLayout()
- local size=Record("mapSize")
- if size and tonumber(size.w)then
-   if size.version==3 and tonumber(size.h)and size.w>0 and size.h>0 then
-   local factor=math.min(1,(UIParent:GetWidth()-16)/(size.w*Ratio()),(UIParent:GetHeight()-16)/(size.h*Ratio()))
-   frame:SetSize(size.w*factor,size.h*factor)
-  else
-   local cw,ch,aspect=Metrics()
-   frame:SetSize(SizeForWidth(tonumber(size.w),cw,ch,aspect))
-  end
- end
- local pos=Record("mapPosition")
- if pos and tonumber(pos.x)and tonumber(pos.y)then
-  local ratio=Ratio()
-  frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",pos.x/ratio,pos.y/ratio)
- end
+ ApplySavedScale()
+ PlaceSaved()
  FixPinButton()
- -- Remember the initial layout too, before native sidebar code changes it.
- if not size or size.version~=3 then SavePosition()end
+ -- Remember the layout in the current format, including the initial one.
+ local size=Record("mapSize")
+ if type(size)~="table"or size.version~=4 then SavePosition()end
  restoring=false
 end
 
@@ -194,9 +211,6 @@ local function CanvasNode()
  return best
 end
 
-function M:Refit()
- FitCanvas()
-end
 function M:Dump()
  if not frame then E:Print("World map has not been opened yet. Open it once, then run this again.")return end
  local function line(...)
@@ -312,11 +326,15 @@ end
 function M:Apply()
  if not frame then return end
  local on=Enabled()
- if not on then StopInteraction()end
+ if not on then
+  StopInteraction()
+  -- Back to Blizzard's own size; its next window layout places the map, and
+  -- its next open refits the canvas.
+  if Movable()and frame:GetScale()~=1 then frame:SetScale(1)end
+ end
  for _,g in ipairs(grips)do g:SetShown(on)end
  if dragHandle then dragHandle:EnableMouse(on)end
  OverlayLayout()
- if not on and frame.OnFrameSizeChanged and not InCombatLockdown()then frame:OnFrameSizeChanged()end
  if on then QueueRestore()end
 end
 
@@ -341,13 +359,12 @@ function M:Setup()
  dragHandle:EnableMouse(true)
  dragHandle:RegisterForDrag("LeftButton")
  dragHandle:SetScript("OnDragStart",function()
-  if Enabled()and not InCombatLockdown()then
+  if Enabled()and Movable()then
    local x,y=GetCursorPosition();local cx,cy=frame:GetCenter();local scale=frame:GetEffectiveScale()
    interaction={kind="drag",x=x/scale,y=y/scale,cx=cx,cy=cy}
   end
  end)
  dragHandle:SetScript("OnDragStop",StopInteraction)
- frame:HookScript("OnSizeChanged",FitCanvas)
  frame:HookScript("OnShow",QueueRestore)
  frame:HookScript("OnHide",StopInteraction)
  frame:HookScript("OnUpdate",function()
@@ -355,24 +372,22 @@ function M:Setup()
    if IsMouseButtonDown and not IsMouseButtonDown("LeftButton")then StopInteraction()else ResizeTick()end
   end
  end)
- for _,method in ipairs({"Maximize","Minimize","SynchronizeDisplayState","UpdateSpacerFrameAnchoring"})do
+ -- Blizzard's window manager re-anchors the map whenever windows are laid
+ -- out, in combat too. Put it straight back, before the next frame is drawn.
+ hooksecurefunc(frame,"SetPoint",function()
+  if placing or restoring or interaction or not Enabled()or not Movable()then return end
+  ApplySavedScale()
+  PlaceSaved()
+ end)
+ -- Normal and maximised maps keep separate scales and positions.
+ for _,method in ipairs({"Maximize","Minimize"})do
   if frame[method]then hooksecurefunc(frame,method,function()OverlayLayout();QueueRestore()end)end
  end
- if frame.SetQuestLogPanelShown then
-  hooksecurefunc(frame,"SetQuestLogPanelShown",function()
-   local size=Record("mapSize")
-   if frame:IsShown()and size and size.version==3 then Restore()else QueueRestore()end
-  end)
- end
+ if frame.UpdateSpacerFrameAnchoring then hooksecurefunc(frame,"UpdateSpacerFrameAnchoring",OverlayLayout)end
  if frame.AdjustOverlayFrames then hooksecurefunc(frame,"AdjustOverlayFrames",function()if Enabled()then FixPinButton()end end)end
- if UpdateUIPanelPositions then hooksecurefunc("UpdateUIPanelPositions",QueueRestore)end
  local events=CreateFrame("Frame")
- for _,event in ipairs({"PLAYER_REGEN_DISABLED","PLAYER_REGEN_ENABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED"})do events:RegisterEvent(event)end
- events:SetScript("OnEvent",function(_,event)
-  if event=="PLAYER_REGEN_DISABLED"then
-   if interaction then SavePosition();interaction=nil end
-  else QueueRestore()end
- end)
+ for _,event in ipairs({"PLAYER_REGEN_ENABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED"})do events:RegisterEvent(event)end
+ events:SetScript("OnEvent",QueueRestore)
  -- Bottom and side grips; the top edge stays for dragging (the close and
  -- maximize buttons live up there).
  Grip("BOTTOMLEFT","BOTTOMLEFT",3,-3,"left")

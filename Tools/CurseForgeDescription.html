@@ -1,13 +1,16 @@
 <h1>⚔️ EraUI: Classic WoW, restored.</h1>
-<p><a href="https://discord.gg/FVfcDWJncr" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Discord-Join%20EraUI-5865F2?logo=discord&amp;logoColor=white" alt="Join the EraUI Discord community" width="135" height="20"></a></p>
+<p><a href="https://discord.gg/FVfcDWJncr" target="_blank" rel="nofollow noopener"><img src="https://img.shields.io/badge/Discord-Join EraUI-5865F2?logo=discord&amp;logoColor=white" alt="Join the EraUI Discord community" width="135" height="20"></a></p>
 <p>💬 <strong>Support, bugs &amp; ideas:</strong> join our Discord to get help, report issues, suggest features and share your UI.</p>
 <p><img style="font-weight: 400;" src="https://media.forgecdn.net/attachments/description/1709918/description_8aa99994-8a7e-46db-b3b1-885b720c9254.png" alt="" width="850" height="478"><em>The 2004 interface you remember, rebuilt for World of Warcraft: Forever, with </em><em>the quality-of-life you'd miss. Every feature is optional.</em></p>
 <hr>
 <h2>✦ Highlights</h2>
 <ul>
 <li>🖼️&nbsp;<strong>The real classic look</strong>: action bar, unit frames, cast bars, minimap, nameplates and classic-styled windows</li>
-<li>🗺️&nbsp;<strong>Movable world map</strong>: drag it by the header and resize proportionally from the corners or edges; normal and expanded layouts are remembered separately, and the quest list overlays the right side without squeezing the map artwork</li>
+<li>🎛️&nbsp;<strong>Presets</strong>: Classic + Quality of Life, Classic look only, or Quality of Life only to keep Blizzard's modern interface. Pick one in the setup, or switch any time with <strong>Presets</strong> in <code>/era</code></li>
+<li>🗺️&nbsp;<strong>Movable world map</strong>: drag it by the header and resize it from the corners or edges, scaling the whole window. It stays where you put it, even in combat; normal and expanded layouts are remembered separately, and the quest list overlays the right side without squeezing the map artwork</li>
 <li>🌍&nbsp;<strong>Reveal World Map</strong>: show supported unexplored terrain with darker shading, while explored areas keep their normal colours</li>
+<li>🎯&nbsp;<strong>Crowd control on portraits</strong>: icons and countdowns on player, target, focus and party portraits, in combat too</li>
+<li>📊&nbsp;<strong>Classic damage meter</strong>: an optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown</li>
 <li>🔔&nbsp;<strong>Class reminders</strong>: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies</li>
 <li>📖&nbsp;<strong>Training Guide</strong>: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals</li>
 <li>🔴&nbsp;<strong>Combo points your way</strong>: floating orbs in gold or red</li>
@@ -20,6 +23,15 @@
 <p><img src="https://media.forgecdn.net/attachments/description/1709918/description_fe0c15b1-7f3f-4496-aba2-5759a760f36f.png" alt="" width="850" height="478"></p>
 <p><img src="https://media.forgecdn.net/attachments/description/1709918/description_8f45143e-6b00-448a-803d-271b454b8a17.png" alt=""></p>
 <hr>
+<h2>🎛️ Presets</h2>
+<ul>
+<li><strong>Classic + Quality of Life</strong>: the 2004 look, plus your choice of Quality of Life options. Recommended</li>
+<li><strong>Classic look only</strong>: the 2004 look; your Quality of Life options stay as they are</li>
+<li><strong>Quality of Life only</strong>: keep Blizzard's modern interface and use EraUI's Quality of Life options</li>
+<li>Choose on the first page of <code>/era setup</code>, or switch any time with the <strong>Presets</strong> button at the top of <code>/era</code>, which shows your current preset. Switching tells you how many settings change and reloads your UI</li>
+<li>Presets only switch the Classic look; your Quality of Life choices are never changed</li>
+<li>Options that need a Classic piece, such as the Training Guide (Classic Spellbook) or Important Debuffs on Portraits (Classic Unit Frames), are greyed out while it is off</li>
+</ul>
 <h2>🎨 The classic look</h2>
 <ul>
 <li><strong>Action bar</strong>: the stone band with gryphons, page arrows, micro menu, bag buttons and the XP bar in their original spots</li>
@@ -28,8 +40,10 @@
 <li><strong>Cast bars &amp; timers</strong>: player, pet, target and focus cast bars; classic breath and fatigue timers</li>
 <li><strong>Minimap &amp; nameplates</strong>: the round classic minimap and 1.x-style nameplates</li>
 <li><strong>Windows</strong>: character sheet, spellbook, talents, professions, trade skills, trainers, quest log &amp; tracker, bags &amp; bank, game menu, settings, Who list, guild roster and group finder</li>
+<li><strong>Damage meter</strong>: an optional dark tooltip-style frame, Classic bars and fonts and silver buttons for Blizzard's damage meter, including extra windows and the spell breakdown. Blizzard's own menus and Edit Mode options keep working. Off by default; find it under <code>/era</code> &rarr; <strong>Interface</strong></li>
 <li><strong>Trainers</strong>: a compact ability list, separate details panel and Train/Exit footer, using native purchases and profession confirmations</li>
 <li><strong>Questie integration</strong>: quest-log clicks open the selected quest in EraUI's Classic quest log when enabled; objective and map-icon clicks keep their map navigation. Blizzard's tracker stays hidden while Questie replaces it, both in and out of combat, and returns when Questie's tracker is disabled. Questie's Show Blizzard Timer preference is respected</li>
+<li><strong>Quest tracker choice</strong>: with Questie installed, choose between the Classic tracker and Questie's own tracker in the setup, or when turning Quest Tracker on in <code>/era</code>. Questie's tracker currently lists no quests on WoW Forever, so the Classic tracker is recommended</li>
 <li><strong>Map quest details</strong>: parchment and scrolling quest descriptions fit the panel's available height, with quest action buttons at the bottom</li>
 <li><strong>Combo points</strong>: floating orbs in gold or red, draggable and resizable</li>
 </ul>
@@ -42,7 +56,7 @@
 <li>Energy/rage/mana/druid resource bars &middot; swing timer &middot; ranged swing timer</li>
 <li>Advanced cast bar with ticks and latency display</li>
 <li>Optional cursor cast-progress ring and fading cursor trail</li>
-<li>Movable, resizable world map with optional unexplored terrain reveal</li>
+<li>Movable, resizable world map that stays put in combat, with optional unexplored terrain reveal</li>
 <li>Class tools: hunter feeding, mage supplies, rogue poisons</li>
 <li>Searchable Training Guide with bundled Forever spell levels and reference training costs</li>
 <li>Coordinates &middot; clean minimap &middot; cursor ring &middot; draggable chat<img src="https://media.forgecdn.net/attachments/description/1709918/description_3821712e-486e-47b5-9dd6-f9a7e2c9eef7.png" alt="" width="613" height="430"></li>
@@ -59,9 +73,10 @@
 <h2>🎯 Important Debuffs on Portraits</h2>
 <ul>
 <li>Find this optional feature under <code>/era</code> &rarr; <strong>HUD</strong>. Requires <strong>Unit Frames</strong></li>
-<li>Displays the highest-priority supported crowd-control icon, cooldown sweep and countdown on player, target, focus and party <strong>unit portraits only</strong></li>
-<li>Prioritises stuns, fear/incapacitation, silences and roots. Ordinary movement slows are excluded</li>
-<li>Off by default and clearly marked <strong>Needs testing</strong> where you enable it</li>
+<li>Shows crowd control on player, target, focus and party <strong>unit portraits only</strong>, with the game's own icon, cooldown sweep and countdown, in and out of combat</li>
+<li>Enemy targets show the most important effect: stuns, then fear/incapacitation, silences and roots. Friendly units show any crowd control, and your own portrait shows what is controlling you</li>
+<li>While shown, the icon covers the portrait's level badge; your level returns when the effect ends</li>
+<li>Ordinary movement slows are not shown. Off by default</li>
 </ul>
 <h2>🧹 Full-bag junk cleanup</h2>
 <ul>
@@ -121,8 +136,8 @@
 <hr>
 <h2>💬 Commands</h2>
 <ul>
-<li><code>/era</code>&nbsp;opens the settings window. Use the <strong>Changelog</strong> button at the bottom for recent release notes</li>
-<li><code>/era setup</code>&nbsp;replays the guided first-run setup</li>
+<li><code>/era</code>&nbsp;opens the settings window. Use <strong>Presets</strong> at the top to switch presets, and the <strong>Changelog</strong> button at the bottom for recent release notes</li>
+<li><code>/era setup</code>&nbsp;replays the guided first-run setup, starting with the presets</li>
 <li><code>/era welcome</code>&nbsp;shows the welcome screen again</li>
 <li><code>/era updates</code>&nbsp;shows the latest update notes again</li>
 <li><code>/era reminders</code>&nbsp;opens class-reminder settings</li>

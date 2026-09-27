@@ -85,6 +85,7 @@ QuestieLoader = { ImportModule = function(_, name) if name == "QuestieTracker" t
 local saved, loaded = {}, {}
 local E = { modules = {} }
 function E:RegisterModule(name, module) self.modules[name] = module end
+function E:CreateCloseX(parent, onClick) local x = CreateFrame("Button", nil, parent); x:SetScript("OnClick", onClick); return x end
 function E:GetSavedSetting(key) return saved[key] end
 function E:GetSetting(key) if loaded[key] ~= nil then return loaded[key] end return saved[key] end
 local function BaseSetSetting(_, key, value) saved[key] = value end

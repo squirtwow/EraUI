@@ -155,6 +155,7 @@ local function Session(c)
   assert(loadfile("Core/Integration.lua"))("EraUI",E)
   assert(loadfile("Core/Commands.lua"))("EraUI",E)
  assert(loadfile("Core/SettingsLayout.lua"))("EraUI",E)
+  assert(loadfile("Core/Presets.lua"))("EraUI",E)
  assert(loadfile("Core/Settings.lua"))("EraUI",E)
  E.modules.ClassReminders:Initialize()
  E.modules.MageSupplies:Initialize()
@@ -365,52 +366,99 @@ for _,b in ipairs(actions)do equal(b:IsShown(),false,"clipped action hidden")end
 f:SetSettingsScroll(99999);M:SyncButtons()
 Fits(f,"short viewport")
 
--- Setup walkthrough: a quest tracker step appears only with Questie installed,
--- and every later page is still reachable.
+-- Setup walkthrough: presets come first, the pages that follow depend on the
+-- preset, and a quest tracker step appears only with Questie installed.
 do
  local E,f=Session("DRUID")
- f:SetSetupMode(true);Flush()
- f.setupNext:Fire("OnClick");Flush()
- equal(f.setupYes:IsShown(),true,"without Questie page 2 is everyday helpers")
- equal(f.trackerChoices[1]:IsShown(),false,"without Questie there is no tracker step")
- f:SetSetupMode(false);Flush()
+ local P=E.Presets
+ -- As in the addon: the Classic skins are reload settings, loaded as on.
+ for _,key in ipairs(P.LOOK)do E.settings[key]=true;E.reloadSettings[key]=true;f.loadedSettings[key]=true end
+ local reloads=0
+ ReloadUI=function()reloads=reloads+1 end
+ local function Next()f.setupNext:Fire("OnClick");Flush()end
+ local function Final()return f.setupNext.label:GetText()~="Next >"end
+ -- Clicks from the first page to the finish page.
+ local function Steps()
+  local steps=0
+  while not Final()and steps<20 do Next();steps=steps+1 end
+  return steps
+ end
+ local function Restart()f:SetSetupMode(false);Flush();f:SetSetupMode(true);Flush()end
 
- local choice,reloadNeeded,calls="",false,{}
+ f:SetSetupMode(true);Flush()
+ local choices=f.presetChoices
+ equal(#choices,3,"three presets on the first page")
+ equal(choices[1]:IsShown()and choices[2]:IsShown()and choices[3]:IsShown(),true,"presets are the first page")
+ equal(choices[1].label:GetText(),"Classic + Quality of Life","preset names fit without a Selected: prefix");equal(choices[1].tag:IsShown(),true,"the Classic look starts on Classic + Quality of Life");equal(choices[2].tag:IsShown(),false,"only one preset tagged")
+ equal(choices[3]:GetRight()<=f:GetRight(),true,"third preset fits inside the walkthrough")
+ equal(f.presetButton:IsShown(),false,"no Presets button during the walkthrough")
+ Next()
+ equal(f.checks.classColourBorders:IsShown(),true,"Classic + QoL: style page next")
+ f.setupBack:Fire("OnClick");Flush()
+ equal(Steps(),8,"Classic + QoL without Questie: style, six option pages, finish")
+
+ Restart()
+ choices[2]:Fire("OnClick");Flush()
+ equal(choices[2].tag:IsShown()and not choices[1].tag:IsShown(),true,"Classic look only selected")
+ equal(Steps(),2,"Classic look only: style page, then finish; QoL pages skipped")
+
+ Restart()
+ E.settings.vendorPrice=true;E.settings.darkMode=true
+ choices[3]:Fire("OnClick");Flush()
+ equal(E.settings.unitFrames,false,"QoL only switches the Classic look off")
+ equal(E.settings.darkMode,false,"and the optional Classic looks")
+ equal(E.settings.vendorPrice,true,"quality-of-life options stay as they are")
+ Next()
+ equal(f.checks.classColourBorders:IsShown(),false,"QoL only: no style page")
+ f.setupBack:Fire("OnClick");Flush()
+ equal(Steps(),7,"QoL only: six option pages, then finish")
+ equal(f.setupNext.label:GetText(),"Reload & explore","switching the look asks for the final reload")
+
+ -- Questie installed: the tracker step follows the style page.
+ local choice,reloadNeeded="",false
  E.modules.QuestTrackerChoice={
   QuestieInstalled=function()return true end,
   CurrentChoice=function()return choice end,
-  SetChoice=function(_,c)choice=c;calls[#calls+1]=c;reloadNeeded=c=="classic"end,
+  SetChoice=function(_,c)choice=c;reloadNeeded=c=="classic"end,
   NeedsReload=function()return reloadNeeded end,
  }
- local reloads=0
- ReloadUI=function()reloads=reloads+1 end
- f:SetSetupMode(true);Flush()
- f.setupNext:Fire("OnClick");Flush()
- equal(f.trackerChoices[1]:IsShown(),true,"Questie installed: tracker step shown")
- equal(f.trackerChoices[2]:IsShown(),true,"both tracker choices shown")
- equal(f.setupYes:IsShown(),false,"helpers wait for the next page")
- equal(f.setupNext:IsShown(),true,"tracker step can be passed with Next")
- f.trackerChoices[1]:Fire("OnClick");Flush()
- equal(calls[#calls],"classic","Classic choice applied")
- equal(f.trackerChoices[1].label:GetText():find("Selected",1,true)~=nil,true,"Classic shows as selected")
- f.trackerChoices[2]:Fire("OnClick");Flush()
- equal(choice,"questie","choice can be changed")
- f.trackerChoices[1]:Fire("OnClick");Flush()
- f.setupNext:Fire("OnClick");Flush()
- equal(f.setupYes:IsShown(),true,"everyday helpers follow the tracker step")
- f.setupSkip:Fire("OnClick");Flush()
- equal(f.setupNext.label:GetText(),"Reload & explore","Classic choice asks for the final reload")
+ Restart()
+ equal(choices[3].tag:IsShown(),true,"the modern look starts on Quality of Life only")
+ Next()
+ equal(f.trackerChoices[1]:IsShown(),false,"QoL only has no tracker step")
  f.setupBack:Fire("OnClick");Flush()
- equal(f.setupYes:IsShown(),true,"back from finish returns to helpers")
- f.setupBack:Fire("OnClick");Flush()
- equal(f.trackerChoices[1]:IsShown(),true,"back again returns to the tracker step")
- f.setupNext:Fire("OnClick");Flush()
- f.setupYes:Fire("OnClick");Flush()
- for _=1,6 do f.setupNext:Fire("OnClick");Flush() end
- equal(f.setupNext.label:GetText(),"Reload & explore","all six option pages still lead to finish")
+ choices[1]:Fire("OnClick");Flush()
+ equal(E.settings.unitFrames,true,"Classic + QoL switches the Classic look back on")
+ Next();Next()
+ equal(f.trackerChoices[1]:IsShown(),true,"tracker step after the style page")
+ f.trackerChoices[1]:Fire("OnClick");Flush()
+ equal(choice,"classic","tracker choice applied")
+ f.setupBack:Fire("OnClick");Flush();f.setupBack:Fire("OnClick");Flush()
+ equal(Steps(),9,"Classic + QoL with Questie: style, tracker, six option pages, finish")
  f.setupNext:Fire("OnClick")
  equal(reloads,1,"finish reloads straight from the click")
  f:SetSetupMode(false);Flush()
- equal(f.trackerChoices[1]:IsShown(),false,"tracker choices hidden outside setup")
+ equal(f.trackerChoices[1]:IsShown()or choices[1]:IsShown(),false,"walkthrough choices hidden outside setup")
+
+ -- /era: the active preset is a label, never a warning.
+ equal(f.presetButton:IsShown(),true,"Presets button in /era")
+ equal(f.presetLabel:GetText(),"Preset: Classic look","Classic look recognised")
+ E.settings.minimap=false;f:UpdatePresetLabel()
+ equal(f.presetLabel:GetText(),"Preset: Custom","any change to the look shows Custom")
+ for _,key in ipairs(P.LOOK)do E.settings[key]=false end;f:UpdatePresetLabel()
+ equal(f.presetLabel:GetText(),"Preset: Quality of Life only","modern look recognised")
+
+ -- Options that need a Classic piece are greyed out and cannot be switched on.
+ E.settings.portraitDebuffs=false
+ f:RefreshDependencies()
+ local portrait=f.checks.portraitDebuffs
+ equal(portrait.dependencyDisabled,true,"portrait debuffs greyed out without Classic Unit Frames")
+ portrait:Fire("OnClick");Flush()
+ equal(E.settings.portraitDebuffs,false,"a greyed-out option cannot be switched on")
+ equal(f.checks.trainingGuide.dependencyDisabled,true,"Training Guide needs the Classic Spellbook")
+ equal(f.checks.spellbookCombatDrag.dependencyDisabled,true,"Combat Spell Dragging needs the Classic Spellbook")
+ equal(f.checks.vendorPrice.dependencyDisabled,nil,"ordinary QoL options are never greyed out")
+ E.settings.unitFrames=true;f:RefreshDependencies()
+ equal(portrait.dependencyDisabled,false,"available again with Classic Unit Frames")
 end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

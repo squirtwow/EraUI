@@ -165,7 +165,7 @@ equal(edge.point[2],pin,"texture parent anchor")
 equal(edge.point[4],549,"Durotar edge x")
 equal(edge.point[5],-427,"Durotar edge y")
 equal(tile(8074092).point[4],500,"second-column position")
-equal(map.masked[edge],true,"native clipping registration")
+equal(map.masked[edge],nil,"no registration in the map's native mask list")
 
 -- Questie can show the map before Blizzard creates the zoom table. Clear old
 -- reveal tiles, leave native artwork intact, and resume on native readiness.
@@ -202,7 +202,8 @@ equal(visible(pin),12,"reopening after initialization restores reveal")
 explored={{offsetX=427,offsetY=78,textureWidth=256,textureHeight=256,fileDataIDs={8073637}}}
 pin:RefreshOverlays(true)
 equal(visible(pin),11,"explored region skipped")
-equal(#pin.textureLoadGroup.textures,11,"reveal participates in native texture loading")
+equal(#pin.textureLoadGroup.textures,0,"reveal never writes into the pin's native texture load group")
+equal(next(map.masked),nil,"reveal never adds to the map's native mask list")
 explored[1].fileDataIDs={1}
 pin:RefreshOverlays()
 equal(visible(pin),12,"different-art explored record cannot hide valid reveal")

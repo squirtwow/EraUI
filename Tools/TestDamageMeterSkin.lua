@@ -51,6 +51,7 @@ local function Region(parent)
     function r:SetTexture(file) self.file, self.atlas = file, nil end
     function r:SetColorTexture(...) self.colorTexture, self.atlas = { ... }, nil end
     function r:SetVertexColor(...) self.vertex = { ... } end
+    function r:SetTextColor(...) self.textColour = { ... } end
     function r:SetDesaturated(value) self.desaturated = value end
     function r:SetBlendMode(mode) self.blend = mode end
     function r:SetFontObject(font) self.font = font; self.textScale = 1 end -- Models a scale reset.
@@ -154,6 +155,7 @@ local function Dropdown(parent, ...)
     for _, key in ipairs(keys) do d[key] = Region(d); d[key].atlas = "common-dropdown-" .. key end
     function d:OnButtonStateChanged()
         for _, key in ipairs(keys) do self[key]:SetAtlas("common-dropdown-" .. key .. "-hover") end
+        if self.SessionName then self.SessionName:SetTextColor(1, .82, 0) end -- Models a gold state repaint.
     end
     return d
 end
@@ -285,7 +287,8 @@ Near(backdrop.fill[4], .9 * .5, "fill returns when opacity is raised again")
 
 Equal(window.SessionTimer.font, ns.FONT_GOLD, "timer uses Classic gold")
 Equal(window.DamageMeterTypeDropdown.TypeName.font, ns.FONT_GOLD, "title uses Classic gold")
-Equal(window.SessionDropdown.SessionName.font, ns.FONT_GOLD, "session letter uses Classic gold")
+Equal(window.SessionDropdown.SessionName.font, GameFontHighlight, "session letter uses the plain Classic font")
+Equal(window.SessionDropdown.SessionName.textColour[3], .9, "session letter is silver like the other buttons")
 Equal(window.MinimizeContainer.NotActive.font, ns.FONT_GOLD, "idle text uses Classic gold")
 
 -- Header buttons stay silver through Blizzard's state repaints.
@@ -297,6 +300,7 @@ window.SessionDropdown:OnButtonStateChanged()
 window.DamageMeterTypeDropdown:OnButtonStateChanged()
 Equal(window.SettingsDropdown.Icon.desaturated, true, "cog stays silver after hover")
 Equal(window.SessionDropdown.Arrow.desaturated, true, "session arrow stays silver after hover")
+Equal(window.SessionDropdown.SessionName.textColour[3], .9, "session letter stays silver after hover")
 Equal(window.DamageMeterTypeDropdown.Arrow.desaturated, true, "type arrow stays silver after hover")
 Equal(window.SettingsDropdown.Icon.atlas, "common-dropdown-Icon-hover", "Blizzard still chooses the button state art")
 

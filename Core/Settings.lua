@@ -4,6 +4,20 @@ local SettingsModule = {}
 EraUI:RegisterModule("Settings", SettingsModule)
 
 local reloadSettings = EraUI.reloadSettings
+
+-- Options that only work on top of another one. They are greyed out, and
+-- cannot be switched on, while it is off.
+local DEPENDS = {
+    advancedCastClassFill = "advancedCastBar", advancedCastTicks = "advancedCastBar", advancedCastLatency = "advancedCastBar",
+    trainingGuide = "spellbook", spellbookCombatDrag = "spellbook",
+    portraitDebuffs = "unitFrames", matchFocusSize = "unitFrames", disableAggroHighlight = "unitFrames",
+    classColourBorders = "unitFrames", gryphons = "actionBars",
+}
+local DEPEND_NAMES = {
+    advancedCastBar = "Advanced Cast Bar", spellbook = "Classic Spellbook",
+    unitFrames = "Classic Unit Frames", actionBars = "Classic Action Bars",
+}
+
 local classIconCoords = CLASS_ICON_TCOORDS or {
     WARRIOR={0,.25,0,.25}, MAGE={.25,.49609375,0,.25},
     ROGUE={.49609375,.7421875,0,.25}, DRUID={.7421875,.98828125,0,.25},
@@ -18,7 +32,7 @@ local settingHelp = {
     poisonReminders = "Shows missing poison, low remaining time and low charges. While enabled, this panel handles missing-poison warnings instead of duplicating the generic Rogue class alerts. Poison Supplies is separate and manages buying/crafting. Preview while settings are open; right-click the header to move or resize.",
     portraitDebuffs = "Shows crowd control on player, target, focus and party portraits with the game's own icon, sweep and countdown, in and out of combat. Enemy targets show the most important effect: stuns, then fears/incapacitates, silences and roots. Friendly units show any crowd control. While shown, the icon extends slightly past the portrait's edge on purpose, to cover the level badge; your level returns when the effect ends. Requires Unit Frames. Applies immediately; off by default.",
     classColourBorders = "Use each player's class colour on normal player, target and focus borders in Dark Mode. Keeps dark interiors, health/power colours and special rare/elite artwork. Reload to apply. Off by default.",
-    darkMode = "Dark decorative artwork. Character, party and raid frames keep their appearance. Reload to apply either style; QoL choices are unchanged.",
+    darkMode = "Dark decorative artwork. Character, party and raid frames keep their appearance. Reload to apply either style; Quality of Life choices are unchanged.",
     trainer = "Classic trainer presentation and training controls, independent of profession window styling.",
     gameMenu = "Classic game-menu borders and red buttons.",
     popups = "Classic borders and buttons for native confirmation prompts.",
@@ -59,6 +73,10 @@ local function HideSettingTooltip(owner)
 end
 
 local function UpdateReloadHint(frame)
+    -- Called after every settings change: keep dependent options and the
+    -- preset label current too.
+    if frame.RefreshDependencies then frame:RefreshDependencies() end
+    if frame.UpdatePresetLabel then frame:UpdatePresetLabel() end
     if frame.setupMode then
         frame.reloadHint:SetText("Your choices are saved as you go.")
         if frame.reloadButton then frame.reloadButton:Hide() end
@@ -232,7 +250,7 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(label, ClassColour())
         if check.dependencyDisabled then
-            GameTooltip:AddLine("Enable Advanced Cast Bar to use this feature.",1,.82,.3,true)
+            GameTooltip:AddLine("Enable " .. (DEPEND_NAMES[DEPENDS[key]] or "its parent option") .. " to use this feature.",1,.82,.3,true)
         end
         GameTooltip:AddLine(settingHelp[key] or summary, 1, 1, 1, true)
         if unavailable then
@@ -248,7 +266,7 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
     check:HookScript("OnEnter", ShowSettingTooltip)
     check:HookScript("OnLeave", HideSettingTooltip)
     check:HookScript("OnHide", HideSettingTooltip)
-    if key=="advancedCastClassFill" or key=="advancedCastTicks" or key=="advancedCastLatency" then
+    if DEPENDS[key] then
         -- Disabled buttons do not reliably receive mouse motion on every client.
         -- A motion-only cover retains the explanation without enabling clicks.
         local cover=CreateFrame("Frame",nil,check)
@@ -582,7 +600,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Friendly Nameplates", "friendlyNameplates", 1, 0, 2, "INV_Misc_Book_09", "Classic friendly unit presentation.", false)
     MakeCheck(frame, "Enemy Nameplates", "enemyNameplates", 1, 1, 2, "INV_Misc_Book_09", "Classic enemy and neutral presentation.", false)
     MakeCheck(frame, "Hide Aggro Highlight", "disableAggroHighlight", 1, 0, 3, "INV_Misc_Book_09", "Hide unit-frame threat decoration.", false)
-    MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", 1, 0, 4, "Spell_Nature_Polymorph", "Crowd-control icons and countdowns, in combat too.\nThe icon pokes out slightly to cover the level badge.", false)
+    MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", 1, 0, 4, "Spell_Nature_Polymorph", "CC icons and countdowns, even in combat. The icon covers the level badge.", false)
     MakeCheck(frame, "Character / Reputation / Skills", "characterPanel", 2, 0, 0, "INV_Misc_Book_09", "Classic panels, rows and bottom tabs.", false)
     MakeCheck(frame, "Talents", "talentWindow", 2, 1, 0, "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
     MakeCheck(frame, "Spellbook", "spellbook", 2, 0, 1, "INV_Misc_Book_09", "Classic book and native spell actions.", false)
@@ -851,13 +869,18 @@ function SettingsModule:Initialize()
     MakeCheck(frame,"Class-coloured Fill","advancedCastClassFill",13,1,0,"INV_Misc_ArmorKit_17","Use a muted class colour instead of gold. Priest uses dark silver for readable text.",false)
     MakeCheck(frame,"Channel Tick Marks","advancedCastTicks",13,1,1,"Spell_Shadow_DrainSoul","Marks explicit tick intervals from the spell description when available. Not all channels supply them.",false)
     MakeCheck(frame,"Latency Zone","advancedCastLatency",13,0,2,"INV_Misc_PocketWatch_01","Red end zone based on world latency. Shown when cast duration is readable.",false)
-    function frame:RefreshCastDependencies()
-        local enabled=EraUI:GetSavedSetting("advancedCastBar")==true
-        for _,key in ipairs({"advancedCastClassFill","advancedCastLatency","advancedCastTicks"})do
+    function frame:RefreshDependencies()
+        for key,parentKey in pairs(DEPENDS)do
             local check=self.checks[key]
-            check.dependencyDisabled=not enabled;check:SetEnabled(enabled);check:SetAlpha(enabled and 1 or .4)
-            check.dependencyHelp:SetShown(not enabled)
+            if check then
+                local enabled=EraUI:GetSavedSetting(parentKey)==true
+                check.dependencyDisabled=not enabled;check:SetEnabled(enabled);check:SetAlpha(enabled and 1 or .4)
+                check.dependencyHelp:SetShown(not enabled)
+            end
         end
+    end
+    function frame:RefreshCastDependencies()
+        self:RefreshDependencies()
         if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:Refresh()end
     end
     local footerLine = frame:CreateTexture(nil, "ARTWORK")
@@ -920,6 +943,21 @@ function SettingsModule:Initialize()
     changelog:SetScript("OnClick",function()
         if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() end
     end)
+    -- Active preset and a way to switch; a label only, never a warning.
+    local presets=SetupButton("Presets",-24,96)
+    presets:ClearAllPoints();presets:SetSize(96,26);presets:SetPoint("TOPRIGHT",-48,-36)
+    presets:SetScript("OnClick",function()if EraUI.Presets then EraUI.Presets:Show()end end)
+    frame.presetButton=presets
+    local presetLabel=Text(frame,"",12,true)
+    presetLabel:SetPoint("RIGHT",presets,"LEFT",-10,0)
+    presetLabel:SetJustifyH("RIGHT")
+    frame.presetLabel=presetLabel
+    function frame:UpdatePresetLabel()
+        local P=EraUI.Presets
+        local shown=P~=nil and not self.setupMode
+        presets:SetShown(shown);presetLabel:SetShown(shown)
+        if shown then presetLabel:SetText("Preset: "..P.NAMES[P:Current()]) end
+    end
     local originalPoints={}
     local content=EraUI:CreateSettingsViewport(frame)
     for key,check in pairs(frame.checks) do
@@ -950,6 +988,7 @@ function SettingsModule:Initialize()
         button.label:SetPoint("TOPLEFT",18,-18)
         local detail=Text(button,description,13,true)
         detail:SetPoint("TOPLEFT",18,-46);detail:SetWidth(292)
+        button.detail=detail
         button:SetScript("OnClick",callback)
         button.column=column
         return button
@@ -1078,37 +1117,73 @@ function SettingsModule:Initialize()
     next:SetScript("OnClick",function()page=page+1;ApplySearch()end)
 
     local qos={3,7,8,9,10,5}
-    -- Pages: 1 style, 2 quest tracker (only with Questie installed), then
-    -- everyday helpers, one page per QoL category, and the finish page.
-    local function HelpersPage() return frame.trackerStep and 3 or 2 end
-    local function FinalPage() return HelpersPage()+#qos+1 end
-    local yes=Choice("Yes, choose my options","Pick what to turn on. Nothing gets enabled for you.",0,function()
-        frame.setupQoL=true;frame.setupPage=HelpersPage()+1;frame:RenderSetup()
-    end)
-    local skip=Choice("Skip","Keep your settings as they are.",1,function()
-        frame.setupQoL=false;frame.setupPage=FinalPage();frame:RenderSetup()
-    end)
-    frame.setupYes,frame.setupSkip=yes,skip
+    -- First page: how EraUI is used. The Classic look gets the style page
+    -- (and, with Questie installed, the tracker page); quality-of-life choices
+    -- get one page per QoL category. A preset only switches the Classic look.
+    local PRESETS={
+        {id="classicqol",name="Classic + Quality of Life",look="classic",detail="The 2004 look, plus your choice of Quality of Life options. Recommended."},
+        {id="classic",name="Classic look only",look="classic",detail="The 2004 look. Your Quality of Life options stay as they are."},
+        {id="qol",name="Quality of Life only",look="qol",detail="Keep Blizzard's modern interface and pick Quality of Life options."},
+    }
+    local presetChoices={}
+    local function RenderPresets(shown)
+        for i,button in ipairs(presetChoices) do
+            button:ClearAllPoints();button:SetPoint("TOPLEFT",frame,"TOPLEFT",30+(i-1)*250,-156);button:SetShown(shown)
+            local selected=frame.setupPreset==PRESETS[i].id
+            PaintChoice(button,selected,PRESETS[i].name)
+            -- These boxes are too narrow for a "Selected:" prefix; a tag shows it.
+            button.label:SetText(PRESETS[i].name)
+            button.tag:SetTextColor(ClassColour());button.tag:SetShown(selected)
+        end
+    end
+    for i,preset in ipairs(PRESETS) do
+        local button=Choice(preset.name,preset.detail,0,function()
+            frame.setupPreset=preset.id
+            if EraUI.Presets then EraUI.Presets:Apply(preset.look) end
+            frame:RenderSetup()
+        end)
+        button:SetSize(236,112);button.detail:SetWidth(200)
+        button.label:SetWidth(200);button.label:SetWordWrap(false)
+        button.tag=Text(button,"SELECTED",11)
+        button.tag:SetPoint("BOTTOMLEFT",18,12);button.tag:Hide()
+        presetChoices[i]=button
+    end
+    frame.presetChoices=presetChoices
+    local function SetupPages()
+        local pages={"preset"}
+        if frame.setupPreset~="qol" then
+            pages[#pages+1]="style"
+            -- Only the Classic tracker competes with Questie's own.
+            if frame.trackerStep then pages[#pages+1]="tracker" end
+        end
+        if frame.setupPreset~="classic" then
+            for index=1,#qos do pages[#pages+1]=index end
+        end
+        pages[#pages+1]="final"
+        return pages
+    end
     function frame:RenderSetup()
-        local final=self.setupPage==FinalPage()
-        local trackerPage=self.trackerStep and self.setupPage==2
+        local pages=SetupPages()
+        self.setupPage=math.max(1,math.min(self.setupPage or 1,#pages))
+        local page=pages[self.setupPage]
+        local final=page=="final"
         for _,check in pairs(self.checks) do check:Hide() end
-        RenderAppearance(false);RenderTracker(false);yes:Hide();skip:Hide();setupSummary:Hide()
+        RenderPresets(false);RenderAppearance(false);RenderTracker(false);setupSummary:Hide()
         navigation:Hide();divider:Hide()
-        if self.setupPage==1 then
+        if page=="preset" then
+            section:SetText("How do you want EraUI?")
+            setupSummary:SetText("Choose a starting point. You can change any option later, or switch preset from /era.")
+            setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
+            RenderPresets(true)
+        elseif page=="style" then
             section:SetText("Choose your style");RenderAppearance(true)
-        elseif trackerPage then
+        elseif page=="tracker" then
             section:SetText("Quest tracker")
             setupSummary:SetText("Questie is installed. Only one quest tracker can show at a time. Which would you like?")
             setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
             RenderTracker(true)
-        elseif self.setupPage==HelpersPage() then
-            section:SetText("Everyday helpers")
-            setupSummary:SetText("Want to pick your convenience options?")
-            setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
-            PlaceChoice(yes);PlaceChoice(skip);yes:Show();skip:Show()
         elseif not final then
-            SelectCategory(qos[self.setupPage-HelpersPage()])
+            SelectCategory(qos[page])
             -- Keep visual skins out, but include chat dragging even though its
             -- native tab handlers need a reload to change ownership.
             for key,check in pairs(self.checks) do
@@ -1127,10 +1202,10 @@ function SettingsModule:Initialize()
         end
         for _,tab in ipairs(tabs) do tab:Hide() end
         nextPage.label:SetText(final and (self.setupNeedsReload and "Reload & explore" or "Explore settings") or "Next >")
-        nextPage:SetShown(self.setupPage~=HelpersPage())
+        nextPage:Show()
         previousPage:Show()
-        setupProgress:SetText(final and "FINISH" or (self.setupPage==1 and "APPEARANCE" or trackerPage and "QUEST TRACKER"
-            or self.setupPage==HelpersPage() and "QUALITY OF LIFE" or "OPTIONS  "..(self.setupPage-HelpersPage()).." / "..#qos))
+        setupProgress:SetText(final and "FINISH" or page=="preset" and "START" or page=="style" and "APPEARANCE"
+            or page=="tracker" and "QUEST TRACKER" or ("OPTIONS  "..page.." / "..#qos))
         setupProgress:Show();UpdateReloadHint(self)
     end
     function frame:SetSetupMode(enabled)
@@ -1150,12 +1225,15 @@ function SettingsModule:Initialize()
         if enabled then
             local tracker=EraUI.modules.QuestTrackerChoice
             self.trackerStep=tracker and tracker:QuestieInstalled() or false
+            -- Start on the preset that matches the current look.
+            local current=EraUI.Presets and EraUI.Presets:Current()
+            self.setupPreset=current=="qol" and "qol" or "classicqol"
             self.setupPage=1
             self:RenderSetup()
         else
             navigation:Show();divider:Show()
             for _,tab in ipairs(tabs) do tab:Show() end
-            yes:Hide();skip:Hide();RenderTracker(false)
+            RenderPresets(false);RenderTracker(false)
             setupSummary:Hide();setupProgress:Hide();nextPage:Hide();previousPage:Hide()
             SelectCategory(self.selectedCategory or 1)
             UpdateReloadHint(self)
@@ -1186,7 +1264,7 @@ function SettingsModule:Initialize()
         EraUI:Print("Casting and your class tab have more. /era opens settings any time.")
     end
     nextPage:SetScript("OnClick",function()
-        if frame.setupPage==FinalPage() then FinishSetup(#Pending()>0)
+        if SetupPages()[frame.setupPage]=="final" then FinishSetup(#Pending()>0)
         else frame.setupPage=frame.setupPage+1;frame:RenderSetup() end
     end)
     previousPage:SetScript("OnClick",function()
@@ -1194,7 +1272,7 @@ function SettingsModule:Initialize()
             frame:Hide();frame:SetSetupMode(false)
             EraUI.Classic.setupRequested=true;EraUI.Classic.ShowWelcome();return
         end
-        frame.setupPage=(frame.setupPage==FinalPage() and not frame.setupQoL) and HelpersPage() or frame.setupPage-1
+        frame.setupPage=frame.setupPage-1
         frame:RenderSetup()
     end)
     frame.setupNext,frame.setupBack=nextPage,previousPage

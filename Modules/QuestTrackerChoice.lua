@@ -186,9 +186,7 @@ local function Build()
     window.footer:SetPoint("BOTTOM", 0, 18)
     window.footer:SetWidth(412)
 
-    local close = CreateFrame("Button", nil, window, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", 2, 2)
-    close:SetScript("OnClick", function() window:Hide() end)
+    E:CreateCloseX(window, function() window:Hide() end)
 end
 
 function M:Show()
@@ -255,6 +253,8 @@ function M:Initialize()
         C_Timer.After(2, function() M:Check(false) end)
     end)
     hooksecurefunc(E, "SetSetting", function(_, key, value)
-        if key == "questTracker" and value == true and not choosing then M:Check(true) end
+        -- A preset switching the whole Classic look on is not a tracker choice.
+        local applyingPreset = E.Presets and E.Presets.applying
+        if key == "questTracker" and value == true and not choosing and not applyingPreset then M:Check(true) end
     end)
 end
