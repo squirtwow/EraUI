@@ -72,6 +72,7 @@ local defaults = {
     socialWindows = true,
     talentWindow = true,
     questTracker = true,
+    questTrackerChoice = "", -- "classic" or "questie" once answered; see QuestTrackerChoice.
     trainer = true,
     gameMenu = true,
     popups = true,
@@ -109,6 +110,7 @@ local defaults = {
     groupFinderPvp = true,
     blizzardSettings = true,
     tooltipSkin = true,
+    damageMeterSkin = false,
     trainingGuide = true,
     contextMenus = false,
     cleanMinimap = false,
@@ -129,7 +131,7 @@ for _, key in ipairs({"classicChatDragging", "floatingComboPoints", "classColour
     "professions", "trainer", "spellbook", "spellbookCombatDrag", "questDialogs", "questTracker",
     "classicDialogs", "gameMenu", "popups", "socialWindows", "talentWindow",
     "questLog", "bagsBank", "merchantSkin", "mailSkin", "auctionHouse",
-    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "trainingGuide", "contextMenus"}) do
+    "groupFinderPvp", "blizzardSettings", "tooltipSkin", "damageMeterSkin", "trainingGuide", "contextMenus"}) do
     EraUI.reloadSettings[key] = true
 end
 EraUI.settingDefaults = defaults

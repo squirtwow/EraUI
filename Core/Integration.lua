@@ -11,7 +11,7 @@ local mapping = {
     questLog="questLog", questMapPane="questLog", bags="bagsBank",
     professionsBook="professions", tradeSkill="professions", trainer="trainer",
     guildRoster="socialWindows", whoList="socialWindows", groupFinder="groupFinderPvp",
-    gameMenu="gameMenu", settingsPanel="blizzardSettings",
+    gameMenu="gameMenu", settingsPanel="blizzardSettings", damageMeter="damageMeterSkin",
 }
 EraUI.classicMapping = mapping
 ns.DB_DEFAULTS.erauiMigrated = false

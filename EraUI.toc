@@ -60,6 +60,7 @@ Classic\GameMenu.lua
 Classic\SettingsPanel.lua
 Classic\Welcome.lua
 Classic\Status.lua
+Classic\DamageMeter.lua
 Core\Integration.lua
 Core\Updates.lua
 Modules\QoL.lua
@@ -72,6 +73,7 @@ Modules\SwingTimer.lua
 Modules\Convenience.lua
 Modules\QuestTools.lua
 Modules\QuestieCompatibility.lua
+Modules\QuestTrackerChoice.lua
 Modules\ClassAccents.lua
 Modules\AdvancedCastBar.lua
 Modules\AuraStyle.lua

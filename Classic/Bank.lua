@@ -55,7 +55,7 @@ local function BagArt(button)
     if not icon then return end
     local unbought = button.tooltipText == BANK_BAG_PURCHASE
     if unbought or not icon:GetTexture() then
-        icon:SetTexture(ns.TexPath("bagSlotIcon"))
+        icon:SetTexture((ns.TexPath("bagSlotIcon")))
         icon:SetTexCoord(0, 1, 0, 1)
         icon:Show()
         if unbought then icon:SetVertexColor(1, 0.1, 0.1) else icon:SetVertexColor(1, 1, 1) end

@@ -16,7 +16,7 @@ local settingHelp = {
     discardCheapestJunk = "With full bags, right-clicking a corpse the client identifies as lootable frees the lowest-value grey stack during that click. If loot rights are unavailable, cleanup waits for a bags-full loot error and the next normal world/loot click. At most one stack per loot window. No separate confirmation; the deleted item is reported in chat. Compares total stack vendor value and skips locked/quest items or unknown prices. Never runs in combat or with an occupied cursor. Hold Shift to bypass.",
     cursorCastRing = "A thin progress ring follows your cursor, filling during casts and draining during channels. Works independently of Cursor Ring and the normal cast bar. When Cursor Ring is enabled, the cast ring grows as needed to stay outside it with a small gap. Stops quietly on interruption.",
     poisonReminders = "Shows missing poison, low remaining time and low charges. While enabled, this panel handles missing-poison warnings instead of duplicating the generic Rogue class alerts. Poison Supplies is separate and manages buying/crafting. Preview while settings are open; right-click the header to move or resize.",
-    portraitDebuffs = "Needs testing: this feature has not yet been verified in-game. Shows the highest-priority crowd-control icon and countdown on player, target, focus and party portraits: stuns, fears/incapacitates, silences, then roots. Ordinary slows such as Concussive Shot are excluded. Requires Unit Frames. Applies immediately; off by default.",
+    portraitDebuffs = "Shows crowd control on player, target, focus and party portraits with the game's own icon, sweep and countdown, in and out of combat. Enemy targets show the most important effect: stuns, then fears/incapacitates, silences and roots. Friendly units show any crowd control. While shown, the icon extends slightly past the portrait's edge on purpose, to cover the level badge; your level returns when the effect ends. Requires Unit Frames. Applies immediately; off by default.",
     classColourBorders = "Use each player's class colour on normal player, target and focus borders in Dark Mode. Keeps dark interiors, health/power colours and special rare/elite artwork. Reload to apply. Off by default.",
     darkMode = "Dark decorative artwork. Character, party and raid frames keep their appearance. Reload to apply either style; QoL choices are unchanged.",
     trainer = "Classic trainer presentation and training controls, independent of profession window styling.",
@@ -34,8 +34,9 @@ local settingHelp = {
     friendlyNameplates = "Classic artwork and lettering on friendly nameplates. Keeps your existing nameplate visibility settings. Reload UI to apply.",
     enemyNameplates = "Classic artwork and lettering on enemy and neutral nameplates. Keeps native threat colours, casts, targeting and auras. Reload UI to apply.",
     lootWindow = "Classic loot frame and item artwork. Keeps native looting, tooltips and scrolling. Reload UI to apply or restore.",
+    damageMeterSkin = "Classic look for Blizzard's Damage Meter: dark tooltip-style frame with a grey border, Classic bar texture and fonts, and silver header buttons. Covers extra windows and the spell breakdown window. Blizzard's buttons, menus and Edit Mode options (size, bar height, text size, transparency, background, class colours) keep working, and names and numbers are unchanged. Reload UI to apply or restore. Off by default.",
     disableAggroHighlight = "Hide combat and threat glows on Classic player, target and focus frames, including the player status glow. Requires Classic unit frames. Reload UI to apply.",
-    questTracker = "Classic text and collapse buttons without modern header plates. Keeps tracking, quest items and completion colours. Reload UI to apply or restore.",
+    questTracker = "Classic text and collapse buttons without modern header plates. Keeps tracking, quest items and completion colours. With Questie's own tracker on, EraUI asks which tracker to use, since only one can show. Reload UI to apply or restore.",
     cleanMinimap = "Hide supported addon minimap buttons until you hover over the minimap. Clock, mail, tracking and zoom stay visible. Changes wait until combat ends.",
     questDialogs = "Classic quest acceptance and turn-in window. Keeps quest text, reward selection and the existing buttons. Reload UI to apply or restore.",
     professions = "Classic window artwork, profession progress bars and spell buttons. Keeps the client's recipes and profession controls. Reload UI to apply or restore.",
@@ -581,7 +582,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Friendly Nameplates", "friendlyNameplates", 1, 0, 2, "INV_Misc_Book_09", "Classic friendly unit presentation.", false)
     MakeCheck(frame, "Enemy Nameplates", "enemyNameplates", 1, 1, 2, "INV_Misc_Book_09", "Classic enemy and neutral presentation.", false)
     MakeCheck(frame, "Hide Aggro Highlight", "disableAggroHighlight", 1, 0, 3, "INV_Misc_Book_09", "Hide unit-frame threat decoration.", false)
-    MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", 1, 0, 4, "Spell_Nature_Polymorph", "|cffffd24aNeeds testing|r\nPortrait CC icons and countdowns.", false)
+    MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", 1, 0, 4, "Spell_Nature_Polymorph", "Crowd-control icons and countdowns, in combat too.\nThe icon pokes out slightly to cover the level badge.", false)
     MakeCheck(frame, "Character / Reputation / Skills", "characterPanel", 2, 0, 0, "INV_Misc_Book_09", "Classic panels, rows and bottom tabs.", false)
     MakeCheck(frame, "Talents", "talentWindow", 2, 1, 0, "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
     MakeCheck(frame, "Spellbook", "spellbook", 2, 0, 1, "INV_Misc_Book_09", "Classic book and native spell actions.", false)
@@ -604,6 +605,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Context Menus", "contextMenus", 6, 1, 1, "INV_Misc_Book_09", "Not implemented yet.", true)
     MakeCheck(frame, "Popups", "popups", 6, 0, 2, "INV_Misc_Book_09", "Classic confirmation prompts.", false)
     MakeCheck(frame, "Loot", "lootWindow", 6, 1, 2, "INV_Misc_Book_09", "Classic loot window and item rows.", false)
+    MakeCheck(frame, "Damage Meter", "damageMeterSkin", 6, 0, 3, "INV_Misc_Book_09", "Classic tooltip-style frame, bars and text for Blizzard's damage meter. Reload UI to apply.")
     MakeCheck(frame, "Vendor Prices", "vendorPrice", 7, 0, 0, "INV_Misc_Book_09", "Add missing item selling prices.", false)
     MakeCheck(frame, "Bag Space", "bagSpace", 7, 1, 0, "INV_Misc_Book_09", "Show free slots on the backpack.", false)
     MakeCheck(frame, "Quest Levels", "questLevels", 7, 0, 1, "INV_Misc_Book_09", "Show levels on tracked quests.", false)
@@ -933,6 +935,8 @@ function SettingsModule:Initialize()
                 labels[#labels+1]=key=="darkMode" and "Appearance" or (frame.checks[key] and frame.checks[key].text:GetText() or key)
             end
         end
+        local tracker=EraUI.modules.QuestTrackerChoice
+        if tracker and tracker:NeedsReload() then labels[#labels+1]="Questie tracker" end
         table.sort(labels)
         return labels
     end
@@ -954,23 +958,25 @@ function SettingsModule:Initialize()
         button:ClearAllPoints()
         button:SetPoint("TOPLEFT",frame,"TOPLEFT",(frame.setupMode and 30 or 208)+button.column*366,-156)
     end
+    local function PaintChoice(button,selected,name)
+        local r,g,b=ClassColour()
+        if selected then
+            button:SetBackdropColor(r*.26,g*.26,b*.26,1)
+            button:SetBackdropBorderColor(r,g,b,1)
+            button.label:SetTextColor(r,g,b,1)
+        else
+            button:SetBackdropColor(.075,.078,.085,1)
+            button:SetBackdropBorderColor(.25,.27,.3,1)
+            button.label:SetTextColor(.7,.72,.76,1)
+        end
+        button.label:SetText((selected and "Selected: " or "")..name)
+    end
     RenderAppearance=function(shown)
         frame.checks.classColourBorders:SetShown(shown)
         local dark=EraUI:GetSavedSetting("darkMode")
         for i,button in ipairs(appearanceButtons) do
             PlaceChoice(button);button:SetShown(shown)
-            local selected=(i==2)==not not dark
-            local r,g,b=ClassColour()
-            if selected then
-                button:SetBackdropColor(r*.26,g*.26,b*.26,1)
-                button:SetBackdropBorderColor(r,g,b,1)
-                button.label:SetTextColor(r,g,b,1)
-            else
-                button:SetBackdropColor(.075,.078,.085,1)
-                button:SetBackdropBorderColor(.25,.27,.3,1)
-                button.label:SetTextColor(.7,.72,.76,1)
-            end
-            button.label:SetText((selected and "Selected: " or "")..(i==1 and "Classic" or "Dark Mode"))
+            PaintChoice(button,(i==2)==not not dark,i==1 and "Classic" or "Dark Mode")
         end
     end
     local function ChooseAppearance(dark)
@@ -979,6 +985,28 @@ function SettingsModule:Initialize()
     end
     appearanceButtons[1]=Choice("Classic","Original Classic artwork. Requires a reload when switching styles.",0,function()ChooseAppearance(false)end)
     appearanceButtons[2]=Choice("Dark Mode","Darker decorative artwork. Character, party and raid frames stay unchanged. Reload to apply.",1,function()ChooseAppearance(true)end)
+
+    -- Quest tracker step, shown only when Questie is installed: only one
+    -- tracker can show, so the walkthrough asks rather than the login prompt.
+    local trackerButtons={}
+    local function RenderTracker(shown)
+        local tracker=EraUI.modules.QuestTrackerChoice
+        local current=tracker and tracker:CurrentChoice() or ""
+        for i,button in ipairs(trackerButtons) do
+            PlaceChoice(button);button:SetShown(shown)
+            local choice=i==1 and "classic" or "questie"
+            PaintChoice(button,current==choice,i==1 and "Classic Tracker" or "Questie Tracker")
+        end
+    end
+    local function ChooseTracker(choice)
+        local tracker=EraUI.modules.QuestTrackerChoice
+        if tracker then tracker:SetChoice(choice) end
+        RenderTracker(true);UpdateReloadHint(frame)
+    end
+    -- Questie's own tracker does not list quests on WoW Forever yet.
+    trackerButtons[1]=Choice("Classic Tracker","|cff66dd66Recommended.|r Blizzard's tracker in EraUI's Classic look. Turns Questie's tracker off; applies with the reload at the end.",0,function()ChooseTracker("classic")end)
+    trackerButtons[2]=Choice("Questie Tracker","Questie's own tracker, unfolded. |cffffd24aDoes not list quests on WoW Forever yet.|r",1,function()ChooseTracker("questie")end)
+    frame.trackerChoices=trackerButtons
 
     -- Reuse the actual controls so search preserves their normal actions and dependencies.
     local search = CreateFrame("EditBox", nil, frame, "BackdropTemplate")
@@ -1050,27 +1078,37 @@ function SettingsModule:Initialize()
     next:SetScript("OnClick",function()page=page+1;ApplySearch()end)
 
     local qos={3,7,8,9,10,5}
-    local finalPage=#qos+3
+    -- Pages: 1 style, 2 quest tracker (only with Questie installed), then
+    -- everyday helpers, one page per QoL category, and the finish page.
+    local function HelpersPage() return frame.trackerStep and 3 or 2 end
+    local function FinalPage() return HelpersPage()+#qos+1 end
     local yes=Choice("Yes, choose my options","Pick what to turn on. Nothing gets enabled for you.",0,function()
-        frame.setupQoL=true;frame.setupPage=3;frame:RenderSetup()
+        frame.setupQoL=true;frame.setupPage=HelpersPage()+1;frame:RenderSetup()
     end)
     local skip=Choice("Skip","Keep your settings as they are.",1,function()
-        frame.setupQoL=false;frame.setupPage=finalPage;frame:RenderSetup()
+        frame.setupQoL=false;frame.setupPage=FinalPage();frame:RenderSetup()
     end)
+    frame.setupYes,frame.setupSkip=yes,skip
     function frame:RenderSetup()
-        local final=self.setupPage==finalPage
+        local final=self.setupPage==FinalPage()
+        local trackerPage=self.trackerStep and self.setupPage==2
         for _,check in pairs(self.checks) do check:Hide() end
-        RenderAppearance(false);yes:Hide();skip:Hide();setupSummary:Hide()
+        RenderAppearance(false);RenderTracker(false);yes:Hide();skip:Hide();setupSummary:Hide()
         navigation:Hide();divider:Hide()
         if self.setupPage==1 then
             section:SetText("Choose your style");RenderAppearance(true)
-        elseif self.setupPage==2 then
+        elseif trackerPage then
+            section:SetText("Quest tracker")
+            setupSummary:SetText("Questie is installed. Only one quest tracker can show at a time. Which would you like?")
+            setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
+            RenderTracker(true)
+        elseif self.setupPage==HelpersPage() then
             section:SetText("Everyday helpers")
             setupSummary:SetText("Want to pick your convenience options?")
             setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
             PlaceChoice(yes);PlaceChoice(skip);yes:Show();skip:Show()
         elseif not final then
-            SelectCategory(qos[self.setupPage-2])
+            SelectCategory(qos[self.setupPage-HelpersPage()])
             -- Keep visual skins out, but include chat dragging even though its
             -- native tab handlers need a reload to change ownership.
             for key,check in pairs(self.checks) do
@@ -1089,9 +1127,10 @@ function SettingsModule:Initialize()
         end
         for _,tab in ipairs(tabs) do tab:Hide() end
         nextPage.label:SetText(final and (self.setupNeedsReload and "Reload & explore" or "Explore settings") or "Next >")
-        nextPage:SetShown(self.setupPage~=2)
+        nextPage:SetShown(self.setupPage~=HelpersPage())
         previousPage:Show()
-        setupProgress:SetText(final and "FINISH" or (self.setupPage==1 and "APPEARANCE" or self.setupPage==2 and "QUALITY OF LIFE" or "OPTIONS  "..(self.setupPage-2).." / "..#qos))
+        setupProgress:SetText(final and "FINISH" or (self.setupPage==1 and "APPEARANCE" or trackerPage and "QUEST TRACKER"
+            or self.setupPage==HelpersPage() and "QUALITY OF LIFE" or "OPTIONS  "..(self.setupPage-HelpersPage()).." / "..#qos))
         setupProgress:Show();UpdateReloadHint(self)
     end
     function frame:SetSetupMode(enabled)
@@ -1109,12 +1148,14 @@ function SettingsModule:Initialize()
         self.settingsScroll:SetPoint("BOTTOMRIGHT",-40,94)
         hint:SetWidth(enabled and 330 or 560)
         if enabled then
+            local tracker=EraUI.modules.QuestTrackerChoice
+            self.trackerStep=tracker and tracker:QuestieInstalled() or false
             self.setupPage=1
             self:RenderSetup()
         else
             navigation:Show();divider:Show()
             for _,tab in ipairs(tabs) do tab:Show() end
-            yes:Hide();skip:Hide()
+            yes:Hide();skip:Hide();RenderTracker(false)
             setupSummary:Hide();setupProgress:Hide();nextPage:Hide();previousPage:Hide()
             SelectCategory(self.selectedCategory or 1)
             UpdateReloadHint(self)
@@ -1145,7 +1186,7 @@ function SettingsModule:Initialize()
         EraUI:Print("Casting and your class tab have more. /era opens settings any time.")
     end
     nextPage:SetScript("OnClick",function()
-        if frame.setupPage==finalPage then FinishSetup(#Pending()>0)
+        if frame.setupPage==FinalPage() then FinishSetup(#Pending()>0)
         else frame.setupPage=frame.setupPage+1;frame:RenderSetup() end
     end)
     previousPage:SetScript("OnClick",function()
@@ -1153,9 +1194,10 @@ function SettingsModule:Initialize()
             frame:Hide();frame:SetSetupMode(false)
             EraUI.Classic.setupRequested=true;EraUI.Classic.ShowWelcome();return
         end
-        frame.setupPage=(frame.setupPage==finalPage and not frame.setupQoL) and 2 or frame.setupPage-1
+        frame.setupPage=(frame.setupPage==FinalPage() and not frame.setupQoL) and HelpersPage() or frame.setupPage-1
         frame:RenderSetup()
     end)
+    frame.setupNext,frame.setupBack=nextPage,previousPage
 
     local function Refresh()
         changelog:SetShown(not frame.setupMode)

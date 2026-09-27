@@ -364,4 +364,53 @@ f:LayoutSettings(true);M:SyncButtons()
 for _,b in ipairs(actions)do equal(b:IsShown(),false,"clipped action hidden")end
 f:SetSettingsScroll(99999);M:SyncButtons()
 Fits(f,"short viewport")
+
+-- Setup walkthrough: a quest tracker step appears only with Questie installed,
+-- and every later page is still reachable.
+do
+ local E,f=Session("DRUID")
+ f:SetSetupMode(true);Flush()
+ f.setupNext:Fire("OnClick");Flush()
+ equal(f.setupYes:IsShown(),true,"without Questie page 2 is everyday helpers")
+ equal(f.trackerChoices[1]:IsShown(),false,"without Questie there is no tracker step")
+ f:SetSetupMode(false);Flush()
+
+ local choice,reloadNeeded,calls="",false,{}
+ E.modules.QuestTrackerChoice={
+  QuestieInstalled=function()return true end,
+  CurrentChoice=function()return choice end,
+  SetChoice=function(_,c)choice=c;calls[#calls+1]=c;reloadNeeded=c=="classic"end,
+  NeedsReload=function()return reloadNeeded end,
+ }
+ local reloads=0
+ ReloadUI=function()reloads=reloads+1 end
+ f:SetSetupMode(true);Flush()
+ f.setupNext:Fire("OnClick");Flush()
+ equal(f.trackerChoices[1]:IsShown(),true,"Questie installed: tracker step shown")
+ equal(f.trackerChoices[2]:IsShown(),true,"both tracker choices shown")
+ equal(f.setupYes:IsShown(),false,"helpers wait for the next page")
+ equal(f.setupNext:IsShown(),true,"tracker step can be passed with Next")
+ f.trackerChoices[1]:Fire("OnClick");Flush()
+ equal(calls[#calls],"classic","Classic choice applied")
+ equal(f.trackerChoices[1].label:GetText():find("Selected",1,true)~=nil,true,"Classic shows as selected")
+ f.trackerChoices[2]:Fire("OnClick");Flush()
+ equal(choice,"questie","choice can be changed")
+ f.trackerChoices[1]:Fire("OnClick");Flush()
+ f.setupNext:Fire("OnClick");Flush()
+ equal(f.setupYes:IsShown(),true,"everyday helpers follow the tracker step")
+ f.setupSkip:Fire("OnClick");Flush()
+ equal(f.setupNext.label:GetText(),"Reload & explore","Classic choice asks for the final reload")
+ f.setupBack:Fire("OnClick");Flush()
+ equal(f.setupYes:IsShown(),true,"back from finish returns to helpers")
+ f.setupBack:Fire("OnClick");Flush()
+ equal(f.trackerChoices[1]:IsShown(),true,"back again returns to the tracker step")
+ f.setupNext:Fire("OnClick");Flush()
+ f.setupYes:Fire("OnClick");Flush()
+ for _=1,6 do f.setupNext:Fire("OnClick");Flush() end
+ equal(f.setupNext.label:GetText(),"Reload & explore","all six option pages still lead to finish")
+ f.setupNext:Fire("OnClick")
+ equal(reloads,1,"finish reloads straight from the click")
+ f:SetSetupMode(false);Flush()
+ equal(f.trackerChoices[1]:IsShown(),false,"tracker choices hidden outside setup")
+end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

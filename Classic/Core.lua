@@ -85,6 +85,7 @@ ns.DB_DEFAULTS = {
     spellBook = true,
     guildRoster = true,
     whoList = true,
+    damageMeter = false,
     spellBookSearch = true,
     welcomed = false,
     -- "builtin" reads the art still shipped by the client; "bundled" reads the

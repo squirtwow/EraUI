@@ -3,7 +3,7 @@
 local _, E = ...
 local M = {}
 E:RegisterModule("QuestieCompatibility", M)
-local header, refreshing
+local header, refreshing, faded
 local wrapped = setmetatable({}, { __mode = "k" })
 local observed = setmetatable({}, { __mode = "k" })
 
@@ -39,7 +39,7 @@ end
 
 function M:Refresh()
     if refreshing then return end
-    local compat = self:Discover()
+    self:Discover()
     -- Preference changes in combat are reconciled once it ends. The already
     -- installed policy remains valid for native re-shows throughout combat.
     if InCombatLockdown() then return end
@@ -61,11 +61,15 @@ function M:Refresh()
             end
         ]])
         tracker:HookScript("OnShow", function(frame)
-            -- Restricted wrappers skip unprotected targets during combat. Such
-            -- a tracker can safely be hidden by ordinary Lua, even in combat.
+            -- Restricted wrappers skip unprotected targets during combat. An
+            -- addon Hide() there would run Edit Mode's Lua Hide override as
+            -- EraUI and leave the tracker tainted (a later secure update then
+            -- fails its aura check), so the tracker is only made invisible
+            -- until combat ends, then hidden through the secure header.
             if frame == _G.ObjectiveTrackerFrame and header:GetAttribute("suppressTracker")
-                and (not InCombatLockdown() or not frame:IsProtected()) then
-                frame:Hide()
+                and InCombatLockdown() and not frame:IsProtected() then
+                frame:SetAlpha(0)
+                faded = frame
             end
         end)
         wrapped[tracker] = true
@@ -74,10 +78,15 @@ function M:Refresh()
     if suppress then
         if tracker:IsShown() then header:Execute([[self:GetFrameRef("tracker"):Hide()]]) end
     elseif was then
-        -- Release Questie's previous native-hide request too when its own
-        -- replacement setting is off; otherwise its older OnShow hook wins.
-        if not replacing and compat and type(compat.ShowWatchFrame) == "function" then compat.ShowWatchFrame() end
-        if tracker.Update then tracker:Update() end
+        -- Shown through the secure header. EraUI never calls the tracker's
+        -- Update or Questie's ShowWatchFrame: from addon code both run the whole
+        -- tracker as EraUI and taint it. Blizzard's own events refresh it, and
+        -- an older Questie hide request clears with Questie's own reload.
+        header:Execute([[self:GetFrameRef("tracker"):Show()]])
+    end
+    if faded then
+        faded:SetAlpha(1)
+        faded = nil
     end
     refreshing = false
 end

@@ -229,7 +229,7 @@ local function Build()
     local details = QuestMapFrame.DetailsFrame
     if details then
         parchmentTex = ns.OwnTexture(details, "parchment", "BACKGROUND", -2)
-        parchmentTex:SetTexture(ns.TexPath("questParchment"))
+        parchmentTex:SetTexture((ns.TexPath("questParchment")))
         parchmentTex:SetTexCoord(8 / 512, 300 / 512, 4 / 512, 336 / 512)
         parchmentTex:SetPoint("TOPLEFT", details, "TOPLEFT", 0, 0)
         parchmentTex:SetPoint("BOTTOMRIGHT", details, "BOTTOMRIGHT", 0, 0)

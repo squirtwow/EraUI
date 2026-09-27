@@ -26,7 +26,8 @@ local function Setup(options)
         assert(ok, a)
     end
     local function Frame(protected)
-        local f = { protected=protected, scripts={}, events={}, attrs={}, refs={}, wraps={}, hooks={}, shown=true, updates=0, onShows=0, content=true }
+        local f = { protected=protected, scripts={}, events={}, attrs={}, refs={}, wraps={}, hooks={}, shown=true, updates=0, onShows=0, content=true, alpha=1 }
+        function f:SetAlpha(value) self.alpha = value end
         function f:RegisterEvent(event) self.events[event] = true end
         function f:SetScript(event, fn) self.scripts[event] = fn end
         function f:HookScript(event, fn) self.hooks[event] = self.hooks[event] or {}; table.insert(self.hooks[event], fn) end
@@ -67,7 +68,9 @@ local function Setup(options)
                 end
             end
         end
-        function f:Hide() assert(not combat or secure or not self.protected, "insecure protected Hide"); self.shown=false end
+        -- On the client, Hide on the tracker is Edit Mode's Lua override; from
+        -- addon code in combat it runs as the addon and taints the tracker.
+        function f:Hide() assert(not combat or secure, "addon Hide in combat (taints the tracker)"); self.shown=false end
         function f:Update()
             assert(not combat, "native update invoked by addon in combat")
             self.updates=self.updates+1
@@ -143,22 +146,35 @@ for _, protected in ipairs({true, false}) do
     Equal(s.tracker.shown, false, "native tracker initially hidden")
     for _=1,3 do s.show(); Equal(s.tracker.shown, false, "idle Orgrimmar native re-show suppressed") end
     s.combat(true)
-    for _=1,3 do s.show(); Equal(s.tracker.shown, false, "combat re-show suppressed for either protection state") end
-    Equal(s.tracker.onShows, 6, "original native OnShow still runs")
+    for _=1,3 do
+        s.show()
+        if protected then
+            Equal(s.tracker.shown, false, "combat re-show of a protected tracker hidden by the secure wrapper")
+        else
+            Equal(s.tracker.alpha, 0, "combat re-show of an unprotected tracker made invisible instead of hidden")
+        end
+    end
+    Equal(s.tracker.onShows, protected and 6 or 4, "original native OnShow still runs")
     s.questie.db.profile.trackerEnabled=false
     s.qt:Update()
     s.show()
-    Equal(s.tracker.shown, false, "combat policy release waits for combat end")
+    if protected then Equal(s.tracker.shown, false, "combat policy release waits for combat end")
+    else Equal(s.tracker.alpha, 0, "combat policy release waits for combat end") end
     s.combat(false); s.event("PLAYER_REGEN_ENABLED")
     Equal(s.tracker.shown, true, "native visibility restored after combat")
+    Equal(s.tracker.alpha, 1, "full opacity restored after combat")
     s.compat.HideWatchFrame() -- stale request from an older Questie implementation
     s.qt:Enable()
     local hooks = s.hookCount()
     for _=1,10 do s.qt:Update(); s.module:Refresh() end
     Equal(s.hookCount(), hooks, "repeated updates do not stack method hooks")
     Equal(#s.tracker.wraps, 1, "one secure wrapper per native tracker")
+    local updates = s.tracker.updates
     s.qt:Disable()
-    Equal(s.tracker.shown, true, "disable releases the older Questie hide request too")
+    Equal(s.tracker.updates, updates, "releasing never drives a native tracker update from EraUI")
+    Equal(s.tracker.shown, false, "an older Questie hide request stays Questie's own until it releases it")
+    s.compat.ShowWatchFrame() -- Questie clearing its own request, as on its reload
+    Equal(s.tracker.shown, true, "Blizzard's tracker returns once Questie releases its request")
     s.qt:Toggle()
     Equal(s.tracker.shown, false, "slash toggle enables suppression")
     s.questie.db.profile.showBlizzardQuestTimer=true; s.qt:Update()
@@ -172,10 +188,21 @@ for _, protected in ipairs({true, false}) do
     s.E:SetSetting("enabled", false)
     Equal(s.tracker.shown, true, "EraUI disable releases its own suppression")
     s.E:SetSetting("enabled", true)
+    updates = s.tracker.updates
     s.tracker.content=false; s.qt:Disable()
-    Equal(s.tracker.shown, false, "native update can keep an empty tracker hidden")
+    Equal(s.tracker.shown, true, "release shows the tracker through the secure header")
+    Equal(s.tracker.updates, updates, "Blizzard's own events manage its content, not an EraUI update")
     for _, f in ipairs(s.frames) do Equal(f.scripts.OnUpdate, nil, "no recurring polling") end
 end
+
+-- An unprotected tracker shown in combat: invisible until combat ends, then
+-- hidden through the secure header and returned to full opacity.
+local unprotected = Setup({protected=false})
+unprotected.combat(true); unprotected.show()
+Equal(unprotected.tracker.alpha, 0, "invisible during combat")
+unprotected.combat(false); unprotected.event("PLAYER_REGEN_ENABLED")
+Equal(unprotected.tracker.shown, false, "hidden securely once combat ends")
+Equal(unprotected.tracker.alpha, 1, "opacity restored for later")
 
 local absent = Setup({absent=true})
 Equal(absent.tracker.shown, true, "no Questie leaves native tracker alone")
