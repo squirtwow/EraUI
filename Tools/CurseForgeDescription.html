@@ -11,8 +11,11 @@
 <li>🌍&nbsp;<strong>Reveal World Map</strong>: show supported unexplored terrain with darker shading, while explored areas keep their normal colours</li>
 <li>🎯&nbsp;<strong>Crowd control on portraits</strong>: icons and countdowns on player, target, focus and party portraits, in combat too</li>
 <li>📊&nbsp;<strong>Classic damage meter</strong>: an optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown</li>
-<li>🔔&nbsp;<strong>Class reminders</strong>: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies</li>
-<li>📖&nbsp;<strong>Training Guide</strong>: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals</li>
+<li>🔔&nbsp;<strong>Class reminders</strong>: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies, with <strong>Not enough mana</strong> until you can cast</li>
+<li>📖&nbsp;<strong>Training Guide</strong>: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals. Spells taught by class quests name the quest and where it starts</li>
+<li>🔤&nbsp;<strong>Damage &amp; healing text</strong>: pick the font of the numbers, your own heals included (Pepsi by default, plus 13 more), and their size</li>
+<li>🔗&nbsp;<strong>Click links again to close</strong>: a second click on an item or spell link in chat closes its tooltip</li>
+<li>📣&nbsp;<strong>Update notice</strong>: EraUI tells you in chat when someone in your guild or group has a newer version</li>
 <li>🔴&nbsp;<strong>Combo points your way</strong>: floating orbs in gold or red</li>
 <li>🖱️&nbsp;<strong>Cursor effects</strong>: independently optional cursor ring, cast-progress ring and fading trail, with adjustable appearance</li>
 <li>🧹&nbsp;<strong>Full-bag junk cleanup</strong>: optional cheapest-grey-stack deletion while looting, with a linked chat message and Shift bypass</li>
@@ -60,6 +63,7 @@
 <li>Movable, resizable world map that stays put in combat, with optional unexplored terrain reveal</li>
 <li>Class tools: hunter feeding, mage supplies, rogue poisons</li>
 <li>Searchable Training Guide with bundled Forever spell levels and reference training costs</li>
+<li>Damage &amp; healing text font and size &middot; click chat links again to close &middot; update notice</li>
 <li>Coordinates &middot; clean minimap &middot; cursor ring &middot; draggable chat<img src="https://media.forgecdn.net/attachments/description/1709918/description_3821712e-486e-47b5-9dd6-f9a7e2c9eef7.png" alt="" width="613" height="430"></li>
 </ul>
 <h2>🖱️ Cursor effects</h2>
@@ -70,6 +74,14 @@
 <li><strong>Cursor Trail</strong>: a short, soft trail follows movement and fades away when the pointer stops</li>
 <li>The cast ring and trail each support class or custom colours and adjustable size and opacity. Trail fade length is also adjustable</li>
 <li>All three effects can be enabled or disabled independently and start off by default</li>
+</ul>
+<h2>🔤 Damage &amp; healing text</h2>
+<ul>
+<li>Find it under <code>/era</code> &rarr; <strong>Text &amp; Camera</strong>, or on its own page in <code>/era setup</code></li>
+<li>Pick the font of the damage and healing numbers over your targets, your own heals included: <strong>Pepsi</strong> by default, Bangers, Luckiest Guy, Lilita One, Titan One, Black Ops One, Russo One, Bungee, Permanent Marker, Press Start 2P, and the game's Skurri, Morpheus, Friz Quadrata and Arial Narrow</li>
+<li>A new font shows after you log out and back in. If you pick one during <code>/era setup</code>, the last page offers to log you out</li>
+<li>The size slider shows a sample number and applies straight away</li>
+<li>Fonts: Pepsi by Jakub Degórski; the others from Google Fonts under their own open licences</li>
 </ul>
 <h2>🎯 Important Debuffs on Portraits</h2>
 <ul>
@@ -97,7 +109,8 @@
 <li>Pick a preferred aspect, blessing, shaman weapon imbue or warlock demon under <strong>Advanced</strong></li>
 <li>Hunters have separate <strong>SUMMON PET!</strong> and <strong>PET DEAD!</strong> reminders, using Call Pet and Revive Pet icons; each can be toggled under <strong>Advanced</strong>. Selected warlock demons are checked by demon family</li>
 <li>Optional <strong>Clickable reminders (outside combat)</strong> starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast</li>
-<li>Choose a specific blessing, shaman imbue or warlock demon under <strong>Advanced</strong> to enable its click action. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational</li>
+<li>Choose a specific blessing, shaman imbue or warlock demon under <strong>Advanced</strong> to enable its click action. A buff you're missing yourself is cast on you, even with someone else targeted; otherwise targetable group buffs use your friendly living target. Reminders without an associated spell remain informational</li>
+<li>When you don't have the mana for a reminder's spell, <strong>Not enough mana</strong> shows under it and it can't be clicked until you can cast it. Turn this off with <strong>Say when you're out of mana</strong></li>
 <li>Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types</li>
 <li>Shamans can enable a separate <strong>Windfury Totem</strong> reminder under Advanced; the general totem reminder checks whether any totem is active</li>
 <li>Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup</li>
@@ -132,6 +145,7 @@
 <li>See required levels and separate reference totals for current and all listed unlearned spells</li>
 <li>Cost references use Classic base prices and may differ on Forever; unverified prices are marked <strong>?</strong> and excluded from the priced subtotal</li>
 <li>Optional trainer visits update recorded quotes, including discounts, per character and realm</li>
+<li>Spells taught by class quests (Bear Form, Teleport: Moonglade, warrior stances, hunter pet skills, shaman totems, warlock demons and more) show <strong>Quest:</strong> with the quest's name and where it starts, for your race and faction, including Skyborne. Hover to see who gives it. They don't count as unknown prices</li>
 <li>Learned spells disappear from the list; return to a class tab to use the normal spellbook</li>
 </ul>
 <hr>

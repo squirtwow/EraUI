@@ -49,6 +49,12 @@ or off in the settings.
 - Vendor prices, bag-space counter, quest levels and map quest objectives
 - Auto-sell junk and auto-repair at vendors
 - Class colours in chat, optional secondary names, highest-rank spell filtering
+- Damage and healing text: choose the font of the numbers, your own heals
+  included (Pepsi by default, or thirteen others), and their size, with a
+  live sample. A new font shows after you log out and back in
+- Click an item or spell link in chat again to close its tooltip
+- Update notice: tells you in chat when someone in your guild or group has a
+  newer EraUI (the tick under Presets in `/era`)
 - Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
 - Advanced cast bar with ticks and latency display
 - Movable world map: drag its header and resize it from corners or edges,
@@ -63,15 +69,19 @@ or off in the settings.
   Hunters have separate SUMMON PET and PET DEAD alerts. Optional Clickable
   reminders (off by default) let you cast supported spells by clicking their
   icons outside combat; drag the text to move. Choose a blessing, imbue or demon
-  under Advanced to make its reminder clickable
+  under Advanced to make its reminder clickable. A buff you're missing is cast
+  on you, and "Not enough mana" shows until you can cast it
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.
   Reference cost totals use Classic base prices, marking unverified prices with
-  ?. Enabled by default for fresh settings and resets, as is tooltip styling.
+  ?. Spells taught by class quests name the quest and where it starts, for
+  your race and faction. Enabled by default for fresh settings and resets, as
+  is tooltip styling.
   Existing saved choices are respected; change either option in `/era` and reload.
 - Coordinates, clean minimap, cursor ring, draggable chat and more
 - A screen-fitting, scrollable "what's new" window after each update, in your class colour
+- More from Squirt: a tab at the bottom of `/era` listing my other addons
 
 ## Commands
 
@@ -106,4 +116,5 @@ client's AddOns menu.
 
 ## License
 
-All rights reserved. See [LICENSE.txt](LICENSE.txt).
+All rights reserved. See [LICENSE.txt](LICENSE.txt). The bundled damage-text
+fonts keep their own licences; see [Media/Fonts/README.txt](Media/Fonts/README.txt).

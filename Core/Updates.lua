@@ -6,6 +6,29 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.2.0",
+        sections = {
+            { "Added", {
+                "Damage text font: pick the font of the damage and healing numbers, your own heals included. Pepsi by default, plus Bangers, Luckiest Guy, Lilita One, Titan One, Black Ops One, Russo One, Bungee, Permanent Marker and Press Start 2P, and the game's Skurri, Morpheus, Friz Quadrata and Arial Narrow. /era > Text & Camera. A new font shows after you log out and back in.",
+                "Damage text size slider, with a sample number that grows and shrinks as you drag. The size applies straight away.",
+                "Setup: a new Damage & healing text page. If you pick a new font, the last page offers to log out so you can see it.",
+                "Training Guide: spells you learn from a class quest (Bear Form, Teleport: Moonglade, warrior stances, hunter pet skills, shaman totems, warlock demons and more) show the quest's name and where it starts, for your race and faction, including Skyborne. Hover to see who gives it.",
+                "Click Links Again to Close: click an item or spell link in chat again to close its tooltip. /era > Quality of Life, on by default.",
+                "Class reminders: \"Not enough mana\" shows under a reminder until you can cast it. Option \"Say when you're out of mana\", on by default.",
+                "Update notice: tells you in chat when someone in your guild or group has a newer EraUI. The tick under the Presets button in /era, on by default.",
+                "More from Squirt: a new tab at the bottom of /era with my other addons. Forever Enhanced Cooldown Manager is coming soon.",
+            } },
+            { "Changed", {
+                "Class reminders: clicking a reminder for a buff you're missing now casts it on you, even with someone else targeted.",
+                "Training Guide: quest spells no longer count as unknown trainer prices in the totals.",
+                "The Changelog button now sits in the middle of the /era footer.",
+            } },
+            { "Fixed", {
+                "A Lua error after phasing or changing zones.",
+            } },
+        },
+    },
+    {
         version = "1.1.0",
         sections = {
             { "Added", {
