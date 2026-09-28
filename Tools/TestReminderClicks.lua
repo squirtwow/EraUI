@@ -9,6 +9,7 @@ local function Session(class)
  local frames,drivers={},{}
  local combat,restricted=false,false
  local known,pet,settings={}, {exists=false,dead=false}, {enabled=true,classReminders=true}
+ local noMana={} -- spells you lack the mana for
  local env=setmetatable({}, {__index=_G});env._G=env
  local methods={}
  local function Guard(f)assert(not(combat and f.protected and not restricted),"protected addon edit during combat")end
@@ -68,6 +69,7 @@ local function Session(class)
  function methods:GetStringWidth()return #(self.text or "")*10 end
  function methods:GetFont()return "font",12 end
  function methods:SetTexture(texture)self.texture=texture end
+ function methods:SetVertexColor(r,g,b)self.tint={r,g,b}end
  function methods:RegisterForClicks(...)self.clicks={...}end
  function methods:StartMoving()self.moving=true end
  function methods:StopMovingOrSizing()self.moving=false end
@@ -92,7 +94,8 @@ local function Session(class)
  env.IsPlayerSpell=function(id)return known[id]==true end
  local names={[883]="Call Pet",[982]="Revive Pet",[13165]="Aspect of the Hawk",[14318]="Aspect of the Hawk",
   [5118]="Aspect of the Cheetah",[1243]="Power Word: Fortitude",[688]="Summon Imp",[6201]="Create Healthstone"}
- env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end}
+ env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
+  IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
  env.WorldMapFrame=Frame();env.WorldMapFrame:Hide()
  env.EraUIDB={reminderSpotVersion=2}
@@ -104,7 +107,7 @@ local function Session(class)
  assert(loadfile("Modules/ClassReminderData.lua","t",env))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua","t",env))("EraUI",E)
  local M=E.modules.ClassReminders
- local s={E=E,M=M,env=env,known=known,pet=pet,settings=settings,frames=frames}
+ local s={E=E,M=M,env=env,known=known,pet=pet,settings=settings,frames=frames,noMana=noMana}
  function s:combat(value)
   combat=value
   for f,state in pairs(drivers)do
@@ -203,7 +206,32 @@ Equal(s:click(row),nil,"per-reminder opt-out disarms action")
 
 local priest=Session("PRIEST")
 priest.known[1243]=true;priest.env.EraUIDB.reminderClickable=true;priest.M:Initialize()
-Equal(priest:click(priest:row("fortitude")),"/cast [nocombat,@target,help,nodead][nocombat,@player] Power Word: Fortitude","buff uses explicit friendly-target/self fallback")
+Equal(priest:click(priest:row("fortitude")),"/cast [nocombat,@player] Power Word: Fortitude","missing on you: a click buffs you, whoever is targeted")
+local fort=priest:row("fortitude")
+Equal(fort.sub.text:find("Not enough mana",1,true),nil,"no mana note while you can cast it")
+priest.noMana[1243]=true;priest.M:Refresh()
+Equal(fort.sub.text:find("Not enough mana",1,true)~=nil,true,"out of mana: said under the icon")
+Equal(fort.icon.tint[3]==1 and fort.icon.tint[1],.5,"the icon takes the mana tint")
+Equal(priest:click(fort),nil,"and can't be clicked until you can cast it")
+priest.noMana[1243]=nil;priest.M:Refresh()
+Equal(fort.sub.text:find("Not enough mana",1,true),nil,"the note goes once you have the mana")
+Equal(fort.icon.tint[1],1,"the tint too")
+Equal(priest:click(fort)~=nil,true,"and it can be clicked again")
+priest.noMana[1243]=secret;priest.M:Refresh()
+Equal(fort.sub.text:find("Not enough mana",1,true),nil,"a hidden answer is never read as out of mana")
+priest.noMana[1243]=true;priest.env.EraUIDB.reminderMana=false;priest.M:Refresh()
+Equal(fort.sub.text:find("Not enough mana",1,true),nil,"the note can be switched off")
+Equal(priest:options().mana~=nil,true,"with its own option")
+priest.noMana[1243]=nil;priest.env.EraUIDB.reminderMana=nil
+-- Missing only on a party member: a friendly target first, then you.
+priest.env.GetNumSubgroupMembers=function()return 1 end
+priest.env.UnitIsUnit=function(a,b)return a==b end
+priest.env.UnitName=function(unit)return unit=="party1"and "Bob"or "Me"end
+priest.env.UnitExists=function(unit)return unit=="player"or unit=="party1"end
+priest.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=1243}end end}
+priest.M:Refresh()
+Equal(priest:row("fortitude").sub.text,"Missing on Bob","only the party member lacks it")
+Equal(priest:click(priest:row("fortitude")),"/cast [nocombat,@target,help,nodead][nocombat,@player] Power Word: Fortitude","for others, a friendly target first")
 local warlock=Session("WARLOCK")
 warlock.known[688]=true;warlock.known[6201]=true;warlock.env.EraUIDB.reminderClickable=true;warlock.M:Initialize()
 Equal(warlock:click(warlock:row("pet")),nil,"Any demon never chooses a summon arbitrarily")

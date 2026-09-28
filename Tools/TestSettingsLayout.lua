@@ -156,6 +156,7 @@ local function Session(c)
   assert(loadfile("Core/Commands.lua"))("EraUI",E)
  assert(loadfile("Core/SettingsLayout.lua"))("EraUI",E)
   assert(loadfile("Core/Presets.lua"))("EraUI",E)
+  assert(loadfile("Modules/CombatFont.lua"))("EraUI",E)
  assert(loadfile("Core/Settings.lua"))("EraUI",E)
  E.modules.ClassReminders:Initialize()
  E.modules.MageSupplies:Initialize()
@@ -395,12 +396,57 @@ do
  Next()
  equal(f.checks.classColourBorders:IsShown(),true,"Classic + QoL: style page next")
  f.setupBack:Fire("OnClick");Flush()
- equal(Steps(),8,"Classic + QoL without Questie: style, six option pages, finish")
+ equal(Steps(),9,"Classic + QoL without Questie: style, damage text, six option pages, finish")
+ -- A new damage font waits for a log out: the finish page asks whether to
+ -- log out now, with a secure button that never holds on to the window.
+ E.settings.damageFont="pepsi";E.combatFontAtLoad=nil;E:ApplyCombatFont()
+ f:RenderSetup()
+ equal(f.fontQuestion:IsShown(),false,"no question with the font the game loaded")
+ E:SetSetting("damageFont","bangers");E:ApplyCombatFont()
+ f:RenderSetup()
+ equal(f.fontQuestion:IsShown(),true,"a new font: asked whether to log out now")
+ local logout=EraUISetupLogout
+ equal(logout:IsShown()and logout.attributes.type1=="macro"and logout.attributes.macrotext1,"/logout","Yes logs out through the game's own secure macro")
+ local loose=logout.parent==UIParent
+ for _,p in ipairs(logout.points)do if p[2]~=UIParent then loose=false end end
+ equal(loose,true,"laid over its spot on the screen, not joined to the window")
+ f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_DISABLED")
+ equal(logout:IsShown(),false,"hidden as combat starts")
+ combat=true;f:Hide();f:Show();combat=false
+ f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_ENABLED")
+ equal(logout:IsShown(),true,"the window closed and opened in combat, and the button came back after")
+ EraUIClassicCharDB.onboarding=nil
+ logout:Fire("PreClick")
+ equal(EraUIClassicCharDB.onboarding.exploreSettings,true,"logging out finishes setup first")
+ f.fontLaterButton:Fire("OnClick")
+ equal(f.fontQuestion:IsShown()or logout:IsShown(),false,"No, later puts it off")
+ equal(f.setupSummary:GetText():find("Your new damage font shows next time you log in.",1,true)~=nil,true,"and says when it'll show")
+ E:SetSetting("damageFont","pepsi");E:ApplyCombatFont();f.fontLater=nil
+ f:RenderSetup()
+ equal(f.fontQuestion:IsShown()or f.setupSummary:GetText():find("log in",1,true)~=nil,false,"picking the loaded font again clears it")
+
+ Restart()
+ Next();Next()
+ equal(f.checks.damageFont:IsShown()and f.checks.damageTextScale:IsShown(),true,"damage text page after the style page")
+ equal(f.settingsEntries[1]==f.checks.damageFont and f.settingsEntries[2],f.checks.damageTextScale,"font and size side by side")
+ equal(f.setupProgress:GetText(),"DAMAGE TEXT","its step is named")
+ local oldCVar=C_CVar;C_CVar={GetCVar=function(name)return name=="WorldTextScale_v2"and"1"or nil end,SetCVar=function()end}
+ local scale=f.checks.damageTextScale
+ scale:SetChecked()
+ equal(scale.slider:IsShown(),true,"the size found under the game's newer name")
+ scale.slider:SetValue(250)
+ local big=scale.preview.font[2]
+ scale.slider:SetValue(50)
+ equal(big>scale.preview.font[2]and scale.preview:GetText(),"1234","a sample number grows and shrinks with the size")
+ C_CVar=oldCVar
+ Next();Next();Next();Next();Next()
+ equal(f.checks.hideKeybindText:IsShown(),true,"Text & Camera options page")
+ equal(f.checks.damageFont:IsShown()or f.checks.damageTextScale:IsShown(),false,"the damage text cards aren't repeated there")
 
  Restart()
  choices[2]:Fire("OnClick");Flush()
  equal(choices[2].tag:IsShown()and not choices[1].tag:IsShown(),true,"Classic look only selected")
- equal(Steps(),2,"Classic look only: style page, then finish; QoL pages skipped")
+ equal(Steps(),3,"Classic look only: style page, damage text, then finish; QoL pages skipped")
 
  Restart()
  E.settings.vendorPrice=true;E.settings.darkMode=true
@@ -411,7 +457,7 @@ do
  Next()
  equal(f.checks.classColourBorders:IsShown(),false,"QoL only: no style page")
  f.setupBack:Fire("OnClick");Flush()
- equal(Steps(),7,"QoL only: six option pages, then finish")
+ equal(Steps(),8,"QoL only: damage text, six option pages, then finish")
  equal(f.setupNext.label:GetText(),"Reload & explore","switching the look asks for the final reload")
 
  -- Questie installed: the tracker step follows the style page.
@@ -434,7 +480,7 @@ do
  f.trackerChoices[1]:Fire("OnClick");Flush()
  equal(choice,"classic","tracker choice applied")
  f.setupBack:Fire("OnClick");Flush();f.setupBack:Fire("OnClick");Flush()
- equal(Steps(),9,"Classic + QoL with Questie: style, tracker, six option pages, finish")
+ equal(Steps(),10,"Classic + QoL with Questie: style, tracker, damage text, six option pages, finish")
  f.setupNext:Fire("OnClick")
  equal(reloads,1,"finish reloads straight from the click")
  f:SetSetupMode(false);Flush()

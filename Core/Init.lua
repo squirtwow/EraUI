@@ -99,6 +99,8 @@ local defaults = {
     autoGossip = false,
     durabilityWarning = false,
     tooltipIDs = false,
+    linkToggle = true, -- click a chat link again to close its tooltip
+    damageFont = "pepsi", -- the font of the damage and healing numbers
     junkValueSummary = false,
     showWelcomeOnLogin = false,
     matchFocusSize = true,
@@ -282,6 +284,8 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         EraUI.loadedVisualSettings = {}
         for key in pairs(EraUI.reloadSettings) do EraUI.loadedVisualSettings[key] = EraUIDB[key] end
         EraUI.db = EraUIDB
+        -- The damage text font is read by the game as you log in.
+        if EraUIDB.enabled ~= false and EraUI.ApplyCombatFont then EraUI:ApplyCombatFont() end
         EraUI:Status("v" .. EraUI.version .. " loaded for WoW Forever beta.")
     elseif event == "PLAYER_LOGIN" then
         if not EraUI.Persistence.character and EraUI.LoadCharOnboarding then EraUI.LoadCharOnboarding() end

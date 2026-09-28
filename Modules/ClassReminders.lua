@@ -42,6 +42,7 @@ end
 local function GroupOn()return Opt("reminderGroup")~=false end
 local function CombatOn()return Opt("reminderCombat")==true end
 local function Clickable()return Opt("reminderClickable")==true end
+local function ManaOn()return Opt("reminderMana")~=false end
 local function SizeIndex()
  local v=tonumber(Opt("reminderSize"))or 2
  if v<1 or v>#SIZES then v=2 end
@@ -324,6 +325,7 @@ local function DefState(def,cache)
  if choice then ids=choice.ids;auras=nil end
  local names={}
  local total,checked,unknown=0,0,false
+ local selfMissing=false -- you lack it: a click then buffs you first
  for _,unit in ipairs(UnitsToCheck(def))do
    if Eligible(unit,def,choice)then
     local set=AuraSet(unit,cache)
@@ -341,6 +343,7 @@ local function DefState(def,cache)
      if has and def.anyTarget then return false,unit=="player"and "Soulstone active on you"or "Soulstone active on a group member"end
      if has==false then
       total=total+1
+      if unit=="player"then selfMissing=true end
       if #names<3 then
        if unit=="player"then
         names[#names+1]="you"
@@ -359,8 +362,8 @@ local function DefState(def,cache)
  end
  if total==0 then if unknown or checked==0 then return nil end;return false,"Active"end
  if total>#names then names[#names+1]="+"..(total-#names).." more"end
- if #names==1 and names[1]=="you"then return true,"Not active"end
- return true,"Missing on "..table.concat(names,", ")
+ if #names==1 and names[1]=="you"then return true,"Not active",true end
+ return true,"Missing on "..table.concat(names,", "),selfMissing
 end
 
 -- Only spell-backed reminders have a click action. Ambiguous "Any" selections
@@ -371,6 +374,14 @@ local function ClickSpell(def)
  if def.choices and not choice and not def.castIds then return nil end
  return HighestKnown(choice and choice.ids or def.castIds or def.ids)
 end
+-- Whether you lack the mana to cast the reminder's spell right now. The
+-- usable check is open in and out of combat; a hidden answer counts as enough.
+local function NoMana(def)
+ local id=ClickSpell(def)
+ if not id or not(C_Spell and C_Spell.IsSpellUsable)then return false end
+ local ok,_,noMana=pcall(C_Spell.IsSpellUsable,id)
+ return ok and T.Public(noMana)and noMana==true
+end
 local function Disarm(row)
  if InCombatLockdown()or not row.action then return end
  row.action:SetAttribute("type1",nil)
@@ -380,7 +391,7 @@ end
 local function DisarmAll()
  for _,row in ipairs(rows or{})do Disarm(row)end
 end
-local function SyncClick(row,def,missing)
+local function SyncClick(row,def,missing,selfMissing)
  if InCombatLockdown()then return end
  local id=Clickable()and not preview and missing and ClickSpell(def)
  local name=id and T.Spell(id)
@@ -410,9 +421,11 @@ local function SyncClick(row,def,missing)
  action:SetSize(row.iconFrame:GetWidth()*ratio,row.iconFrame:GetHeight()*ratio)
  action:ClearAllPoints();action:SetPoint("CENTER",UIParent,"BOTTOMLEFT",x*ratio,y*ratio)
  action:SetFrameLevel(row.iconFrame:GetFrameLevel()+5)
+ -- Missing on you: always you, whoever is targeted. Only for others does a
+ -- group buff go to a friendly target first.
  local group=def.group and not def.subgroup
- local condition=group and "[nocombat,@target,help,nodead][nocombat,@player]"
-  or(def.self and "[nocombat,@player]"or "[nocombat]")
+ local condition=(def.self or selfMissing)and "[nocombat,@player]"
+  or(group and "[nocombat,@target,help,nodead][nocombat,@player]"or "[nocombat]")
  action:SetAttribute("macrotext1","/cast "..condition.." "..name)
  action:SetAttribute("type1","macro")
  action:Show()
@@ -486,11 +499,12 @@ local function Paint()
    local show=false
    local detail
    local actionable=false
+   local selfMissing=false
   if not(dedicatedPoisons and(def.key=="poisonMain"or def.key=="poisonOff"))and Applicable(def)then
    local on=DefOn(def)
    if on then
-    local missing,info=DefState(def,cache)
-     if missing==true then show=true;detail=info;actionable=true
+    local missing,info,lacking=DefState(def,cache)
+     if missing==true then show=true;detail=info;actionable=true;selfMissing=lacking==true
     elseif preview then show=true;detail=(info or "Check unavailable").."  (preview)"end
    elseif preview then
     show=true;detail="Switched off"
@@ -512,7 +526,17 @@ local function Paint()
     row.icon:SetTexture(Icon(def))
     row.sub:SetFont(select(1,GameFontHighlightSmall:GetFont()),size.sub,"")
     row.sub:SetPoint("TOP",0,-(size.text+size.icon+8))
-    row.sub:SetText(detail or"")
+    -- Out of mana: said under the icon, which takes the mana tint, and the
+    -- icon can't be clicked until you can cast it.
+    local short=actionable and ManaOn()and NoMana(def)
+    if short then
+     row.sub:SetText((detail and detail~="" and(detail.."\n")or"").."|cff8fa8ffNot enough mana|r")
+     row.icon:SetVertexColor(.5,.5,1)
+     actionable=false
+    else
+     row.sub:SetText(detail or"")
+     row.icon:SetVertexColor(1,1,1)
+    end
     local width=row.text:GetStringWidth()
      row:SetWidth(math.max(190,math.min(460,(tonumber(width)or 260)+36)))
      row.sub:SetWidth(row:GetWidth()-8)
@@ -530,7 +554,7 @@ local function Paint()
      row:SetPoint("TOP",0,-(stacked-1)*size.row)
     end
      row:Show()
-     SyncClick(row,def,actionable)
+     SyncClick(row,def,actionable,selfMissing)
    end
   end
  end
@@ -600,6 +624,7 @@ local function BuildOptions(parent,anchor)
  local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
   local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
   local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v)end)
+  local mana=ToggleRow(dropdown,"Say when you're out of mana",ManaOn,function(v)SetOpt("reminderMana",v);M:Refresh()end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
  local size=ActionButton(dropdown,"",158)
  size.draw=function()size.label:SetText("Alert size: "..SIZES[SizeIndex()].key.."  >")end
@@ -646,7 +671,7 @@ local function BuildOptions(parent,anchor)
    advRows[#advRows+1]=cbtn
   end
  end
-  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=prev
+  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=mana;items[#items+1]=prev
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
  for _,frame in ipairs(advRows)do items[#items+1]=frame end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
@@ -654,7 +679,7 @@ local function BuildOptions(parent,anchor)
  dropdown.items=items
  dropdown.groupSupported,dropdown.clickSupported=ReminderCapabilities()
   dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
-  dropdown.clickable=clickable
+  dropdown.clickable,dropdown.mana=clickable,mana
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
  dropdown:Hide()
  return dropdown
@@ -670,7 +695,8 @@ function M:LayoutDropdown()
   if frame.draw then frame.draw()end
   frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
  end
-  place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported);place(dropdown.prev)
+  place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported)
+  place(dropdown.mana,dropdown.clickSupported);place(dropdown.prev)
  if dropdown.size then
   if dropdown.size.draw then dropdown.size.draw()end
   dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
@@ -765,6 +791,8 @@ function M:Initialize()
   "PLAYER_LEVEL_UP","PLAYER_EQUIPMENT_CHANGED","UNIT_HEALTH","UNIT_FLAGS","UNIT_CONNECTION"})do
   pcall(events.RegisterEvent,events,event)
  end
+ -- Your mana, for "Not enough mana" under a reminder.
+ if events.RegisterUnitEvent then pcall(events.RegisterUnitEvent,events,"UNIT_POWER_UPDATE","player")end
  local dirty=true;local elapsed=0
  events:SetScript("OnEvent",function(_,event)
   if event=="UNIT_AURA"or event=="GROUP_ROSTER_UPDATE"or event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then

@@ -66,6 +66,7 @@ Core\Integration.lua
 Core\Updates.lua
 Modules\QoL.lua
 Modules\ExtraQoL.lua
+Modules\CombatFont.lua
 Modules\JunkDiscard.lua
 Modules\EnergyBar.lua
 Modules\ResourceBar.lua
@@ -81,6 +82,7 @@ Modules\AuraStyle.lua
 Modules\PortraitDebuffs.lua
 Modules\ClassTools.lua
 Modules\TrainingData.lua
+Modules\ClassQuestData.lua
 Modules\TrainingGuide.lua
 Modules\CursorRing.lua
 Modules\CursorEffects.lua

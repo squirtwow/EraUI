@@ -363,7 +363,7 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
             return
         end
         if key == "durabilityWarning" and EraUI.modules.ExtraQoL then EraUI.modules.ExtraQoL:CheckDurability() end
-        if key == "fastAutoLoot" or key == "discardCheapestJunk" or key == "autoGossip" or key == "durabilityWarning" or key == "tooltipIDs" or key == "junkValueSummary" or key == "showWelcomeOnLogin" then
+        if key == "fastAutoLoot" or key == "discardCheapestJunk" or key == "autoGossip" or key == "durabilityWarning" or key == "tooltipIDs" or key == "junkValueSummary" or key == "showWelcomeOnLogin" or key == "linkToggle" then
             EraUI:Status(label .. (value and " enabled." or " disabled.")); return
         end
         if key == "coordinates" and EraUI.modules.MinimapTools then
@@ -636,6 +636,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Hide Empty Action Slots", "hideEmptyActionSlots", 7, 1, 3, "INV_Misc_Book_09", "Reveal empty slots when arranging spells.", false)
     MakeCheck(frame, "Auto-sell Junk", "autoSellJunk", 7, 0, 4, "INV_Misc_Book_09", "Sell grey items at merchants.", false)
     MakeCheck(frame, "Auto-repair", "autoRepair", 7, 1, 4, "INV_Misc_Book_09", "Repair using your own gold.", false)
+    MakeCheck(frame, "Click Links Again to Close", "linkToggle", 7, 0, 5, "INV_Misc_Note_01", "Click an item or spell link in chat again to close its tooltip.", false)
     MakeCheck(frame, "Hide Secondary Names", "hideSecondaryNames", 8, 0, 0, "INV_Misc_Book_09", "Hide Forever surnames.", false)
     MakeCheck(frame, "Class Colours in Chat", "classColors", 8, 1, 0, "INV_Misc_Book_09", "Colour new player names by class.", false)
     MakeCheck(frame,"Classic Chat Dragging","classicChatDragging",8,1,1,"INV_Misc_Note_01","Right-click General or a docked chat tab to unlock, drag and lock the chat window. Remembers your position and lock state. Reload to apply.",false)
@@ -740,6 +741,110 @@ function SettingsModule:Initialize()
     RingSlider("cursorTrailOpacity","Trail opacity (%)",1,10,100,55,8)
     RingSlider("cursorTrailLength","Trail fade",0,10,60,25,9,function(value)return string.format("%.2fs",value/100)end)
     CursorColour("cursorTrailColour","cursorTrailClassColour","Custom trail colour",1,9)
+    -- Damage and healing text: the font, which the game reads as you log in,
+    -- and the size, the game's own world text scale, which applies at once.
+    local function CardLook(card)
+        card:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+        card:SetBackdropColor(.026,.029,.037,1);card:SetBackdropBorderColor(.19,.20,.24,1)
+    end
+    -- Draws text in a font, falling back to the normal one if it can't load.
+    local function UseFont(text,font,size)
+        local ok=font and font.file and text:SetFont(font.file,size,"OUTLINE")
+        if ok==false or not(font and font.file)then text:SetFont(select(1,GameFontHighlight:GetFont()),size,"OUTLINE")end
+    end
+    local function CombatFontCard(column,row)
+        local card=CreateFrame("Button",nil,frame,"BackdropTemplate")
+        card.category=10;card.searchText="damage healing combat text numbers font pepsi"
+        card:SetSize(350,74);card:SetPoint("TOPLEFT",202+column*366,-148-row*78)
+        CardLook(card)
+        card.text=Text(card,"Damage text font",14);card.text:SetPoint("TOPLEFT",12,-10)
+        local sample=card:CreateFontString(nil,"OVERLAY")
+        sample:SetPoint("TOPLEFT",12,-30);sample:SetWidth(280);sample:SetJustifyH("LEFT");sample:SetWordWrap(false)
+        sample:SetTextColor(1,1,1)
+        local arrow=Text(card,"v",16,true);arrow:SetPoint("RIGHT",-16,4)
+        local note=Text(card,"Log out and back in to apply. A /reload won't do it.",11,true);note:SetPoint("BOTTOMLEFT",12,7)
+        card.sample,card.note=sample,note
+        -- The list of fonts, each name written in its own font.
+        local list=CreateFrame("Frame",nil,frame,"BackdropTemplate")
+        list:SetSize(350,#EraUI.CombatFonts*26+12)
+        list:SetPoint("TOPLEFT",card,"BOTTOMLEFT",0,-4)
+        list:SetFrameLevel(frame:GetFrameLevel()+60)
+        CardLook(list);list:SetBackdropColor(.018,.02,.026,.98);list:EnableMouse(true);list:Hide()
+        card.list,list.rows=list,{}
+        for i,font in ipairs(EraUI.CombatFonts)do
+            local row=CreateFrame("Button",nil,list)
+            row:SetSize(330,24);row:SetPoint("TOPLEFT",10,-6-(i-1)*26)
+            row.mark=row:CreateTexture(nil,"ARTWORK");row.mark:SetSize(4,16);row.mark:SetPoint("LEFT",0,0)
+            row.label=row:CreateFontString(nil,"OVERLAY");row.label:SetPoint("LEFT",12,0)
+            row.label:SetJustifyH("LEFT");row.label:SetTextColor(.9,.91,.93)
+            UseFont(row.label,font,16);row.label:SetText(font.name)
+            local hover=row:CreateTexture(nil,"HIGHLIGHT");hover:SetAllPoints();hover:SetColorTexture(1,1,1,.06)
+            row.font=font
+            row:SetScript("OnClick",function()
+                EraUI:SetSetting("damageFont",font.key);EraUI:ApplyCombatFont()
+                list:Hide();card.changed=true;card:SetChecked()
+                if frame.checks.damageTextScale then frame.checks.damageTextScale:SetChecked()end
+                EraUI:Status("Damage text font: "..font.name..". Log out and back in to apply.")
+            end)
+            list.rows[i]=row
+        end
+        -- Opens under the card, or above it when the card is low in the window.
+        card:SetScript("OnClick",function()
+            if list:IsShown()then list:Hide();return end
+            local _,cardY=card:GetCenter();local _,frameY=frame:GetCenter()
+            list:ClearAllPoints()
+            if cardY and frameY and cardY<frameY then list:SetPoint("BOTTOMLEFT",card,"TOPLEFT",0,4)
+            else list:SetPoint("TOPLEFT",card,"BOTTOMLEFT",0,-4)end
+            card:SetChecked();list:Show()
+        end)
+        card:HookScript("OnHide",function()list:Hide()end)
+        card.SetChecked=function()
+            local current=EraUI:CombatFont()
+            UseFont(sample,current,20);sample:SetText(current and current.name or "")
+            local r,g,b=ClassColour()
+            for _,row in ipairs(list.rows)do
+                local chosen=current and row.font.key==current.key
+                row.mark:SetColorTexture(r,g,b,1);row.mark:SetShown(chosen)
+            end
+            note:SetTextColor(card.changed and r or .58,card.changed and g or .62,card.changed and b or .68)
+        end
+        card:SetChecked();frame.checks.damageFont=card
+    end
+    local function CombatScaleCard(column,row)
+        local limits=EraUI.COMBAT_TEXT_SCALE
+        local card=CreateFrame("Frame",nil,frame)
+        card.category=10;card.searchText="damage healing combat text numbers size scale"
+        card:SetSize(350,74);card:SetPoint("TOPLEFT",202+column*366,-148-row*78)
+        card.text=Text(card,"Damage text size",14);card.text:SetPoint("TOPLEFT",12,-10)
+        local slider=CreateFrame("Slider",nil,card,"BackdropTemplate")
+        slider:SetSize(310,12);slider:SetPoint("TOPLEFT",12,-45)
+        slider:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+        slider:SetBackdropColor(.06,.065,.075,1);slider:SetBackdropBorderColor(.3,.32,.36,1)
+        slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(limits.min,limits.max);slider:SetValueStep(5);slider:SetObeyStepOnDrag(true)
+        slider:SetThumbTexture("Interface\\Buttons\\WHITE8X8");slider:GetThumbTexture():SetSize(10,20);slider:GetThumbTexture():SetVertexColor(ClassColour())
+        -- A number in your damage font, bigger or smaller with the size.
+        local preview=card:CreateFontString(nil,"OVERLAY")
+        preview:SetPoint("RIGHT",card,"TOPRIGHT",-16,-24);preview:SetJustifyH("RIGHT");preview:SetTextColor(1,1,1)
+        card.preview=preview
+        local function Label(value)
+            card.text:SetText(string.format("Damage text size: %.2fx",value/100))
+            UseFont(preview,EraUI:CombatFont(),math.floor(10+(value/100-.5)*11+.5));preview:SetText("1234")
+        end
+        slider:SetScript("OnValueChanged",function(_,value)
+            value=math.max(limits.min,math.min(limits.max,math.floor(value+.5)))
+            Label(value)
+            if not card.syncing then EraUI:SetCombatTextScale(value)end
+        end)
+        card.SetChecked=function()
+            local current=EraUI:CombatTextScale()
+            slider:SetShown(current~=nil);preview:SetShown(current~=nil)
+            if not current then card.text:SetText("Damage text size: not available");return end
+            card.syncing=true;slider:SetValue(current);card.syncing=false;Label(current)
+        end
+        card.slider=slider;card:SetChecked();frame.checks.damageTextScale=card
+    end
+    CombatFontCard(0,10)
+    CombatScaleCard(1,10)
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)
     MakeCheck(frame, "Red Combo Points", "comboPointRed", 12, 0, 0, "Ability_Rogue_Rupture", "Draw the combo point orbs red instead of gold. Applies immediately.", false)
@@ -921,10 +1026,12 @@ function SettingsModule:Initialize()
     setupSummary:SetPoint("TOPLEFT", 30, -156)
     setupSummary:SetWidth(730)
     setupSummary:SetJustifyV("TOP")
+    frame.setupSummary=setupSummary
     setupSummary:Hide()
     local setupProgress = Text(frame, "", 12, true)
     setupProgress:SetPoint("TOPRIGHT", -64, -30)
     setupProgress:Hide()
+    frame.setupProgress=setupProgress
     local function SetupButton(label, x, width)
         local button=CreateFrame("Button",nil,frame,"BackdropTemplate")
         button:SetSize(width,32)
@@ -940,6 +1047,66 @@ function SettingsModule:Initialize()
     end
     local nextPage=SetupButton("Next >",-24,160)
     local previousPage=SetupButton("< Back",-196,92)
+    -- The finish page asks whether to log out now when a new damage font is
+    -- waiting, since only a new login shows it. Logging out is for the game's
+    -- own secure code, so "Yes, log out" is a secure macro button of its own,
+    -- laid over its spot on the screen rather than joined to this window,
+    -- which stays free to move and close in combat. It's hidden as combat
+    -- starts and while the window moves.
+    local SaveSetupDone,PlaceLogout
+    local fontQuestion=CreateFrame("Frame",nil,frame)
+    fontQuestion:SetSize(560,70);fontQuestion:SetPoint("BOTTOMLEFT",30,78);fontQuestion:Hide()
+    frame.fontQuestion=fontQuestion
+    do
+    local fontAsk=Text(fontQuestion,"Apply your new damage font now? It needs a log out.",15)
+    fontAsk:SetPoint("TOPLEFT",0,0)
+    local logoutSpot=CreateFrame("Frame",nil,fontQuestion)
+    logoutSpot:SetSize(150,32);logoutSpot:SetPoint("TOPLEFT",0,-30)
+    local later=CreateFrame("Button",nil,fontQuestion,"BackdropTemplate")
+    later:SetSize(110,32);later:SetPoint("TOPLEFT",logoutSpot,"TOPRIGHT",10,0)
+    later:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+    later:SetBackdropColor(.045,.05,.065,1);later:SetBackdropBorderColor(.22,.23,.27,1)
+    later.label=Text(later,"No, later",14);later.label:SetPoint("CENTER")
+    later:SetScript("OnClick",function()frame.fontLater=true;frame:RenderSetup()end)
+    frame.fontLaterButton=later
+    local logout
+    PlaceLogout=function(show)
+        if InCombatLockdown()then return end
+        if not show then if logout then logout:Hide()end;return end
+        if not logout then
+            logout=CreateFrame("Button","EraUISetupLogout",UIParent,"SecureActionButtonTemplate,BackdropTemplate")
+            logout:SetSize(150,32);logout:SetFrameStrata("DIALOG");logout:Hide()
+            logout:RegisterForClicks("LeftButtonUp","LeftButtonDown")
+            logout:SetAttribute("type1","macro");logout:SetAttribute("macrotext1","/logout")
+            logout:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+            local r,g,b=ClassColour()
+            logout:SetBackdropColor(r*.22,g*.22,b*.22,1);logout:SetBackdropBorderColor(r,g,b,1)
+            logout.label=Text(logout,"Yes, log out",14);logout.label:SetPoint("CENTER")
+            -- Setup is done either way; settings open after the next login.
+            logout:SetScript("PreClick",function()if SaveSetupDone then SaveSetupDone()end end)
+        end
+        local left,right,top,bottom=logoutSpot:GetLeft(),logoutSpot:GetRight(),logoutSpot:GetTop(),logoutSpot:GetBottom()
+        if not(left and right and top and bottom)then logout:Hide();return end
+        logout:SetScale(logoutSpot:GetEffectiveScale()/UIParent:GetEffectiveScale())
+        logout:ClearAllPoints();logout:SetPoint("CENTER",UIParent,"BOTTOMLEFT",(left+right)/2,(top+bottom)/2)
+        logout:SetFrameLevel(frame:GetFrameLevel()+50);logout:Show()
+    end
+    fontQuestion:SetScript("OnShow",function()
+        PlaceLogout(true)
+        C_Timer.After(0,function()if fontQuestion:IsShown()then PlaceLogout(true)end end)
+    end)
+    fontQuestion:SetScript("OnHide",function()PlaceLogout(false)end)
+    frame:HookScript("OnDragStart",function()PlaceLogout(false)end)
+    frame:HookScript("OnDragStop",function()if fontQuestion:IsShown()then PlaceLogout(true)end end)
+    local logoutWatch=CreateFrame("Frame",nil,frame)
+    logoutWatch:RegisterEvent("PLAYER_REGEN_DISABLED");logoutWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+    logoutWatch:SetScript("OnEvent",function(_,event)
+        if event=="PLAYER_REGEN_DISABLED"then
+            if logout then logout:Hide()end -- still allowed as combat begins
+        elseif fontQuestion:IsShown()then PlaceLogout(true)end
+    end)
+    frame.logoutWatch=logoutWatch
+    end
     local changelog=SetupButton("Changelog",-178,112)
     frame.changelogButton=changelog
     changelog:SetScript("OnClick",function()
@@ -1170,6 +1337,8 @@ function SettingsModule:Initialize()
             -- Only the Classic tracker competes with Questie's own.
             if frame.trackerStep then pages[#pages+1]="tracker" end
         end
+        -- The damage and healing text font, for every preset.
+        if frame.checks.damageFont then pages[#pages+1]="font" end
         if frame.setupPreset~="classic" then
             for index=1,#qos do pages[#pages+1]=index end
         end
@@ -1182,7 +1351,7 @@ function SettingsModule:Initialize()
         local page=pages[self.setupPage]
         local final=page=="final"
         for _,check in pairs(self.checks) do check:Hide() end
-        RenderPresets(false);RenderAppearance(false);RenderTracker(false);setupSummary:Hide()
+        RenderPresets(false);RenderAppearance(false);RenderTracker(false);setupSummary:Hide();fontQuestion:Hide()
         navigation:Hide();divider:Hide()
         if page=="preset" then
             section:SetText("How do you want EraUI?")
@@ -1196,6 +1365,13 @@ function SettingsModule:Initialize()
             setupSummary:SetText("Questie is installed. Only one quest tracker can show at a time. Which would you like?")
             setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
             RenderTracker(true)
+        elseif page=="font" then
+            section:SetText("Damage & healing text")
+            setupSummary:SetText("Pick the font and size of the damage and healing numbers over your targets.")
+            setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-128);setupSummary:Show()
+            self.settingsEntries={self.checks.damageFont,self.checks.damageTextScale}
+            for _,check in ipairs(self.settingsEntries) do check:SetChecked();check:Show() end
+            self:LayoutSettings(true)
         elseif not final then
             SelectCategory(qos[page])
             -- Keep visual skins out, but include chat dragging even though its
@@ -1203,6 +1379,8 @@ function SettingsModule:Initialize()
             for key,check in pairs(self.checks) do
                 if reloadSettings[key] and key~="classicChatDragging" then check:Hide() end
             end
+            -- The damage text cards have their own page in the walkthrough.
+            if self.checks.damageFont then self.checks.damageFont:Hide();self.checks.damageTextScale:Hide();self:LayoutSettings(true) end
         else
             section:SetText("You're ready")
             local pending=Pending()
@@ -1211,15 +1389,22 @@ function SettingsModule:Initialize()
             if #pending>0 then
                 message=message.."\n\nReload to apply these changes, then settings will open:\n\n"..table.concat(pending,", ")
             else message=message.."\n\nNo reload needed. Continue to explore the settings." end
+            -- A new damage font only shows after logging out and back in:
+            -- asked about below, or noted once put off.
+            local waiting=EraUI.CombatFontWaiting and EraUI:CombatFontWaiting()
+            if waiting and self.fontLater then
+                message=message.."\n\nYour new damage font shows next time you log in."
+            end
             setupSummary:ClearAllPoints();setupSummary:SetPoint("TOPLEFT",30,-156)
             setupSummary:SetText(message);setupSummary:Show()
+            if waiting and not self.fontLater then fontQuestion:Show();PlaceLogout(true)end
         end
         for _,tab in ipairs(tabs) do tab:Hide() end
         nextPage.label:SetText(final and (self.setupNeedsReload and "Reload & explore" or "Explore settings") or "Next >")
         nextPage:Show()
         previousPage:Show()
         setupProgress:SetText(final and "FINISH" or page=="preset" and "START" or page=="style" and "APPEARANCE"
-            or page=="tracker" and "QUEST TRACKER" or ("OPTIONS  "..page.." / "..#qos))
+            or page=="tracker" and "QUEST TRACKER" or page=="font" and "DAMAGE TEXT" or ("OPTIONS  "..page.." / "..#qos))
         setupProgress:Show();UpdateReloadHint(self)
     end
     function frame:SetSetupMode(enabled)
@@ -1243,7 +1428,7 @@ function SettingsModule:Initialize()
             -- look selects nothing: only a click applies a preset.
             local current=EraUI.Presets and EraUI.Presets:Current()
             self.setupPreset=current=="qol" and "qol" or current=="classic" and "classicqol" or nil
-            self.setupPage=1
+            self.setupPage=1;self.fontLater=nil
             self:RenderSetup()
         else
             navigation:Show();divider:Show()
@@ -1254,8 +1439,8 @@ function SettingsModule:Initialize()
             UpdateReloadHint(self)
         end
     end
-    local function FinishSetup(reloadNow)
-        if reloadNow and InCombatLockdown() then hint:SetText("Finish combat before reloading.");return end
+    -- Marks setup done, with settings to open once the UI next loads.
+    SaveSetupDone=function()
         if EraUI.Classic and EraUI.Classic.db then
             if EraUI.Classic.CompleteCharacterSetup then EraUI.Classic.CompleteCharacterSetup() end
             EraUI.Classic.db.erauiSetupComplete=true
@@ -1267,6 +1452,10 @@ function SettingsModule:Initialize()
         EraUIClassicCharDB.onboarding.discoverTabs={[12]=true,[13]=true}
         EraUIClassicCharDB.onboarding.discoveryHintsVersion=1
         if EraUI.SaveCharOnboarding then EraUI.SaveCharOnboarding() end
+    end
+    local function FinishSetup(reloadNow)
+        if reloadNow and InCombatLockdown() then hint:SetText("Finish combat before reloading.");return end
+        SaveSetupDone()
         -- Keep the click path direct: do not rebuild/hide the settings window
         -- before the client receives the reload request.
         if reloadNow then ReloadUI();return end

@@ -1231,7 +1231,12 @@ local function Apply()
                 local power, max = UnitPower("player"), UnitPowerMax("player")
                 local secret = issecretvalue and (issecretvalue(power) or issecretvalue(max))
                 if secret or power ~= entry.polledPower or max ~= entry.polledMaxPower then
-                    entry.polledPower, entry.polledMaxPower = power, max
+                    -- A hidden value is never kept: comparing one later is an error.
+                    if secret then
+                        entry.polledPower, entry.polledMaxPower = nil, nil
+                    else
+                        entry.polledPower, entry.polledMaxPower = power, max
+                    end
                     Update(entry, "power")
                 end
             end

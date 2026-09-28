@@ -75,6 +75,27 @@ local function Learned(row,known,ranks)
  if row.spellID then return T.Known(row.spellID)end
  return false
 end
+-- Spells a class quest teaches rather than a trainer: the quest for your race
+-- and faction, from EraUI's class quest list. Most go by race, the Skyborne of
+-- each faction have their own, and a few go by faction alone. A spell a
+-- trainer has offered you is taught there, whatever the list says.
+local function QuestFor(row)
+ local quests=row and row.spellID and E.ClassQuests and E.ClassQuests[row.spellID]
+ if not quests or row.trainer and not row.reference then return nil end
+ local race=UnitRace and select(2,UnitRace("player"))
+ local faction=UnitFactionGroup and UnitFactionGroup("player")
+ return(race and faction and quests[race..":"..faction])or(race and quests[race])or(faction and quests[faction])
+end
+M.QuestFor=QuestFor
+-- Where a quest's chain starts, for its tooltip.
+local function QuestStart(quest)
+ local place=quest.where and(quest.spot and(quest.spot..", "..quest.where)or quest.where)
+ local at=place and(" in "..place)or ""
+ if quest.first then return "The chain starts with \""..quest.first.."\""..(quest.npc and(", from "..quest.npc)or "")..at.."."end
+ if quest.npc then return "Given by "..quest.npc..at.."."end
+ if place then return "It starts in "..place.."."end
+end
+M.QuestStart=QuestStart
 function M:Collect()
  local known,labels,ranks,future,_,ids=self:BookData()
  local merged=self:Catalog()
@@ -106,12 +127,14 @@ function M:Collect()
    end
    if missing then ready=false end
    local group=row.level>level and(row.level<=level+2 and 3 or 4)or(missing and 2 or 1)
-   local result={data=row,ready=ready==true,group=group}
+   -- A quest teaches it for free, so there's no trainer price to find.
+   local quest=QuestFor(row)
+   local result={data=row,ready=ready==true,group=group,quest=quest}
    rows[#rows+1]=result;summary.count=summary.count+1
-   if Number(row.cost)then summary.all=summary.all+row.cost else summary.unknown=summary.unknown+1 end
+   if Number(row.cost)then summary.all=summary.all+row.cost elseif not quest then summary.unknown=summary.unknown+1 end
    if ready then
     summary.nowCount=summary.nowCount+1
-    if Number(row.cost)then summary.now=summary.now+row.cost else summary.nowUnknown=summary.nowUnknown+1 end
+    if Number(row.cost)then summary.now=summary.now+row.cost elseif not quest then summary.nowUnknown=summary.nowUnknown+1 end
    end
   end
  end
@@ -220,6 +243,8 @@ local function Build(owner)
  window.scroll,window.content,window.rows=scroll,content,{}
  window:Hide()
 end
+local ROW,QUEST_ROW=22,36 -- a spell a class quest teaches has that quest on a second line
+
 local groups={"Available Now","Available but Missing Requirements","Coming Soon","Not Yet Available"}
 local colours={{.2,1,.2},{1,.55,.1},{.35,.7,1},{1,.2,.2}}
 function M:Refresh()
@@ -237,13 +262,16 @@ function M:Refresh()
   end
  end
  if #display==0 then display[1]={header=query~=""and "No matching spells"or "All listed spells learned",group=1}end
+ local top=0
  for index,result in ipairs(display)do
   local row=window.rows[index]
   if not row then
    row=CreateFrame("Frame",nil,window.content);row:SetSize(290,22)
-   row.icon=row:CreateTexture(nil,"ARTWORK");row.icon:SetPoint("LEFT",0,0);row.icon:SetSize(16,16)
-   row.title=T.Text(row,"",11);row.title:SetPoint("LEFT",20,0);row.title:SetWidth(216);row.title:SetHeight(20)
-   row.level=T.Text(row,"",10);row.level:SetPoint("RIGHT",-2,0);row.level:SetJustifyH("RIGHT")
+   row.icon=row:CreateTexture(nil,"ARTWORK");row.icon:SetPoint("TOPLEFT",0,-3);row.icon:SetSize(16,16)
+   row.title=T.Text(row,"",11);row.title:SetPoint("TOPLEFT",20,-1);row.title:SetWidth(216);row.title:SetHeight(20)
+   row.level=T.Text(row,"",10);row.level:SetPoint("TOPRIGHT",-2,-5);row.level:SetJustifyH("RIGHT")
+   -- Under a spell a class quest teaches: that quest and where it starts.
+   row.questText=T.Text(row,"",10);row.questText:SetPoint("TOPLEFT",20,-19);row.questText:SetWidth(266);row.questText:SetWordWrap(false)
    row:EnableMouse(true)
    row:SetScript("OnEnter",function(self)
     local data=self.data;if not data then return end
@@ -251,8 +279,17 @@ function M:Refresh()
     if data.spellID and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(data.spellID)
     else GameTooltip:SetText(data.name..(data.rank~=""and(" ("..data.rank..")")or ""))end
     GameTooltip:AddLine("Required level: "..data.level,1,.82,0)
-    GameTooltip:AddLine(Number(data.cost)and((data.reference and "Classic base-price reference: "or "Recorded trainer quote: ")..Money(data.cost))or "Price not verified for this Forever spell.",.8,.8,.8,true)
-    if data.reference then GameTooltip:AddLine("Reference prices may differ on Forever and exclude discounts.",.65,.65,.65,true)end
+    local quest=self.quest
+    if quest then
+     -- Taught by a quest, so there's no trainer price.
+     GameTooltip:AddLine(quest.accept and "You learn it as you accept the quest \""..quest.name.."\", not from a trainer."
+      or "Learned from the quest \""..quest.name.."\", not a trainer.",1,.82,.29,true)
+     local start=QuestStart(quest)
+     if start then GameTooltip:AddLine(start,.85,.85,.85,true)end
+    else
+     GameTooltip:AddLine(Number(data.cost)and((data.reference and "Classic base-price reference: "or "Recorded trainer quote: ")..Money(data.cost))or "Price not verified for this Forever spell.",.8,.8,.8,true)
+     if data.reference then GameTooltip:AddLine("Reference prices may differ on Forever and exclude discounts.",.65,.65,.65,true)end
+    end
     if data.previous and data.previous>0 then local prev=T.Spell(data.previous);GameTooltip:AddLine("Requires previous rank: "..(prev or tostring(data.previous)),1,.55,.1,true)end
     for name in pairs(data.requirements or{})do GameTooltip:AddLine("Requires: "..name,.85,.85,.85,true)end
     if data.skill then GameTooltip:AddLine("Requires: "..data.skill,.85,.85,.85,true)end
@@ -261,7 +298,10 @@ function M:Refresh()
    row:SetScript("OnLeave",function()GameTooltip:Hide()end)
    window.rows[index]=row
   end
-  local data=result.data;row.data=data;row:SetPoint("TOPLEFT",0,-(index-1)*22)
+  local data,quest=result.data,result.quest;row.data,row.quest=data,quest;row:SetPoint("TOPLEFT",0,-top)
+  row:SetHeight(quest and QUEST_ROW or ROW);top=top+(quest and QUEST_ROW or ROW)
+  row.questText:SetShown(quest~=nil)
+  if quest then row.questText:SetText("|cffffd24aQuest:|r "..quest.name..(quest.where and("  |cffaaaaaa"..quest.where.."|r")or ""))end
   row.icon:SetShown(data~=nil);row.level:SetShown(data~=nil)
   if data then
    row.icon:SetTexture(data.icon or "Interface\\Icons\\INV_Misc_Book_09")
@@ -274,8 +314,8 @@ function M:Refresh()
   row:Show()
  end
  for index=#display+1,#window.rows do window.rows[index]:Hide()end
- window.content:SetHeight(math.max(1,#display*22))
- window.scroll:SetVerticalScroll(math.min(window.scroll:GetVerticalScroll(),math.max(0,#display*22-window.scroll:GetHeight())))
+ window.content:SetHeight(math.max(1,top))
+ window.scroll:SetVerticalScroll(math.min(window.scroll:GetVerticalScroll(),math.max(0,top-window.scroll:GetHeight())))
 end
 function M:Toggle(owner)
  if not self:Enabled()or not owner or InCombatLockdown()then return end

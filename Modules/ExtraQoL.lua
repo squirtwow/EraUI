@@ -141,6 +141,21 @@ function Module:SetupTooltipIDs()
     end
 end
 
+-- Clicking the chat link that's already showing closes its tooltip. Only the
+-- tooltip is hidden; Shift and Ctrl clicks keep their usual actions.
+local LINK_KINDS={item=true,spell=true,enchant=true,quest=true,achievement=true,currency=true,talent=true}
+function Module:SetupLinkToggle()
+    if not(hooksecurefunc and SetItemRef and ItemRefTooltip)then return end
+    local shown
+    ItemRefTooltip:HookScript("OnHide",function()shown=nil end)
+    hooksecurefunc("SetItemRef",function(link)
+        if not EraUI:GetSetting("linkToggle")or type(link)~="string"then return end
+        if not LINK_KINDS[link:match("^(%a+):")or ""]or(IsModifiedClick and IsModifiedClick())then return end
+        if not ItemRefTooltip:IsShown()then shown=nil;return end
+        if shown==link then ItemRefTooltip:Hide()else shown=link end
+    end)
+end
+
 function Module:Initialize()
     self.events=CreateFrame("Frame")
     for _,event in ipairs({"LOOT_READY","LOOT_OPENED","LOOT_CLOSED","LOOT_BIND_CONFIRM","UI_ERROR_MESSAGE","GOSSIP_SHOW","UPDATE_INVENTORY_DURABILITY","PLAYER_ENTERING_WORLD","MERCHANT_SHOW"}) do
@@ -156,4 +171,5 @@ function Module:Initialize()
         else self:CheckDurability() end
     end)
     self:SetupTooltipIDs()
+    self:SetupLinkToggle()
 end

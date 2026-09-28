@@ -158,7 +158,7 @@ local function Widget(parent)
  function f:SetChecked(v)self.checked=v end
  function f:SetEnabled(v)self.enabled=v end
  for _,name in ipairs({"SetPoint","SetFrameLevel","EnableMouse","SetSize","SetAutoFocus","SetMaxLetters","ClearFocus",
-  "SetScrollChild","SetTextColor","SetWidth","SetJustifyH","SetTexture"})do f[name]=function()end end
+  "SetScrollChild","SetTextColor","SetWidth","SetJustifyH","SetTexture","SetWordWrap"})do f[name]=function()end end
  return f
 end
 CreateFrame=function(_,name,parent)local f=Widget(parent);if name then _G[name]=f end;return f end
@@ -188,4 +188,108 @@ equal(owner.Buttons[1]:IsShown(),true,"normal spell artwork restored")
 equal(owner.Search:IsShown(),true,"normal spell search restored")
 combat=true;M:Toggle(owner)
 equal(owner.trainingShown,false,"combat cannot hide protected spell click layer")
+-- Spells a class quest teaches show that quest, for your race and faction.
+assert(loadfile("Modules/ClassQuestData.lua"))("EraUI",E)
+local RACE_IDS={Human=1,Orc=2,Dwarf=3,NightElf=4,Scourge=5,Tauren=6,Gnome=7,Troll=8}
+local FACTIONS={Alliance=true,Horde=true}
+local spellRow={}
+for _,data in pairs(E.TrainingData.classes)do for _,row in ipairs(data)do spellRow[row[1]]=row end end
+local listed=0
+for spellID,quests in pairs(E.ClassQuests)do
+ local row=spellRow[spellID]
+ equal(row~=nil,true,"quest spell "..spellID.." is a class spell")
+ equal(row[5],nil,row[6].." has no trainer price")
+ for key,quest in pairs(quests)do
+  local race,side=key:match("^(%a+):(%a+)$")
+  local known=race and(RACE_IDS[race]or race=="Skyborne")and FACTIONS[side]or RACE_IDS[key]or key=="Skyborne"or FACTIONS[key]
+  equal(known and true,true,row[6].." quest keyed by a known race or faction: "..key)
+  equal(type(quest.name)=="string"and quest.name~="",true,row[6].." quest named for "..key)
+  for _,field in ipairs({"first","npc","spot","where"})do
+   equal(quest[field]==nil or type(quest[field])=="string"and quest[field]~="",true,row[6].." "..field.." is text for "..key)
+  end
+  equal(quest.spot==nil or quest.where~=nil,true,row[6].." spot is in a zone for "..key)
+  listed=listed+1
+ end
+end
+equal(listed>80,true,"every class and race listed")
+local race,side="Tauren","Horde"
+UnitRace=function()return race,race,race=="Skyborne"and(side=="Horde"and 96 or 95)or RACE_IDS[race]end
+UnitFactionGroup=function()return side end
+local function Quest(id,row)return M.QuestFor(row or{spellID=id,trainer=true,reference=true})end
+equal(Quest(5487).name,"Body and Heart","Tauren druids learn Bear Form from a quest")
+equal(Quest(5487).npc,"Turak Runetotem","which starts in Thunder Bluff")
+equal(Quest(6795),Quest(5487),"Growl comes with it")
+race,side="NightElf","Alliance"
+equal(Quest(18960).npc,"Mathrengyl Bearwalker","Night Elf druids go to Darnassus for Moonglade")
+race,side="Skyborne","Horde"
+equal(Quest(18960).npc,"Muln Earthfury","Horde Skyborne have their own Moonglade quest")
+side="Alliance"
+equal(Quest(18960).npc,"Archmage Ansirem Runeweaver","and so do Alliance Skyborne")
+equal(Quest(5487).name,"Strength and Mercy","both Skyborne share their bear quest")
+equal(Quest(8946),nil,"no label where no quest is known")
+race,side="Human","Alliance"
+equal(Quest(2458).npc,"Wu Shen","a faction's entry")
+race="Dwarf"
+equal(Quest(2458).npc,"Kelv Sternhammer","a race's own entry comes first")
+race,side="Troll","Horde"
+equal(Quest(20252).npc,"Sorek","Intercept comes with Berserker Stance")
+race="Scourge"
+equal(Quest(1122).where,"Felwood","one Inferno quest for every warlock")
+race="Tauren"
+equal(Quest(5487,{spellID=5487,trainer=true,reference=false}),nil,"a spell a trainer has offered isn't labelled")
+equal(Quest(5487,{spellID=5487,trainer=true}),nil,"nor one only a trainer listed")
+equal(Quest(5487,{spellID=5487})~=nil,true,"a spell the book says is coming is")
+equal(Quest(768),nil,"trainer spells have no quest")
+equal(M.QuestStart(Quest(5487)),"The chain starts with \"Moonglade\", from Turak Runetotem in Elder Rise, Thunder Bluff.","where the chain starts")
+equal(M.QuestStart(Quest(1515)),"Given by Yaw Sharpmane in Bloodhoof Village, Mulgore.","or who gives the quest")
+race="Orc"
+equal(M.QuestStart(Quest(713)),"The chain starts with \"Love Hurts\".","only what's known")
+race,side="Dwarf","Alliance"
+equal(M.QuestStart(Quest(3599)),nil,"nothing more when only the name is known")
+-- They aren't bought, so they aren't unknown trainer prices.
+UnitClass=function()return "Druid","DRUID"end
+race,side="Tauren","Horde";level=10;options={};items={}
+local quests=E.ClassQuests
+E.ClassQuests=nil;local _,plain=M:Collect()
+E.ClassQuests=quests;rows,s=M:Collect()
+local questRows,bear=0
+for _,r in ipairs(rows)do
+ if r.quest then questRows=questRows+1 end
+ if r.data.spellID==5487 then bear=r end
+end
+equal(bear.quest.name,"Body and Heart","the guide's rows carry the quest")
+equal(questRows,6,"Bear Form, Growl, Maul, Moonglade, Cure Poison and Aquatic Form")
+equal(plain.unknown-s.unknown,6,"quest spells aren't unknown prices")
+equal(plain.nowUnknown-s.nowUnknown,4,"nor in what you can train now")
+equal(s.count,plain.count,"they're still listed")
+-- In the panel: a second line under the spell, and the quest in its tooltip.
+local tips={}
+GameTooltip={SetOwner=function()end,SetSpellByID=function()end,SetText=function()end,Show=function()end,Hide=function()end,
+ AddLine=function(_,text)tips[#tips+1]=text end}
+local function Find(name)
+ for _,r in ipairs(panel.rows)do if r:IsShown()and r.data and r.data.name==name then return r end end
+end
+combat=false;M:Toggle(owner)
+panel.search:SetText("Growl")
+local growl=Find("Growl")
+equal(growl.height,36,"a quest spell's row has room for its quest")
+equal(growl.questText:IsShown(),true,"shown under it")
+equal(growl.questText:GetText(),"|cffffd24aQuest:|r Body and Heart  |cffaaaaaaThunder Bluff|r","its name and where it starts")
+equal(panel.content.height,22+36,"the list makes room for it")
+growl.scripts.OnEnter(growl)
+local text=table.concat(tips,"\n")
+equal(text:find("Learned from the quest \"Body and Heart\", not a trainer.",1,true)~=nil,true,"the tooltip names the quest")
+equal(text:find("The chain starts with \"Moonglade\", from Turak Runetotem in Elder Rise, Thunder Bluff.",1,true)~=nil,true,"and where to start")
+equal(text:lower():find("price",1,true),nil,"and no trainer price")
+tips={}
+panel.search:SetText("Teleport")
+local teleport=Find("Teleport: Moonglade")
+teleport.scripts.OnEnter(teleport)
+equal(tips[2],"You learn it as you accept the quest \"Moonglade\", not from a trainer.","Moonglade is learned as you accept its quest")
+equal(tips[3],"Given by Turak Runetotem in Elder Rise, Thunder Bluff.","from Turak")
+panel.search:SetText("Cat Form")
+local cat=Find("Cat Form")
+equal(cat.height,22,"trainer spells keep one line")
+equal(cat.questText:IsShown(),false,"with no quest")
+M:Close()
 print("Training guide checks passed: "..checks.." assertions; "..total.." bundled class entries.")
