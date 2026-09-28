@@ -105,6 +105,8 @@ local function PrintStatus()
         local list = EraUI:GetSetting(option[1]) and enabled or disabled
         list[#list + 1] = option[2]
     end
+    local update = EraUI.modules.UpdateCheck
+    if update and update.Status then AddLine(update:Status()) end
     AddLine("")
     AddLine("Enabled: " .. (#enabled > 0 and table.concat(enabled, ", ") or "none"))
     AddLine("Disabled: " .. (#disabled > 0 and table.concat(disabled, ", ") or "none"))

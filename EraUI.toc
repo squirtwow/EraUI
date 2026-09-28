@@ -67,6 +67,7 @@ Core\Updates.lua
 Modules\QoL.lua
 Modules\ExtraQoL.lua
 Modules\CombatFont.lua
+Modules\UpdateCheck.lua
 Modules\JunkDiscard.lua
 Modules\EnergyBar.lua
 Modules\ResourceBar.lua

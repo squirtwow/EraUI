@@ -100,6 +100,7 @@ local defaults = {
     durabilityWarning = false,
     tooltipIDs = false,
     linkToggle = true, -- click a chat link again to close its tooltip
+    updateCheck = true, -- say in chat when a guild or group member has a newer EraUI
     damageFont = "pepsi", -- the font of the damage and healing numbers
     junkValueSummary = false,
     showWelcomeOnLogin = false,

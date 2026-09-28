@@ -513,6 +513,7 @@ function SettingsModule:Initialize()
     local hasClassControls=meleeClasses[classToken] or manaClasses[classToken]
     if hasClassControls then categories[12]={className,"CLASS"} end
     categories[13]={"Casting","CASTING"}
+    categories[14]={"More from Squirt","MORE FROM SQUIRT"}
     local ResetSearch, ApplySearch
     local classOrder
     local RenderAppearance
@@ -546,9 +547,10 @@ function SettingsModule:Initialize()
     for i, category in ipairs(categories) do
         local index = i
         local tab = CreateFrame("Button", nil, frame)
-        tab:SetSize(164, hasClassControls and 36 or 40)
-        local slot=i==13 and 13 or hasClassControls and (i==12 and 2 or (i>=2 and i+1 or i)) or i
-        tab:SetPoint("TOPLEFT", 12, -104 - (slot - 1) * (hasClassControls and 36 or 40))
+        -- Fourteen tabs fit above the footer at 34 high.
+        tab:SetSize(164, hasClassControls and 34 or 40)
+        local slot=(i==13 or i==14) and i or hasClassControls and (i==12 and 2 or (i>=2 and i+1 or i)) or i
+        tab:SetPoint("TOPLEFT", 12, -104 - (slot - 1) * (hasClassControls and 34 or 40))
         tab.text = Text(tab, category[1], 14)
         tab.text:SetPoint("LEFT", 36, 0)
         tab.text:SetFont(select(1, GameFontHighlight:GetFont()), 13, "")
@@ -566,6 +568,7 @@ function SettingsModule:Initialize()
             navIcon:SetTexture("Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes")
             navIcon:SetTexCoord(unpack(classIconCoords[classToken] or classIconCoords.ROGUE))
         elseif i==13 then navIcon:SetTexture("Interface\\Icons\\Spell_Arcane_Blast")
+        elseif i==14 then navIcon:SetTexture("Interface\\Icons\\INV_Misc_Gift_02")
         else navIcon:SetTexture(featureIcons[navKeys[i]]) end
         local hover = tab:CreateTexture(nil, "HIGHLIGHT")
         hover:SetAllPoints()
@@ -845,6 +848,59 @@ function SettingsModule:Initialize()
     end
     CombatFontCard(0,10)
     CombatScaleCard(1,10)
+    -- More from Squirt: the author's other addons, whether you have them, and
+    -- a way to open each one.
+    local function MoreCard(key,row,info)
+        local card=CreateFrame("Frame",nil,frame,"BackdropTemplate")
+        card.category=14;card.searchText=string.lower("more addons squirt "..info.name.." "..info.search)
+        card:SetSize(716,92);card:SetPoint("TOPLEFT",202,-148-row*100)
+        CardLook(card)
+        local icon=card:CreateTexture(nil,"ARTWORK")
+        icon:SetSize(40,40);icon:SetPoint("TOPLEFT",14,-14);icon:SetTexture(info.icon);icon:SetTexCoord(.07,.93,.07,.93)
+        card.text=Text(card,info.name,15);card.text:SetPoint("TOPLEFT",66,-12)
+        local about=Text(card,info.about,12,true)
+        about:SetPoint("TOPLEFT",66,-34);about:SetWidth(500);about:SetJustifyH("LEFT")
+        local state=Text(card,"",12,true);state:SetPoint("BOTTOMLEFT",66,12)
+        local function Button(label,x)
+            local button=CreateFrame("Button",nil,card,"BackdropTemplate")
+            button:SetSize(96,28);button:SetPoint("RIGHT",x,0)
+            button:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+            button.label=Text(button,label,14);button.label:SetPoint("CENTER")
+            return button
+        end
+        local open=Button("Open",-16)
+        open:SetScript("OnClick",function()
+            local run=SlashCmdList and SlashCmdList[info.slash]
+            if run then frame:Hide();run("")end
+        end)
+        -- Links to copy: an addon can't open a web page or the CurseForge app.
+        local curse,github=Button("CurseForge",-120),Button("GitHub",-16)
+        local function Copy(url)
+            if EraUI.Classic and EraUI.Classic.CopyLink then
+                EraUI.Classic.CopyLink(info.name.."\n\nPaste it into your browser. On CurseForge, Install opens the CurseForge app.",url)
+            end
+        end
+        curse:SetScript("OnClick",function()Copy(info.curseforge)end)
+        github:SetScript("OnClick",function()Copy(info.github)end)
+        card.open,card.state,card.curse,card.github=open,state,curse,github
+        card.SetChecked=function()
+            local loaded=C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(info.addon)
+            local links=info.curseforge~=nil and not loaded
+            local r,g,b=ClassColour()
+            for _,button in ipairs({open,curse,github})do
+                button:SetBackdropColor(r*.22,g*.22,b*.22,1);button:SetBackdropBorderColor(r,g,b,1)
+            end
+            open:SetShown(loaded and true or false)
+            curse:SetShown(links);github:SetShown(links)
+            state:SetText(loaded and ("Installed. Type "..info.command..", or click Open.")
+                or links and "Get it on CurseForge or GitHub: click one for its link."
+                or "Coming soon to CurseForge and GitHub.")
+        end
+        card:SetChecked();frame.checks[key]=card
+    end
+    MoreCard("moreFECM",0,{name="Forever Enhanced Cooldown Manager",addon="ForeverEnhancedCooldownManager",
+        slash="FECM",command="/fecm",icon="Interface\\Icons\\INV_Misc_PocketWatch_01",search="fecm cooldown manager bars",
+        about="Cooldown and buff bars of your own, and a fresh look for Blizzard's Cooldown Manager and Personal Resource Display."})
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)
     MakeCheck(frame, "Red Combo Points", "comboPointRed", 12, 0, 0, "Ability_Rogue_Rupture", "Draw the combo point orbs red instead of gold. Applies immediately.", false)
@@ -1108,6 +1164,7 @@ function SettingsModule:Initialize()
     frame.logoutWatch=logoutWatch
     end
     local changelog=SetupButton("Changelog",-178,112)
+    changelog:ClearAllPoints();changelog:SetPoint("BOTTOM",0,20)
     frame.changelogButton=changelog
     changelog:SetScript("OnClick",function()
         if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() end
@@ -1121,10 +1178,35 @@ function SettingsModule:Initialize()
     presetLabel:SetPoint("RIGHT",presets,"LEFT",-10,0)
     presetLabel:SetJustifyH("RIGHT")
     frame.presetLabel=presetLabel
+    -- Under Presets: a small tick for the update notice.
+    local notice=CreateFrame("Button",nil,frame)
+    notice:SetSize(14,14);notice:SetPoint("TOPRIGHT",presets,"BOTTOMRIGHT",0,-9)
+    notice.box=notice:CreateTexture(nil,"BACKGROUND");notice.box:SetAllPoints();notice.box:SetColorTexture(.15,.16,.19,1)
+    notice.mark=notice:CreateTexture(nil,"ARTWORK");notice.mark:SetPoint("TOPLEFT",3,-3);notice.mark:SetPoint("BOTTOMRIGHT",-3,3)
+    notice.text=Text(notice,"Update notice",12,true);notice.text:SetPoint("RIGHT",notice,"LEFT",-6,0)
+    function notice:Set(on)
+        self.on=on and true or false
+        local r,g,b=ClassColour()
+        self.mark:SetColorTexture(r,g,b,1);self.mark:SetShown(self.on)
+    end
+    notice:SetScript("OnClick",function(self)
+        self:Set(not self.on)
+        EraUI:SetSetting("updateCheck",self.on)
+        EraUI:Status("Update notice "..(self.on and "on." or "off."))
+    end)
+    notice:SetScript("OnEnter",function(self)
+        GameTooltip:SetOwner(self,"ANCHOR_BOTTOMLEFT")
+        GameTooltip:SetText("Update notice")
+        GameTooltip:AddLine("Tells you in chat when someone in your guild or group has a newer EraUI.",1,1,1,true)
+        GameTooltip:Show()
+    end)
+    notice:SetScript("OnLeave",function()GameTooltip:Hide()end)
+    frame.updateNotice=notice
     function frame:UpdatePresetLabel()
         local P=EraUI.Presets
         local shown=P~=nil and not self.setupMode
-        presets:SetShown(shown);presetLabel:SetShown(shown)
+        presets:SetShown(shown);presetLabel:SetShown(shown);notice:SetShown(not self.setupMode)
+        notice:Set(EraUI:GetSetting("updateCheck")~=false)
         if shown then presetLabel:SetText("Preset: "..P.NAMES[P:Current()]) end
     end
     -- For changes made outside the window (e.g. the quest tracker prompt).
@@ -1420,7 +1502,7 @@ function SettingsModule:Initialize()
         self.settingsScroll:ClearAllPoints()
         self.settingsScroll:SetPoint("TOPLEFT",enabled and 30 or 202,-148)
         self.settingsScroll:SetPoint("BOTTOMRIGHT",-40,94)
-        hint:SetWidth(enabled and 330 or 560)
+        hint:SetWidth(enabled and 330 or 380)
         if enabled then
             local tracker=EraUI.modules.QuestTrackerChoice
             self.trackerStep=tracker and tracker:QuestieInstalled() or false

@@ -488,6 +488,33 @@ do
 
  -- /era: the active preset is a label, never a warning.
  equal(f.presetButton:IsShown(),true,"Presets button in /era")
+ -- The update notice: a small tick under Presets, not a card.
+ local notice=f.updateNotice
+ equal(notice:IsShown()and notice.on,true,"Update notice ticked under Presets")
+ equal(f.checks.updateCheck,nil,"and not a card in Quality of Life")
+ notice:Fire("OnClick")
+ equal(E.settings.updateCheck,false,"unticking turns it off")
+ notice:Fire("OnClick")
+ equal(E.settings.updateCheck,true,"and on again")
+ -- Changelog in the middle of the footer.
+ local point,_,relative,x=f.changelogButton:GetPoint()
+ equal(point=="BOTTOM"and relative=="BOTTOM"and x,0,"Changelog centred in the footer")
+ -- More from Squirt: the other addons, with a way to open them.
+ local more=f.checks.moreFECM
+ equal(more.category,14,"More from Squirt has its own tab")
+ more:SetChecked()
+ equal(more.open.shown,false,"not installed: no Open button")
+ equal(more.state:GetText(),"Coming soon to CurseForge and GitHub.","not out yet: coming soon")
+ equal(more.curse.shown or more.github.shown,false,"with no links until it has pages")
+ local opened
+ C_AddOns={IsAddOnLoaded=function(name)return name=="ForeverEnhancedCooldownManager"end}
+ SlashCmdList.FECM=function()opened=true end
+ more:SetChecked()
+ equal(more.open.shown,true,"installed: an Open button")
+ more.open:Fire("OnClick")
+ equal(opened,true,"which opens it")
+ C_AddOns=nil;SlashCmdList.FECM=nil
+ f:Show();Flush()
  equal(f.presetLabel:GetText(),"Preset: Classic look","Classic look recognised")
  E.settings.minimap=false;f:UpdatePresetLabel()
  equal(f.presetLabel:GetText(),"Preset: Custom","any change to the look shows Custom")
