@@ -5,13 +5,13 @@ Author: Squirt
 Public invite: https://discord.gg/fp6HHNYNMm
 
 The STAFF category is restricted to the owner, Admin and Moderator roles.
-Keep `github-feed` and `curseforge-feed` synchronized with its permissions.
+Keep `eraui-github` and `eraui-curseforge` synchronized with its permissions.
 
 ## GitHub
 
 The repository webhook sends issue, issue-comment, discussion, discussion-comment,
 pull-request, review, review-comment and commit-comment events to Discord's
-GitHub-compatible endpoint in `github-feed`. Payload format: JSON. SSL verification: on.
+GitHub-compatible endpoint in `eraui-github`. Payload format: JSON. SSL verification: on.
 The webhook URL is a credential. Do not paste it into documentation or source code.
 
 ## CurseForge
@@ -22,7 +22,7 @@ GitHub's scheduler. It uses the public website's comments endpoint, which is not
 documented/stable CurseForge API and may change or block automated requests.
 
 Required repository Actions secret: `CURSEFORGE_DISCORD_WEBHOOK`.
-Its value is the Discord webhook for the private `curseforge-feed` channel.
+Its value is the Discord webhook for the private `eraui-curseforge` channel.
 
 First setup: run the workflow manually with `initialize_state` and
 `test_notification` enabled. Existing comments become the baseline rather than
