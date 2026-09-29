@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.1
+
+### Added
+- Discord: a Discord button in the /era footer beside Changelog and at the bottom of What's New, and /era discord. Found a bug or have an idea? It gives you the invite to copy.
+- Class reminders: on Any, clicking a blessing, weapon imbue or demon reminder casts the only one you know, or the one you cast last. Until you've cast one, hovering the reminder says what to do.
+
+### Changed
+- Class reminders: blessings are always click-cast as the normal blessing, never a Greater Blessing that needs Symbol of Kings. Priests, mages and druids click-cast a group buff (Prayer of Fortitude, Arcane Brilliance, Gift of the Wild) only while carrying its reagent.
+- Class reminders: a warrior's Battle Shout says "Not enough rage", with its own "Say when you're out of rage" option.
+- Update notice: only believes a version from your guild, party, raid or instance group, or a whisper from yourself.
+- More from Squirt: Forever Enhanced Cooldown Manager has its own icon and opens with /ccm.
+- Clean minimap also tucks away Forever Enhanced Cooldown Manager's minimap button, and no longer fades an addon's minimap button while you drag it.
+
+### Fixed
+- Setup: the "log out now?" question for a new damage font and its "Yes, log out" button no longer stay on screen after you leave setup, or come back after a fight.
+
 ## 1.2.0
 
 ### Added

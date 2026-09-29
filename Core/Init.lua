@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.2.0"
+EraUI.version = "1.2.1"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
