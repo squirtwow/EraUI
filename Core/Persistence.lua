@@ -31,7 +31,7 @@ local function SettingType(key)
     local prefix, class = key:match("^(reminder%w*)_([A-Z]+)_[%w]+$")
     if classes[class] then
         if prefix == "reminder" then return "boolean" end
-        if prefix == "reminderChoice" or prefix == "reminderPX" or prefix == "reminderPY" then return "number" end
+        if prefix == "reminderChoice" or prefix == "reminderLast" or prefix == "reminderPX" or prefix == "reminderPY" then return "number" end
     end
 end
 

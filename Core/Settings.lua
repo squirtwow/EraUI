@@ -856,7 +856,7 @@ function SettingsModule:Initialize()
         card:SetSize(716,92);card:SetPoint("TOPLEFT",202,-148-row*100)
         CardLook(card)
         local icon=card:CreateTexture(nil,"ARTWORK")
-        icon:SetSize(40,40);icon:SetPoint("TOPLEFT",14,-14);icon:SetTexture(info.icon);icon:SetTexCoord(.07,.93,.07,.93)
+        icon:SetSize(40,40);icon:SetPoint("TOPLEFT",14,-14);icon:SetTexture(info.icon)
         card.text=Text(card,info.name,15);card.text:SetPoint("TOPLEFT",66,-12)
         local about=Text(card,info.about,12,true)
         about:SetPoint("TOPLEFT",66,-34);about:SetWidth(500);about:SetJustifyH("LEFT")
@@ -899,8 +899,9 @@ function SettingsModule:Initialize()
         card:SetChecked();frame.checks[key]=card
     end
     MoreCard("moreFECM",0,{name="Forever Enhanced Cooldown Manager",addon="ForeverEnhancedCooldownManager",
-        slash="FECM",command="/fecm",icon="Interface\\Icons\\INV_Misc_PocketWatch_01",search="fecm cooldown manager bars",
-        about="Cooldown and buff bars of your own, and a fresh look for Blizzard's Cooldown Manager and Personal Resource Display."})
+        slash="FECM",command="/ccm",icon="Interface\\AddOns\\EraUI\\Media\\FECMIcon.tga",search="fecm ccm cooldown manager bars cast bar layout",
+        about="Cooldown, buff and cast bars of your own, stacked round your Personal Resource Display, and a fresh look for Blizzard's Cooldown Manager.",
+        github="https://github.com/squirtwow/ForeverEnhancedCooldownManager"})
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)
     MakeCheck(frame, "Red Combo Points", "comboPointRed", 12, 0, 0, "Ability_Rogue_Rupture", "Draw the combo point orbs red instead of gold. Applies immediately.", false)

@@ -93,7 +93,8 @@ local function Session(class)
  env.GetTime=function()return 10 end
  env.IsPlayerSpell=function(id)return known[id]==true end
  local names={[883]="Call Pet",[982]="Revive Pet",[13165]="Aspect of the Hawk",[14318]="Aspect of the Hawk",
-  [5118]="Aspect of the Cheetah",[1243]="Power Word: Fortitude",[688]="Summon Imp",[6201]="Create Healthstone"}
+  [5118]="Aspect of the Cheetah",[1243]="Power Word: Fortitude",[688]="Summon Imp",[697]="Summon Voidwalker",
+  [6201]="Create Healthstone",[19740]="Blessing of Might",[19742]="Blessing of Wisdom"}
  env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
   IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
@@ -126,6 +127,9 @@ local function Session(class)
  function s:click(row)
   local a=row.action
   return a and a:IsShown()and a.attrs.type1=="macro"and a.attrs.macrotext1 or nil
+ end
+ function s:event(...)
+  for _,f in ipairs(frames)do if f.scripts.OnEvent and f.scripts.OnUpdate then f.scripts.OnEvent(f,...)end end
  end
  return s
 end
@@ -199,6 +203,9 @@ s:combat(false)
 s.known[883]=nil;s.known[982]=nil;s.known[13165]=true;s.known[14318]=true;s.M:Refresh()
 row=s:row("aspect")
 Equal(s:click(row),"/cast [nocombat,@player] Aspect of the Hawk","aspect uses supported cast default")
+s:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",5118);s.M:Refresh()
+Equal(s:click(row),"/cast [nocombat,@player] Aspect of the Hawk","aspects keep their own default, whatever you cast last")
+Equal(s.env.EraUIDB.reminderLast_HUNTER_aspect,nil,"so nothing is remembered for them")
 s.env.EraUIDB.reminderChoice_HUNTER_aspect=5118;s.known[5118]=true;s.M:Refresh()
 Equal(s:click(row),"/cast [nocombat,@player] Aspect of the Cheetah","selected aspect changes action")
 s.env.EraUIDB.reminder_HUNTER_aspect=false;s.M:Refresh()
@@ -234,11 +241,40 @@ Equal(priest:row("fortitude").sub.text,"Missing on Bob","only the party member l
 Equal(priest:click(priest:row("fortitude")),"/cast [nocombat,@target,help,nodead][nocombat,@player] Power Word: Fortitude","for others, a friendly target first")
 local warlock=Session("WARLOCK")
 warlock.known[688]=true;warlock.known[6201]=true;warlock.env.EraUIDB.reminderClickable=true;warlock.M:Initialize()
-Equal(warlock:click(warlock:row("pet")),nil,"Any demon never chooses a summon arbitrarily")
+Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Imp","Any demon with only the Imp known summons the Imp")
+Equal(warlock:row("pet").hint,nil,"with nothing to explain")
+warlock.known[697]=true;warlock.M:Refresh()
+Equal(warlock:click(warlock:row("pet")),nil,"two known and neither cast yet: Any never guesses")
+Equal(warlock:row("pet").hint,"Use a demon once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Demon.",
+ "hovering says what to do")
+warlock:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",697);warlock.M:Refresh()
+Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Voidwalker","then it summons the one you cast last")
+Equal(warlock:row("pet").hint,nil,"and the hint goes")
+Equal(warlock:row("pet").icon.texture,697,"its icon shows that one")
+warlock:event("UNIT_SPELLCAST_SUCCEEDED","party1","cast-2",688)
+warlock:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-3",secret);warlock.M:Refresh()
+Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Voidwalker","others' casts and hidden spell IDs don't count")
 warlock.env.EraUIDB.reminderChoice_WARLOCK_pet=688;warlock.M:Refresh()
 Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Imp","chosen demon is clickable")
 Equal(warlock:click(warlock:row("healthstone")),"/cast [nocombat] Create Healthstone","creation reminder casts spell rather than uses item")
 Equal(warlock:click(warlock:row("shards")),nil,"supply count reminder has no invented action")
+-- Blessings on Any: the only one you know, or the one you cast last.
+local paladin=Session("PALADIN")
+paladin.known[19740]=true;paladin.env.EraUIDB.reminderClickable=true;paladin.M:Initialize()
+local blessing=paladin:row("blessing")
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","Any blessing with only Might known casts Might")
+paladin.known[19742]=true;paladin.M:Refresh()
+Equal(paladin:click(blessing),nil,"Might and Wisdom known, none cast yet: no guess")
+Equal(blessing.hint,"Use a blessing once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Blessing.",
+ "hovering says to use one first, or pick one")
+paladin:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",19742);paladin.M:Refresh()
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Wisdom","then a click casts the one you cast last")
+Equal(paladin.env.EraUIDB.reminderLast_PALADIN_blessing,19742,"remembered for next time")
+paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=19740;paladin.M:Refresh()
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","a blessing you pick always wins")
+paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=0;paladin.env.EraUIDB.reminderLast_PALADIN_blessing=nil
+paladin.env.EraUIDB.reminderClickable=false;paladin.M:Refresh()
+Equal(blessing.hint,nil,"no hint while reminder clicks are off")
 local quiet=Session("HUNTER")
 quiet.known[883]=true;quiet.known[982]=true;quiet.pet.exists=true
 quiet.env.EraUIDB.reminderCombat=true;quiet.M:Initialize()

@@ -187,6 +187,46 @@ local function CycleChoice(def)
  local choice=list[index%#list+1]
  SetOpt(ChoiceKey(def),choice.key=="any"and 0 or choice.ids[1])
 end
+-- A choice left on Any, with no cast default of its own (castIds): a click
+-- casts the only one you know, or else the one you cast last.
+local function LastKey(def)return "reminderLast_"..tostring(class).."_"..def.key end
+local function ChoiceWith(def,id)
+ if id==nil then return nil end
+ for _,choice in ipairs(def.choices or{})do
+  for _,cid in ipairs(choice.ids or{})do if cid==id then return choice end end
+ end
+end
+local function AnyChoice(def)
+ if not def.choices or def.castIds or ChoiceOf(def)then return nil end
+ local only,count=nil,0
+ for _,choice in ipairs(def.choices)do
+  if choice.ids and HighestKnown(choice.ids)then only=choice;count=count+1 end
+ end
+ if count==1 then return only end
+ local last=ChoiceWith(def,tonumber(Opt(LastKey(def))))
+ if last and HighestKnown(last.ids)then return last end
+end
+-- Notes a choice you cast yourself; true when that's news.
+local function Remember(spellID)
+ if not T.Number(spellID)then return false end
+ for _,def in ipairs(Definitions())do
+  if def.choices and not def.castIds then
+   local choice=ChoiceWith(def,spellID)
+   if choice then
+    if tonumber(Opt(LastKey(def)))==choice.ids[1]then return false end
+    SetOpt(LastKey(def),choice.ids[1])
+    return true
+   end
+  end
+ end
+ return false
+end
+-- Said on hover while a click has nothing to cast yet.
+local function PickHint(def)
+ local label=def.choiceLabel or "Spell"
+ local article=string.lower(label):find("^[aeiou]")and "an "or "a "
+ return "Use "..article..string.lower(label).." once and clicking here casts that one from then on. Or pick one in /era: Advanced, then "..label.."."
+end
 local function AlertText(def)
  local choice=ChoiceOf(def)
  if choice then return string.upper(choice.name).."!"end
@@ -198,7 +238,7 @@ local function AlertText(def)
  return def.text or def.name or"?"
 end
 local function Icon(def)
- local choice=ChoiceOf(def)
+ local choice=ChoiceOf(def)or AnyChoice(def)
  local id=HighestKnown(choice and choice.ids or def.ids)
  if id then local _,icon=T.Spell(id);if icon then return icon end end
  return def.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -366,11 +406,12 @@ local function DefState(def,cache)
  return true,"Missing on "..table.concat(names,", "),selfMissing
 end
 
--- Only spell-backed reminders have a click action. Ambiguous "Any" selections
--- need a chosen spell, unless the definition supplies an explicit cast default.
+-- Only spell-backed reminders have a click action. "Any" casts the definition's
+-- own default (castIds), or else the only choice you know or the one you cast
+-- last; with several known and none cast yet, a click has nothing to cast.
 local function ClickSpell(def)
  if def.noCast then return nil end
- local choice=ChoiceOf(def)
+ local choice=ChoiceOf(def)or AnyChoice(def)
  if def.choices and not choice and not def.castIds then return nil end
  return HighestKnown(choice and choice.ids or def.castIds or def.ids)
 end
@@ -462,6 +503,13 @@ local function Row(index)
    self:StartMoving()
   end)
   row:HookScript("OnHide",function(self)Disarm(self)end)
+  row:SetScript("OnEnter",function(self)
+   if not self.hint then return end
+   GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+   GameTooltip:SetText(self.hint,1,1,1,1,true)
+   GameTooltip:Show()
+  end)
+  row:SetScript("OnLeave",function()GameTooltip:Hide()end)
   row:SetScript("OnDragStop",function(self)
    if InCombatLockdown()then dragging=false;return end
    self:StopMovingOrSizing()
@@ -555,6 +603,10 @@ local function Paint()
     end
      row:Show()
      SyncClick(row,def,actionable,selfMissing)
+     -- On Any with several known and none cast yet, hovering says what to do.
+     local waiting=actionable and Clickable()and not preview and not def.noCast and def.choices and not def.castIds
+      and not ChoiceOf(def)and not AnyChoice(def)
+     row.hint=waiting and PickHint(def)or nil
    end
   end
  end
@@ -793,8 +845,15 @@ function M:Initialize()
  end
  -- Your mana, for "Not enough mana" under a reminder.
  if events.RegisterUnitEvent then pcall(events.RegisterUnitEvent,events,"UNIT_POWER_UPDATE","player")end
+ -- Your own casts, so a choice left on Any clicks the one you cast last.
+ if events.RegisterUnitEvent then pcall(events.RegisterUnitEvent,events,"UNIT_SPELLCAST_SUCCEEDED","player")
+ else pcall(events.RegisterEvent,events,"UNIT_SPELLCAST_SUCCEEDED")end
  local dirty=true;local elapsed=0
- events:SetScript("OnEvent",function(_,event)
+ events:SetScript("OnEvent",function(_,event,unit,_,spellID)
+  if event=="UNIT_SPELLCAST_SUCCEEDED"then
+   if unit=="player"and Remember(spellID)then dirty=true end
+   return
+  end
   if event=="UNIT_AURA"or event=="GROUP_ROSTER_UPDATE"or event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then
    groupCache.units={};groupCache.at=GetTime()
   end

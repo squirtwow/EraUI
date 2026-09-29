@@ -56,9 +56,10 @@ function Module:Discover()
         self.discoveryNote = libraryCallbacks[lib] and "LibDBIcon registration-based discovery active"
             or "LibDBIcon has no supported creation callback; discovery is event-based only"
     end
-    -- Legacy buttons with unambiguous addon-owned names. Native map controls
-    -- (time, mail, tracking and zoom) are deliberately not collected.
-    for _, name in ipairs({"DBMMinimapButton", "AtlasButton", "BagnonMinimapButton", "HealBot_MMButton"}) do Remember(_G[name]) end
+    -- Legacy buttons with unambiguous addon-owned names, and Forever Enhanced
+    -- Cooldown Manager's. Native map controls (time, mail, tracking and zoom)
+    -- are deliberately not collected.
+    for _, name in ipairs({"DBMMinimapButton", "AtlasButton", "BagnonMinimapButton", "HealBot_MMButton", "FECMMinimapButton"}) do Remember(_G[name]) end
 end
 function Module:OnIconCreated(_, button)
     Remember(button)

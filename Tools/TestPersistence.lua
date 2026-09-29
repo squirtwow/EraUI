@@ -75,7 +75,7 @@ end
 -- Existing SavedVariables and dynamic legacy booleans migrate without loss.
 cvars.EraUICharSwing="Hunter:10;Other:01"
 cvars.EraUIOnboarding="Hunter:110,1,12.13;Other:100,1,"
-local E,flush,fire=Session({reminderSize=3,reminderChoice_HUNTER_aspect=13165,
+local E,flush,fire=Session({reminderSize=3,reminderChoice_HUNTER_aspect=13165,reminderLast_PALADIN_blessing=19742,
     reminderPX_HUNTER_pet=-165.25,reminderPY_HUNTER_pet=93.125,reminderSpotVersion=2,
     mapPosition={x=-200.5,y=33.25},mapSize={w=800,h=530},profile="Text ;=: | utf8 café",
     resourceBarPositions={HUNTER={x=50,y=-10,width=200,height=22}},
@@ -108,6 +108,7 @@ E,flush,fire=Session()
 equal(registrations,registered,"existing CVars never re-registered at startup")
 equal(EraUIDB.reminderSize,3,"size survives missing SavedVariables")
 equal(EraUIDB.reminderChoice_HUNTER_aspect,13165,"choice survives")
+equal(EraUIDB.reminderLast_PALADIN_blessing,19742,"the blessing cast last survives")
 equal(EraUIDB.reminderPX_HUNTER_pet,-165.25,"negative fractional x survives")
 equal(EraUIDB.reminderPY_HUNTER_pet,93.125,"fractional y survives")
 equal(EraUIDB.reminderSpotVersion,2,"migration marker survives")
