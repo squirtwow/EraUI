@@ -301,6 +301,8 @@ local function Build()
         local width = math.min(560, math.max(1, UIParent:GetWidth() - 40))
         local contentWidth = math.max(1, width - 72)
         self:SetWidth(width)
+        -- On a narrow screen the question would run into Got it; the button stays.
+        if self.ask then self.ask:SetShown(width >= 520) end
         self.title:SetWidth(math.max(1, width - 56))
         content:SetWidth(contentWidth)
         local y = 0
@@ -326,22 +328,46 @@ local function Build()
 
     local button = CreateFrame("Button", nil, window, "BackdropTemplate")
     button:SetSize(120, 34)
-    button:SetPoint("BOTTOM", window, "BOTTOM", 0, 20)
+    button:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -28, 20)
     button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     label:SetPoint("CENTER")
     label:SetText("Got it")
     button:SetScript("OnClick", function() window:Hide() end)
-    button:SetScript("OnEnter", function(self)
+    local function Hover(self)
         local r, g, b = ClassColour()
         self:SetBackdropColor(r * .3, g * .3, b * .3, 1)
-    end)
-    button:SetScript("OnLeave", function(self)
+    end
+    local function Unhover(self)
         local r, g, b = ClassColour()
         self:SetBackdropColor(r * .2, g * .2, b * .2, 1)
-    end)
+    end
+    button:SetScript("OnEnter", Hover)
+    button:SetScript("OnLeave", Unhover)
     window.button = button
+
+    -- Where to go with a bug or an idea: the question on the left, the
+    -- Discord button beside Got it on the right.
+    local ask = Text(12, .62, .64, .70, 28, 0)
+    ask:ClearAllPoints()
+    ask:SetPoint("BOTTOMLEFT", 28, 31)
+    ask:SetText("Found a bug or have an idea?")
+    window.ask = ask
+    local discord = CreateFrame("Button", nil, window, "BackdropTemplate")
+    discord:SetSize(96, 34)
+    discord:SetPoint("RIGHT", button, "LEFT", -8, 0)
+    discord:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    local discordLabel = discord:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    discordLabel:SetPoint("CENTER")
+    discordLabel:SetText("Discord")
+    discord:SetScript("OnClick", function()
+        if EraUI.ShowDiscord then EraUI.ShowDiscord() end
+    end)
+    discord:SetScript("OnEnter", Hover)
+    discord:SetScript("OnLeave", Unhover)
+    window.discord = discord
 end
 
 local function Show()
@@ -353,6 +379,8 @@ local function Show()
     window.title:SetTextColor(r, g, b)
     window.button:SetBackdropColor(r * .2, g * .2, b * .2, 1)
     window.button:SetBackdropBorderColor(r, g, b, 1)
+    window.discord:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    window.discord:SetBackdropBorderColor(r, g, b, 1)
     window:Show()
     window:Raise()
     window:LayoutNotes()

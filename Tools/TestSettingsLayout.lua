@@ -499,6 +499,16 @@ do
  -- Changelog in the middle of the footer.
  local point,_,relative,x=f.changelogButton:GetPoint()
  equal(point=="BOTTOM"and relative=="BOTTOM"and x,0,"Changelog centred in the footer")
+ -- Discord right beside it, for bugs and ideas.
+ local discord=f.discordButton
+ local dpoint,dto,drel,dx=discord:GetPoint()
+ equal(dpoint=="LEFT"and dto==f.changelogButton and drel=="RIGHT"and dx,8,"Discord beside Changelog")
+ equal(discord:IsShown()and discord.label.text,"Discord","Discord shown in the footer")
+ local invited=0;E.ShowDiscord=function()invited=invited+1 end
+ discord:Fire("OnClick");SlashCmdList.ERAUI("discord")
+ equal(invited,2,"the button and /era discord give the invite")
+ f:SetSetupMode(true);equal(discord:IsShown(),false,"hidden during guided setup, like Changelog")
+ f:SetSetupMode(false);Flush();equal(discord:IsShown(),true,"and back after it")
  -- More from Squirt: the other addons, with a way to open them.
  local more=f.checks.moreFECM
  equal(more.category,14,"More from Squirt has its own tab")

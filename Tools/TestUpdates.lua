@@ -20,6 +20,7 @@ local function Frame(parent)
  function f:Show()self.shown=true end
  function f:Hide()self.shown=false end
  function f:IsShown()return self.shown end
+ function f:SetShown(v)self.shown=not not v end
  function f:CreateTexture()return Frame(self)end
  function f:CreateFontString()return Frame(self)end
  function f:SetText(text)self.text=text end
@@ -60,7 +61,15 @@ check(s:GetVerticalScroll()==s:GetVerticalScrollRange(),"wheel reaches final not
 s.scripts.OnMouseWheel(s,100000)
 check(s:GetVerticalScroll()==0,"wheel clamps to the first note")
 local originalContentHeight=w.content:GetHeight()
+-- Found a bug? The Discord, beside Got it, with the question on the left.
+check(w.button.points[1][1]=="BOTTOMRIGHT","Got it at the bottom right")
+check(w.discord.parent==w and w.discord.points[1][1]=="RIGHT" and w.discord.points[1][2]==w.button,"Discord right beside Got it, outside the notes")
+check(w.ask.text=="Found a bug or have an idea?" and w.ask:IsShown(),"asking about bugs and ideas")
+local invited=0;E.ShowDiscord=function()invited=invited+1 end
+w.discord.scripts.OnClick()
+check(invited==1,"the Discord button gives the invite")
 UIParent:SetSize(440,420);w.scripts.OnEvent(w,"DISPLAY_SIZE_CHANGED")
+check(not w.ask:IsShown() and w.discord:IsShown(),"a narrow window drops the question, keeps the button")
 check(w:GetWidth()==400 and w:GetHeight()==380,"small screen keeps margins on both axes")
 check(w.content:GetHeight()>originalContentHeight,"narrow screen reflows wrapped notes")
 for _,block in ipairs(w.blocks)do

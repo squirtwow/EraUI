@@ -50,6 +50,11 @@ ns.CopyLink = CopyLink
 ns.CURSEFORGE_URL = CURSEFORGE_URL
 ns.GITHUB_URL = GITHUB_URL
 ns.DISCORD_URL = "https://discord.gg/FVfcDWJncr"
+-- The Discord invite, ready to copy: from /era's footer, What's New and
+-- /era discord.
+function EraUI.ShowDiscord()
+    CopyLink("Found a bug or have an idea? Join the EraUI Discord.", ns.DISCORD_URL)
+end
 
 local window
 

@@ -1170,6 +1170,19 @@ function SettingsModule:Initialize()
     changelog:SetScript("OnClick",function()
         if EraUI.ShowUpdateNotes then EraUI.ShowUpdateNotes() end
     end)
+    -- Discord beside it, for bugs and ideas; Changelog stays in the middle.
+    local discord=SetupButton("Discord",-24,112)
+    discord:ClearAllPoints();discord:SetPoint("LEFT",changelog,"RIGHT",8,0)
+    frame.discordButton=discord
+    discord:SetScript("OnClick",function()
+        if EraUI.ShowDiscord then EraUI.ShowDiscord() end
+    end)
+    discord:SetScript("OnEnter",function(self)
+        GameTooltip:SetOwner(self,"ANCHOR_TOP")
+        GameTooltip:SetText("Found a bug or have an idea? Join the Discord.",1,1,1,1,true)
+        GameTooltip:Show()
+    end)
+    discord:SetScript("OnLeave",function()GameTooltip:Hide()end)
     -- Active preset and a way to switch; a label only, never a warning.
     local presets=SetupButton("Presets",-24,96)
     presets:ClearAllPoints();presets:SetSize(96,26);presets:SetPoint("TOPRIGHT",-48,-36)
@@ -1495,6 +1508,7 @@ function SettingsModule:Initialize()
         search:SetShown(not enabled)
         self.setupMode=enabled
         changelog:SetShown(not enabled)
+        discord:SetShown(not enabled)
         self:SetWidth(enabled and 800 or 960)
         self:SetScale(math.min(1,math.max(.1,(UIParent:GetWidth()-32)/self:GetWidth()),math.max(.1,(UIParent:GetHeight()-32)/650)))
         section:ClearAllPoints()
@@ -1566,6 +1580,7 @@ function SettingsModule:Initialize()
 
     local function Refresh()
         changelog:SetShown(not frame.setupMode)
+        discord:SetShown(not frame.setupMode)
         frame:RefreshCastDependencies()
         for key, check in pairs(frame.checks) do
             local checked = EraUI:GetSavedSetting(key) and true or false
