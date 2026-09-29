@@ -11,7 +11,7 @@
 <li>🌍&nbsp;<strong>Reveal World Map</strong>: show supported unexplored terrain with darker shading, while explored areas keep their normal colours</li>
 <li>🎯&nbsp;<strong>Crowd control on portraits</strong>: icons and countdowns on player, target, focus and party portraits, in combat too</li>
 <li>📊&nbsp;<strong>Classic damage meter</strong>: an optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown</li>
-<li>🔔&nbsp;<strong>Class reminders</strong>: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies, with <strong>Not enough mana</strong> until you can cast</li>
+<li>🔔&nbsp;<strong>Class reminders</strong>: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies, with <strong>Not enough mana</strong> (or rage) until you can cast</li>
 <li>📖&nbsp;<strong>Training Guide</strong>: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals. Spells taught by class quests name the quest and where it starts</li>
 <li>🔤&nbsp;<strong>Damage &amp; healing text</strong>: pick the font of the numbers, your own heals included (Pepsi by default, plus 13 more), and their size</li>
 <li>🔗&nbsp;<strong>Click links again to close</strong>: a second click on an item or spell link in chat closes its tooltip</li>
@@ -109,8 +109,8 @@
 <li>Pick a preferred aspect, blessing, shaman weapon imbue or warlock demon under <strong>Advanced</strong></li>
 <li>Hunters have separate <strong>SUMMON PET!</strong> and <strong>PET DEAD!</strong> reminders, using Call Pet and Revive Pet icons; each can be toggled under <strong>Advanced</strong>. Selected warlock demons are checked by demon family</li>
 <li>Optional <strong>Clickable reminders (outside combat)</strong> starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast</li>
-<li>Choose a specific blessing, shaman imbue or warlock demon under <strong>Advanced</strong> to enable its click action. A buff you're missing yourself is cast on you, even with someone else targeted; otherwise targetable group buffs use your friendly living target. Reminders without an associated spell remain informational</li>
-<li>When you don't have the mana for a reminder's spell, <strong>Not enough mana</strong> shows under it and it can't be clicked until you can cast it. Turn this off with <strong>Say when you're out of mana</strong></li>
+<li>Blessing, shaman imbue and warlock demon reminders left on <strong>Any</strong> cast the only one you know, or the one you cast last; or pick a specific one under <strong>Advanced</strong>. A buff you're missing yourself is cast on you, even with someone else targeted; otherwise targetable group buffs use your friendly living target. Reminders without an associated spell remain informational</li>
+<li>When you don't have the mana (or a warrior's rage) for a reminder's spell, <strong>Not enough mana</strong> (or rage) shows under it and it can't be clicked until you can cast it. Turn this off with <strong>Say when you're out of mana</strong> (<strong>out of rage</strong> for warriors)</li>
 <li>Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types</li>
 <li>Shamans can enable a separate <strong>Windfury Totem</strong> reminder under Advanced; the general totem reminder checks whether any totem is active</li>
 <li>Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup</li>
@@ -156,6 +156,7 @@
 <li><code>/era welcome</code>&nbsp;shows the welcome screen again</li>
 <li><code>/era updates</code>&nbsp;shows the latest update notes again</li>
 <li><code>/era reminders</code>&nbsp;opens class-reminder settings</li>
+<li><code>/era discord</code>&nbsp;gives the Discord invite to copy, for bugs and ideas. The bottom of <code>/era</code> and the What's new window have a <strong>Discord</strong> button too</li>
 <li><code>/era status</code>&nbsp;opens a selectable diagnostics report</li>
 <li><code>/era-classic status</code>&nbsp;opens the detailed status/error-report window, including the <strong>Discord</strong> button and a copyable support invite</li>
 <li><code>/era audit</code>&nbsp;runs the addon audit report</li>

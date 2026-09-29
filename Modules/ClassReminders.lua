@@ -20,15 +20,21 @@ local function DedicatedPoisons()
  return class=="ROGUE"and E:GetSetting("poisonReminders")
 end
 local function ReminderCapabilities()
- local group,clickable=false,false
+ local group,clickable,power=false,false,nil
  for _,def in ipairs(Definitions())do
   if def.group and not def.self and(not def.kind or def.kind=="aura")then group=true end
   if not def.noCast then
-   if #(def.castIds or def.ids or{})>0 then clickable=true end
-   for _,choice in ipairs(def.choices or{})do if #(choice.ids or{})>0 then clickable=true end end
+   local can=#(def.castIds or def.ids or{})>0
+   for _,choice in ipairs(def.choices or{})do if #(choice.ids or{})>0 then can=true end end
+   if can then
+    clickable=true
+    -- The "out of" option names what your reminders cost; a mix says mana.
+    local p=def.power or "mana"
+    power=(power==nil or power==p)and p or "mana"
+   end
   end
  end
- return group,clickable
+ return group,clickable,power or "mana"
 end
 local function Save()if E.Classic and E.Classic.MirrorSave then E.Classic.MirrorSave()end end
 local function Opt(key)return EraUIDB and EraUIDB[key]end
@@ -43,6 +49,8 @@ local function GroupOn()return Opt("reminderGroup")~=false end
 local function CombatOn()return Opt("reminderCombat")==true end
 local function Clickable()return Opt("reminderClickable")==true end
 local function ManaOn()return Opt("reminderMana")~=false end
+-- Rage has its own switch, so a warrior turning it off keeps mana notes on alts.
+local function RageOn()return Opt("reminderRage")~=false end
 local function SizeIndex()
  local v=tonumber(Opt("reminderSize"))or 2
  if v<1 or v>#SIZES then v=2 end
@@ -147,6 +155,23 @@ local function HighestKnown(ids)
  for _,id in ipairs(ids or{})do if T.Known(id)then best=id end end
  return best
 end
+-- The highest known rank a click may cast. Group versions that need a reagent
+-- (reagentIds) still count as the buff, but are only cast, shown or named
+-- while you carry their reagent (reagentItems); without it the click would do
+-- nothing. Greater Blessings have no reagentItems, so paladins always get the
+-- normal blessing.
+local function CastKnown(def,ids)
+ local best
+ for _,id in ipairs(ids or{})do
+  if T.Known(id)then
+   local reagent=false
+   for _,rid in ipairs(def.reagentIds or{})do if rid==id then reagent=true break end end
+   local item=def.reagentItems and def.reagentItems[id]
+   if not reagent or(item and T.Count(item)>0)then best=id end
+  end
+ end
+ return best
+end
 -- A reminder never fires for a spell the character cannot use yet.
 local function Applicable(def)
  if def.minLevel then
@@ -200,13 +225,14 @@ local function AnyChoice(def)
  if not def.choices or def.castIds or ChoiceOf(def)then return nil end
  local only,count=nil,0
  for _,choice in ipairs(def.choices)do
-  if choice.ids and HighestKnown(choice.ids)then only=choice;count=count+1 end
+  if choice.ids and CastKnown(def,choice.ids)then only=choice;count=count+1 end
  end
  if count==1 then return only end
  local last=ChoiceWith(def,tonumber(Opt(LastKey(def))))
- if last and HighestKnown(last.ids)then return last end
+ if last and CastKnown(def,last.ids)then return last end
 end
--- Notes a choice you cast yourself; true when that's news.
+-- Notes a choice you cast yourself (a Greater Blessing counts as its blessing,
+-- whose single-target version a click then casts); true when that's news.
 local function Remember(spellID)
  if not T.Number(spellID)then return false end
  for _,def in ipairs(Definitions())do
@@ -231,7 +257,7 @@ local function AlertText(def)
  local choice=ChoiceOf(def)
  if choice then return string.upper(choice.name).."!"end
  if def.dynamic then
-  local id=HighestKnown(def.ids)
+  local id=CastKnown(def,def.ids)
   local name=id and select(1,T.Spell(id))
   if name and type(name)=="string"then return string.upper(name).."!"end
  end
@@ -239,7 +265,7 @@ local function AlertText(def)
 end
 local function Icon(def)
  local choice=ChoiceOf(def)or AnyChoice(def)
- local id=HighestKnown(choice and choice.ids or def.ids)
+ local id=CastKnown(def,choice and choice.ids or def.ids)
  if id then local _,icon=T.Spell(id);if icon then return icon end end
  return def.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
 end
@@ -409,20 +435,25 @@ end
 -- Only spell-backed reminders have a click action. "Any" casts the definition's
 -- own default (castIds), or else the only choice you know or the one you cast
 -- last; with several known and none cast yet, a click has nothing to cast.
+-- It is always the single-target spell, never a reagent group version.
 local function ClickSpell(def)
  if def.noCast then return nil end
  local choice=ChoiceOf(def)or AnyChoice(def)
  if def.choices and not choice and not def.castIds then return nil end
- return HighestKnown(choice and choice.ids or def.castIds or def.ids)
+ return CastKnown(def,choice and choice.ids or def.castIds or def.ids)
 end
--- Whether you lack the mana to cast the reminder's spell right now. The
--- usable check is open in and out of combat; a hidden answer counts as enough.
-local function NoMana(def)
+-- Whether you lack the mana (or rage: def.power) to cast the reminder's spell
+-- right now. The usable check is open in and out of combat; a hidden answer
+-- counts as enough.
+local function NoPower(def)
  local id=ClickSpell(def)
  if not id or not(C_Spell and C_Spell.IsSpellUsable)then return false end
- local ok,_,noMana=pcall(C_Spell.IsSpellUsable,id)
- return ok and T.Public(noMana)and noMana==true
+ local ok,_,noPower=pcall(C_Spell.IsSpellUsable,id)
+ return ok and T.Public(noPower)and noPower==true
 end
+-- The note's word, colour and icon tint for each resource.
+local POWER={mana={"mana","8fa8ff",.5,.5,1},rage={"rage","ff7a6e",1,.5,.5}}
+local function Power(def)return POWER[def.power or "mana"]or POWER.mana end
 local function Disarm(row)
  if InCombatLockdown()or not row.action then return end
  row.action:SetAttribute("type1",nil)
@@ -574,12 +605,15 @@ local function Paint()
     row.icon:SetTexture(Icon(def))
     row.sub:SetFont(select(1,GameFontHighlightSmall:GetFont()),size.sub,"")
     row.sub:SetPoint("TOP",0,-(size.text+size.icon+8))
-    -- Out of mana: said under the icon, which takes the mana tint, and the
-    -- icon can't be clicked until you can cast it.
-    local short=actionable and ManaOn()and NoMana(def)
+    -- Out of mana (or rage): said under the icon, which takes that tint, and
+    -- the icon can't be clicked until you can cast it.
+    local powerOn
+    if def.power=="rage"then powerOn=RageOn()else powerOn=ManaOn()end
+    local short=actionable and powerOn and NoPower(def)
     if short then
-     row.sub:SetText((detail and detail~="" and(detail.."\n")or"").."|cff8fa8ffNot enough mana|r")
-     row.icon:SetVertexColor(.5,.5,1)
+     local p=Power(def)
+     row.sub:SetText((detail and detail~="" and(detail.."\n")or"").."|cff"..p[2].."Not enough "..p[1].."|r")
+     row.icon:SetVertexColor(p[3],p[4],p[5])
      actionable=false
     else
      row.sub:SetText(detail or"")
@@ -673,10 +707,12 @@ local function BuildOptions(parent,anchor)
  dropdown:SetBackdropColor(.026,.029,.037,.99)
  local r,g,b=T.Colour()
  dropdown:SetBackdropBorderColor(.19,.20,.24,1)
+ local groupSupported,clickSupported,power=ReminderCapabilities()
  local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
   local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
   local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v)end)
-  local mana=ToggleRow(dropdown,"Say when you're out of mana",ManaOn,function(v)SetOpt("reminderMana",v);M:Refresh()end)
+  local mana=ToggleRow(dropdown,"Say when you're out of "..power,power=="rage"and RageOn or ManaOn,
+   function(v)SetOpt(power=="rage"and "reminderRage"or "reminderMana",v);M:Refresh()end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
  local size=ActionButton(dropdown,"",158)
  size.draw=function()size.label:SetText("Alert size: "..SIZES[SizeIndex()].key.."  >")end
@@ -729,7 +765,7 @@ local function BuildOptions(parent,anchor)
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
- dropdown.groupSupported,dropdown.clickSupported=ReminderCapabilities()
+ dropdown.groupSupported,dropdown.clickSupported=groupSupported,clickSupported
   dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
   dropdown.clickable,dropdown.mana=clickable,mana
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
@@ -843,7 +879,7 @@ function M:Initialize()
   "PLAYER_LEVEL_UP","PLAYER_EQUIPMENT_CHANGED","UNIT_HEALTH","UNIT_FLAGS","UNIT_CONNECTION"})do
   pcall(events.RegisterEvent,events,event)
  end
- -- Your mana, for "Not enough mana" under a reminder.
+ -- Your mana or rage, for "Not enough mana" (or rage) under a reminder.
  if events.RegisterUnitEvent then pcall(events.RegisterUnitEvent,events,"UNIT_POWER_UPDATE","player")end
  -- Your own casts, so a choice left on Any clicks the one you cast last.
  if events.RegisterUnitEvent then pcall(events.RegisterUnitEvent,events,"UNIT_SPELLCAST_SUCCEEDED","player")

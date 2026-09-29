@@ -68,9 +68,10 @@ or off in the settings.
   pets, weapon coatings and supplies, with optional party and raid checks.
   Hunters have separate SUMMON PET and PET DEAD alerts. Optional Clickable
   reminders (off by default) let you cast supported spells by clicking their
-  icons outside combat; drag the text to move. Choose a blessing, imbue or demon
-  under Advanced to make its reminder clickable. A buff you're missing is cast
-  on you, and "Not enough mana" shows until you can cast it
+  icons outside combat; drag the text to move. On Any, clicking a blessing,
+  imbue or demon reminder casts the only one you know or the one you cast last;
+  or pick one under Advanced. A buff you're missing is cast on you, and "Not
+  enough mana" (rage for a warrior's shout) shows until you can cast it
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.
@@ -90,6 +91,8 @@ or off in the settings.
 - `/era welcome` shows the welcome screen again
 - `/era updates` shows the latest update notes again
 - `/era reminders` opens class-reminder settings
+- `/era discord` gives the Discord invite to copy, for bugs and ideas (the
+  bottom of `/era` and the what's new window have a Discord button too)
 - `/era status` opens a selectable diagnostics report
 - `/era audit` runs the addon audit report
 - `/era mapdebug` opens map diagnostics
@@ -99,8 +102,10 @@ or off in the settings.
 Most options apply immediately; the settings panel marks the few that need a
 reload. General settings and reminder layouts are shared across your characters;
 swing toggles and class-tool preferences are remembered per character and realm.
-Settings recovery also mirrors supported preferences and positions through addon
-CVars. Windows take the class colour of the character you're playing.
+Settings recovery also keeps a copy of supported preferences and positions in
+addon CVars, but the game doesn't save these to disk, so the copy is gone once
+you close the game. Windows take the class colour of the character you're
+playing.
 Quiet Mode (hide status messages) is on by default.
 
 ## Install

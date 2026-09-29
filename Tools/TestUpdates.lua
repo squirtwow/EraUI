@@ -65,9 +65,13 @@ local originalContentHeight=w.content:GetHeight()
 check(w.button.points[1][1]=="BOTTOMRIGHT","Got it at the bottom right")
 check(w.discord.parent==w and w.discord.points[1][1]=="RIGHT" and w.discord.points[1][2]==w.button,"Discord right beside Got it, outside the notes")
 check(w.ask.text=="Found a bug or have an idea?" and w.ask:IsShown(),"asking about bugs and ideas")
-local invited=0;E.ShowDiscord=function()invited=invited+1 end
+-- The invite popup sits in a lower layer: What's New closes before it opens.
+local invited,closedFirst=0,false
+E.ShowDiscord=function()invited=invited+1;closedFirst=not w:IsShown()end
 w.discord.scripts.OnClick()
 check(invited==1,"the Discord button gives the invite")
+check(closedFirst,"What's New closes first so the invite is not hidden behind it")
+E.ShowUpdateNotes()
 UIParent:SetSize(440,420);w.scripts.OnEvent(w,"DISPLAY_SIZE_CHANGED")
 check(not w.ask:IsShown() and w.discord:IsShown(),"a narrow window drops the question, keeps the button")
 check(w:GetWidth()==400 and w:GetHeight()==380,"small screen keeps margins on both axes")

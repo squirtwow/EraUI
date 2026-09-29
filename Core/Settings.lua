@@ -1124,12 +1124,14 @@ function SettingsModule:Initialize()
     later:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
     later:SetBackdropColor(.045,.05,.065,1);later:SetBackdropBorderColor(.22,.23,.27,1)
     later.label=Text(later,"No, later",14);later.label:SetPoint("CENTER")
-    later:SetScript("OnClick",function()frame.fontLater=true;frame:RenderSetup()end)
+    later:SetScript("OnClick",function()if not frame.setupMode then return end;frame.fontLater=true;frame:RenderSetup()end)
     frame.fontLaterButton=later
     local logout
+    -- IsShown is the question's own flag, still set after the window closes;
+    -- the button only goes where the question can be seen.
     PlaceLogout=function(show)
         if InCombatLockdown()then return end
-        if not show then if logout then logout:Hide()end;return end
+        if not(show and fontQuestion:IsVisible())then if logout then logout:Hide()end;return end
         if not logout then
             logout=CreateFrame("Button","EraUISetupLogout",UIParent,"SecureActionButtonTemplate,BackdropTemplate")
             logout:SetSize(150,32);logout:SetFrameStrata("DIALOG");logout:Hide()
@@ -1150,17 +1152,17 @@ function SettingsModule:Initialize()
     end
     fontQuestion:SetScript("OnShow",function()
         PlaceLogout(true)
-        C_Timer.After(0,function()if fontQuestion:IsShown()then PlaceLogout(true)end end)
+        C_Timer.After(0,function()if fontQuestion:IsVisible()then PlaceLogout(true)end end)
     end)
     fontQuestion:SetScript("OnHide",function()PlaceLogout(false)end)
     frame:HookScript("OnDragStart",function()PlaceLogout(false)end)
-    frame:HookScript("OnDragStop",function()if fontQuestion:IsShown()then PlaceLogout(true)end end)
+    frame:HookScript("OnDragStop",function()if fontQuestion:IsVisible()then PlaceLogout(true)end end)
     local logoutWatch=CreateFrame("Frame",nil,frame)
     logoutWatch:RegisterEvent("PLAYER_REGEN_DISABLED");logoutWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
     logoutWatch:SetScript("OnEvent",function(_,event)
         if event=="PLAYER_REGEN_DISABLED"then
             if logout then logout:Hide()end -- still allowed as combat begins
-        elseif fontQuestion:IsShown()then PlaceLogout(true)end
+        elseif fontQuestion:IsVisible()then PlaceLogout(true)end
     end)
     frame.logoutWatch=logoutWatch
     end
@@ -1531,7 +1533,8 @@ function SettingsModule:Initialize()
             navigation:Show();divider:Show()
             for _,tab in ipairs(tabs) do tab:Show() end
             RenderPresets(false);RenderTracker(false)
-            setupSummary:Hide();setupProgress:Hide();nextPage:Hide();previousPage:Hide()
+            -- The log out question belongs to setup; its OnHide takes the button too.
+            setupSummary:Hide();setupProgress:Hide();nextPage:Hide();previousPage:Hide();fontQuestion:Hide()
             SelectCategory(self.selectedCategory or 1)
             UpdateReloadHint(self)
         end

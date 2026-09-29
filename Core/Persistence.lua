@@ -14,7 +14,7 @@ local layouts = {
     rewardProfiles=true,
 }
 local reminderTypes = {
-    reminderGroup="boolean", reminderCombat="boolean", reminderSize="number", reminderClickable="boolean", reminderMana="boolean",
+    reminderGroup="boolean", reminderCombat="boolean", reminderSize="number", reminderClickable="boolean", reminderMana="boolean", reminderRage="boolean",
     reminderSpotVersion="number",
 }
 local classes = {WARRIOR=true,PALADIN=true,HUNTER=true,ROGUE=true,PRIEST=true,

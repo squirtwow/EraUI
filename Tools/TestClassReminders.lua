@@ -214,6 +214,55 @@ known[19742]=true;EraUIDB.reminderChoice_PALADIN_blessing=19742
 n=2;auras.player={19742};units.party1={exists=true,class="WARRIOR"};units.party2={exists=true,class="ROGUE"}
 equal(check("blessing"),false,"selected Wisdom skips non-mana classes")
 units.party2.class="MAGE";equal(check("blessing"),true,"selected Wisdom checks mana class")
+auras.party2={25918};event("UNIT_AURA");equal(check("blessing"),false,"Greater Blessing of Wisdom counts as Wisdom")
+EraUIDB.reminderChoice_PALADIN_blessing=0;auras.player={25916};auras.party1={25782};event("UNIT_AURA")
+equal(check("blessing"),false,"on Any, Greater Blessings count as a blessing")
+
+-- Reagent group versions (Greater Blessings, Prayer of Fortitude, Arcane
+-- Brilliance, Gift of the Wild) count as the buff, but a click never casts one.
+local classes={};for c in pairs(E.ReminderSpells)do classes[#classes+1]=c end;table.sort(classes)
+local want={PALADIN={blessing=25291},PRIEST={fortitude=10938,shadow=10958,spirit=27841},MAGE={intellect=10157},DRUID={mark=9885}}
+local reagents=0
+for _,c in ipairs(classes)do
+ E,check,defs,event=Session(c)
+ local click=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+ for _,def in ipairs(E.ReminderSpells[c])do
+  local reagent={}
+  for _,id in ipairs(def.reagentIds or{})do
+   reagent[id]=true;reagents=reagents+1
+   local listed=false
+   for _,x in ipairs(def.ids or{})do if x==id then listed=true end end
+   equal(listed,true,c.." "..def.key.." "..id.." still counts as the buff")
+  end
+  for _,id in ipairs(def.ids or{})do known[id]=true end
+  for _,choice in ipairs(def.choices or{})do
+   if choice.ids then
+    EraUIDB["reminderChoice_"..c.."_"..def.key]=choice.ids[1]
+    local id=click(def)
+    equal(id~=nil and not reagent[id],true,c.." "..def.key.." "..choice.key.." clicks a single-target spell")
+   end
+  end
+  EraUIDB["reminderChoice_"..c.."_"..def.key]=(def.key=="blessing")and 19740 or nil
+  local id=click(def)
+  if id then equal(reagent[id],nil,c.." "..def.key.." never clicks a reagent version")end
+  if want[c]and want[c][def.key]then equal(id,want[c][def.key],c.." "..def.key.." clicks the highest single-target rank")end
+ end
+end
+equal(reagents,15,"every reagent group version is listed")
+-- With its reagent in your bags a group version is cast again; paladins never
+-- get Greater Blessings, reagent or not.
+E,check,defs,event=Session("PRIEST")
+local click=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+for _,def in ipairs(E.ReminderSpells.PRIEST)do for _,id in ipairs(def.ids or{})do known[id]=true end end
+counts[17029]=5
+equal(click(E.ReminderSpells.PRIEST[1]),21564,"with Sacred Candles, fortitude clicks Prayer of Fortitude")
+counts[17029]=nil
+equal(click(E.ReminderSpells.PRIEST[1]),10938,"without them, Power Word: Fortitude")
+E,check,defs,event=Session("PALADIN")
+click=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+for _,def in ipairs(E.ReminderSpells.PALADIN)do for _,id in ipairs(def.ids or{})do known[id]=true end end
+counts[21177]=20;EraUIDB.reminderChoice_PALADIN_blessing=19740
+equal(click(E.ReminderSpells.PALADIN[1]),25291,"a paladin with Symbols of Kings still clicks the normal blessing")
 
 E,check,defs,event=Session("WARLOCK")
 counts[5232]=1;n=2

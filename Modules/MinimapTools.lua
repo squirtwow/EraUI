@@ -35,6 +35,13 @@ local function IsOver(frame)
     -- If neither API exists, leave buttons visible and usable.
     return true
 end
+-- Another addon's button mid-drag (FECM's flags isMoving, LibDBIcon's
+-- isMouseDown). They follow the cursor round the ring, so the cursor can be off
+-- the button: never fade one while it's being dragged. Only reads their flags.
+local function Dragged(button)
+    if button.isMoving or button.isMouseDown then return true end
+    return type(button.IsDragging) == "function" and button:IsDragging() == true
+end
 local function Remember(button)
     if button and button.GetAlpha and not buttons[button] then buttons[button] = {} end
 end
@@ -85,7 +92,7 @@ function Module:Refresh()
     if clean then
         hover = IsOver(_G.Minimap) or IsOver(_G.MinimapCluster)
         for button, state in pairs(buttons) do
-            if not state.hidden and button:IsShown() and IsOver(button) then hover = true end
+            if Dragged(button) or (not state.hidden and button:IsShown() and IsOver(button)) then hover = true end
         end
     end
     local now = GetTime()

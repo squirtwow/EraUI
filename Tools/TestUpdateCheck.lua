@@ -106,12 +106,54 @@ Equal(Sent(), "EraUI|v:1.2.0|GUILD", "an older version hears yours back")
 Fire("CHAT_MSG_ADDON", "EraUI", "v:1.1.0", "GUILD", "Bella-Zephras")
 Equal(Sent(), "", "without flooding the channel")
 
--- Testing it on yourself: a whisper to yourself counts.
+-- Whispers: anyone can whisper, so only one from yourself is believed.
+assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
+M = E.modules.UpdateCheck
+printed, sentMessages = {}, {}
+M:Heard("v:99.0.0", "WHISPER", "Coww")
+M:Heard("v:9.9.9", "WHISPER", "Coww-Zephras")
+M:Heard("v:9.9.9", "WHISPER", nil)
+Equal(#printed, 0, "a whisper from someone else is ignored")
+M:Heard("v:1.1.0", "WHISPER", "Coww")
+Equal(Sent(), "", "and never answered")
+-- Public channels, say and yell could be anyone too.
+M:Heard("v:99.0.0", "CHANNEL", "Coww-Zephras")
+M:Heard("v:99.0.0", "SAY", "Coww")
+M:Heard("v:99.0.0", "YELL", "Coww")
+M:Heard("v:1.1.0", "SAY", "Coww")
+Equal(#printed .. " " .. Sent(), "0 ", "a public channel, say or yell is ignored and never answered")
+M:Heard("v:1.3.0", "GUILD", "Squirt-Zephras")
+Equal(printed[1], "Version 1.3.0 is out (you have 1.2.0). Update from CurseForge or GitHub.",
+    "so it can't use up the real notice")
+
+-- A sender the game hides is never compared.
 assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
 M = E.modules.UpdateCheck
 printed = {}
+issecretvalue = function(value) return value == "Hidden Sender" end
+M:Heard("v:9.9.9", "GUILD", "Hidden Sender")
+M:Heard("v:9.9.9", "WHISPER", "Hidden Sender")
+issecretvalue = nil
+Equal(#printed, 0, "a hidden sender says nothing")
+
+-- Testing it on yourself: a whisper to yourself counts.
 M:Heard("v:9.9.9", "WHISPER", "Zriel")
 Equal(printed[1], "Version 9.9.9 is out (you have 1.2.0). Update from CurseForge or GitHub.", "a whisper to yourself tests it")
+M:Heard("v:9.9.9", "WHISPER", "Zriel-Zephras")
+Equal(#printed, 1, "still once a session")
+
+-- On Forever the game gives your surname as UnitName's second value, and a
+-- whisper to yourself comes from "First Surname".
+assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
+M = E.modules.UpdateCheck
+printed = {}
+UnitName = function() return "Zriel", "Gustbellow" end
+M:Heard("v:9.9.9", "WHISPER", "Zriel Gustbellow")
+Equal(printed[1], "Version 9.9.9 is out (you have 1.2.0). Update from CurseForge or GitHub.", "a whisper from First Surname is yours")
+M:Heard("v:9.9.9", "GUILD", "Zriel Gustbellow")
+M:Heard("v:9.9.9", "WHISPER", "Zriel Otherperson")
+Equal(#printed, 1, "your own guild share is ignored, and a different surname isn't you")
+UnitName = function() return "Zriel" end
 
 -- Switched off: nothing shared or said.
 assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)

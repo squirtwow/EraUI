@@ -362,7 +362,10 @@ local function Build()
     local discordLabel = discord:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     discordLabel:SetPoint("CENTER")
     discordLabel:SetText("Discord")
+    -- The invite is a Blizzard popup in a lower layer than this window, so
+    -- close What's New first or the popup opens hidden behind it.
     discord:SetScript("OnClick", function()
+        window:Hide()
         if EraUI.ShowDiscord then EraUI.ShowDiscord() end
     end)
     discord:SetScript("OnEnter", Hover)

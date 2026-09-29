@@ -21,14 +21,22 @@ local _,E=...
 --   missingOnly leave dead hunter pets to their separate Revive Pet reminder
 --   castIds   preferred learned spell for clicks when a choice is set to Any
 --   noCast    informational only, even when reminder clicking is enabled
+--   reagentIds group versions that need a reagent (Greater Blessings, Prayer of
+--             Fortitude and the like): they count as the buff, but clicks, icons
+--             and alert names use the single-target ranks
+--   reagentItems the reagent each group version needs (spell id = item id): with
+--             it in your bags a click casts the group version; paladins have
+--             none, so their clicks always cast the normal blessing
+--   power     what the spell costs when it isn't mana, for "Not enough ..."
 -- Demon family IDs independently checked in CreatureFamily, build 1.60.1.70009.
 E.ReminderSpells={
  WARRIOR={
-   {key="battleShout",text="BATTLE SHOUT!",kind="aura",group=true,subgroup=true,ids={6673,5242,6192,11549,11550,11551,25289}},
+   {key="battleShout",text="BATTLE SHOUT!",kind="aura",group=true,subgroup=true,power="rage",ids={6673,5242,6192,11549,11550,11551,25289}},
  },
  PALADIN={
   {key="blessing",text="BLESSING!",kind="aura",group=true,choiceLabel="Blessing",
    ids={19740,19834,19835,19836,19837,19838,25291,25782,25916,19742,19850,19852,19853,19854,25290,25894,25918,20217,25898,1038,25895,19977,19978,19979,25890,20911,20912,20913,20914,25899},
+   reagentIds={25782,25916,25894,25918,25898,25895,25890,25899},
    choices={
     {key="any",name="Any blessing"},
     {key="might",name="Blessing of Might",ids={19740,19834,19835,19836,19837,19838,25291,25782,25916}},
@@ -63,10 +71,10 @@ E.ReminderSpells={
   {key="poisonOff",text="POISON: OFF HAND!",kind="imbue",weapon="off",off=true,color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison",minLevel=20},
  },
  PRIEST={
-  {key="fortitude",text="FORTITUDE!",kind="aura",group=true,dynamic=true,ids={1243,1244,1245,2791,10937,10938,21562,21564}},
+  {key="fortitude",text="FORTITUDE!",kind="aura",group=true,dynamic=true,ids={1243,1244,1245,2791,10937,10938,21562,21564},reagentIds={21562,21564},reagentItems={[21562]=17029,[21564]=17029}},
   {key="inner",text="INNER FIRE!",kind="aura",self=true,ids={588,7128,602,1006,10951,10952}},
-  {key="shadow",text="SHADOW PROTECTION!",kind="aura",group=true,off=true,dynamic=true,ids={976,10957,10958,27683}},
-   {key="spirit",text="DIVINE SPIRIT!",kind="aura",group=true,mana=true,off=true,dynamic=true,ids={14752,14818,14819,27841,27681}},
+  {key="shadow",text="SHADOW PROTECTION!",kind="aura",group=true,off=true,dynamic=true,ids={976,10957,10958,27683},reagentIds={27683},reagentItems={[27683]=17029}},
+   {key="spirit",text="DIVINE SPIRIT!",kind="aura",group=true,mana=true,off=true,dynamic=true,ids={14752,14818,14819,27841,27681},reagentIds={27681},reagentItems={[27681]=17029}},
  },
  SHAMAN={
   {key="shield",text="LIGHTNING SHIELD!",kind="aura",self=true,ids={324,325,905,945,8134,10431,10432}},
@@ -84,7 +92,7 @@ E.ReminderSpells={
   {key="elemental",text="SUMMON ELEMENTAL!",kind="cooldown",off=true,color={.6,.92,1},ids={2894,2062}},
  },
  MAGE={
-   {key="intellect",text="ARCANE INTELLECT!",kind="aura",group=true,mana=true,dynamic=true,ids={1459,1460,1461,10156,10157,23028}},
+   {key="intellect",text="ARCANE INTELLECT!",kind="aura",group=true,mana=true,dynamic=true,ids={1459,1460,1461,10156,10157,23028},reagentIds={23028},reagentItems={[23028]=17020}},
   {key="armor",text="ARMOR!",kind="aura",self=true,off=true,ids={168,7300,7301,7302,6117,22782,22783}},
   {key="elemental",text="SUMMON ELEMENTAL!",kind="pet",off=true,color={.6,.92,1},icon="Interface\\Icons\\Spell_Frost_SummonWaterElemental",ids={31687},castIds={31687}},
  },
@@ -104,7 +112,7 @@ E.ReminderSpells={
   {key="shards",text="LOW SOUL SHARDS!",kind="shards",color={.78,.58,1},icon="Interface\\Icons\\INV_Misc_Gem_Amethyst_02",minLevel=10},
  },
  DRUID={
-  {key="mark",text="MARK OF THE WILD!",kind="aura",group=true,ids={1126,5232,6756,5234,8907,9884,9885,21849,21850}},
+  {key="mark",text="MARK OF THE WILD!",kind="aura",group=true,ids={1126,5232,6756,5234,8907,9884,9885,21849,21850},reagentIds={21849,21850},reagentItems={[21849]=17021,[21850]=17026}},
   {key="thorns",text="THORNS!",kind="aura",self=true,ids={467,782,1075,8914,9756,9910}},
  },
 }

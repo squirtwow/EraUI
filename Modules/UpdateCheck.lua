@@ -1,7 +1,8 @@
 -- Tells you in chat when a newer EraUI is out. An addon can't look at
 -- CurseForge, so EraUI shares its version with your guild and group in a
 -- hidden addon message, never in combat, and says once a session when
--- someone has a newer one. A message is only ever read as a version number.
+-- someone has a newer one. A message is only ever read as a version number,
+-- and a whisper is only believed from yourself.
 local _, EraUI = ...
 local M = {}
 EraUI:RegisterModule("UpdateCheck", M)
@@ -82,17 +83,35 @@ function M:Share(only)
     for _, channel in ipairs(only and { only } or Channels()) do Send(channel) end
 end
 
+local TRUSTED = { GUILD = true, PARTY = true, RAID = true, INSTANCE_CHAT = true }
+
+-- Forever names have a surname, which UnitName gives as its second value,
+-- and messages come from "First Surname" (confirmed in game 2026-09-29).
 local function Me(sender)
     local name = Ambiguate and Ambiguate(sender, "none") or sender
-    return name == UnitName("player")
+    local first, surname = UnitName("player")
+    if name == first then return true end
+    return type(surname) == "string" and surname ~= "" and name == first .. " " .. surname
+end
+
+local function Hidden(value)
+    return issecretvalue and issecretvalue(value)
 end
 
 function M:Heard(text, channel, sender)
-    if not On() or type(text) ~= "string" then return end
+    if not On() or type(text) ~= "string" or Hidden(text) or Hidden(sender) then return end
     local version = text:match("^v:(.+)$")
     if not Parse(version) then return end
-    -- Your own shares come back to you; a whisper to yourself counts, for testing.
-    if type(sender) == "string" and Me(sender) and channel ~= "WHISPER" then return end
+    -- Your own shares come back to you and are ignored. A whisper only counts
+    -- from yourself, for testing; anyone else's is ignored. Otherwise only the
+    -- channels EraUI shares on count, where it's people you play with: a
+    -- public channel, say or yell could be anyone.
+    local mine = type(sender) == "string" and Me(sender)
+    if channel == "WHISPER" then
+        if not mine then return end
+    elseif not TRUSTED[channel] or mine then
+        return
+    end
     if M.Newer(version, EraUI.version) then
         if not told then
             told = true

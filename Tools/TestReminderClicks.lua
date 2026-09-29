@@ -94,7 +94,11 @@ local function Session(class)
  env.IsPlayerSpell=function(id)return known[id]==true end
  local names={[883]="Call Pet",[982]="Revive Pet",[13165]="Aspect of the Hawk",[14318]="Aspect of the Hawk",
   [5118]="Aspect of the Cheetah",[1243]="Power Word: Fortitude",[688]="Summon Imp",[697]="Summon Voidwalker",
-  [6201]="Create Healthstone",[19740]="Blessing of Might",[19742]="Blessing of Wisdom"}
+  [6201]="Create Healthstone",[19740]="Blessing of Might",[19742]="Blessing of Wisdom",
+  [25291]="Blessing of Might",[25782]="Greater Blessing of Might",[25916]="Greater Blessing of Might",
+  [25894]="Greater Blessing of Wisdom",[10938]="Power Word: Fortitude",[21564]="Prayer of Fortitude",
+  [10157]="Arcane Intellect",[23028]="Arcane Brilliance",[9885]="Mark of the Wild",[21850]="Gift of the Wild",
+  [25289]="Battle Shout"}
  env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
   IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
@@ -239,6 +243,44 @@ priest.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and 
 priest.M:Refresh()
 Equal(priest:row("fortitude").sub.text,"Missing on Bob","only the party member lacks it")
 Equal(priest:click(priest:row("fortitude")),"/cast [nocombat,@target,help,nodead][nocombat,@player] Power Word: Fortitude","for others, a friendly target first")
+-- Prayer of Fortitude needs a candle: it counts as the buff, but a click
+-- casts the highest single-target rank, and the alert is named after that.
+priest.known[10938]=true;priest.known[21564]=true;priest.M:Refresh()
+fort=priest:row("fortitude")
+Equal(priest:click(fort),"/cast [nocombat,@target,help,nodead][nocombat,@player] Power Word: Fortitude","Prayer of Fortitude known: a click still casts Power Word: Fortitude")
+Equal(fort.text.text,"POWER WORD: FORTITUDE!","the alert names the single-target spell")
+Equal(fort.icon.texture,10938,"and shows its icon")
+Equal(priest.M:OptionsPanel().mana.label.text,"Say when you're out of mana","a priest's option says mana")
+-- Carrying Sacred Candles, the click casts Prayer of Fortitude again.
+priest.env.GetItemCount=function(id)return id==17029 and 5 or 0 end;priest.M:Refresh()
+Equal(priest:click(fort),"/cast [nocombat,@target,help,nodead][nocombat,@player] Prayer of Fortitude","with candles in your bags a click casts Prayer of Fortitude")
+Equal(fort.text.text,"PRAYER OF FORTITUDE!","and the alert names it")
+priest.env.GetItemCount=nil;priest.M:Refresh()
+-- Arcane Brilliance and Gift of the Wild need reagents too.
+for _,case in ipairs({{"MAGE","intellect",10157,23028,"Arcane Intellect"},{"DRUID","mark",9885,21850,"Mark of the Wild"}})do
+ local caster=Session(case[1])
+ caster.known[case[3]]=true;caster.known[case[4]]=true;caster.env.EraUIDB.reminderClickable=true;caster.M:Initialize()
+ Equal(caster:click(caster:row(case[2])),"/cast [nocombat,@player] "..case[5],case[5].." known with its group version: a click casts "..case[5])
+end
+-- Battle Shout costs rage, so a warrior short of it is told rage, not mana.
+local warrior=Session("WARRIOR")
+warrior.known[25289]=true;warrior.env.EraUIDB.reminderClickable=true;warrior.M:Initialize()
+local shout=warrior:row("battleShout")
+Equal(warrior:click(shout),"/cast [nocombat,@player] Battle Shout","Battle Shout is clickable with the rage for it")
+Equal(shout.sub.text:find("Not enough",1,true),nil,"no note while you can cast it")
+warrior.noMana[25289]=true;warrior.M:Refresh()
+Equal(shout.sub.text:find("Not enough rage",1,true)~=nil,true,"short of rage: says Not enough rage")
+Equal(shout.sub.text:find("mana",1,true),nil,"never mana")
+Equal(shout.icon.tint[1]==1 and shout.icon.tint[3],.5,"the icon takes a rage tint, not the mana one")
+Equal(warrior:click(shout),nil,"and can't be clicked until you have the rage")
+Equal(warrior:options().mana.label.text,"Say when you're out of rage","the warrior's option says rage")
+warrior.M:OptionsPanel().mana:Fire("OnClick")
+Equal(tostring(warrior.env.EraUIDB.reminderRage).." "..tostring(warrior.env.EraUIDB.reminderMana),"false nil","it has its own switch, so mana notes stay on for other classes")
+Equal(shout.sub.text:find("Not enough rage",1,true),nil,"switched off, the rage note goes")
+warrior.M:OptionsPanel().mana:Fire("OnClick")
+warrior.noMana[25289]=nil;warrior.M:Refresh()
+Equal(shout.sub.text:find("Not enough",1,true),nil,"the note goes once you have the rage")
+Equal(warrior:click(shout)~=nil,true,"and it can be clicked again")
 local warlock=Session("WARLOCK")
 warlock.known[688]=true;warlock.known[6201]=true;warlock.env.EraUIDB.reminderClickable=true;warlock.M:Initialize()
 Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Imp","Any demon with only the Imp known summons the Imp")
@@ -275,6 +317,23 @@ Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","a bl
 paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=0;paladin.env.EraUIDB.reminderLast_PALADIN_blessing=nil
 paladin.env.EraUIDB.reminderClickable=false;paladin.M:Refresh()
 Equal(blessing.hint,nil,"no hint while reminder clicks are off")
+-- Greater Blessings need Symbol of Kings: they count as the buff, but a click
+-- casts the single-target blessing's highest known rank.
+paladin.env.EraUIDB.reminderClickable=true;paladin.known[19742]=nil
+paladin.known[25291]=true;paladin.known[25782]=true;paladin.known[25916]=true;paladin.M:Refresh()
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","Any with Greater Might known casts Blessing of Might")
+Equal(blessing.icon.texture,25291,"and shows its highest single-target rank's icon")
+paladin.known[19742]=true;paladin.known[25894]=true
+paladin:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-2",25894);paladin.M:Refresh()
+Equal(paladin.env.EraUIDB.reminderLast_PALADIN_blessing,19742,"a Greater Blessing you cast counts as its blessing")
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Wisdom","then a click casts the single-target one")
+paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=19740;paladin.M:Refresh()
+Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","a picked blessing also casts the single-target one")
+paladin.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=25916}end end}
+paladin.M:Refresh()
+Equal(paladin:row("blessing"),nil,"Greater Blessing of Might on you counts as the buff")
+paladin.env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
+paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=0;paladin.env.EraUIDB.reminderLast_PALADIN_blessing=nil
 local quiet=Session("HUNTER")
 quiet.known[883]=true;quiet.known[982]=true;quiet.pet.exists=true
 quiet.env.EraUIDB.reminderCombat=true;quiet.M:Initialize()

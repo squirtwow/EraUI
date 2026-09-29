@@ -53,7 +53,7 @@
 - Pick a preferred aspect, blessing, shaman weapon imbue or warlock demon under **Advanced**
 - Hunters have separate **SUMMON PET!** and **PET DEAD!** reminders, using Call Pet and Revive Pet icons; each can be toggled under **Advanced**. Selected warlock demons are checked by demon family
 - Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
-- Choose a specific blessing, shaman imbue or warlock demon under **Advanced** to enable its click action. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
+- On **Any**, clicking a blessing, shaman imbue or warlock demon reminder casts the only one you know, or the one you cast last; pick one under **Advanced** to always cast that one. `/era discord` gives the Discord invite for bugs and ideas. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
 - Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
 - Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
 - Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup

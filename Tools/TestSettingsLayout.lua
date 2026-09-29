@@ -32,12 +32,14 @@ function methods:Fire(event,...)
 end
 function methods:SetScript(event,fn)self.scripts[event]=fn end
 function methods:HookScript(event,fn)self.hooks[event]=self.hooks[event]or{};table.insert(self.hooks[event],fn)end
-function methods:IsShown()return self.shown and(not self.parent or self.parent:IsShown())end
+-- As in the client: IsShown is a frame's own flag, IsVisible also needs its parents.
+function methods:IsShown()return self.shown end
+function methods:IsVisible()return self.shown and(not self.parent or self.parent:IsVisible())end
 function methods:SetShown(v)
  Guard(self);v=not not v;if self.shown==v then return end
- local before={};for _,f in ipairs(frames)do before[f]=f:IsShown()end
+ local before={};for _,f in ipairs(frames)do before[f]=f:IsVisible()end
  self.shown=v
- for f,old in pairs(before)do local now=f:IsShown();if now~=old then f:Fire(now and "OnShow"or"OnHide")end end
+ for f,old in pairs(before)do local now=f:IsVisible();if now~=old then f:Fire(now and "OnShow"or"OnHide")end end
 end
 function methods:Hide()self:SetShown(false)end
 function methods:Show()self:SetShown(true)end
@@ -424,6 +426,36 @@ do
  E:SetSetting("damageFont","pepsi");E:ApplyCombatFont();f.fontLater=nil
  f:RenderSetup()
  equal(f.fontQuestion:IsShown()or f.setupSummary:GetText():find("log in",1,true)~=nil,false,"picking the loaded font again clears it")
+ -- Explore settings instead of answering: the question and its button stay
+ -- in setup, and No, later never draws setup pages over /era.
+ E:SetSetting("damageFont","bangers");E:ApplyCombatFont();f:RenderSetup()
+ equal(f.fontQuestion:IsVisible()and logout:IsShown(),true,"asked again with a new font")
+ f.setupNext:Fire("OnClick");Flush()
+ equal(f.setupMode or reloads>0,false,"Explore settings leaves setup without a reload")
+ equal(f:IsShown()and f.presetButton:IsShown(),true,"the normal /era window opens")
+ equal(f.fontQuestion:IsShown()or logout:IsShown(),false,"no question or log out button left in /era")
+ f.fontLaterButton:Fire("OnClick");Flush()
+ equal(f.setupNext:IsShown()or f.setupBack:IsShown(),false,"No, later does nothing outside setup")
+ -- Closing the window on the finish page: the button stays away after fights.
+ Restart();Steps()
+ equal(f.fontQuestion:IsVisible()and logout:IsShown(),true,"asked again after rerunning setup")
+ f:Hide()
+ equal(logout:IsShown(),false,"closing the window hides the log out button")
+ f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_DISABLED");f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_ENABLED")
+ f:Fire("OnDragStop");Flush()
+ equal(logout:IsShown(),false,"and it stays hidden after the next fight")
+ SlashCmdList.ERAUI("");Flush()
+ equal(f:IsShown()and not f.setupMode,true,"/era then opens the normal settings")
+ equal(f.fontQuestion:IsShown()or logout:IsShown(),false,"without the question or its button")
+ -- Leaving setup in combat never touches the secure button, and it stays
+ -- hidden once the fight ends.
+ Restart();Steps()
+ equal(logout:IsShown(),true,"asked on the finish page once more")
+ f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_DISABLED");combat=true
+ SlashCmdList.ERAUI("");Flush()
+ combat=false;f.logoutWatch:Fire("OnEvent","PLAYER_REGEN_ENABLED");Flush()
+ equal(f.fontQuestion:IsShown()or logout:IsShown(),false,"leaving setup in combat keeps it hidden after")
+ E:SetSetting("damageFont","pepsi");E:ApplyCombatFont()
 
  Restart()
  Next();Next()
