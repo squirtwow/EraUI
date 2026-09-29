@@ -901,6 +901,7 @@ function SettingsModule:Initialize()
     MoreCard("moreFECM",0,{name="Forever Enhanced Cooldown Manager",addon="ForeverEnhancedCooldownManager",
         slash="FECM",command="/ccm",icon="Interface\\AddOns\\EraUI\\Media\\FECMIcon.tga",search="fecm ccm cooldown manager bars cast bar layout",
         about="Cooldown, buff and cast bars of your own, stacked round your Personal Resource Display, and a fresh look for Blizzard's Cooldown Manager.",
+        curseforge="https://www.curseforge.com/wow/addons/forever-enhanced-cooldown-manager",
         github="https://github.com/squirtwow/ForeverEnhancedCooldownManager"})
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)

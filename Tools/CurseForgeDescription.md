@@ -55,6 +55,7 @@
 - Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
 - On **Any**, clicking a blessing, shaman imbue or warlock demon reminder casts the only one you know, or the one you cast last; pick one under **Advanced** to always cast that one. `/era discord` gives the Discord invite for bugs and ideas. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
 - Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
+- All reminders hide while you're on a flight path and come back a moment after you land
 - Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
 - Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup
 - Soulstone application checks whether a checked member is protected, rather than requiring it on everyone

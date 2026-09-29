@@ -546,8 +546,17 @@ do
  equal(more.category,14,"More from Squirt has its own tab")
  more:SetChecked()
  equal(more.open.shown,false,"not installed: no Open button")
- equal(more.state:GetText(),"Coming soon to CurseForge and GitHub.","not out yet: coming soon")
- equal(more.curse.shown or more.github.shown,false,"with no links until it has pages")
+ equal(more.state:GetText(),"Get it on CurseForge or GitHub: click one for its link.","out now: where to get it")
+ equal(more.curse.shown and more.github.shown,true,"with both links")
+ local copied
+ E.Classic=E.Classic or {}
+ local copy=E.Classic.CopyLink
+ E.Classic.CopyLink=function(_,url)copied=url end
+ more.curse:Fire("OnClick")
+ equal(copied,"https://www.curseforge.com/wow/addons/forever-enhanced-cooldown-manager","CurseForge gives its page to copy")
+ more.github:Fire("OnClick")
+ equal(copied,"https://github.com/squirtwow/ForeverEnhancedCooldownManager","and GitHub its repo")
+ E.Classic.CopyLink=copy
  local opened
  C_AddOns={IsAddOnLoaded=function(name)return name=="ForeverEnhancedCooldownManager"end}
  SlashCmdList.FECM=function()opened=true end

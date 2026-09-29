@@ -248,7 +248,7 @@ for _,c in ipairs(classes)do
   if want[c]and want[c][def.key]then equal(id,want[c][def.key],c.." "..def.key.." clicks the highest single-target rank")end
  end
 end
-equal(reagents,15,"every reagent group version is listed")
+equal(reagents,14,"every reagent group version is listed")
 -- With its reagent in your bags a group version is cast again; paladins never
 -- get Greater Blessings, reagent or not.
 E,check,defs,event=Session("PRIEST")
@@ -273,4 +273,134 @@ auras.party1=false;event("UNIT_AURA");equal(check("soulstoneApply"),nil,"unknown
 counts[5232]=0;equal(check("soulstoneApply"),false,"no apply alert without a stone")
 counts[5232]=1;EraUIDB.reminderGroup=false;auras.player={20707}
 equal(check("soulstoneApply"),false,"self-only soulstone")
+
+-- Forever's own ranks and choices: each counts as the buff, and a spell's
+-- ranks run lowest to highest, so a click casts the highest one you know.
+local function Rising(list,ranks,label)
+ local at={};for i,id in ipairs(list)do at[id]=i end
+ for i=2,#ranks do equal((at[ranks[i-1]]or 0)<(at[ranks[i]]or 0),true,label.." rank "..ranks[i].." follows "..ranks[i-1])end
+end
+local function Counts(key,ids,label)
+ for _,id in ipairs(ids)do auras.player={id};event("UNIT_AURA");equal(check(key),false,label.." "..id.." counts")end
+ auras.player={};event("UNIT_AURA");equal(check(key),true,label..": none up is missing")
+end
+E,check,defs,event=Session("HUNTER")
+local applies=assert(up(E.modules.ClassReminders.Refresh,"Applicable"))
+local casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+Rising(defs.trueshot.ids,{1299346,1299348,19506,20905,20906},"Trueshot Aura")
+known[1299346]=true
+equal(applies(defs.trueshot),true,"Trueshot Aura rank 1 alone enables its reminder")
+Counts("trueshot",{1299346,1299348},"Trueshot Aura")
+equal(casts(defs.trueshot),1299346,"a click casts rank 1")
+known[1299348]=true;equal(casts(defs.trueshot),1299348,"then rank 2")
+known[19506]=true;known[20906]=true;equal(casts(defs.trueshot),20906,"and rank 5 above Forever's lower ranks")
+n=1;units.party1={exists=true,name="Ally"};auras.player={20906};auras.party1={1299346};event("UNIT_AURA")
+equal(check("trueshot"),false,"another hunter's rank 1 on a party member counts")
+n=0
+local beast={13161,1299445,1299446,1299447}
+local beastChoice;for _,c in ipairs(defs.aspect.choices)do if c.key=="beast"then beastChoice=c end end
+Rising(defs.aspect.ids,beast,"Aspect of the Beast");Rising(beastChoice.ids,beast,"Beast choice")
+known[13161]=true;known[1299447]=true;EraUIDB.reminderChoice_HUNTER_aspect=13161
+Counts("aspect",beast,"chosen Aspect of the Beast")
+equal(casts(defs.aspect),1299447,"the chosen Beast casts its highest rank")
+EraUIDB.reminderChoice_HUNTER_aspect=0;auras.player={1299446};event("UNIT_AURA")
+equal(check("aspect"),false,"on Any, Beast rank 3 counts by its ID")
+
+E,check,defs,event=Session("PALADIN")
+applies=assert(up(E.modules.ClassReminders.Refresh,"Applicable"))
+casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+local fury={1311649,1311656,20163,20419,20421,20422,20423}
+Rising(defs.seal.ids,fury,"Seal of Fury");Rising(defs.seal.ids,{20154,21084,20287},"Seal of Righteousness")
+Rising(defs.seal.ids,{20166,20356,20357},"Seal of Wisdom");Rising(defs.seal.ids,{20375,20915,20918,20919,20920},"Seal of Command")
+known[20154]=true
+equal(applies(defs.seal),true,"the Seal of Righteousness paladins start with enables the seal reminder")
+Counts("seal",{20154,20356,20357,20915,20918,20919,20920,1311649,1311656,20163,20419,20421,20422,20423},"seal")
+equal(casts(defs.seal),20154,"a click casts the starting seal")
+for _,id in ipairs(fury)do known[id]=true end
+equal(casts(defs.seal),20154,"learning Seal of Fury leaves the click on the seal it cast before")
+Rising(defs.aura.ids,{7294,10298,10299,10300,10301},"Retribution Aura");Rising(defs.aura.ids,{19876,19895,19896},"Shadow Resistance Aura")
+Rising(defs.aura.ids,{19891,19899,19900},"Fire Resistance Aura");Rising(defs.aura.ids,{19888,19897,19898},"Frost Resistance Aura")
+Counts("aura",{10298,10299,10300,10301,19895,19896,19891,19899,19900,19888,19897,19898},"aura")
+known[19746]=true;known[19876]=true;known[19891]=true;known[19898]=true
+equal(casts(defs.aura),19876,"new auras leave the click on Shadow Resistance Aura, as before")
+known[19896]=true;equal(casts(defs.aura),19896,"at its highest rank")
+
+E,check,defs,event=Session("MAGE")
+casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+Rising(defs.armor.ids,{7302,7320,10219,10220},"Ice Armor")
+Counts("armor",{7320,10219,10220},"Ice Armor")
+known[7302]=true;known[10220]=true;equal(casts(defs.armor),10220,"a click casts Ice Armor's highest rank")
+known[22783]=true;equal(casts(defs.armor),22783,"Mage Armor still wins the click, as before")
+
+-- Summon Incubus is a Demon choice. No game data yet ties the summoned Incubus
+-- to a creature family, so while it is chosen any living demon counts.
+E,check,defs,event=Session("WARLOCK")
+local list=assert(up(E.modules.ClassReminders.AttachOptions,"ChoiceList"))
+local cycle=assert(up(E.modules.ClassReminders.AttachOptions,"CycleChoice"))
+local function Names()local t={};for _,c in ipairs(list(defs.pet))do t[#t+1]=c.key end;return table.concat(t,",")end
+known[688]=true;known[712]=true
+equal(Names(),"any,imp,succubus","no Incubus choice before it is learned")
+known[713]=true
+equal(Names(),"any,imp,succubus,incubus","learned, Incubus is a Demon choice")
+local order={}
+for _=1,4 do cycle(defs.pet);order[#order+1]=tostring(EraUIDB.reminderChoice_WARLOCK_pet)end
+equal(table.concat(order,","),"688,712,713,0","the choice cycles through Incubus and back to Any")
+EraUIDB.reminderChoice_WARLOCK_pet=713
+units.pet={exists=true,family="Incubus"};equal(check("pet"),false,"chosen Incubus out")
+units.pet.family="Succubus";equal(check("pet"),false,"without a family any living demon counts")
+units.pet.dead=true;equal(check("pet"),true,"a dead one does not")
+units.pet={};equal(check("pet"),true,"no demon out")
+
+-- Forever is level 60 content: every spell a reminder learns, casts or offers
+-- must be that class's trainer spell in EraUI's own Forever data, or one of
+-- these (Forever's SkillLineAbility and Talent data, build 1.60.1.70009):
+-- Frost Armor and Seal of Righteousness rank 1, which mages and paladins get
+-- automatically; the talents Divine Spirit, Blessing of Kings, Seal of Command
+-- and Trueshot Aura (Forever's rank 1 is 1299346), plus the trainer ranks of
+-- the last two, which SkillLineAbility gives no class; and Aspect of the Beast
+-- ranks 2 to 4, which TrainingData.lua leaves out for want of a Forever level
+-- (Wowhead Forever: taught by hunter trainers at 40, 50 and 60).
+local forever={}
+assert(loadfile("Modules/TrainingData.lua"))("EraUI",forever)
+local extra={MAGE={[168]=true},PRIEST={[14752]=true},
+ PALADIN={[20217]=true,[20154]=true,[20375]=true,[20915]=true,[20918]=true,[20919]=true,[20920]=true},
+ HUNTER={[1299346]=true,[1299348]=true,[19506]=true,[20905]=true,[20906]=true,[1299445]=true,[1299446]=true,[1299447]=true}}
+local gone={[31687]="Summon Water Elemental",[2894]="Fire Elemental Totem",[2062]="Earth Elemental Totem",
+ [30146]="Summon Felguard",[427733]="Summon Felguard",[20911]="Blessing of Sanctuary",[20912]="Blessing of Sanctuary",
+ [20913]="Blessing of Sanctuary",[20914]="Blessing of Sanctuary",[25899]="Greater Blessing of Sanctuary",
+ -- Season of Discovery spells in Forever's client that nothing in Forever
+ -- teaches (no Forever level, no trainer or quest), and Martyrdom's hit.
+ [415423]="Aspect of the Viper",[469145]="Aspect of the Falcon",[407798]="Seal of Martyrdom",[407799]="Seal of Martyrdom damage"}
+local audited=0
+for _,c in ipairs(classes)do
+ local trainer={}
+ for _,row in ipairs(forever.TrainingData.classes[c]or{})do trainer[row[1]]=true end
+ local function Audit(list,where)
+  for _,id in ipairs(list or{})do
+   audited=audited+1
+   equal(trainer[id]or(extra[c]and extra[c][id])or false,true,where.." "..id.." is a Forever "..c.." spell")
+  end
+ end
+ for _,def in ipairs(E.ReminderSpells[c])do
+  local where=c.." "..def.key
+  Audit(def.ids,where);Audit(def.castIds,where);Audit(def.requires,where);Audit(def.reagentIds,where)
+  for _,choice in ipairs(def.choices or{})do Audit(choice.ids,where.." "..choice.key)end
+  for _,field in ipairs({"ids","castIds","requires","reagentIds","auras"})do
+   for _,id in ipairs(def[field]or{})do equal(gone[id],nil,where.." "..field.." never lists "..tostring(gone[id]))end
+  end
+  for _,choice in ipairs(def.choices or{})do
+   for _,id in ipairs(choice.ids or{})do equal(gone[id],nil,where.." "..choice.key.." never offers "..tostring(gone[id]))end
+  end
+  equal(def.kind~="cooldown"and def.text~="SUMMON ELEMENTAL!",true,where.." is not an elemental reminder")
+ end
+end
+equal(audited>200,true,"the audit reached every reminder spell")
+local keys={}
+for _,c in ipairs(classes)do for _,def in ipairs(E.ReminderSpells[c])do
+ keys[c.."_"..def.key]=true
+ for _,choice in ipairs(def.choices or{})do keys[c.."_"..def.key.."_"..choice.key]=true end
+end end
+for _,key in ipairs({"MAGE_elemental","SHAMAN_elemental","WARLOCK_pet_felguard","PALADIN_blessing_sanctuary"})do
+ equal(keys[key],nil,key.." is gone")
+end
 print("Class reminder detection checks passed: "..checks.." assertions.")

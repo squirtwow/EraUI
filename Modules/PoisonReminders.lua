@@ -106,13 +106,18 @@ function M:Refresh()
  end
  header.label:SetText(unlocked and "Drag / scroll · left-click to lock" or "Poison reminders  +")
  frame:SetHeight(38+visible*60)
- frame:SetShown(not not (preview or warn))
+ -- No poison goes on during a flight: warnings wait until just after landing,
+ -- like the class alerts. Read every refresh; the positioning preview stays.
+ local flying=T.Flying()
+ frame:SetShown(not not (preview or warn and not flying))
 end
 function M:Initialize()
  local _,class=UnitClass("player");if class~="ROGUE"then return end
  Build();self:Refresh()
  local f=CreateFrame("Frame");local elapsed=0
- for _,event in ipairs({"PLAYER_ENTERING_WORLD","UNIT_INVENTORY_CHANGED","BAG_UPDATE_DELAYED","PLAYER_EQUIPMENT_CHANGED"})do f:RegisterEvent(event)end
+ -- PLAYER_CONTROL_LOST and _GAINED: taking off and landing on a flight path.
+ for _,event in ipairs({"PLAYER_ENTERING_WORLD","UNIT_INVENTORY_CHANGED","BAG_UPDATE_DELAYED","PLAYER_EQUIPMENT_CHANGED",
+  "PLAYER_CONTROL_LOST","PLAYER_CONTROL_GAINED"})do pcall(f.RegisterEvent,f,event)end
  f:SetScript("OnEvent",function()M:Refresh()end)
  f:SetScript("OnUpdate",function(_,dt)elapsed=elapsed+dt;if elapsed>=.5 then elapsed=0;M:Refresh()end end)
 end

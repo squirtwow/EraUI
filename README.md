@@ -71,7 +71,8 @@ or off in the settings.
   icons outside combat; drag the text to move. On Any, clicking a blessing,
   imbue or demon reminder casts the only one you know or the one you cast last;
   or pick one under Advanced. A buff you're missing is cast on you, and "Not
-  enough mana" (rage for a warrior's shout) shows until you can cast it
+  enough mana" (rage for a warrior's shout) shows until you can cast it. All
+  reminders hide while you're on a flight path
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.

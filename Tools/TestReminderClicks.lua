@@ -24,10 +24,11 @@ local function Session(class)
  end
  for _,name in ipairs({"SetBackdrop","SetBackdropColor","SetBackdropBorderColor","SetColorTexture","SetTexCoord",
   "SetTextColor","SetShadowColor","SetShadowOffset","SetJustifyH","SetWordWrap","SetClampedToScreen","SetMovable",
-  "RegisterForDrag","EnableMouse","SetFont","SetAllPoints","RegisterEvent","Enable","Disable","SetAlpha"})do
+  "RegisterForDrag","EnableMouse","SetFont","SetAllPoints","Enable","Disable","SetAlpha","SetScale","EnableMouseWheel"})do
   methods[name]=function(self)Guard(self)end
  end
  function methods:SetScript(event,fn)self.scripts[event]=fn end
+ function methods:RegisterEvent(event)Guard(self);self.events=self.events or{};self.events[event]=true end
  function methods:HookScript(event,fn)self.hooks[event]=self.hooks[event]or{};table.insert(self.hooks[event],fn)end
  function methods:Fire(event,...)
   local was=restricted;restricted=false
@@ -98,7 +99,7 @@ local function Session(class)
   [25291]="Blessing of Might",[25782]="Greater Blessing of Might",[25916]="Greater Blessing of Might",
   [25894]="Greater Blessing of Wisdom",[10938]="Power Word: Fortitude",[21564]="Prayer of Fortitude",
   [10157]="Arcane Intellect",[23028]="Arcane Brilliance",[9885]="Mark of the Wild",[21850]="Gift of the Wild",
-  [25289]="Battle Shout"}
+  [25289]="Battle Shout",[712]="Summon Succubus",[713]="Summon Incubus",[1299346]="Trueshot Aura"}
  env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
   IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
@@ -129,12 +130,17 @@ local function Session(class)
   M:AttachOptions(parent,anchor);return M:OptionsPanel()
  end
  function s:click(row)
-  local a=row.action
+  local a=row and row.action
   return a and a:IsShown()and a.attrs.type1=="macro"and a.attrs.macrotext1 or nil
  end
  function s:event(...)
   for _,f in ipairs(frames)do if f.scripts.OnEvent and f.scripts.OnUpdate then f.scripts.OnEvent(f,...)end end
  end
+ -- The module's event frame: its registrations and its refresh clock.
+ function s:listener()
+  for _,f in ipairs(frames)do if f.scripts.OnEvent and f.scripts.OnUpdate then return f end end
+ end
+ function s:tick(dt)local f=s:listener();f.scripts.OnUpdate(f,dt)end
  return s
 end
 
@@ -364,4 +370,175 @@ Equal(rogue:row("poisonMain")~=nil,true,"turning dedicated panel off restores ge
 Equal(rogue:row("poisonOff")~=nil,true,"turning dedicated panel off restores generic off-hand alert")
 Equal(rogue.env.EraUIDB.reminder_ROGUE_poisonOff,true,"deduplication preserves per-alert preference")
 Equal(poisonOptions.offHint:IsShown(),false,"ownership explanation clears when generic alerts resume")
+
+-- On a flight path every alert goes, clicks included, until a moment after
+-- landing, so a pet the game puts away and brings back never flashes.
+local flier=Session("HUNTER")
+local now,taxi=100,false
+flier.env.GetTime=function()return now end
+flier.env.UnitOnTaxi=function(unit)return unit=="player"and taxi end
+flier.known[883]=true;flier.env.EraUIDB.reminderClickable=true;flier.M:Initialize()
+local listener=flier:listener()
+for _,name in ipairs({"PLAYER_CONTROL_LOST","PLAYER_CONTROL_GAINED","UNIT_FLAGS","UNIT_PET"})do
+ Equal(listener.events[name],true,name.." refreshes the alerts")
+end
+local call=flier:row("pet")
+Equal(flier:click(call),"/cast [nocombat] Call Pet","before the flight SUMMON PET! is clickable")
+flier:tick(3) -- settle the refresh clock
+taxi=true;flier:event("PLAYER_CONTROL_LOST");flier:tick(.6)
+Equal(flier:row("pet"),nil,"taking off hides SUMMON PET!")
+Equal(flier:click(call),nil,"and disarms its click")
+Equal(flier.env.EraUIClassReminderAlerts:IsShown(),false,"the whole panel goes")
+local flierOptions=flier:options();flierOptions.prev:Fire("OnClick")
+Equal(flier:row("pet"),nil,"even Show all reminders waits for landing")
+flierOptions.prev:Fire("OnClick")
+now=160;taxi=false;flier:event("PLAYER_CONTROL_GAINED");flier:tick(.6)
+Equal(flier:row("pet"),nil,"just landed: still hidden while the game brings the pet back")
+now=161.5;flier.M:Refresh()
+Equal(flier:row("pet"),nil,"1.5 seconds after landing: still hidden")
+now=162.1;flier:tick(.3)
+Equal(flier:row("pet"),nil,"a refresh waits its half second")
+flier:tick(.3)
+Equal(flier:click(flier:row("pet")),"/cast [nocombat] Call Pet","2 seconds after landing a missing pet is shown and clickable again, before the 2-second refresh")
+-- The pet was out: the game puts it away for the flight and brings it back.
+flier.pet.exists=true;flier.M:Refresh()
+Equal(flier:row("pet"),nil,"pet out before the flight")
+taxi=true;flier.pet.exists=false;flier:event("UNIT_PET","player");flier:tick(.6)
+Equal(flier:row("pet"),nil,"the game puts the pet away in flight: no SUMMON PET!")
+now=200;taxi=false;flier:event("UNIT_FLAGS","player");flier:tick(.6)
+Equal(flier:row("pet"),nil,"landed, pet not back yet: no flash")
+now=201;flier.pet.exists=true;flier:event("UNIT_PET","player");flier:tick(.6)
+now=202.5;flier:tick(.6)
+Equal(flier:row("pet"),nil,"the pet it brings back never flashes SUMMON PET!")
+-- Hidden, failing or missing taxi answers behave as today.
+flier.pet.exists=false
+flier.env.UnitOnTaxi=function()return secret end;flier.M:Refresh()
+Equal(flier:row("pet")~=nil,true,"a hidden taxi answer is not a flight")
+flier.env.UnitOnTaxi=function()error("unavailable")end;flier.M:Refresh()
+Equal(flier:row("pet")~=nil,true,"a failing taxi check is not a flight")
+flier.env.UnitOnTaxi=nil;flier.M:Refresh()
+Equal(flier:click(flier:row("pet")),"/cast [nocombat] Call Pet","a client without the taxi check keeps its alerts")
+-- In combat nothing secure is touched: the combat driver already disarmed it.
+flier.env.UnitOnTaxi=function(unit)return unit=="player"and taxi end
+flier.env.EraUIDB.reminderCombat=true;flier:combat(true);flier.M:Refresh()
+Equal(flier:row("pet")~=nil,true,"combat alert shows")
+taxi=true;flier.M:Refresh()
+Equal(flier:row("pet"),nil,"a flight in combat hides alerts without protected edits")
+now=300;taxi=false;flier.M:Refresh();flier:combat(false);now=302.1;flier.M:Refresh()
+Equal(flier:click(flier:row("pet")),"/cast [nocombat] Call Pet","after combat and landing the click is rebuilt")
+taxi=true;flier.M:Refresh();flier.env.WorldMapFrame:Show()
+now=400;taxi=false;flier.M:Refresh()
+now=403;flier.env.WorldMapFrame:Hide()
+Equal(flier:click(flier:row("pet")),"/cast [nocombat] Call Pet","landing with the map open still counts: closing it later shows alerts at once")
+-- Every reminder panel reads one flight clock. When another panel notices the
+-- landing first, these alerts still come back the moment the pause ends.
+taxi=true;flier.M:Refresh()
+Equal(flier:row("pet"),nil,"flying again")
+now=500;taxi=false
+Equal(flier.E.ClassTools.Flying(),true,"another panel notices the landing first")
+flier:tick(3);Equal(flier:row("pet"),nil,"the alerts wait out the same pause")
+now=502.1;Equal(flier.E.ClassTools.Flying(),false,"the other panel sees the pause end first too")
+flier:tick(.6)
+Equal(flier:click(flier:row("pet")),"/cast [nocombat] Call Pet","yet the alerts still return on time, not at the 2-second refresh")
+local asked=0
+flier.env.UnitOnTaxi=function()asked=asked+1;return false end
+flier:tick(.6);flier:tick(.6);flier:tick(.6)
+Equal(asked,0,"then the refresh clock is back to its usual pace")
+flier:tick(.6);Equal(asked,1,"and refreshes after 2 seconds as before")
+
+-- A rogue with Poison Reminders on gets missing-poison alerts from that panel
+-- instead, and it waits for landing too. Its positioning preview still shows.
+local poisoner=Session("ROGUE")
+local pnow,ptaxi=100,false
+poisoner.env.GetTime=function()return pnow end
+poisoner.env.UnitOnTaxi=function(unit)return unit=="player"and ptaxi end
+poisoner.E.ClassTools.WeaponCoating=function()return {weapon=true,has=false}end
+poisoner.settings.poisonReminders=true;poisoner.M:Initialize()
+local classClock=poisoner:listener()
+assert(loadfile("Modules/PoisonReminders.lua","t",poisoner.env))("EraUI",poisoner.E)
+poisoner.E.modules.PoisonReminders:Initialize()
+local poisonPanel=poisoner.env.EraUIPoisonReminders
+local poisonClock
+for _,f in ipairs(poisoner.frames)do if f~=classClock and f.scripts.OnEvent and f.scripts.OnUpdate then poisonClock=f end end
+local function PoisonEvent(name)poisonClock.scripts.OnEvent(poisonClock,name)end
+local function PoisonTick(dt)poisonClock.scripts.OnUpdate(poisonClock,dt)end
+for _,name in ipairs({"PLAYER_CONTROL_LOST","PLAYER_CONTROL_GAINED","PLAYER_EQUIPMENT_CHANGED"})do
+ Equal(poisonClock.events[name],true,"the poison panel refreshes on "..name)
+end
+Equal(poisonPanel:IsShown(),true,"on the ground a missing poison shows")
+Equal(poisoner:row("poisonMain"),nil,"and the class alerts leave it to the poison panel")
+ptaxi=true;PoisonEvent("PLAYER_CONTROL_LOST")
+Equal(poisonPanel:IsShown(),false,"taking off hides the poison panel")
+pnow=130;PoisonTick(.6)
+Equal(poisonPanel:IsShown(),false,"its half-second refresh keeps it hidden in flight")
+Equal(poisoner:row("poisonMain"),nil,"the class alerts stay out of it in flight")
+poisoner.E.settingsFrame=poisoner.env.CreateFrame("Frame");poisoner.E.settingsFrame:Show();PoisonTick(.6)
+Equal(poisonPanel:IsShown(),true,"with /era open its positioning preview still shows in flight")
+poisoner.E.settingsFrame:Hide();PoisonTick(.6)
+Equal(poisonPanel:IsShown(),false,"closing /era hides it again")
+pnow=160;ptaxi=false;PoisonEvent("PLAYER_CONTROL_GAINED")
+Equal(poisonPanel:IsShown(),false,"just landed: still hidden")
+pnow=161.9;PoisonTick(.6)
+Equal(poisonPanel:IsShown(),false,"1.9 seconds after landing: still hidden")
+pnow=162.1;PoisonTick(.6)
+Equal(poisonPanel:IsShown(),true,"2 seconds after landing the missing poison shows again")
+poisoner.env.UnitOnTaxi=function()return secret end;PoisonTick(.6)
+Equal(poisonPanel:IsShown(),true,"a hidden taxi answer is not a flight")
+poisoner.env.UnitOnTaxi=nil;PoisonTick(.6)
+Equal(poisonPanel:IsShown(),true,"a client without the taxi check keeps the poison panel")
+
+-- Reminders for spells Forever lacks are gone; old saved settings for them
+-- (switches, spots, a Felguard or Sanctuary choice) are ignored safely.
+local mage=Session("MAGE")
+mage.known[1459]=true;mage.known[31687]=true
+for key,value in pairs({reminder_MAGE_elemental=true,reminderPX_MAGE_elemental=40,reminderPY_MAGE_elemental=-20,
+ reminder_SHAMAN_elemental=true,reminderClickable=true})do mage.env.EraUIDB[key]=value end
+mage.M:Initialize()
+local mageOptions=mage:options();mageOptions.adv:Fire("OnClick")
+local elemental=false
+for _,f in ipairs(mage.frames)do if f.text=="SUMMON ELEMENTAL!"or f.text=="elemental"then elemental=true end end
+Equal(elemental,false,"no Summon Elemental alert or Advanced switch, even when saved on")
+Equal(mage:row("intellect")~=nil,true,"the mage's other reminders carry on")
+local demon=Session("WARLOCK")
+demon.known[688]=true;demon.known[697]=true
+demon.env.EraUIDB.reminderChoice_WARLOCK_pet=427733;demon.env.EraUIDB.reminderLast_WARLOCK_pet=30146
+demon.env.EraUIDB.reminderClickable=true;demon.M:Initialize()
+local demonOptions=demon:options();demonOptions.adv:Fire("OnClick")
+local cycle
+for _,f in ipairs(demonOptions.advRows)do if f.label.text and f.label.text:find("^Demon:")then cycle=f end end
+Equal(cycle.label.text,"Demon: Any  >","a saved Felguard choice reads as Any")
+Equal(demon:click(demon:row("pet")),nil,"and Any with two demons and no valid last cast still never guesses")
+cycle:Fire("OnClick")
+Equal(demon.env.EraUIDB.reminderChoice_WARLOCK_pet,0,"cycling from it lands on a real choice")
+cycle:Fire("OnClick")
+Equal(cycle.label.text,"Demon: Summon Imp  >","then the next demon")
+local blesser=Session("PALADIN")
+blesser.known[19740]=true;blesser.env.EraUIDB.reminderChoice_PALADIN_blessing=20911
+blesser.env.EraUIDB.reminderClickable=true;blesser.M:Initialize()
+Equal(blesser:click(blesser:row("blessing")),"/cast [nocombat,@player] Blessing of Might","a saved Sanctuary choice reads as Any: the only blessing known")
+
+-- Summon Incubus is a Demon choice of its own in /era, and clickable.
+local incubus=Session("WARLOCK")
+incubus.known[688]=true;incubus.known[712]=true;incubus.known[713]=true
+incubus.env.EraUIDB.reminderClickable=true;incubus.M:Initialize()
+local incubusOptions=incubus:options();incubusOptions.adv:Fire("OnClick")
+local picker
+for _,f in ipairs(incubusOptions.advRows)do if f.label.text and f.label.text:find("^Demon:")then picker=f end end
+local shown={}
+for _=1,4 do picker:Fire("OnClick");shown[#shown+1]=picker.label.text end
+Equal(table.concat(shown," | "),"Demon: Summon Imp  > | Demon: Summon Succubus  > | Demon: Summon Incubus  > | Demon: Any  >",
+ "the Demon button cycles through Incubus and back to Any")
+picker:Fire("OnClick");picker:Fire("OnClick");picker:Fire("OnClick")
+Equal(incubus:click(incubus:row("pet")),"/cast [nocombat] Summon Incubus","a chosen Incubus is what a click summons")
+Equal(incubus:row("pet").icon.texture,713,"with its icon")
+picker:Fire("OnClick")
+incubus:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",713);incubus.M:Refresh()
+Equal(incubus:click(incubus:row("pet")),"/cast [nocombat] Summon Incubus","on Any, the Incubus you summoned last")
+-- A hunter with only Forever's Trueshot Aura rank 1 is reminded, and not once it's up.
+local marksman=Session("HUNTER")
+marksman.known[1299346]=true;marksman.env.EraUIDB.reminderClickable=true;marksman.M:Initialize()
+Equal(marksman:click(marksman:row("trueshot")),"/cast [nocombat,@player] Trueshot Aura","rank 1 missing: TRUESHOT AURA! casts it")
+marksman.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=1299346}end end}
+marksman.M:Refresh()
+Equal(marksman:row("trueshot"),nil,"rank 1 up: no alert")
 print("Reminder click lifecycle: "..checks.." assertions passed")

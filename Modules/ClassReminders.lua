@@ -368,20 +368,6 @@ local function DefState(def,cache)
    if unknown then return nil end
    return true,def.ids and "Windfury Totem missing"or "No totems active"
  end
- if kind=="cooldown"then
-  local known,ready=false,false
-  for _,id in ipairs(def.ids or{})do
-   if T.Known(id)then
-    known=true
-    if GetSpellCooldown then
-     local ok,start,dur=pcall(GetSpellCooldown,id)
-     if ok and T.Number(start)and T.Number(dur)and(start==0 or dur==0)then ready=true end
-    end
-   end
-  end
-  if not known then return nil end
-  return ready,ready and "Ready to use"or "On cooldown"
- end
  if def.items then
   local n=ItemCount(def.items)
   if n==0 then return false,"No stone in bags"end
@@ -561,10 +547,15 @@ local function Row(index)
  return row
 end
 
+-- Hidden for a flight path (T.Flying): until you land and a moment after.
+local flightHidden=false
+
 local function Paint()
  if not panel or dragging then return end
  local mapOpen=WorldMapFrame and WorldMapFrame:IsShown()
- if not Enabled()or(mapOpen)or(InCombatLockdown()and not CombatOn())then
+ local flying=T.Flying() -- read every paint, so landing is noticed with the map open
+ flightHidden=flying
+ if not Enabled()or mapOpen or flying or(InCombatLockdown()and not CombatOn())then
   for _,row in ipairs(rows)do row:Hide();Disarm(row)end
   panel:Hide()
   return
@@ -874,9 +865,11 @@ function M:Initialize()
  end
  self:Refresh()
  local events=CreateFrame("Frame")
+ -- PLAYER_CONTROL_LOST and _GAINED: taking off and landing on a flight path.
  for _,event in ipairs({"PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","SPELLS_CHANGED",
   "BAG_UPDATE_DELAYED","UNIT_AURA","UNIT_PET","PLAYER_TOTEM_UPDATE","UNIT_INVENTORY_CHANGED","GROUP_ROSTER_UPDATE",
-  "PLAYER_LEVEL_UP","PLAYER_EQUIPMENT_CHANGED","UNIT_HEALTH","UNIT_FLAGS","UNIT_CONNECTION"})do
+  "PLAYER_LEVEL_UP","PLAYER_EQUIPMENT_CHANGED","UNIT_HEALTH","UNIT_FLAGS","UNIT_CONNECTION",
+  "PLAYER_CONTROL_LOST","PLAYER_CONTROL_GAINED"})do
   pcall(events.RegisterEvent,events,event)
  end
  -- Your mana or rage, for "Not enough mana" (or rage) under a reminder.
@@ -897,6 +890,9 @@ function M:Initialize()
  end)
  events:SetScript("OnUpdate",function(_,dt)
   elapsed=elapsed+dt
+  -- The pause after landing is over: show what's missing without waiting.
+  local hold=flightHidden and T.LandingHold()
+  if hold and GetTime()>=hold then dirty=true end
   if(dirty and elapsed>.5)or elapsed>2 then elapsed=0;dirty=false;M:Refresh()end
  end)
 end

@@ -1,6 +1,6 @@
 local _,E=...
 -- One entry per reminder. text is the big alert word; dynamic names use the
--- learned spell instead. kind: aura | pet | petDead | item | imbue | totems | shards | cooldown
+-- learned spell instead. kind: aura | pet | petDead | item | imbue | totems | shards
 --   ids       learned ranks (highest learned supplies the icon)
 --   requires  at least one of these spells must be learned
 --   auras     extra aura ids that also satisfy the buff
@@ -29,14 +29,18 @@ local _,E=...
 --             none, so their clicks always cast the normal blessing
 --   power     what the spell costs when it isn't mana, for "Not enough ..."
 -- Demon family IDs independently checked in CreatureFamily, build 1.60.1.70009.
+-- Spell IDs are Forever's own (same build); Tools/TestClassReminders.lua audits
+-- them. Forever is level 60 content, so later pets and totems (Water Elemental,
+-- Felguard, Fire and Earth Elemental Totem) and Blessing of Sanctuary, which it
+-- lacks, are left out.
 E.ReminderSpells={
  WARRIOR={
    {key="battleShout",text="BATTLE SHOUT!",kind="aura",group=true,subgroup=true,power="rage",ids={6673,5242,6192,11549,11550,11551,25289}},
  },
  PALADIN={
   {key="blessing",text="BLESSING!",kind="aura",group=true,choiceLabel="Blessing",
-   ids={19740,19834,19835,19836,19837,19838,25291,25782,25916,19742,19850,19852,19853,19854,25290,25894,25918,20217,25898,1038,25895,19977,19978,19979,25890,20911,20912,20913,20914,25899},
-   reagentIds={25782,25916,25894,25918,25898,25895,25890,25899},
+   ids={19740,19834,19835,19836,19837,19838,25291,25782,25916,19742,19850,19852,19853,19854,25290,25894,25918,20217,25898,1038,25895,19977,19978,19979,25890},
+   reagentIds={25782,25916,25894,25918,25898,25895,25890},
    choices={
     {key="any",name="Any blessing"},
     {key="might",name="Blessing of Might",ids={19740,19834,19835,19836,19837,19838,25291,25782,25916}},
@@ -44,16 +48,17 @@ E.ReminderSpells={
     {key="kings",name="Blessing of Kings",ids={20217,25898}},
     {key="salvation",name="Blessing of Salvation",ids={1038,25895}},
     {key="light",name="Blessing of Light",ids={19977,19978,19979,25890}},
-    {key="sanctuary",name="Blessing of Sanctuary",ids={20911,20912,20913,20914,25899}},
    }},
-  {key="seal",text="SEAL!",kind="aura",self=true,off=true,ids={21084,20162,20375,20305,20306,20307,20308,21082,20164,20165,20166,20167,20287,20288,20289,20290,20291,20292,20293,20294,20295,20296,20347,20348,20349,20350,20351}},
-  {key="aura",text="AURA!",kind="aura",self=true,off=true,ids={465,10290,643,10291,1032,10292,1033,10293,7294,10294,10295,19746,19876}},
+  -- Seal and aura clicks cast the last spell listed that you know, so the
+  -- Forever-only Seal of Fury leads and new auras sit before Shadow Resistance.
+  {key="seal",text="SEAL!",kind="aura",self=true,off=true,ids={1311649,1311656,20163,20419,20421,20422,20423,20154,21084,20162,20375,20915,20918,20919,20920,20305,20306,20307,20308,21082,20164,20165,20166,20356,20357,20287,20288,20289,20290,20291,20292,20293,20347,20348,20349}},
+  {key="aura",text="AURA!",kind="aura",self=true,off=true,ids={465,10290,643,10291,1032,10292,10293,7294,10298,10299,10300,10301,19746,19888,19897,19898,19891,19899,19900,19876,19895,19896}},
  },
  HUNTER={
     {key="pet",text="SUMMON PET!",kind="pet",missingOnly=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastCall",minLevel=10,ids={883}},
     {key="petDead",text="PET DEAD!",kind="petDead",color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastSoothe",minLevel=10,ids={982}},
   {key="aspect",text="ASPECT!",kind="aura",self=true,choiceLabel="Aspect",nameMatch="Aspect of",
-   ids={13163,13165,14318,14319,14320,14321,14322,25296,5118,13159,13161,20043,20190},
+   ids={13163,13165,14318,14319,14320,14321,14322,25296,5118,13159,13161,1299445,1299446,1299447,20043,20190},
    castIds={13163,13165,14318,14319,14320,14321,14322,25296},
    choices={
     {key="any",name="Any aspect"},
@@ -61,10 +66,10 @@ E.ReminderSpells={
     {key="monkey",name="Aspect of the Monkey",ids={13163}},
     {key="cheetah",name="Aspect of the Cheetah",ids={5118}},
     {key="pack",name="Aspect of the Pack",ids={13159}},
-    {key="beast",name="Aspect of the Beast",ids={13161}},
+    {key="beast",name="Aspect of the Beast",ids={13161,1299445,1299446,1299447}},
     {key="wild",name="Aspect of the Wild",ids={20043,20190}},
    }},
-   {key="trueshot",text="TRUESHOT AURA!",kind="aura",group=true,subgroup=true,ids={19506,20905,20906}},
+   {key="trueshot",text="TRUESHOT AURA!",kind="aura",group=true,subgroup=true,ids={1299346,1299348,19506,20905,20906}},
  },
  ROGUE={
   {key="poisonMain",text="POISON: MAIN HAND!",kind="imbue",weapon="main",color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison",minLevel=20},
@@ -89,22 +94,22 @@ E.ReminderSpells={
    }},
    {key="totems",text="NO TOTEMS!",kind="totems",requires={8071,2484,3599,5394},icon="Interface\\Icons\\Spell_Nature_StoneSkinTotem"},
    {key="windfuryTotem",text="WINDFURY TOTEM!",kind="totems",off=true,ids={8512,10613,10614}},
-  {key="elemental",text="SUMMON ELEMENTAL!",kind="cooldown",off=true,color={.6,.92,1},ids={2894,2062}},
  },
  MAGE={
    {key="intellect",text="ARCANE INTELLECT!",kind="aura",group=true,mana=true,dynamic=true,ids={1459,1460,1461,10156,10157,23028},reagentIds={23028},reagentItems={[23028]=17020}},
-  {key="armor",text="ARMOR!",kind="aura",self=true,off=true,ids={168,7300,7301,7302,6117,22782,22783}},
-  {key="elemental",text="SUMMON ELEMENTAL!",kind="pet",off=true,color={.6,.92,1},icon="Interface\\Icons\\Spell_Frost_SummonWaterElemental",ids={31687},castIds={31687}},
+  {key="armor",text="ARMOR!",kind="aura",self=true,off=true,ids={168,7300,7301,7302,7320,10219,10220,6117,22782,22783}},
  },
  WARLOCK={
-   {key="pet",text="SUMMON PET!",kind="pet",color={1,.36,.3},icon="Interface\\Icons\\Spell_Shadow_SummonImp",choiceLabel="Demon",ids={688,697,712,691,30146,427733},
+   {key="pet",text="SUMMON PET!",kind="pet",color={1,.36,.3},icon="Interface\\Icons\\Spell_Shadow_SummonImp",choiceLabel="Demon",ids={688,697,712,713,691},
    choices={
     {key="any",name="Any demon"},
      {key="imp",name="Summon Imp",ids={688},family=23},
      {key="voidwalker",name="Summon Voidwalker",ids={697},family=16},
      {key="succubus",name="Summon Succubus",ids={712},family=17},
+     -- No family yet: CreatureFamily has Incubus 302, but no game data says the
+     -- summoned Incubus uses it, so any living demon counts for this choice.
+     {key="incubus",name="Summon Incubus",ids={713}},
      {key="felhunter",name="Summon Felhunter",ids={691},family=15},
-     {key="felguard",name="Summon Felguard",ids={427733,30146},family=310}, -- Old choice ID remains readable.
    }},
   {key="healthstone",text="CREATE HEALTHSTONE!",kind="item",color={.5,1,.5},icon="Interface\\Icons\\INV_Stone_04",ids={6201,6202,5699,11729,11730},items={5512,5511,5509,5510,9421,19004,19005,19006,19007,19008,19009,19010,19011,19012,19013}},
   {key="soulstone",text="CREATE SOULSTONE!",kind="item",color={.78,.58,1},icon="Interface\\Icons\\Spell_Shadow_SoulGem",ids={693,20752,20755,20756,20757},items={5232,16892,16893,16895,16896}},

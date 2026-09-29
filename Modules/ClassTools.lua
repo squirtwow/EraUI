@@ -115,6 +115,25 @@ function T.ReminderHeader(header)
  header.label:SetTextColor(r,g,b)
  local line=header:CreateTexture(nil,"ARTWORK");line:SetHeight(2);line:SetPoint("BOTTOMLEFT",1,0);line:SetPoint("BOTTOMRIGHT",-1,0);line:SetColorTexture(r,g,b,.65)
 end
+-- On a flight path nothing can be cast and the game puts pets away, so every
+-- reminder panel waits until you land, then a moment more while it brings the
+-- pet back. One shared clock, so the panels agree on when you landed. A
+-- hidden, failing or missing taxi answer counts as not flying.
+local LAND_GRACE=2
+local onTaxi,holdUntil=false,nil
+function T.Flying()
+ local taxi=false
+ if UnitOnTaxi then
+  local ok,v=pcall(UnitOnTaxi,"player")
+  taxi=ok and T.Public(v)and v==true
+ end
+ if taxi then onTaxi=true;holdUntil=nil;return true end
+ if onTaxi then onTaxi=false;holdUntil=GetTime()+LAND_GRACE end
+ return holdUntil~=nil and GetTime()<holdUntil
+end
+-- When the pause after the last landing ends (nil in flight). It is kept after
+-- that, so a panel another one beat to the landing still repaints on time.
+function T.LandingHold()return holdUntil end
 function T.Window(name,title,w,h)
  local f=CreateFrame("Frame",name,UIParent,"BackdropTemplate")
  f:SetSize(w,h);f:SetPoint("CENTER");f:SetFrameStrata("FULLSCREEN_DIALOG");T.Skin(f)

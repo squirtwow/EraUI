@@ -6,6 +6,22 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.2.2",
+        sections = {
+            { "Added", {
+                "More from Squirt: Forever Enhanced Cooldown Manager is out, and its card gives you its CurseForge and GitHub links.",
+                "Class reminders: Summon Incubus can be picked as your demon.",
+            } },
+            { "Changed", {
+                "Class reminders: all reminders, the Poison Reminders panel too, hide while you're on a flight path and come back a moment after you land.",
+                "Class reminders: Forever's own spell ranks are recognised: Trueshot ranks 1 and 2, Seal of Righteousness, Wisdom, Command and Fury, Retribution and the resistance auras, Ice Armor and Aspect of the Beast.",
+            } },
+            { "Removed", {
+                "Class reminders for spells WoW Forever doesn't have: Summon Water Elemental (mage), Fire and Earth Elemental Totem (shaman), and the Blessing of Sanctuary and Felguard choices.",
+            } },
+        },
+    },
+    {
         version = "1.2.1",
         sections = {
             { "Added", {
