@@ -86,6 +86,25 @@ aura type, aura data or geometry is read, no native region is changed and no
 key is written on the buttons, so the same path runs in combat. A protected button (not how Forever builds them)
 would wait for `PLAYER_REGEN_ENABLED`.
 
+Aura Shadows (`darkAuraShadows`, on by default, Needs testing, depends on
+`darkAuraBorders`) adds a soft shadow past the dark edge, built like Forever
+Enhanced Cooldown Manager's icon shadow: three one-unit rings of black at 45%,
+25% and 10%, from two to five units outside the icon. Five units is Edit
+Mode's smallest Icon Padding (and camelot's default, from the mainline preset
+layouts), and the grid spaces buttons by padding in each button's own scaled
+units, so a shadow never reaches a neighbouring icon. Top and bottom strips
+take the corners, so no spot is shaded twice. The twelve strips sit on an
+addon-owned child frame of the button (sized by two icon corners, never
+mouse-enabled) kept one frame level below the button, the tooltip-backdrop
+technique. Every button of a row shares one level (all are made on the same
+`AuraContainer`), so every aura's icon, timer and debuff border draws over
+every shadow, the button's own and its neighbours'. The level is reapplied on
+each `UpdateAuraButtons` and checked with `issecretvalue` first. The frame is
+made the first time shadows are on and later only shown or hidden. In /era,
+greying walks the whole dependency chain, so the card is unavailable while
+Dark Mode is off even with Dark Aura Borders ticked, and the hover names the
+first option to switch on.
+
 Target and focus auras are not covered: camelot builds them from the secure
 `TargetFrameAuraContainerTemplate`, whose buttons come from the forbidden
 `ForbiddenTargetFrame*ButtonTemplate` templates when `RestrictedAuraAPI` is
@@ -146,7 +165,11 @@ State lives in a weak table; nothing is written on Blizzard's frames.
   when switched off (the default is on, checked in TestPersistence), Dark Mode
   and EraUI gating, live toggling, late buttons, combat,
   protected-button deferral, private anchors, and no aura data reads or
-  writes on Blizzard's buttons.
+  writes on Blizzard's buttons. Aura Shadows: ring coverage sampled every
+  half unit (each spot once, 45/25/10%), five-unit reach, BACKGROUND layer,
+  the shadow frame one level under every button and following level changes,
+  secret levels untouched, gating by Dark Mode and Dark Aura Borders, reuse,
+  late and protected buttons.
 - `lua Tools/TestClassTooltips.lua`: the client's clear/lines/post-call/show
   order on proxy tooltips that forbid key writes; name, class word and border
   with the skin on and off, restore on clear, hide and switching off, players

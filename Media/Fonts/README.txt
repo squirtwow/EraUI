@@ -1,4 +1,4 @@
-Fonts for EraUI's damage and healing text choice.
+Fonts for EraUI's damage and healing text choice, and the AFK screen's class quote.
 
 Pepsi (PEPSI_pl.ttf) by Jakub Degorski, from dafont.com/pepsi.font.
 
@@ -12,3 +12,4 @@ From Google Fonts (github.com/google/fonts), each with its licence file here:
 - Bungee by David Jonathan Ross: SIL Open Font License 1.1 (Bungee-OFL.txt)
 - Permanent Marker by Font Diner: Apache License 2.0 (PermanentMarker-LICENSE.txt)
 - Press Start 2P by CodeMan38: SIL Open Font License 1.1 (PressStart2P-OFL.txt)
+- IM Fell English Italic by Igino Marini: SIL Open Font License 1.1 (IMFellEnglish-OFL.txt), the unmodified IMFeENit28P.ttf shipped as IMFellEnglish-Italic.ttf

@@ -23,6 +23,13 @@ local function Session(class)
  local env=setmetatable({}, {__index=_G});env._G=env
  local methods={}
  local function Guard(f)assert(not(combat and f.protected and not restricted),"protected addon edit during combat")end
+ -- Layout (show, hide, move, size, mouse, attributes) is refused in combat on a
+ -- secure frame and on anything drawn inside one; recolouring and fading are not.
+ local function Locked(f)
+  while f and f~=env.UIParent do if f.protected then return true end;f=f.parent end
+  return false
+ end
+ local function Lock(f)assert(not(combat and Locked(f)and not restricted),"protected addon layout during combat")end
  local function Frame(parent,template)
   local f=setmetatable({parent=parent,scripts={},hooks={},attrs={},shown=true,width=52,height=52,
    x=1000,y=500,scale=.64,level=10,protected=not not(template and template:find("SecureActionButtonTemplate",1,true))}, {__index=methods})
@@ -33,17 +40,21 @@ local function Session(class)
   frames[#frames+1]=f;return f
  end
  for _,name in ipairs({"SetBackdrop","SetBackdropColor","SetBackdropBorderColor","SetColorTexture","SetTexCoord",
-  "SetTextColor","SetShadowColor","SetShadowOffset","SetJustifyH","SetWordWrap","SetClampedToScreen","SetMovable",
-  "RegisterForDrag","SetFont","SetAllPoints","Enable","Disable","SetScale","EnableMouseWheel"})do
+  "SetTextColor","SetShadowColor","SetShadowOffset","SetJustifyH","SetClampedToScreen","SetMovable",
+  "RegisterForDrag","EnableMouseWheel"})do
   methods[name]=function(self)Guard(self)end
  end
+ for _,name in ipairs({"SetWordWrap","SetAllPoints","SetScale"})do methods[name]=function(self)Lock(self)end end
+ function methods:SetFont(file,size)Lock(self);self.fontFile,self.fontSize=file,size end
+ function methods:Enable()Guard(self);self.enabled=true end
+ function methods:Disable()Guard(self);self.enabled=false end
  -- As the game does, SetAlpha takes a hidden value and draws with it.
  function methods:SetAlpha(a)
   Guard(self)
   if IsHidden(a)then self.alpha=rawget(a,"value");self.hiddenAlpha=true
   else assert(type(a)=="number","alpha must be a number");self.alpha=a;self.hiddenAlpha=false end
  end
- function methods:EnableMouse(v)Guard(self);self.mouse=v end
+ function methods:EnableMouse(v)Lock(self);self.mouse=v end
  function methods:SetScript(event,fn)self.scripts[event]=fn end
  function methods:RegisterEvent(event)Guard(self);self.events=self.events or{};self.events[event]=true end
  function methods:HookScript(event,fn)self.hooks[event]=self.hooks[event]or{};table.insert(self.hooks[event],fn)end
@@ -54,30 +65,30 @@ local function Session(class)
   restricted=was
  end
  function methods:SetShown(value)
-  Guard(self);value=not not value
+  Lock(self);value=not not value
   if self.shown~=value then self.shown=value;self:Fire(value and "OnShow"or "OnHide")end
  end
  function methods:Show()self:SetShown(true)end
  function methods:Hide()self:SetShown(false)end
  function methods:IsShown()return self.shown and(not self.parent or self.parent:IsShown())end
- function methods:SetAttribute(key,value)Guard(self);self.attrs[key]=value end
- function methods:SetSize(w,h)Guard(self);self.width,self.height=w,h end
- function methods:SetWidth(w)Guard(self);self.width=w end
- function methods:SetHeight(h)Guard(self);self.height=h end
+ function methods:SetAttribute(key,value)Lock(self);self.attrs[key]=value end
+ function methods:SetSize(w,h)Lock(self);self.width,self.height=w,h end
+ function methods:SetWidth(w)Lock(self);self.width=w end
+ function methods:SetHeight(h)Lock(self);self.height=h end
  function methods:GetWidth()return self.width end
  function methods:GetHeight()return self.height end
  function methods:SetPoint(...)
-  Guard(self);self.point={...}
+  Lock(self);self.point={...}
   local target=self.point[2]
   if self.protected and type(target)=="table"and target~=env.UIParent then target.protected=true end
  end
- function methods:ClearAllPoints()Guard(self);self.point=nil end
+ function methods:ClearAllPoints()Lock(self);self.point=nil end
  function methods:GetCenter()return self.x,self.y end
  function methods:GetLeft()return self.x-self.width/2 end
  function methods:GetTop()return self.y+self.height/2 end
  function methods:GetEffectiveScale()return self.scale end
- function methods:SetFrameStrata(strata)Guard(self);self.strata=strata end
- function methods:SetFrameLevel(level)Guard(self);self.level=level end
+ function methods:SetFrameStrata(strata)Lock(self);self.strata=strata end
+ function methods:SetFrameLevel(level)Lock(self);self.level=level end
  function methods:GetFrameLevel()return self.level end
  function methods:GetParent()return self.parent end
  function methods:CreateTexture()return Frame(self)end
@@ -88,7 +99,7 @@ local function Session(class)
  function methods:GetFont()return "font",12 end
  function methods:SetTexture(texture)self.texture=texture end
  function methods:SetVertexColor(r,g,b)self.tint={r,g,b}end
- function methods:RegisterForClicks(...)self.clicks={...}end
+ function methods:RegisterForClicks(...)Lock(self);self.clicks={...}end
  function methods:StartMoving()self.moving=true end
  function methods:StopMovingOrSizing()self.moving=false end
  env.UIParent=Frame();env.GameFontHighlight=Frame();env.GameFontHighlightSmall=Frame()
@@ -96,9 +107,50 @@ local function Session(class)
   assert(not(combat and template and template:find("Secure")),"secure creation during combat")
   local f=Frame(parent,template);if name then env[name]=f end;return f
  end
+ -- The game's macro conditions for the pet: [combat], [@pet,exists],
+ -- [@pet,dead], each with its no- form. Groups in one clause are either/or.
+ local function Condition(group)
+  local unit,met="target",true
+  for word in group:gmatch("[^,]+")do
+   word=word:match("^%s*(.-)%s*$")
+   if word:sub(1,1)=="@"then unit=word:sub(2)
+   else
+    local negate=word:sub(1,2)=="no";local key=negate and word:sub(3)or word
+    local v
+    if key=="combat"then v=combat
+    elseif key=="exists"then v=unit=="pet"and pet.exists==true
+    elseif key=="dead"then v=unit=="pet"and pet.exists==true and pet.dead==true
+    else error("unknown macro condition "..word)end
+    if negate then v=not v end
+    if not v then met=false end
+   end
+  end
+  return met
+ end
+ local function Parse(rule)
+  for clause in rule:gmatch("[^;]+")do
+   local groups={}
+   local value=clause:gsub("%[(.-)%]",function(g)groups[#groups+1]=g;return ""end):match("^%s*(.-)%s*$")
+   local hit=#groups==0
+   for _,g in ipairs(groups)do if Condition(g)then hit=true end end
+   if hit then return value end
+  end
+ end
+ -- A visibility driver is the game's own secure code showing or hiding.
+ local function Resolve(f,rule)
+  local v=Parse(rule)
+  restricted=true
+  if v=="show"then f:Show()elseif v=="hide"then f:Hide()end
+  restricted=false
+ end
+ local registered={}
  env.RegisterStateDriver=function(f,state,condition)
-  Guard(f);Equal(condition,"[combat] 1; 0","secure combat driver")
-  drivers[f]=state
+  Guard(f);assert(not combat,"state driver registered during combat")
+  if state=="combat"then Equal(condition,"[combat] 1; 0","secure combat driver")
+  else Equal(state,"visibility","only combat and visibility drivers")end
+  drivers[f]=drivers[f]or{};drivers[f][state]=condition
+  registered[#registered+1]={frame=f,state=state,rule=condition}
+  if state=="visibility"then Resolve(f,condition)end
  end
  env.InCombatLockdown=function()return combat end
  env.issecretvalue=IsHidden
@@ -159,15 +211,27 @@ local function Session(class)
  assert(loadfile("Modules/ClassReminderData.lua","t",env))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua","t",env))("EraUI",E)
  local M=E.modules.ClassReminders
- local s={E=E,M=M,env=env,known=known,pet=pet,settings=settings,frames=frames,noMana=noMana}
+ local s={E=E,M=M,env=env,known=known,pet=pet,settings=settings,frames=frames,noMana=noMana,registered=registered}
+ -- The game's 0.2 s driver pass: every visibility rule is read again.
+ function s:drivers()
+  for f,list in pairs(drivers)do if list.visibility then Resolve(f,list.visibility)end end
+ end
  function s:combat(value)
   combat=value
-  for f,state in pairs(drivers)do
-   restricted=true
-   assert(load(f.attrs["_onstate-"..state],"restricted state","t",{self=f,newstate=value and "1"or "0"}))()
-   restricted=false
+  for f,list in pairs(drivers)do
+   if list.combat then
+    restricted=true
+    assert(load(f.attrs["_onstate-combat"],"restricted state","t",{self=f,newstate=value and "1"or "0"}))()
+    restricted=false
+   end
   end
+  s:drivers()
  end
+ -- The secure pet alert that stands in for a reminder in combat.
+ function s:alert(key)
+  for _,f in ipairs(frames)do if f.combatKey==key then return f end end
+ end
+ function s:parse(rule)return Parse(rule)end
  function s:row(key)
   for _,f in ipairs(frames)do if f.def and f.def.key==key and f:IsShown()then return f end end
  end
@@ -836,4 +900,377 @@ for _,f in ipairs(wideOptions.advRows)do
 end
 Equal(later.point[2].." "..later.point[3],"12 "..(wideLow.point[3]-26),"a switch after the wide one starts the next line")
 Equal(wideOptions.height,-(later.point[3]-26)+24,"and the panel grows to fit it")
+
+-- Click pet reminders in combat (Needs testing): off by default; SUMMON PET!,
+-- PET DEAD! and PET LOW HEALTH! get secure alerts the game shows by macro
+-- conditions. The mock refuses any secure layout, show, hide or attribute
+-- change in combat, so every combat step below also proves none happens.
+local function At(a)return ("%g %g"):format(a.point[4],a.point[5])end
+local function Tooltip(s)
+ local t={}
+ s.env.GameTooltip={SetOwner=function(_,owner)for k in pairs(t)do t[k]=nil end;t.owner=owner end,SetText=function(_,text)t.title=text end,
+  AddLine=function(_,text)t[#t+1]=text end,Show=function()t.shown=true end,Hide=function()t.shown=false end}
+ return t
+end
+local function Visibility(s)
+ local list={}
+ for _,r in ipairs(s.registered)do if r.state=="visibility"then list[#list+1]=r end end
+ return list
+end
+local fighter=Session("HUNTER")
+local ftip=Tooltip(fighter)
+for _,id in ipairs({883,982,136,3661})do fighter.known[id]=true end
+fighter.env.EraUIDB.reminderClickable=true;fighter.env.EraUIDB.reminder_HUNTER_petHealth=true
+fighter.M:Initialize()
+Equal(fighter.env.EraUIDB.reminderCombatClick,nil,"Click pet reminders in combat is off by default")
+Equal(fighter:alert("pet")or fighter:alert("petDead")or fighter:alert("petHealth"),nil,"off: no secure pet alert is built")
+fighter:combat(true);fighter:event("PLAYER_REGEN_DISABLED");fighter.M:Refresh()
+Equal(fighter:row("pet"),nil,"off: in combat the pet rows hide as before")
+fighter:combat(false);fighter:event("PLAYER_REGEN_ENABLED")
+Equal(fighter:click(fighter:row("pet")),nil,"off: no early refresh at the end of a fight, as before")
+fighter.M:Refresh()
+Equal(fighter:click(fighter:row("pet")),"/cast [nocombat] Call Pet","off: the next refresh restores the click, as before")
+Equal(#Visibility(fighter),0,"off: no visibility driver is ever registered")
+local fo=fighter:options()
+local cc=fo.combatClick
+Equal(cc:IsShown(),true,"hunters get the option")
+Equal(cc.label.text,"Click pet reminders in combat","labelled plainly, confirmed in game")
+Equal(cc.point[3],fo.clickable.point[3]-26,"right under Clickable reminders")
+Equal(fo.mana.point[3],cc.point[3]-26,"with the mana note under it")
+local listedCc=false
+for _,f in ipairs(fo.items)do if f==cc then listedCc=true end end
+Equal(listedCc,true,"it greys out with the other options")
+Equal(cc.dependencyDisabled==false and cc.alpha==1 and cc.dependencyHelp:IsShown(),false,"with Clickable reminders on it is available")
+fo.clickable:Fire("OnClick")
+Equal(fighter.env.EraUIDB.reminderClickable,false,"Clickable reminders off")
+Equal(cc.dependencyDisabled,true,"greys it out")
+Equal(cc.alpha,.4,"drawn faded")
+Equal(cc.enabled,false,"and disabled")
+cc:Fire("OnClick")
+Equal(fighter.env.EraUIDB.reminderCombatClick,nil,"so it can't be turned on")
+Equal(cc.dependencyHelp:IsShown(),true,"its hover help still works")
+cc.dependencyHelp:Fire("OnEnter")
+Equal(ftip.owner==cc and ftip[1],"Turn on Clickable reminders to use this.","saying what to turn on first")
+cc.dependencyHelp:Fire("OnLeave");Equal(ftip.shown,false,"leaving hides it")
+fo.clickable:Fire("OnClick")
+Equal(cc.dependencyDisabled==false and cc.enabled==true and cc.alpha==1 and not cc.dependencyHelp:IsShown(),true,"Clickable reminders on: available again")
+cc:Fire("OnEnter")
+Equal(ftip.title,"Click pet reminders in combat","hovering names it")
+Equal(ftip[1]:find("^SUMMON PET!, PET DEAD! and PET LOW HEALTH! stay clickable in combat: Call Pet, Revive Pet and Mend Pet%.")~=nil,true,"it says which alerts and spells")
+for _,words in ipairs({"even with Show during combat off","The game hides your pet's health, so",
+ "a faint Mend Pet icon stays up all fight while your pet is alive",
+ "A click casts even when it's faint.","They stay up with the world map open","a click with too little mana still tries to cast",
+ "Other reminders are clickable outside combat only."})do
+ Equal(ftip[1]:find(words,1,true)~=nil,true,"it says: "..words)
+end
+Equal(ftip[1]:find("It hides",1,true)==nil and ftip[1]:find("different demon",1,true)==nil,true,"a hunter's help names the game, and says nothing about demons")
+Equal(ftip[1]:find("\226\128\148",1,true),nil,"with no em dash")
+Equal(ftip[2],"Default: Off.","and its default")
+cc:Fire("OnLeave")
+cc:Fire("OnClick")
+Equal(fighter.env.EraUIDB.reminderCombatClick,true,"the user can turn it on")
+local call,revive,mend=fighter:alert("pet"),fighter:alert("petDead"),fighter:alert("petHealth")
+Equal(call~=nil and revive~=nil and mend~=nil,true,"SUMMON PET!, PET DEAD! and PET LOW HEALTH! each get a secure alert")
+Equal(call.protected and call.parent==fighter.env.UIParent and call.point[2]==fighter.env.UIParent,true,"parented and anchored to UIParent only")
+Equal(fighter.env.EraUIClassReminderAlerts.protected,false,"so the alert panel stays unprotected")
+Equal(next(call.scripts)==nil and next(call.hooks)==nil,true,"no script or hook on the secure alert")
+Equal(not not(call.face.protected or call.face.mouse),false,"its look sits on a plain face that takes no mouse")
+Equal(table.concat(call.clicks,","),"LeftButtonUp,LeftButtonDown","left click, down or up")
+local rules={}
+for _,r in ipairs(Visibility(fighter))do rules[r.frame.combatKey]=r.rule end
+Equal(rules.pet,"[nocombat][@pet,exists] hide; show","SUMMON PET! shows in combat only while no pet exists")
+Equal(rules.petDead,"[nocombat] hide; [@pet,dead] show; hide","PET DEAD! in combat only while the pet is dead")
+Equal(rules.petHealth,"[nocombat][@pet,noexists][@pet,dead] hide; show","PET LOW HEALTH! in combat only while the pet is alive")
+Equal(call.attrs.type1.." | "..call.attrs.macrotext1,"macro | /cast [combat] Call Pet","SUMMON PET! casts Call Pet")
+Equal(revive.attrs.macrotext1,"/cast [combat] Revive Pet","PET DEAD! casts Revive Pet")
+Equal(mend.attrs.macrotext1,"/cast [combat,@pet,exists,nodead] Mend Pet","PET LOW HEALTH! casts Mend Pet on a living pet")
+Equal(call:IsShown()or revive:IsShown()or mend:IsShown(),false,"out of combat every pet alert hides")
+Equal(fighter:click(fighter:row("pet")),"/cast [nocombat] Call Pet","and SUMMON PET!'s row keeps its normal click")
+Equal(At(call),"1000 500","the SUMMON PET! alert sits on its row's icon")
+Equal(("%g %g"):format(call.width,call.height),"52 52","only the icon square is the button")
+Equal(At(revive),"1000 565","PET DEAD! waits where its row would stack: the top slot")
+Equal(At(mend),"1000 565","PET LOW HEALTH! too, with nothing else up")
+Equal(call.text.text.." | "..call.sub.text,"SUMMON PET! | No pet summoned","it reads like the row")
+Equal(call.icon.texture,883,"with Call Pet's icon")
+Equal(mend.face.alpha,.35,"PET LOW HEALTH! starts faint, never unseen")
+Equal(mend.text.alpha+mend.sub.alpha,0,"and without its words")
+-- Into combat: the game shows SUMMON PET!, nothing else changes a secure frame.
+local armedCount=#Visibility(fighter)
+fighter:combat(true);fighter:event("PLAYER_REGEN_DISABLED")
+Equal(call:IsShown(),true,"no pet in combat: the game shows SUMMON PET!")
+Equal(revive:IsShown()or mend:IsShown(),false,"and only it")
+Equal(fighter:row("pet"),nil,"its row goes at once, even with Show during combat off")
+Equal(call.attrs.macrotext1,"/cast [combat] Call Pet","a click casts Call Pet")
+Equal(At(call),"1000 500","in the spot it had when the fight began")
+local function ShownArmed(s)
+ for _,key in ipairs({"pet","petDead","petHealth"})do
+  local a=s:alert(key)
+  if a and a:IsShown()and not(a.attrs.type1=="macro"and a.attrs.macrotext1)then return false end
+ end
+ return true
+end
+Equal(ShownArmed(fighter),true,"a shown alert always has its click")
+fighter.pet.exists=true;fighter.pet.health=100;fighter:drivers();fighter.M:Refresh()
+Equal(call:IsShown(),false,"pet summoned mid-fight: SUMMON PET! goes")
+Equal(mend:IsShown(),true,"and the PET LOW HEALTH! icon is up")
+Equal(mend.face.hiddenAlpha,true,"faded by the game's hidden answer, never read")
+Equal(mend.face.alpha,.35,"faint while the pet is healthy")
+Equal(mend.text.alpha+mend.sub.alpha,0,"with no words")
+Equal(mend.alpha,nil,"the secure button itself is never faded")
+fighter.pet.health=20;fighter.M:Refresh()
+Equal(mend.face.alpha,1,"below 35% the icon lights up")
+Equal(mend.text.alpha==1 and mend.sub.alpha==1 and mend.text.hiddenAlpha,true,"and its words, by the game's answer too")
+Equal(mend.sub.text,"Pet below 35% health","saying so")
+Equal(ShownArmed(fighter),true,"its click is Mend Pet's")
+local lowest,highest=1,0
+for health=0,100,5 do
+ fighter.pet.health=health;fighter.M:Refresh()
+ lowest=math.min(lowest,mend.face.alpha);highest=math.max(highest,mend.text.alpha)
+ Equal(mend:IsShown(),true,"PET LOW HEALTH! stays up at "..health.."%")
+end
+Equal(lowest,.35,"the icon is never less than faint, at any health")
+Equal(highest,1,"the words light up only below the limit")
+-- Your own Below limit, not the default: 50% here.
+fighter.env.EraUIDB.reminderLimit_HUNTER_petHealth=50
+fighter.pet.health=45;fighter.M:Refresh()
+Equal(mend.face.alpha==1 and mend.text.alpha==1 and mend.sub.alpha==1,true,"Below 50%: at 45% the icon and its words light up")
+Equal(mend.sub.text,"Pet below 50% health","saying your limit")
+fighter.pet.health=55;fighter.M:Refresh()
+Equal(mend.face.alpha==.35 and mend.text.alpha==0 and mend.sub.alpha==0,true,"Below 50%: at 55% it stays faint, with no words")
+for health=0,100,5 do
+ fighter.pet.health=health;fighter.M:Refresh()
+ Equal(mend.face.alpha==1 and mend.text.alpha==1,health<50,"Below 50%: lit at "..health.."% only under the limit")
+end
+fighter.env.EraUIDB.reminderLimit_HUNTER_petHealth=nil
+fighter.pet.health=100;fighter.M:Refresh()
+fighter.noMana[3661]=true;fighter.M:Refresh()
+Equal(mend.sub.text,"Pet below 35% health\n|cff8fa8ffNot enough mana|r","out of mana: said under the icon")
+Equal(mend.icon.tint[1]==.5 and mend.icon.tint[3],1,"in the mana tint")
+Equal(mend.attrs.macrotext1,"/cast [combat,@pet,exists,nodead] Mend Pet","the click can't be taken away mid-fight: the game says why it fails")
+fighter.noMana[3661]=secret;fighter.M:Refresh()
+Equal(mend.sub.text,"Pet below 35% health","a hidden mana answer is never read as out of mana")
+Equal(mend.icon.tint[1],1,"nor tinted")
+fighter.noMana[3661]=nil
+local keepPercent=fighter.env.UnitHealthPercent
+fighter.env.UnitHealthPercent=nil;fighter.M:Refresh()
+Equal(mend.face.alpha==.35 and mend.face.hiddenAlpha,false,"no percent API: a fixed faint icon")
+Equal(mend.text.alpha,0,"with no words")
+fighter.env.UnitHealthPercent=function()error("unavailable")end;fighter.M:Refresh()
+Equal(mend.face.alpha==.35 and mend.text.alpha==0,true,"a failing percent API: the same")
+fighter.env.UnitHealthPercent=keepPercent
+fighter.pet.dead=true;fighter:drivers();fighter.M:Refresh()
+Equal(mend:IsShown(),false,"the pet dies: PET LOW HEALTH! goes")
+Equal(revive:IsShown(),true,"the game shows PET DEAD!")
+Equal(call:IsShown(),false,"not SUMMON PET!")
+Equal(revive.attrs.macrotext1.." | "..revive.sub.text,"/cast [combat] Revive Pet | Revive your pet","a click casts Revive Pet")
+fighter.env.EraUIDB.reminderCombat=true;fighter.M:Refresh()
+Equal(fighter:row("petDead"),nil,"Show during combat on: still never a PET DEAD! row as well")
+fighter.pet.dead=secret;fighter:drivers();fighter.M:Refresh()
+Equal(call.sub.text,"No pet summoned","a hidden death state is never read")
+fighter.pet.dead=true;fighter:drivers()
+-- The options and the map can't change anything mid-fight.
+cc:Fire("OnClick");Equal(fighter.env.EraUIDB.reminderCombatClick,true,"the option can't be changed in combat")
+fighter.env.WorldMapFrame:Show()
+Equal(revive:IsShown(),true,"the map opened in combat can't hide the alert, and nothing tries")
+Equal(fighter.env.EraUIClassReminderAlerts:IsShown(),false,"the rows hide for the map as before")
+fighter.env.WorldMapFrame:Hide()
+Equal(#Visibility(fighter),armedCount,"no driver was registered in combat")
+-- Out of combat: the rows and their clicks are back at once.
+fighter:combat(false)
+Equal(revive:IsShown(),false,"combat over: the game hides PET DEAD!")
+fighter:event("PLAYER_REGEN_ENABLED")
+Equal(fighter:click(fighter:row("petDead")),"/cast [nocombat] Revive Pet","and its row and normal click are back at once")
+Equal(revive.rule,"[nocombat] hide; [@pet,dead] show; hide","still armed for the next fight")
+Equal(At(revive),"1000 500","out of combat PET DEAD!'s alert moves onto its row's icon")
+fighter.env.WorldMapFrame:Show()
+Equal(revive.rule.." "..At(revive),"[nocombat] hide; [@pet,dead] show; hide 1000 500","the map open out of combat leaves the alerts as they are")
+fighter.env.WorldMapFrame:Hide()
+-- A dragged alert: its own spot, and it leaves the stack alone.
+fighter.pet.dead=false;fighter.pet.health=100
+fighter.env.EraUIDB.reminderPX_HUNTER_petDead=-100;fighter.env.EraUIDB.reminderPY_HUNTER_petDead=-50;fighter.M:Refresh()
+Equal(At(revive),"765 515","a dragged PET DEAD! waits at its own spot")
+Equal(revive.slot,nil,"outside the stack")
+fo.reset:Fire("OnClick")
+Equal(("%g %s"):format(revive.point[5],tostring(revive.slot)),"565 1","Reset alert positions puts it back in the stack")
+-- The drag handle is the row, out of combat only; a drop moves the alert too.
+fighter.pet.exists=false;fighter.M:Refresh()
+local callRow=fighter:row("pet")
+callRow.iconFrame.x,callRow.iconFrame.y=700,300
+callRow:Fire("OnDragStart");callRow:Fire("OnDragStop")
+Equal(At(call),"700 300","after a drag SUMMON PET!'s alert follows its row")
+callRow.iconFrame.x,callRow.iconFrame.y=1000,500
+fighter:combat(true)
+callRow:Fire("OnDragStart");Equal(callRow.moving==true,false,"no dragging in combat")
+fighter:combat(false);fo.reset:Fire("OnClick")
+-- Whatever stops the normal click puts the alerts away too.
+local function AllAway(s)
+ for _,key in ipairs({"pet","petDead","petHealth"})do
+  local a=s:alert(key)
+  if a and(a.rule~="hide"or a.attrs.type1 or a.attrs.macrotext1 or a:IsShown())then return false end
+ end
+ return true
+end
+local function Rearmed(s)return s:alert("pet").rule=="[nocombat][@pet,exists] hide; show"and s:alert("pet").attrs.type1=="macro"end
+fo.prev:Fire("OnClick")
+Equal(AllAway(fighter),true,"Show all reminders puts them away: a preview never casts")
+fighter:combat(true);Equal(AllAway(fighter),true,"so none shows in combat")
+fighter:combat(false);fo.prev:Fire("OnClick")
+Equal(Rearmed(fighter),true,"preview off: armed again")
+fo.clickable:Fire("OnClick")
+Equal(AllAway(fighter),true,"Clickable reminders off: put away")
+fo.clickable:Fire("OnClick");Equal(Rearmed(fighter),true,"and back")
+fighter.settings.classReminders=false;fighter.M:Refresh()
+Equal(AllAway(fighter),true,"Class Reminders off: put away")
+fighter.settings.classReminders=true;fighter.M:Refresh();Equal(Rearmed(fighter),true,"and back")
+fighter.env.EraUIDB.reminder_HUNTER_petHealth=false;fighter.M:Refresh()
+Equal(mend.rule.." "..tostring(mend.attrs.type1),"hide nil","PET LOW HEALTH! switched off: its alert is put away")
+Equal(Rearmed(fighter)and revive.attrs.type1,"macro","the others stay armed")
+fighter.env.EraUIDB.reminder_HUNTER_petHealth=true
+cc:Fire("OnClick")
+Equal(fighter.env.EraUIDB.reminderCombatClick,false,"the option off again")
+Equal(AllAway(fighter),true,"every pet alert is put away")
+fighter.pet.exists=true;fighter.pet.dead=true;fighter:combat(true);fighter.M:Refresh()
+Equal(AllAway(fighter),true,"and none shows in a fight")
+Equal(fighter:row("petDead")~=nil and fighter:click(fighter:row("petDead")),nil,"PET DEAD! is the plain row again, with no click in combat")
+fighter:combat(false)
+
+-- The slot under ASPECT!: nothing jumps when the fight begins.
+local stacker=Session("HUNTER")
+for _,id in ipairs({883,982,136,3661,13165})do stacker.known[id]=true end
+for key,value in pairs({reminderClickable=true,reminderCombatClick=true,reminderCombat=true,reminder_HUNTER_petHealth=true})do stacker.env.EraUIDB[key]=value end
+stacker.pet.exists=true;stacker.M:Initialize()
+local sMend,sRevive=stacker:alert("petHealth"),stacker:alert("petDead")
+Equal(stacker:row("aspect").point[3],0,"ASPECT! on top out of combat")
+Equal(("%g %g"):format(sMend.point[5],sMend.slot),"431 2","PET LOW HEALTH!'s alert waits in the slot under it, where its row would go")
+Equal(("%g %g"):format(sRevive.point[5],sRevive.slot),"565 1","PET DEAD!'s in the top slot, where its row would go")
+stacker:combat(true);stacker:event("PLAYER_REGEN_DISABLED")
+Equal(sMend:IsShown(),true,"in combat the faint heal icon is up")
+Equal(stacker:row("aspect").point[3],0,"ASPECT! keeps the top slot")
+Equal(stacker:row("petHealth"),nil,"with no PET LOW HEALTH! row as well")
+stacker.pet.dead=true;stacker:drivers();stacker.M:Refresh()
+Equal(sRevive:IsShown(),true,"the pet dies: PET DEAD! in the top slot")
+Equal(stacker:row("aspect").point[3],-134,"ASPECT! moves under it, as out of combat")
+stacker:combat(false);stacker:event("PLAYER_REGEN_ENABLED")
+Equal(stacker:row("petDead").point[3]..","..stacker:row("aspect").point[3],"0,-134","out of combat the rows stack the same way")
+-- Alert size: Small and Large set the alert's square, its words and its stack
+-- slots the way they set the rows'. (Normal is 52, words 25 and 12, slots 134 apart.)
+stacker.pet.dead=false
+for _,case in ipairs({{1,"Small",40,20,10,576,468},{3,"Large",68,32,14,550,378},{2,"Normal",52,25,12,565,431}})do
+ stacker.env.EraUIDB.reminderSize=case[1];stacker.M:Refresh()
+ Equal(("%g %g"):format(sMend.width,sMend.height),("%g %g"):format(case[3],case[3]),case[2]..": the alert is the row's icon square")
+ Equal(("%g %g %g"):format(sMend.text.fontSize,sMend.sub.fontSize,sRevive.text.fontSize),("%g %g %g"):format(case[4],case[5],case[4]),case[2]..": its words at the row's sizes")
+ Equal(("%g %g"):format(sRevive.point[5],sMend.point[5]),("%g %g"):format(case[6],case[7]),case[2]..": waiting on the icons of the row slots, a row's height apart")
+ Equal(sRevive.slot..","..sMend.slot,"1,2",case[2]..": in the top slot and the one under ASPECT!")
+end
+stacker.env.EraUIDB.reminderSize=nil
+-- A dragged PET LOW HEALTH! with a title wider than the 190 minimum: its alert
+-- lands on the icon of the wide row it stands for.
+sMend.text.GetStringWidth=function()return 250 end
+stacker.env.EraUIDB.reminderPX_HUNTER_petHealth=-100;stacker.env.EraUIDB.reminderPY_HUNTER_petHealth=-50;stacker.M:Refresh()
+Equal(At(sMend),"813 515","a wide dragged alert is centred where its wide row's icon would be")
+Equal(sMend.slot,nil,"outside the stack")
+stacker.env.EraUIDB.reminderPX_HUNTER_petHealth=nil;stacker.env.EraUIDB.reminderPY_HUNTER_petHealth=nil
+sMend.text.GetStringWidth=nil;stacker.M:Refresh()
+Equal(At(sMend),"1000 431","back in the stack")
+-- A /reload in combat: nothing secure is built until the fight ends.
+local reloaded=Session("HUNTER")
+reloaded.known[883]=true;reloaded.env.EraUIDB.reminderClickable=true;reloaded.env.EraUIDB.reminderCombatClick=true
+reloaded:combat(true);reloaded.M:Initialize()
+Equal(reloaded:alert("pet"),nil,"a reload in combat builds no secure alert")
+reloaded:combat(false);reloaded:event("PLAYER_REGEN_ENABLED")
+Equal(reloaded:alert("pet")and reloaded:alert("pet").rule,"[nocombat][@pet,exists] hide; show","it is built when the fight ends")
+Equal(reloaded:alert("petDead"),nil,"no PET DEAD! alert before Revive Pet is learned")
+reloaded.known[982]=true;reloaded.M:Refresh()
+Equal(reloaded:alert("petDead")and reloaded:alert("petDead").attrs.macrotext1,"/cast [combat] Revive Pet","learned later: built then")
+-- Paint reads the map every time, so counting those reads counts refreshes.
+local function Paints(s)local n=0;s.env.WorldMapFrame.IsShown=function(self)n=n+1;return self.shown end;return function()return n end end
+-- The game's own order: PLAYER_REGEN_DISABLED runs just before the fight's
+-- lockdown starts, so its refresh is an out-of-combat one. The next frame,
+-- inside the fight, puts away the row its alert now covers.
+local order=Session("HUNTER")
+order.known[883]=true
+for key,value in pairs({reminderClickable=true,reminderCombatClick=true,reminderCombat=true})do order.env.EraUIDB[key]=value end
+order.M:Initialize()
+local orderPaints=Paints(order)
+Equal(order:row("pet")~=nil,true,"no pet: SUMMON PET!'s row out of combat")
+order:event("PLAYER_REGEN_DISABLED")
+Equal(orderPaints(),1,"the start of a fight refreshes at once")
+order:combat(true)
+Equal(order:alert("pet"):IsShown(),true,"then the game shows SUMMON PET!'s alert")
+order:tick(.01)
+Equal(order:row("pet"),nil,"and on the next frame its row goes, with Show during combat on")
+Equal(orderPaints(),2,"one more refresh did it")
+order:tick(.01);Equal(orderPaints(),2,"then the usual half-second pace")
+order:combat(false);order:event("PLAYER_REGEN_ENABLED")
+Equal(orderPaints(),3,"the end of a fight refreshes at once too")
+order:tick(.01);Equal(orderPaints(),3,"and needs no second refresh on the next frame")
+Equal(order:click(order:row("pet")),"/cast [nocombat] Call Pet","and the row's click is back")
+-- A saved "on" that can't act (EraUIDB is shared by every character) keeps
+-- today's timing: no early refresh when a fight starts or ends.
+local greyed=Session("HUNTER")
+greyed.known[883]=true;greyed.env.EraUIDB.reminderCombatClick=true -- Clickable reminders off: the option is greyed out
+greyed.M:Initialize()
+local greyedPaints=Paints(greyed)
+greyed:event("PLAYER_REGEN_DISABLED");greyed:combat(true);greyed:combat(false);greyed:event("PLAYER_REGEN_ENABLED")
+Equal(greyedPaints(),0,"Clickable reminders off: a saved on adds no refresh")
+Equal(greyed:alert("pet"),nil,"and builds nothing")
+local cleric=Session("PRIEST")
+cleric.known[1243]=true;cleric.env.EraUIDB.reminderClickable=true;cleric.env.EraUIDB.reminderCombatClick=true
+cleric.M:Initialize()
+local clericPaints=Paints(cleric)
+Equal(cleric:click(cleric:row("fortitude")),"/cast [nocombat,@player] Power Word: Fortitude","a priest's reminder clicks out of combat")
+cleric:event("PLAYER_REGEN_DISABLED");cleric:combat(true);cleric:combat(false);cleric:event("PLAYER_REGEN_ENABLED")
+Equal(clericPaints(),0,"a class without a pet: a saved on adds no refresh")
+Equal(cleric:click(cleric:row("fortitude")),nil,"so after a fight the click waits for the usual refresh, as before")
+cleric:tick(.6)
+Equal(cleric:click(cleric:row("fortitude")),"/cast [nocombat,@player] Power Word: Fortitude","which brings it back")
+
+-- Warlocks: the demon you set and Health Funnel; no PET DEAD!.
+local summoner=Session("WARLOCK")
+local wtip=Tooltip(summoner)
+for _,id in ipairs({688,755,11695})do summoner.known[id]=true end
+for key,value in pairs({reminderClickable=true,reminderCombatClick=true,reminder_WARLOCK_petHealth=true})do summoner.env.EraUIDB[key]=value end
+summoner.M:Initialize()
+local demonAlert,funnelAlert=summoner:alert("pet"),summoner:alert("petHealth")
+Equal(demonAlert.rule,"[nocombat][@pet,exists,nodead] hide; show","a warlock's SUMMON PET! shows while no living demon is out")
+Equal(demonAlert.attrs.macrotext1,"/cast [combat] Summon Imp","and summons the Imp, the only demon known")
+Equal(funnelAlert.attrs.macrotext1,"/cast [combat,@pet,exists,nodead] Health Funnel","PET LOW HEALTH! channels Health Funnel")
+Equal(funnelAlert.icon.texture,11695,"at its highest known rank")
+local wo=summoner:options()
+Equal(wo.combatClick:IsShown(),true,"warlocks get the option")
+wo.combatClick:Fire("OnEnter")
+Equal(wtip[1]:find("^SUMMON PET! and PET LOW HEALTH! stay clickable in combat: your demon and Health Funnel%.")~=nil,true,"in the warlock's words")
+Equal(wtip[1]:find("PET DEAD!",1,true),nil,"warlocks have no PET DEAD!")
+Equal(wtip[1]:find("With a different demon out, SUMMON PET! can't be clicked until the fight ends.",1,true)~=nil,true,"it says a different demon out can't be swapped mid-fight")
+Equal(wtip[1]:find("\226\128\148",1,true),nil,"with no em dash")
+summoner.pet.exists=true;summoner.pet.dead=true;summoner:combat(true);summoner.M:Refresh()
+Equal(demonAlert:IsShown()and demonAlert.sub.text,"Pet is dead","the demon dies mid-fight: SUMMON PET! says so")
+Equal(funnelAlert:IsShown(),false,"no Health Funnel for a dead demon")
+summoner:combat(false);summoner.pet.dead=false
+-- A living demon of another family: the game can't tell, so the row says it.
+summoner.known[697]=true;summoner.env.EraUIDB.reminderChoice_WARLOCK_pet=697;summoner.env.EraUIDB.reminderCombat=true
+summoner.env.UnitCreatureFamily=function()return "Imp"end
+summoner.env.C_CreatureInfo={GetCreatureFamilyInfo=function(id)return {name=({[16]="Voidwalker",[23]="Imp"})[id]}end}
+summoner.M:Refresh()
+Equal(demonAlert.attrs.macrotext1,"/cast [combat] Summon Voidwalker","the demon you set is what a click summons")
+summoner:combat(true);summoner.M:Refresh()
+Equal(demonAlert:IsShown(),false,"the Imp is out: the game hides SUMMON PET!")
+Equal(summoner:row("pet")and summoner:row("pet").sub.text,"Different demon summoned","its row still says so in combat")
+Equal(summoner:click(summoner:row("pet")),nil,"without a click, as before")
+summoner:combat(false)
+summoner.env.EraUIDB.reminderChoice_WARLOCK_pet=0;summoner.M:Refresh()
+Equal(demonAlert.rule.." "..tostring(demonAlert.attrs.macrotext1),"hide nil","Any with two demons and none cast yet: no demon is guessed")
+Equal(funnelAlert.rule,"[nocombat][@pet,noexists][@pet,dead] hide; show","Health Funnel stays armed")
+-- Classes without a pet: no option, no alerts, whatever is saved.
+local caster=Session("PRIEST")
+caster.known[1243]=true;caster.env.EraUIDB.reminderClickable=true;caster.env.EraUIDB.reminderCombatClick=true
+caster.M:Initialize()
+Equal(caster:options().combatClick:IsShown(),false,"a priest has no Click pet reminders in combat")
+Equal(#Visibility(caster),0,"and no alert or driver")
+Equal(caster:click(caster:row("fortitude")),"/cast [nocombat,@player] Power Word: Fortitude","their reminders click outside combat as before")
+-- The mock's macro conditions, as the drivers read them.
+Equal(caster:parse("[nocombat] hide; [@pet,dead] show; hide"),"hide","out of combat: hide")
+caster:combat(true)
+Equal(caster:parse("[nocombat][@pet,exists] hide; show"),"show","in combat with no pet: show")
+caster:combat(false)
 print("Reminder click lifecycle: "..checks.." assertions passed")

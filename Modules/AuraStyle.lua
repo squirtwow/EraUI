@@ -227,15 +227,57 @@ local pending=false
 -- under the icon and its timer text, then a grey line over the icon's own
 -- bright rim, in Dark Mode's grey.
 local TONES={{2,0,.05,.05,.06,"BACKGROUND",-8},{0,1,.30,.31,.34,"ARTWORK",1}}
+-- Aura Shadows (on by default, needs Dark Aura Borders): a soft shadow past
+-- the dark edge, three one-unit rings of black, each fainter than the last
+-- (the ring technique of Forever Enhanced Cooldown Manager's icon shadow).
+-- Five units in all, Edit Mode's smallest gap between icons, so it never
+-- reaches a neighbouring icon. The rings sit on an EraUI frame one level
+-- below the aura button, so every aura's icon, timer and debuff border draws
+-- over every shadow: its own and its neighbours'.
+local SHADOW={.45,.25,.1}
+local EDGE=2 -- the dark edge's width outside the icon
 local function DarkBorders()
  return(E:GetSetting("enabled")and E:GetSetting("darkMode")and E:GetSetting("darkAuraBorders"))and true or false
 end
-local function Ring(button,on)
+local function DarkShadows()
+ return(DarkBorders()and E:GetSetting("darkAuraShadows"))and true or false
+end
+-- A protected button (not how Forever builds aura buttons) waits for combat to end.
+local function Locked(button)
+ if InCombatLockdown()and button.IsProtected and button:IsProtected()then pending=true;return true end
+ return false
+end
+-- The shadow's own frame, sized by two icon corners and never mouse-enabled.
+-- Top and bottom rings take the corners, so no spot is shaded twice.
+local function Shadow(button,icon)
+ local reach=EDGE+#SHADOW
+ local holder=CreateFrame("Frame",nil,button)
+ holder:SetPoint("TOPLEFT",icon,"TOPLEFT",-reach,reach)
+ holder:SetPoint("BOTTOMRIGHT",icon,"BOTTOMRIGHT",reach,-reach)
+ for step,alpha in ipairs(SHADOW)do
+  local d=EDGE+step-1
+  for _,edge in ipairs({{"TOPLEFT",-d-1,d+1,"TOPRIGHT",d+1,d},{"BOTTOMLEFT",-d-1,-d,"BOTTOMRIGHT",d+1,-d-1},
+   {"TOPLEFT",-d-1,d,"BOTTOMLEFT",-d,-d},{"TOPRIGHT",d,d,"BOTTOMRIGHT",d+1,-d}})do
+   local strip=holder:CreateTexture(nil,"BACKGROUND",nil,-8)
+   strip:SetColorTexture(0,0,0,alpha)
+   strip:SetPoint("TOPLEFT",icon,edge[1],edge[2],edge[3])
+   strip:SetPoint("BOTTOMRIGHT",icon,edge[4],edge[5],edge[6])
+  end
+ end
+ return holder
+end
+-- One level under the button, checked on every update in case it moved. The
+-- level is checked as a plain number before any arithmetic.
+local function Lower(button,holder)
+ local level=Num(button:GetFrameLevel())
+ level=level and math.max(0,level-1)
+ if level and holder:GetFrameLevel()~=level then holder:SetFrameLevel(level)end
+end
+local function Ring(button,on,shade)
  if not button or button.isAuraAnchor or not button.Icon then return end
  local ring=rings[button]
  if not ring then
-  if not on then return end
-  if InCombatLockdown()and button.IsProtected and button:IsProtected()then pending=true;return end
+  if not on or Locked(button)then return end
   ring={};rings[button]=ring
   local icon=button.Icon
   for _,tone in ipairs(TONES)do
@@ -255,6 +297,10 @@ local function Ring(button,on)
   ring.on=on
   for _,strip in ipairs(ring)do strip:SetShown(on)end
  end
+ if not(shade or ring.shadow)or Locked(button)then return end
+ ring.shadow=ring.shadow or Shadow(button,button.Icon)
+ if shade then Lower(button,ring.shadow)end
+ if ring.shaded~=shade then ring.shaded=shade;ring.shadow:SetShown(shade)end
 end
 -- The player's aura rows: buffs, debuffs, external defensives and the
 -- consolidated-buff popout, plus the consolidated button itself.
@@ -268,16 +314,16 @@ local function StyleFrame(frame)
   hooked[frame]=true
   hooksecurefunc(frame,"UpdateAuraButtons",StyleFrame)
  end
- local on=DarkBorders()
- for _,button in ipairs(frame.auraFrames or{})do Ring(button,on);StyleButton(button)end
+ local on,shade=DarkBorders(),DarkShadows()
+ for _,button in ipairs(frame.auraFrames or{})do Ring(button,on,shade);StyleButton(button)end
 end
 function M:RefreshBorders()
- local on=DarkBorders();pending=false
+ local on,shade=DarkBorders(),DarkShadows();pending=false
  local rows,consolidated=Rows()
  for index=1,4 do
-  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do Ring(button,on)end
+  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do Ring(button,on,shade)end
  end
- Ring(consolidated,on);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on)
+ Ring(consolidated,on,shade);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade)
 end
 function M:Refresh()
  for _,name in ipairs({"GameTooltip","BuffFrameTooltip","ItemRefTooltip","ShoppingTooltip1","ShoppingTooltip2",

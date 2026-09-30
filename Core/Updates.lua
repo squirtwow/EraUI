@@ -6,6 +6,21 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.4.0",
+        sections = {
+            { "Added", {
+                "AFK Screen, on by default: when you go AFK your interface and minimap fade away and EraUI shows its banner in your class colour, your character standing still, a card with your name, level, guild, zone, time away and the clock, and a famous World of Warcraft Classic line for your class. Move or press a key to come back. Its options are under Text & Camera.",
+                "Bag Item Levels: the item level of the gear in your bags as a big number in the item's quality colour, a green or red arrow for upgrades, and a red icon on gear you can't equip. Off by default.",
+                "Class reminders: Click pet reminders in combat, for hunters and warlocks. SUMMON PET!, PET DEAD! and PET LOW HEALTH! can be clicked mid-fight (Call Pet, Revive Pet, your demon, Mend Pet, Health Funnel). Off by default, and it needs Clickable reminders on.",
+                "Aura Shadows (Needs testing): a soft shadow behind your buff and debuff icons, with Dark Aura Borders in Dark Mode.",
+                "The EraUI logo in your addon list now matches the one on CurseForge.",
+            } },
+            { "Changed", {
+                "The AFK Screen is switched on once for everyone updating. If you switch it off, it stays off.",
+            } },
+        },
+    },
+    {
         version = "1.3.0",
         sections = {
             { "Added", {

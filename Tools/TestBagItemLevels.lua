@@ -1,7 +1,10 @@
 -- Bag Item Levels on the real module. Blizzard's bag buttons are proxies that
 -- log every key read and refuse every key write, so the checks prove the marks
 -- never write on a bag button. Items, worn gear, tooltips and the game's
--- usable-item answer are all driven from one table per case.
+-- usable-item answer are all driven from one table per case. The look: a big
+-- quality-coloured number bottom right, a small arrow top right, and a red
+-- copy of the icon (normal blending, so it fades with the UI) for gear you
+-- can't equip.
 local checks=0
 local function equal(got,want,label)
  checks=checks+1;assert(got==want,label..": expected "..tostring(want)..", got "..tostring(got))
@@ -10,7 +13,13 @@ local combat,made,timers,hooks=false,0,{},0
 local reads={}
 -- A hidden value: any read of it fails, as in the client.
 local SECRET=setmetatable({},{__index=function()error("read a secret value")end})
-issecretvalue=function(v)return v==SECRET end
+-- A hidden number: the game says it is a number, but comparing or doing sums
+-- with it fails.
+local function Refuse()error("compared a secret number")end
+local SECRET_NUMBER=setmetatable({},{__index=Refuse,__lt=Refuse,__le=Refuse,__add=Refuse,__sub=Refuse,__mul=Refuse,__div=Refuse,__concat=Refuse})
+local rawType=type
+type=function(v)if rawequal(v,SECRET_NUMBER)then return "number"end;return rawType(v)end
+issecretvalue=function(v)return rawequal(v,SECRET)or rawequal(v,SECRET_NUMBER)end
 InCombatLockdown=function()return combat end
 C_Timer={After=function(_,fn)timers[#timers+1]=fn end}
 local function Flush()
@@ -20,17 +29,30 @@ end
 hooksecurefunc=function(t,key,fn)
  local old=t[key];hooks=hooks+1;t[key]=function(...)old(...);fn(...)end
 end
--- Our own frames, textures and font strings.
+-- Our own frames, textures and font strings. A font string needs a font
+-- before it can take text, as in the client; a refused font file leaves the
+-- one it had.
+local LILITA="Interface\\AddOns\\EraUI\\Media\\Fonts\\LilitaOne-Regular.ttf"
+local FRIZ="Fonts\\FRIZQT__.TTF"
+local refuse,blends,ignored,fontCalls={},{},0,0
 local function Region(kind,parent,layer,template)
- local r={kind=kind,parent=parent,layer=layer,template=template,shown=true,points={}}
+ local r={kind=kind,parent=parent,layer=layer,template=template,shown=true,points={},font=template}
  function r:SetAllPoints(to)self.all=to end
  function r:SetPoint(p,to,rp,x,y)self.points[p]={to,rp,x,y}end
  function r:SetSize(w,h)self.w,self.h=w,h end
  function r:SetTexture(t)self.texture=t end
- function r:SetBlendMode(m)self.blend=m end
- function r:SetVertexColor(a,b,c)self.colour={a,b,c}end
+ function r:SetBlendMode(m)self.blend=m;blends[#blends+1]=m end
+ function r:SetVertexColor(a,b,c,d)self.colour={a,b,c,d or 1}end
  function r:SetTexCoord(...)self.coords={...}end
- function r:SetText(t)self.text=t end
+ function r:SetText(t)if not self.font then error("SetText on a font string with no font")end;self.text=t end
+ function r:SetFont(file,size,flags)
+  fontCalls=fontCalls+1
+  if refuse[file]=="error"then error("not a valid font asset")elseif refuse[file]then return false end
+  self.font,self.size,self.flags=file,size,flags;return true
+ end
+ function r:SetShadowColor(a,b,c,d)self.shadow={a,b,c,d}end
+ function r:SetShadowOffset(x,y)self.shadowOffset={x,y}end
+ function r:SetIgnoreParentAlpha(v)ignored=ignored+1;self.ignoreAlpha=v end
  function r:SetTextColor(a,b,c)self.textColour={a,b,c}end
  function r:SetJustifyH(j)self.justify=j end
  function r:SetAlpha(a)self.alpha=a end
@@ -89,12 +111,16 @@ C_Container={GetContainerItemInfo=function(bag,slot)
  if link==SECRET then return SECRET end
  local it=link and items[link]
  if not it then return nil end
- return {hyperlink=it.link,quality=it.quality,itemID=it.id,stackCount=1}
+ return {hyperlink=it.link,quality=it.hide~="info"and it.hide~="both"and it.quality or nil,itemID=it.id,
+  stackCount=it.stack or 1,iconFileID=not it.noIcon and 5000+it.id or nil,isLocked=it.locked or false}
 end}
 C_Item={
- GetItemInfoInstant=function(link)local it=items[link];if it then return it.id,"Armor","",it.loc end end,
+ GetItemInfoInstant=function(link)local it=items[link];if it then return it.id,"Armor","",it.loc,not it.noInstantIcon and 9000+it.id or nil end end,
  GetDetailedItemLevelInfo=function(link)local it=items[link];if it and it.cached then return it.level,false,it.level end end,
- GetItemInfo=function(link)local it=items[link];if it and it.cached then return it.link,it.link,it.quality,it.level,it.minLevel end end,
+ GetItemInfo=function(link)local it=items[link];if it and it.cached then return it.link,it.link,it.hide~="both"and it.quality or nil,it.level,it.minLevel end end,
+ GetItemQualityByID=function(id)for _,it in pairs(items)do if it.id==id then return it.quality end end end,
+ -- Slightly off the table's values, so a check can tell which one was used.
+ GetItemQualityColor=function(q)if q==3 then return .01,.45,.88,"ff0173e0"end;return 1,1,1,"ffffffff"end,
 }
 C_TooltipInfo={GetBagItem=function(bag,slot)
  tipCalls=tipCalls+1
@@ -107,7 +133,8 @@ C_PlayerInfo={CanUseItem=function(id)for _,it in pairs(items)do if it.id==id the
 GetInventoryItemLink=function(_,slot)return worn[slot]end
 CanDualWield=function()return player.dual end
 UnitLevel=function()return player.level end
-ITEM_QUALITY_COLORS={[0]={r=.62,g=.62,b=.62},[1]={r=1,g=1,b=1},[2]={r=.12,g=1,b=0},[3]={r=0,g=.44,b=.87},[4]={r=.64,g=.21,b=.93}}
+local QUALITY={[0]={r=.62,g=.62,b=.62},[1]={r=1,g=1,b=1},[2]={r=.12,g=1,b=0},[3]={r=0,g=.44,b=.87},[4]={r=.64,g=.21,b=.93}}
+ITEM_QUALITY_COLORS=QUALITY
 
 -- Blizzard's bag buttons and windows. Only the proxy is handed to the addon.
 local function Native()
@@ -119,9 +146,12 @@ local function Native()
 end
 local backs={}
 local function Button(bag,slot,extra)
- local back={bag=bag,slot=slot,level=10,icon=Native(),Count=Native(),JunkIcon=Native(),UpgradeIcon=Native(),IconBorder=Native()}
+ local back={bag=bag,slot=slot,level=10,width=37,icon=Native(),Count=Native(),JunkIcon=Native(),UpgradeIcon=Native(),IconBorder=Native()}
  for k,v in pairs(extra or{})do back[k]=v end
  function back.GetBagID(self)return back.bag end
+ function back.GetWidth(self)return back.width end
+ -- The junk coin: shown by the game on grey items while a merchant is open.
+ function back.JunkIcon.IsShown(self)if back.junk==nil then return false end;return back.junk end
  function back.GetID(self)return back.slot end
  function back.GetFrameLevel(self)return back.level end
  function back.IsProtected(self)return back.protected==true end
@@ -147,7 +177,7 @@ local function Window(name,buttons,shown)
 end
 local backpack,bag1={},{}
 for slot=1,16 do backpack[slot]=Button(0,slot)end
-for slot=1,6 do bag1[slot]=Button(1,slot)end
+for slot=1,10 do bag1[slot]=Button(1,slot)end
 Window("ContainerFrame1",backpack,true)
 Window("ContainerFrame2",bag1,false)
 local combined={}
@@ -187,6 +217,10 @@ Put(1,3,Item("cloak","INVTYPE_CLOAK",12))
 Put(1,4,Item("quiver","INVTYPE_QUIVER",30))
 Put(1,5,Item("broken-legs","INVTYPE_LEGS",44,{broken=true}))
 Put(1,6,Item("knives","INVTYPE_THROWN",22))
+Put(1,7,Item("linen","",20,{stack=20,quality=1}))
+Put(1,8,Item("stacked-knives","INVTYPE_THROWN",30,{stack=200}))
+Put(1,9,Item("epic-ring","INVTYPE_FINGER",60,{quality=4}))
+Put(1,10,Item("white-belt","INVTYPE_WAIST",8,{quality=1}))
 
 local E={modules={},settings={enabled=true}}
 function E:RegisterModule(name,m)self.modules[name]=m end
@@ -208,8 +242,30 @@ CreateFrame=function(kind,name,parent)
 end
 local function Seen(button)
  local o=Mark(button);if not o or not o.shown then return nil end
- return {level=o.level.text,arrow=o.arrow.shown and(o.arrow.coords[3]==0 and "up"or "down")or nil,red=o.tint.shown,o=o}
+ return {level=o.level.shown and o.level.text or nil,arrow=o.arrow.shown and(o.arrow.coords[3]==0 and "up"or "down")or nil,red=o.tint.shown,o=o}
 end
+-- What reaches the screen. UIParent's alpha (uiAlpha) reaches the marks
+-- through their Blizzard bag button. A MOD texture multiplies what is behind
+-- it whatever its alpha, so it is seen even with the whole UI faded out: the
+-- red square left on the AFK screen.
+local uiAlpha=1
+local function Effective(r)
+ local a=1
+ while r do
+  a=a*(r.alpha or 1)
+  if r.ignoreAlpha then return a end
+  local parent=r.parent
+  if backs[parent]then return a*uiAlpha end
+  r=parent
+ end
+ return a
+end
+local function Visible(r)
+ local o=r
+ while o and not backs[o]do if not o.shown then return false end;o=o.parent end
+ return r.blend=="MOD"or Effective(r)>0
+end
+local function Near(a,b)return math.abs(a-b)<1e-6 end
 local function Expect(button,level,arrow,red,label)
  local s=Seen(button)
  if level==nil then equal(s,nil,label.." shows no mark");return end
@@ -218,8 +274,10 @@ local function Expect(button,level,arrow,red,label)
  equal(s.red,red,label.." can't-equip tint")
 end
 
--- Ships as Coming soon: inert even with the option saved on.
-equal(M.comingSoon,true,"Bag Item Levels ships as Coming soon")
+-- Ships for testing: no longer Coming soon.
+equal(M.comingSoon,false,"Bag Item Levels ships for testing, not Coming soon")
+-- Coming soon, should it ever be switched back: inert even with the option saved on.
+M.comingSoon=true
 W.bagItemLevels=true
 M:Initialize();M:Refresh();M:PaintAll()
 equal(hooks,0,"coming soon: no bag window hooked")
@@ -241,7 +299,7 @@ equal(#marks,0,"a native bag update while off makes nothing")
 W.bagItemLevels=true;M:Refresh()
 equal(hooks,3,"each of the three bag windows hooked once")
 M:Refresh();equal(hooks,3,"refreshing never hooks twice")
-for _,e in ipairs({"PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","PLAYER_LEVEL_UP","SKILL_LINES_CHANGED","SPELLS_CHANGED","UPDATE_FACTION"})do
+for _,e in ipairs({"PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","PLAYER_LEVEL_UP","SKILL_LINES_CHANGED","SPELLS_CHANGED","UPDATE_FACTION","ITEM_LOCK_CHANGED"})do
  equal(eventFrame.events[e],true,"listens for "..e)
 end
 Expect(backpack[1],"45","up",false,"higher helm")
@@ -258,38 +316,62 @@ Expect(backpack[11],nil,nil,nil,"bag")
 Expect(backpack[12],"42","up",false,"plate chest a trained warrior can wear")
 Expect(backpack[16],nil,nil,nil,"empty slot")
 equal(Seen(bag1[1]),nil,"a closed bag window is not painted")
--- Quality colours on the number.
-equal(Seen(backpack[1]).o.level.textColour[3],.87,"rare item level in rare blue")
-equal(Seen(backpack[2]).o.level.textColour[1],.62,"poor item level in poor grey")
+-- Quality colours on the number, straight from the game's table.
+local function Text(button)return Seen(button).o.level.textColour end
+equal(Text(backpack[1])[1]==0 and Text(backpack[1])[2]==.44 and Text(backpack[1])[3]==.87,true,"rare item level in rare blue")
+equal(Text(backpack[4])[1]==.12 and Text(backpack[4])[2]==1 and Text(backpack[4])[3]==0,true,"uncommon item level in green")
+-- Poor grey, lifted a little so it reads on dark icons, and still a clear grey.
+do
+ local c=Text(backpack[2])
+ equal(c[1]==c[2]and c[2]==c[3],true,"poor item level stays a neutral grey")
+ equal(c[1]>.62 and c[1]<.8,true,"poor grey a little lighter than the game's .62, not white: "..c[1])
+ equal(Near(c[1],.62+(1-.62)*.3),true,"poor grey lifted 30% toward white")
+end
 
--- The look: sized over the button, mouse-free, above it, arrow bottom left, level top right.
+-- The look: sized over the button, mouse-free, above it; a big bold number
+-- bottom right, a small arrow top right.
 do
  local o=Seen(backpack[1]).o
  equal(o.all,backpack[1],"mark covers its button, sized at creation")
  equal(o.mouse,false,"mark never takes the mouse")
  equal(o.frameLevel>backs[backpack[1]].level,true,"mark drawn above the button")
- equal(o.tint.all,backs[backpack[1]].icon,"tint pinned to the icon only")
- equal(o.tint.blend,"MOD","tint multiplies the icon, like Classic's red can't-use icons")
- equal(o.tint.colour[1]==1 and o.tint.colour[2]<.2 and o.tint.colour[3]<.2,true,"tint is red")
+ -- The number: EraUI's bold Lilita One, 14 on a 37 slot, a thick dark
+ -- outline and a solid black shadow, right-justified in the bottom right.
+ local n=o.level
+ equal(n.font,LILITA,"item level in EraUI's bold Lilita One")
+ equal(n.size,14,"item level size 14 on a normal 37 slot")
+ equal(n.flags,"THICKOUTLINE","item level has a thick dark outline")
+ equal(n.shadow[1]==0 and n.shadow[2]==0 and n.shadow[3]==0 and n.shadow[4]==1,true,"and a solid black shadow")
+ equal(n.shadowOffset[1]==1 and n.shadowOffset[2]==-1,true,"a tight one-unit shadow down and to the right")
+ equal(n.template~=nil,true,"made from a template, so it always has a font before its text")
+ local at=n.points.BOTTOMRIGHT
+ equal(at and at[1]==o and at[2]=="BOTTOMRIGHT",true,"item level anchored bottom right")
+ equal(at[3]<=0 and at[3]>=-3 and at[4]>=0 and at[4]<=3,true,"tucked into the corner")
+ equal(n.points.TOPRIGHT==nil and n.points.TOPLEFT==nil and n.points.BOTTOMLEFT==nil,true,"no other anchor")
+ equal(n.justify,"RIGHT","right-justified, so 2 and 3 digits end at the same edge")
+ equal(n.layer,"OVERLAY","item level drawn over the icon")
+ -- The arrow: small, top right, in the corner the game leaves free.
  equal(o.arrow.texture,"Interface\\AddOns\\EraUI\\Media\\BagArrow.tga","arrow uses EraUI's own art")
- equal(o.level.points.TOPRIGHT~=nil,true,"item level top right")
- -- Blizzard's junk coin (JunkIcon, on grey items while a merchant is open) is
- -- TOPLEFT (1,0) on a 37px bag button; the stack count is BOTTOMRIGHT. The
- -- arrow keeps to the free bottom left, its top in the lower half.
- local at=o.arrow.points.BOTTOMLEFT
- equal(o.arrow.points.TOPLEFT,nil,"arrow clear of the junk coin's top left corner")
- equal(at and at[1]==o and at[2]=="BOTTOMLEFT"and at[4]>=0 and at[4]+o.arrow.h<=37/2,true,"arrow bottom left, in the lower half of the button")
- equal(at[3]>=0 and at[3]+o.arrow.w<=37/2,true,"and the left half, clear of the stack count")
- equal(o.level.template,"NumberFontNormal","item level in the game's stack-count font")
+ local a=o.arrow.points.TOPRIGHT
+ equal(a and a[1]==o and a[2]=="TOPRIGHT"and a[3]<=0 and a[4]<=0,true,"arrow top right")
+ equal(o.arrow.points.BOTTOMLEFT==nil and o.arrow.points.TOPLEFT==nil,true,"arrow clear of the junk coin's top left corner")
+ equal(o.arrow.w,12,"arrow 12 on a normal slot: small")
+ equal(o.arrow.w==o.arrow.h,true,"arrow square, never stretched")
+ equal(-a[3]+o.arrow.w<=37/2 and -a[4]+o.arrow.h<=37/2,true,"arrow inside the top right quarter")
+ -- The arrow's bottom stays above the number's top (its font size above its anchor).
+ equal(37-(-a[4]+o.arrow.h)>at[4]+n.size,true,"arrow never touches the number")
  equal(o.arrow.colour[2]==1 and o.arrow.colour[1]<.5,true,"up arrow green")
  local down=Seen(backpack[2]).o
  equal(down.arrow.coords[3]==1 and down.arrow.coords[4]==0,true,"down arrow is the art flipped")
  equal(down.arrow.colour[1]==1 and down.arrow.colour[2]<.5,true,"down arrow red")
+ equal(o.tint.shown,false,"no red icon on gear you can equip")
+ equal(o.tint.layer,"ARTWORK","red icon drawn under the number and the arrow")
+ equal(o.tint.parent==o and o.arrow.parent==o and n.parent==o,true,"every part is inside the mark, so fades with it")
 end
 
 -- Nothing written on, or changed in, Blizzard's buttons; only these keys read.
 for key in pairs(reads)do
- equal(key=="GetBagID"or key=="GetID"or key=="GetFrameLevel"or key=="IsProtected"or key=="GetMatchesSearch"or key=="Icon"or key=="icon",true,"reads only where the button is and its icon: "..key)
+ equal(key=="GetBagID"or key=="GetID"or key=="GetFrameLevel"or key=="GetWidth"or key=="IsProtected"or key=="GetMatchesSearch"or key=="Icon"or key=="icon"or key=="JunkIcon",true,"reads only where the button is, its size, its icon and its junk coin: "..key)
 end
 for proxy,back in pairs(backs)do
  for _,key in ipairs({"icon","Count","JunkIcon","UpgradeIcon","IconBorder"})do
@@ -323,12 +405,82 @@ Expect(bag1[3],"12","up",false,"cloak into an empty back slot")
 Expect(bag1[4],nil,nil,nil,"quiver")
 Expect(bag1[5],"44","up",false,"a broken item: red durability line is not a can't-equip")
 Expect(bag1[6],"22","down",false,"throwing knives vs the ranged slot")
+Expect(bag1[7],nil,nil,nil,"a stack of cloth")
+-- Stacked gear, should the game ever stack it: the game's stack count keeps
+-- the bottom right, so no number there; the arrow still shows, top right.
+do
+ local s=Seen(bag1[8])
+ equal(s~=nil and s.o.level.shown,false,"stacked throwing knives: no number over the stack count")
+ equal(s.arrow,"up","stacked knives still get their arrow, top right")
+ items["stacked-knives"].stack=SECRET_NUMBER;ContainerFrame2:UpdateItems()
+ equal(Seen(bag1[8]).level,"30","a hidden stack count is never read, and never errors")
+ items["stacked-knives"].stack=1;ContainerFrame2:UpdateItems()
+ equal(Seen(bag1[8]).level,"30","a single one: its number back, bottom right")
+ items["stacked-knives"].stack=200;ContainerFrame2:UpdateItems()
+ equal(Seen(bag1[8]).level,nil,"stacked again: number gone")
+end
+Expect(bag1[9],"60","up",false,"epic ring above the weaker worn ring")
+equal(Text(bag1[9])[1]==.64 and Text(bag1[9])[2]==.21 and Text(bag1[9])[3]==.93,true,"epic item level in epic purple")
+Expect(bag1[10],"8","up",false,"common belt into an empty waist")
+equal(Text(bag1[10])[1]==1 and Text(bag1[10])[2]==1 and Text(bag1[10])[3]==1,true,"common item level in white")
 ContainerFrame1.shown,ContainerFrame2.shown,ContainerFrameCombinedBags.shown=false,false,true
 ContainerFrameCombinedBags:UpdateItems()
 Expect(combined[1],"45","up",false,"One bag: backpack slot painted")
 Expect(combined[17],"33","up",false,"One bag: second bag's slot painted from its own bag")
 Expect(combined[21],"44","up",false,"One bag: broken item not tinted")
+equal(Seen(combined[1]).o.level.font==LILITA and Seen(combined[1]).o.level.size==14,true,"One bag: the same big number")
 ContainerFrame1.shown,ContainerFrameCombinedBags.shown=true,false
+
+-- Where the quality comes from: the bag's answer, else the item's info, else
+-- its ID. The colour: the game's table (read when painting, so the game's
+-- colour overrides apply), else its colour function; white when unknown.
+local byID=C_Item.GetItemQualityByID;C_Item.GetItemQualityByID=nil
+items["helm-high"].hide="info";ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[3],.87,"quality missing from the bag: the item's info says rare")
+items["helm-high"].hide="both";ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[1]==1 and Text(backpack[1])[2]==1 and Text(backpack[1])[3]==1,true,"quality unknown: white")
+C_Item.GetItemQualityByID=byID;ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[3],.87,"missing from both: the item's ID says rare")
+items["helm-high"].hide=nil
+ITEM_QUALITY_COLORS=nil;ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[1],.01,"no colour table: the game's colour function")
+ITEM_QUALITY_COLORS={[3]={r=SECRET,g=SECRET,b=SECRET}};ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[1],.01,"hidden colours are never read: the colour function instead")
+ITEM_QUALITY_COLORS={[3]=SECRET};ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[1],.01,"a hidden colour entry is never read either")
+ITEM_QUALITY_COLORS={[3]={r=.2,g=.5,b=.9}};ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[1],.2,"a rebuilt colour table is used at the next paint")
+ITEM_QUALITY_COLORS=QUALITY;ContainerFrame1:UpdateItems()
+equal(Text(backpack[1])[3],.87,"back to rare blue")
+
+-- Sized to the slot: 14 and 12 on a normal 37 slot, scaled with a bigger or
+-- smaller one; sized for 37 while the size is unknown or hidden.
+do
+ local back=backs[backpack[3]]
+ local function Sizes()local o=Seen(backpack[3]).o;return o.level.size,o.arrow.w,o.level.font end
+ local calls=fontCalls;ContainerFrame1:UpdateItems()
+ equal(fontCalls,calls,"a repaint at the same size leaves the font alone")
+ back.width=45;ContainerFrame1:UpdateItems()
+ local t,a=Sizes();equal(t,17,"a 45 slot: size 17 number");equal(a,15,"and a 15 arrow")
+ back.width=30;ContainerFrame1:UpdateItems()
+ t,a=Sizes();equal(t,11,"a 30 slot: size 11 number");equal(a,10,"and a 10 arrow")
+ back.width=20;ContainerFrame1:UpdateItems()
+ t,a=Sizes();equal(t,9,"a tiny 20 slot: the number never drops below size 9");equal(a,6,"the arrow still scales")
+ back.width=0;ContainerFrame1:UpdateItems()
+ t,a=Sizes();equal(t==14 and a==12,true,"no size yet: sized for 37")
+ back.width=SECRET_NUMBER;ContainerFrame1:UpdateItems()
+ t,a=Sizes();equal(t==14 and a==12,true,"a hidden size is never read: sized for 37")
+ -- Lilita One refused or erroring: the game's Friz Quadrata at the same size.
+ refuse[LILITA]=true;back.width=40;ContainerFrame1:UpdateItems()
+ local font;t,_,font=Sizes();equal(font,FRIZ,"Lilita One refused: Friz Quadrata");equal(t,15,"at the slot's size")
+ equal(Seen(backpack[3]).o.level.flags,"THICKOUTLINE","still with the thick outline")
+ refuse[LILITA]="error";back.width=41;ContainerFrame1:UpdateItems()
+ t,_,font=Sizes();equal(font,FRIZ,"Lilita One erroring: Friz Quadrata, no error");equal(t,16,"size 16")
+ refuse[FRIZ]=true;back.width=44;ContainerFrame1:UpdateItems()
+ equal(Seen(backpack[3]).level,"40","both refused: the font it had, and the number still shows")
+ refuse[LILITA],refuse[FRIZ]=nil,nil;back.width=37;ContainerFrame1:UpdateItems()
+ t,a,font=Sizes();equal(t==14 and a==12 and font==LILITA,true,"back to Lilita One 14 and a 12 arrow")
+end
 
 -- A native update repaints only its own window, and follows moved items.
 local count=#marks
@@ -364,6 +516,72 @@ worn[1]=Item("worn-head","INVTYPE_HEAD",40);Fire("PLAYER_EQUIPMENT_CHANGED");Flu
 player.level=39;player.plate=false;player.class="WARRIOR"
 Fire("PLAYER_LEVEL_UP");Flush()
 Expect(backpack[12],"42",nil,true,"level 39 without plate: tinted red, no arrow")
+-- The red icon: the item's own icon drawn again in red with normal blending,
+-- just inside the slot's edge, so the quality border and the slot's frame show.
+do
+ local o=Seen(backpack[12]).o
+ local t=o.tint
+ local icon=backs[backpack[12]].icon
+ equal(t.blend,"BLEND","red icon blends normally, never MOD")
+ equal(t.texture,5000+items["plate-chest"].id,"red icon is the item's own icon")
+ equal(t.colour[1]==1 and t.colour[2]<.2 and t.colour[3]<.2 and t.colour[4]==1,true,"tinted red, fully drawn")
+ local tl,br=t.points.TOPLEFT,t.points.BOTTOMRIGHT
+ equal(tl and tl[1]==icon and tl[2]=="TOPLEFT"and tl[3]==2 and tl[4]==-2,true,"red icon 2 inside the icon's top left")
+ equal(br and br[1]==icon and br[2]=="BOTTOMRIGHT"and br[3]==-2 and br[4]==2,true,"and 2 inside its bottom right")
+ equal(t.all,nil,"never over the whole slot, so the quality border stays")
+ equal(Near(t.coords[1],2/37)and Near(t.coords[2],35/37)and Near(t.coords[3],2/37)and Near(t.coords[4],35/37),true,"its edges cut to match, so it lines up with the icon")
+ equal(o.level.shown and o.level.text,"42","the number stays on top")
+ -- No icon in the bag's answer: the item's icon from its info; none at all: a red wash.
+ items["plate-chest"].noIcon=true;ContainerFrame1:UpdateItems()
+ equal(t.texture,9000+items["plate-chest"].id,"icon missing from the bag: the item's icon instead")
+ items["plate-chest"].noInstantIcon=true;ContainerFrame1:UpdateItems()
+ equal(t.texture,"Interface\\Buttons\\WHITE8X8","no icon at all: a plain red wash")
+ equal(t.colour[1]==1 and t.colour[4]==.5,true,"half see-through")
+ equal(t.coords[1]==0 and t.coords[2]==1,true,"uncut")
+ items["plate-chest"].noIcon=nil;items["plate-chest"].noInstantIcon=nil;ContainerFrame1:UpdateItems()
+ equal(t.texture,5000+items["plate-chest"].id,"icon back")
+ -- The game's junk coin (grey items, a merchant open) would be under the red
+ -- icon: while it shows, the red icon stands aside and the number stays.
+ backs[backpack[12]].junk=true;ContainerFrame1:UpdateItems()
+ equal(t.shown,false,"junk coin shown: no red icon over it")
+ equal(o.level.shown and o.level.text,"42","and the number stays")
+ backs[backpack[12]].junk=nil;ContainerFrame1:UpdateItems()
+ equal(t.shown,true,"merchant closed: red icon back")
+ backs[backpack[12]].junk=SECRET;ContainerFrame1:UpdateItems()
+ equal(t.shown,true,"a hidden answer about the coin is never read: red icon stays")
+ backs[backpack[12]].junk=nil;ContainerFrame1:UpdateItems()
+ -- Picked up onto the cursor: the game greys the icon on ITEM_LOCK_CHANGED
+ -- alone (no bag update), so the red icon stands aside until it is put down.
+ items["plate-chest"].locked=true;Fire("ITEM_LOCK_CHANGED")
+ equal(t.shown,true,"waits for the queued repaint")
+ Flush()
+ equal(t.shown,false,"picked up: no red icon over the game's greyed-out one")
+ equal(o.level.shown and o.level.text,"42","and the number stays")
+ items["plate-chest"].locked=nil;Fire("ITEM_LOCK_CHANGED");Flush()
+ equal(t.shown,true,"put down: red icon back")
+ items["plate-chest"].locked=SECRET;Fire("ITEM_LOCK_CHANGED");Flush()
+ equal(t.shown,true,"a hidden lock state is never read: red icon stays")
+ items["plate-chest"].locked=nil;ContainerFrame1:UpdateItems()
+ -- The cut follows the slot: a 45 slot cuts 2/45 off each edge.
+ backs[backpack[12]].width=45;ContainerFrame1:UpdateItems()
+ equal(Near(t.coords[1],2/45)and Near(t.coords[2],43/45)and Near(t.coords[3],2/45)and Near(t.coords[4],43/45),true,"a bigger slot: the cut scales with it")
+ backs[backpack[12]].width=37;ContainerFrame1:UpdateItems()
+ -- It fades with the interface: the AFK screen fades UIParent to nothing.
+ local up=Seen(backpack[1]).o
+ equal(Visible(t)and Visible(up.arrow)and Visible(up.level),true,"UI shown: red icon, arrow and number seen")
+ uiAlpha=0
+ equal(Visible(t),false,"UI faded out: the red icon goes too, no red square left on the AFK screen")
+ equal(Visible(o.level)or Visible(up.arrow)or Visible(up.level),false,"and the numbers and arrows")
+ uiAlpha=.5;equal(Effective(t),.5,"half faded UI: half faded red icon")
+ uiAlpha=1;equal(Visible(t),true,"UI back: red icon back")
+ -- And with a bag search.
+ backs[backpack[12]].matches=false;Fire("INVENTORY_SEARCH_UPDATE");Flush()
+ equal(Effective(t),.3,"left out by a search: the red icon fades with the item")
+ equal(Effective(o.level),.3,"and its number")
+ backs[backpack[12]].matches=nil;Fire("INVENTORY_SEARCH_UPDATE");Flush()
+ equal(Effective(t),1,"search cleared: full red again")
+ equal(ignored,0,"nothing in a mark ever ignores its parent's alpha")
+end
 -- Level 40, plate not trained yet: still red.
 player.level=40;Fire("PLAYER_LEVEL_UP");Flush()
 Expect(backpack[12],"42",nil,true,"level 40, plate not learned: still red")
@@ -481,6 +699,10 @@ equal(tipsFor["helm-high"]-before,2,"level up asks the game twice (the new level
 
 -- Nothing ever written on a button (the proxies would have errored), final read check.
 for key in pairs(reads)do
- equal(key=="GetBagID"or key=="GetID"or key=="GetFrameLevel"or key=="IsProtected"or key=="GetMatchesSearch"or key=="Icon"or key=="icon",true,"final: reads only "..key)
+ equal(key=="GetBagID"or key=="GetID"or key=="GetFrameLevel"or key=="GetWidth"or key=="IsProtected"or key=="GetMatchesSearch"or key=="Icon"or key=="icon"or key=="JunkIcon",true,"final: reads only "..key)
 end
+-- Normal blending only: MOD ignores alpha, so it would stay on screen with the
+-- UI faded out. (Tools/TestBlendModes.mjs checks the whole addon's source.)
+equal(#blends>0,true,"blend modes were set")
+for _,m in ipairs(blends)do if m~="BLEND"then equal(m,"BLEND","every texture in a mark blends normally")end end
 print("Bag item level checks passed: "..checks.." assertions.")

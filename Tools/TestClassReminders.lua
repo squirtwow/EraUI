@@ -650,4 +650,18 @@ for c,name in pairs(named)do
  equal(table.concat(def.ids,","),table.concat(ranks,","),c.." PET LOW HEALTH! lists every "..name.." rank, lowest first")
  equal(E.ReminderSpells[c][#E.ReminderSpells[c]],def,c.." PET LOW HEALTH! is listed last")
 end
+-- Click pet reminders in combat: only the pet reminders get a combat rule,
+-- each read by the game from macro conditions, always hidden out of combat.
+local combatRule=assert(up(E.modules.ClassReminders.Refresh,"CombatRule"))
+local expected={
+ HUNTER={pet="[nocombat][@pet,exists] hide; show",petDead="[nocombat] hide; [@pet,dead] show; hide",petHealth="[nocombat][@pet,noexists][@pet,dead] hide; show"},
+ WARLOCK={pet="[nocombat][@pet,exists,nodead] hide; show",petHealth="[nocombat][@pet,noexists][@pet,dead] hide; show"},
+}
+for _,c in ipairs(classes)do
+ for _,def in ipairs(E.ReminderSpells[c])do
+  local want=(expected[c]or{})[def.key]
+  equal(combatRule(def),want,c.." "..def.key..(want and " has its combat rule"or " is clickable outside combat only"))
+  if want then equal(want:find("^%[nocombat%]")~=nil,true,c.." "..def.key.." always hides out of combat")end
+ end
+end
 print("Class reminder detection checks passed: "..checks.." assertions.")

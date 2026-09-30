@@ -15,6 +15,7 @@ local layouts = {
 }
 local reminderTypes = {
     reminderGroup="boolean", reminderCombat="boolean", reminderSize="number", reminderClickable="boolean", reminderMana="boolean", reminderRage="boolean",
+    reminderCombatClick="boolean",
     reminderSpotVersion="number",
 }
 local classes = {WARRIOR=true,PALADIN=true,HUNTER=true,ROGUE=true,PRIEST=true,
@@ -26,6 +27,7 @@ local function SettingType(key)
     if reminderTypes[key] then return reminderTypes[key] end
     if key == "showAllSpellRanks" then return "boolean" end
     if key == "cameraZoomBackup" then return "string" end
+    if key == "afkScreenVersion" then return "number" end -- the one-time AFK Screen switch-on
     local default = E.settingDefaults[key]
     if default ~= nil then return type(default) end
     local prefix, class = key:match("^(reminder%w*)_([A-Z]+)_[%w]+$")

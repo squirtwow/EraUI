@@ -22,7 +22,7 @@ or off in the settings.
 - Unit frames: player, target, target of target, focus, pet and party frames
   with the original art and bars, Classic debuff borders and aura hover boxes
 - Dark Mode: darker decorative artwork, with thin dark borders round your buff
-  and debuff icons
+  and debuff icons, and optional soft shadows behind them
 - Tooltips: translucent dark backgrounds and thin, bevelled grey borders
   with softened corners, including linked items and item comparisons, and
   optional class colours on player tooltips
@@ -58,6 +58,10 @@ or off in the settings.
 - Click an item or spell link in chat again to close its tooltip
 - Update notice: tells you in chat when someone in your guild or group has a
   newer EraUI (the tick under Presets in `/era`)
+- AFK Screen (on by default): your class-coloured EraUI banner, your character,
+  your details and a famous Classic line for your class while you're away
+- Bag Item Levels (optional): item levels in quality colours, upgrade arrows and
+  a red icon on gear you can't equip
 - Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
 - Advanced cast bar with ticks and latency display
 - Movable world map: drag its header and resize it from corners or edges,

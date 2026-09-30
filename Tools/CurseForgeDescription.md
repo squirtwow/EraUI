@@ -13,6 +13,8 @@
 - 🖼️ **The real classic look**: action bar, unit frames, cast bars, minimap, nameplates and classic-styled windows
 - 🗺️ **Movable world map**: drag it by the header and resize proportionally from the corners or edges; normal and expanded layouts are remembered separately, and the quest list overlays the right side without squeezing the map artwork
 - 🌍 **Reveal World Map**: show supported unexplored terrain with darker shading, while explored areas keep their normal colours
+- 💤 **AFK Screen**: when you go AFK, the EraUI banner in your class colour, your character, your details and a famous Classic line for your class. On by default
+- 🎒 **Bag Item Levels**: item levels in quality colours, upgrade arrows and a red icon on gear you can't equip (optional)
 - 🔔 **Class reminders**: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies
 - 📖 **Training Guide**: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals
 - 🔴 **Combo points your way**: floating orbs in gold or red
@@ -25,7 +27,7 @@
 
 - **Action bar**: the stone band with gryphons, page arrows, micro menu, bag buttons and the XP bar in their original spots
 - **Unit frames**: player, target, target of target, focus, pet and party frames, with Classic player debuff borders and dark, grey-bordered buff/debuff hover boxes
-- **Dark Mode**: darker decorative artwork, with thin dark borders round your buff and debuff icons
+- **Dark Mode**: darker decorative artwork, with thin dark borders round your buff and debuff icons, and optional soft shadows behind them
 - **Tooltips**: translucent dark backgrounds and thin, bevelled grey borders with softened corners on item, spell, unit and map-control hover boxes, including linked items and item comparisons. Enabled by default for fresh settings and resets; existing saved choices are respected. Toggle Tooltips in `/era` and reload to apply. Optional **Class-coloured Tooltips** show a player's border, name and class in their class colour
 - **Cast bars & timers**: player, pet, target and focus cast bars; classic breath and fatigue timers
 - **Minimap & nameplates**: the round classic minimap and 1.x-style nameplates
@@ -54,6 +56,7 @@
 - Pick a preferred aspect, blessing, seal, aura, shaman weapon imbue or warlock demon under **Advanced**
 - Hunters have separate **SUMMON PET!** and **PET DEAD!** reminders, using Call Pet and Revive Pet icons; each can be toggled under **Advanced**. Selected warlock demons are checked by demon family
 - Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
+- Hunters and warlocks can also turn on **Click pet reminders in combat** to click SUMMON PET!, PET DEAD! and PET LOW HEALTH! mid-fight
 - On **Any**, clicking a blessing, shaman imbue or warlock demon reminder casts the only one you know, or the one you cast last; pick one under **Advanced** to always cast that one. `/era discord` gives the Discord invite for bugs and ideas. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
 - Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
 - All reminders hide while you're on a flight path and come back a moment after you land

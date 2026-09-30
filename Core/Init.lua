@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.3.0"
+EraUI.version = "1.4.0"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
@@ -27,6 +27,7 @@ local defaults = {
     cursorTrailLength = 25,
     darkMode = false,
     darkAuraBorders = true, -- Dark Aura Borders: shows only in Dark Mode, so choosing Dark Mode gives them
+    darkAuraShadows = true, -- Aura Shadows (Needs testing): shows only with Dark Mode and Dark Aura Borders
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
@@ -125,10 +126,10 @@ local defaults = {
     vendorPrice = true,
     questLevels = true,
     bagSpace = true,
-    bagItemLevels = false, -- Bag Item Levels (coming soon: inert while its module says so); off by default
+    bagItemLevels = false, -- Bag Item Levels; off by default, a saved choice is kept
     classColors = true,
     hideStatusMessages = true,
-    afkScreen = false,       -- AFK Screen (coming soon: inert while its module says so); off by default
+    afkScreen = true,        -- AFK Screen; on by default (the user's call), a saved choice is kept
     afkCameraNormal = false, -- off = slow circle (3 deg/s), on = normal (6 deg/s)
     afkTurnRight = false,    -- off = circle left, on = circle right
     afkZoom = true,          -- gently zoom in while away
@@ -136,6 +137,7 @@ local defaults = {
     afkShowGuild = true,
     afkShowZone = true,
     afkShowDate = true,
+    afkShowQuote = true,     -- a famous Classic line for your class above the hint
 }
 
 -- Visual choices are staged for the next UI load. Live modules keep a coherent

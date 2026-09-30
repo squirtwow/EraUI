@@ -19,8 +19,22 @@ local function Definitions()return E.ReminderSpells[class]or{}end
 local function DedicatedPoisons()
  return class=="ROGUE"and E:GetSetting("poisonReminders")
 end
+-- Only pet reminders can be clicked in combat: the game itself shows each
+-- one's secure alert by these macro conditions, as no addon may show a secure
+-- button mid-fight. Macro conditions can't see buffs, items or totems, so
+-- every other reminder is clickable outside combat only. Out of combat these
+-- alerts always hide and the normal rows and clicks carry on.
+local function CombatRule(def)
+ if def.noCast then return nil end
+ if def.kind=="pet"then return def.missingOnly and "[nocombat][@pet,exists] hide; show"or "[nocombat][@pet,exists,nodead] hide; show"end
+ if def.kind=="petDead"then return "[nocombat] hide; [@pet,dead] show; hide"end
+ if def.kind=="petHealth"then return "[nocombat][@pet,noexists][@pet,dead] hide; show"end
+end
+local function CombatMacro(def,name)
+ return "/cast "..(def.kind=="petHealth"and "[combat,@pet,exists,nodead]"or "[combat]").." "..name
+end
 local function ReminderCapabilities()
- local group,clickable,power=false,false,nil
+ local group,clickable,power,petCombat=false,false,nil,false
  for _,def in ipairs(Definitions())do
   if def.group and not def.self and(not def.kind or def.kind=="aura")then group=true end
   if not def.noCast then
@@ -28,13 +42,14 @@ local function ReminderCapabilities()
    for _,choice in ipairs(def.choices or{})do if #(choice.ids or{})>0 then can=true end end
    if can then
     clickable=true
+    if CombatRule(def)then petCombat=true end
     -- The "out of" option names what your reminders cost; a mix says mana.
     local p=def.power or "mana"
     power=(power==nil or power==p)and p or "mana"
    end
   end
  end
- return group,clickable,power or "mana"
+ return group,clickable,power or "mana",petCombat
 end
 local function Save()if E.Classic and E.Classic.MirrorSave then E.Classic.MirrorSave()end end
 local function Opt(key)return EraUIDB and EraUIDB[key]end
@@ -48,6 +63,12 @@ end
 local function GroupOn()return Opt("reminderGroup")~=false end
 local function CombatOn()return Opt("reminderCombat")==true end
 local function Clickable()return Opt("reminderClickable")==true end
+-- "Click pet reminders in combat": off by default, and only with Clickable on.
+local function CombatClick()return Opt("reminderCombatClick")==true end
+-- The option can act: it is on, Clickable reminders is on, the module runs and
+-- the class has a pet alert. A saved "on" that is greyed out, or on a class
+-- without a pet, changes nothing (EraUIDB is shared by every character).
+local function CombatClickLive()return CombatClick()and Clickable()and Enabled()and select(4,ReminderCapabilities())==true end
 local function ManaOn()return Opt("reminderMana")~=false end
 -- Rage has its own switch, so a warrior turning it off keeps mana notes on alts.
 local function RageOn()return Opt("reminderRage")~=false end
@@ -274,7 +295,32 @@ local function PetHealthHelp(def)
  local spell=T.Spell(id)
  if not T.Public(spell)or type(spell)~="string"or spell==""then spell="your pet heal"end
  return "Shows PET LOW HEALTH! while your pet is alive and below the health set with Below (20 to 60%). With Clickable reminders on, a click casts your highest rank of "..spell
-  ..", outside combat. In combat the game hides your pet's health from addons, so the game itself shows or hides the alert, which can't be clicked then. It shows in combat only with Show during combat on. A dead or missing pet gets its own reminder instead. Off by default."
+  ..", outside combat. In combat the game hides your pet's health from addons, so the game itself shows or hides the alert, which can't be clicked then. It shows in combat only with Show during combat on. With Click pet reminders in combat on, a faint "..spell
+  .." icon you can click stays up all fight instead. A dead or missing pet gets its own reminder instead. Off by default."
+end
+local function List(words)
+ if #words<2 then return words[1]or""end
+ return table.concat(words,", ",1,#words-1).." and "..words[#words]
+end
+-- Hover help on "Click pet reminders in combat", in the class's own words.
+local function CombatClickHelp()
+ local alerts,spells,heal,demon={},{},nil,false
+ for _,def in ipairs(Definitions())do
+  if CombatRule(def)then
+   local spell
+   if def.choices then spell="your demon";demon=demon or def.kind=="pet"
+   else spell=T.Spell(HighestKnown(def.ids)or(def.ids or{})[1])end
+   if not T.Public(spell)or type(spell)~="string"or spell==""then spell=nil end
+   alerts[#alerts+1]=def.text or def.key
+   spells[#spells+1]=spell
+   if def.kind=="petHealth"then heal=spell end
+  end
+ end
+ return List(alerts).." stay clickable in combat"..(#spells>0 and(": "..List(spells))or"")..". The game shows them by itself, where they were when the fight began, even with Show during combat off. "
+  ..(demon and "With a different demon out, SUMMON PET! can't be clicked until the fight ends. "or"")
+  .."The game hides your pet's health, so with PET LOW HEALTH! on, a faint "..(heal or "pet heal").." icon stays up all fight while your pet is alive and lights up below the Below limit. "
+  .."A click casts even when it's faint. They stay up with the world map open, and a click with too little mana still tries to cast. "
+  .."Other reminders are clickable outside combat only."
 end
 local function AlertText(def)
  local choice=ChoiceOf(def)
@@ -306,6 +352,12 @@ local function Spot(def)
  local y=tonumber(Opt(SpotYKey(def)))
  if x==nil or y==nil then return nil end
  return x,y
+end
+-- A saved spot, kept within reach as the row is placed.
+local function PlacedSpot(def)
+ local x,y=Spot(def)
+ if x==nil then return nil end
+ return math.max(-1900,math.min(1900,x)),math.max(-1600,math.min(950,y))
 end
 local function SetSpot(def,x,y)
  SetOpt(SpotXKey(def),x);SetOpt(SpotYKey(def),y)
@@ -342,21 +394,26 @@ local function CycleLimit(def)
  local v=(math.floor(Limit(def)/LIMIT_STEP)+1)*LIMIT_STEP
  SetOpt(LimitKey(def),v>LIMIT_HIGH and LIMIT_LOW or v)
 end
-local curve,curveLimit
-local function FadeCurve(limit)
+-- One curve per floor: 0 for the alert, FAINT for the icon of the clickable
+-- in-combat alert, which never goes fully away.
+local shapes={}
+local function FadeCurve(limit,floor)
+ floor=floor or 0
  if not(C_CurveUtil and C_CurveUtil.CreateCurve and UnitHealthPercent)then return nil end
- if curve and curveLimit==limit then return curve end
- curveLimit=nil
+ local s=shapes[floor]
+ if s and s.limit==limit then return s.curve end
  local ok=pcall(function()
-  curve=curve or C_CurveUtil.CreateCurve()
+  s=s or{curve=C_CurveUtil.CreateCurve()}
+  s.limit=nil;shapes[floor]=s
+  local curve=s.curve
   if Enum and Enum.LuaCurveType then curve:SetType(Enum.LuaCurveType.Linear)end
   curve:ClearPoints()
   -- A sheer drop just under the limit, so the alert is fully in or out.
-  curve:AddPoint(0,1);curve:AddPoint(limit/100-.001,1);curve:AddPoint(limit/100,0);curve:AddPoint(1,0)
+  curve:AddPoint(0,1);curve:AddPoint(limit/100-.001,1);curve:AddPoint(limit/100,floor);curve:AddPoint(1,floor)
  end)
  if not ok then return nil end
- curveLimit=limit
- return curve
+ s.limit=limit
+ return s.curve
 end
 local function Fade(row,def)
  local shape=FadeCurve(Limit(def))
@@ -510,9 +567,9 @@ local function ClickSpell(def)
 end
 -- Whether you lack the mana (or rage: def.power) to cast the reminder's spell
 -- right now. The usable check is open in and out of combat; a hidden answer
--- counts as enough.
-local function NoPower(def)
- local id=ClickSpell(def)
+-- counts as enough. A combat alert asks about the spell it was armed with.
+local function NoPower(def,spell)
+ local id=spell or ClickSpell(def)
  if not id or not(C_Spell and C_Spell.IsSpellUsable)then return false end
  local ok,_,noPower=pcall(C_Spell.IsSpellUsable,id)
  return ok and T.Public(noPower)and noPower==true
@@ -567,6 +624,152 @@ local function SyncClick(row,def,missing,selfMissing)
  action:SetAttribute("macrotext1","/cast "..condition.." "..name)
  action:SetAttribute("type1","macro")
  action:Show()
+end
+
+-- Pet alerts clickable in combat. Each pet reminder gets a secure alert of its
+-- own, built, placed and armed only out of combat, where its row is or would
+-- be; then the game shows and hides it by CombatRule. In combat EraUI only
+-- changes its words, tint and fade, all on a plain frame under the button,
+-- never the secure button itself.
+local combatAlerts={}
+local FAINT=.35 -- PET LOW HEALTH!'s icon while the pet is at or above the limit
+local function CombatAlert(def)
+ local a=combatAlerts[def.key]
+ if a or InCombatLockdown()then return a end
+ -- Parented and anchored to UIParent only, so no alert row or panel turns protected.
+ a=CreateFrame("Button",nil,UIParent,"SecureActionButtonTemplate")
+ a:Hide();a:SetFrameStrata("HIGH");a:SetFrameLevel(30)
+ a:RegisterForClicks("LeftButtonUp","LeftButtonDown")
+ a.combatKey,a.rule=def.key,"hide"
+ local glow=a:CreateTexture(nil,"HIGHLIGHT");glow:SetAllPoints();glow:SetColorTexture(1,1,1,.12)
+ -- The button is just the icon square, so only the icon takes clicks. The
+ -- words draw above and below it on the plain face, which takes no mouse.
+ local face=CreateFrame("Frame",nil,a,"BackdropTemplate")
+ face:SetAllPoints();face:SetFrameLevel(29)
+ face:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+ face:SetBackdropColor(0,0,0,.55)
+ a.face=face
+ a.icon=face:CreateTexture(nil,"ARTWORK")
+ a.icon:SetPoint("TOPLEFT",2,-2);a.icon:SetPoint("BOTTOMRIGHT",-2,2);a.icon:SetTexCoord(.07,.93,.07,.93)
+ a.text=face:CreateFontString(nil,"OVERLAY");a.text:SetJustifyH("CENTER")
+ a.text:SetShadowColor(0,0,0,1);a.text:SetShadowOffset(1.5,-1.5)
+ a.sub=face:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+ a.sub:SetJustifyH("CENTER");a.sub:SetTextColor(.85,.87,.9)
+ combatAlerts[def.key]=a
+ return a
+end
+local function CombatDetail(def)
+ if def.kind=="petDead"then return "Revive your pet"end
+ if def.kind=="petHealth"then return "Pet below "..Limit(def).."% health"end
+ return PetState()=="dead"and "Pet is dead"or "No pet summoned"
+end
+-- Out of combat: the alert's look and click. spot says where its row is (row)
+-- or would stack (slot); without one the alert stays where it was put.
+local function ArmAlert(a,def,id,name,spot,size)
+ local icon=spot and spot.row and spot.row.iconFrame
+ local ratio=(icon or panel):GetEffectiveScale()/UIParent:GetEffectiveScale()
+ if not T.Number(ratio)or ratio<=0 then ratio=1 end
+ local r,g,b=DefColor(def)
+ a.text:SetFont(select(1,GameFontHighlight:GetFont()),size.text*ratio,"")
+ a.text:SetText(AlertText(def));a.text:SetTextColor(r,g,b)
+ local width=math.max(190,math.min(460,(tonumber(a.text:GetStringWidth())or 260)/ratio+36))
+ if spot then
+  local x,y
+  if icon then
+   x,y=icon:GetCenter()
+   if T.Number(x)and T.Number(y)then x,y=x*ratio,y*ratio end
+  else
+   -- The stack hangs from a fixed point, so this holds while the panel is hidden.
+   local cx,cy=UIParent:GetCenter()
+   if T.Number(cx)and T.Number(cy)then
+    local sx,sy=PlacedSpot(def)
+    local drop=size.text+4+size.icon/2
+    local dx,dy=0,DEFAULT_Y-((spot.slot or 1)-1)*size.row-drop
+    if sx then dx,dy=sx-(tonumber(panel:GetWidth())or 460)/2+width/2,DEFAULT_Y+sy-drop end
+    x,y=cx+dx*ratio,cy+dy*ratio
+   end
+  end
+  if T.Number(x)and T.Number(y)then
+   a:SetSize(size.icon*ratio,size.icon*ratio)
+   a:ClearAllPoints();a:SetPoint("CENTER",UIParent,"BOTTOMLEFT",x,y)
+   a.slot=not PlacedSpot(def)and spot.slot or nil
+   a.placed=true
+  end
+ end
+ if not a.placed then return false end
+ a.text:ClearAllPoints();a.text:SetPoint("TOP",a,"TOP",0,(size.text+4)*ratio)
+ a.face:SetBackdropBorderColor(r*.65,g*.65,b*.65,1)
+ a.icon:SetTexture(Icon(def));a.icon:SetVertexColor(1,1,1)
+ a.sub:SetFont(select(1,GameFontHighlightSmall:GetFont()),size.sub*ratio,"")
+ a.sub:ClearAllPoints();a.sub:SetPoint("TOP",a,"BOTTOM",0,-4*ratio)
+ a.sub:SetWidth((width-8)*ratio);a.sub:SetWordWrap(true)
+ a.sub:SetText(CombatDetail(def))
+ -- PET LOW HEALTH! starts faint: in combat only the game knows when to light it.
+ local health=def.kind=="petHealth"
+ a.face:SetAlpha(health and FAINT or 1);a.text:SetAlpha(health and 0 or 1);a.sub:SetAlpha(health and 0 or 1)
+ local macro=CombatMacro(def,name)
+ if a.macro~=macro then a:SetAttribute("type1","macro");a:SetAttribute("macrotext1",macro);a.macro=macro end
+ local rule=CombatRule(def)
+ if a.rule~=rule then RegisterStateDriver(a,"visibility",rule);a.rule=rule end
+ a.spell,a.armed=id,true
+ return true
+end
+local function DisarmAlert(a)
+ if InCombatLockdown()then return end
+ if a.rule~="hide"then RegisterStateDriver(a,"visibility","hide");a.rule="hide"end
+ if a.macro then a:SetAttribute("type1",nil);a:SetAttribute("macrotext1",nil);a.macro=nil end
+ a.armed=false
+end
+-- Out of combat only: arms each pet alert that the option, Clickable
+-- reminders, its own switch and a known spell allow; puts the rest away.
+local function SyncCombatAlerts(spots,size)
+ if InCombatLockdown()then return end
+ for _,def in ipairs(Definitions())do
+  if CombatRule(def)then
+   local id=CombatClick()and Clickable()and Enabled()and not preview and DefOn(def)and Applicable(def)and ClickSpell(def)
+   local name=id and T.Spell(id)
+   if not T.Public(name)or type(name)~="string"or name==""then name=nil end
+   local a=combatAlerts[def.key]
+   if name and not a and spots then a=CombatAlert(def)end
+   if a and not(name and ArmAlert(a,def,id,name,spots and spots[def],size))then DisarmAlert(a)end
+  end
+ end
+end
+-- In combat an armed alert stands in for its row, except SUMMON PET! while a
+-- demon of another family is out: the game hides the alert then, so the row
+-- still says so.
+local function Covered(def)
+ local a=combatAlerts[def.key]
+ return a and a.armed and not(def.kind=="pet"and PetState()=="alive")
+end
+-- PET LOW HEALTH! in combat: the game's hidden answers go straight into
+-- SetAlpha on the plain face and its words, never read. At or above the limit
+-- the icon stays faint, never gone, and the words go; below it both light up.
+local function FadeAlert(a,def)
+ local limit=Limit(def)
+ local faint,words=FadeCurve(limit,FAINT),FadeCurve(limit)
+ local ok=faint and words and pcall(function()
+  a.face:SetAlpha(UnitHealthPercent("pet",true,faint))
+  a.text:SetAlpha(UnitHealthPercent("pet",true,words));a.sub:SetAlpha(UnitHealthPercent("pet",true,words))
+ end)
+ if not ok then a.face:SetAlpha(FAINT);a.text:SetAlpha(0);a.sub:SetAlpha(0)end
+end
+-- In combat: words, mana note, tint and fade only. Nothing here touches the
+-- secure button itself: no show, hide, move, mouse or attribute.
+local function PaintCombatAlerts()
+ for _,def in ipairs(Definitions())do
+  local a=combatAlerts[def.key]
+  if a and a.armed then
+   local detail=CombatDetail(def)
+   local powerOn
+   if def.power=="rage"then powerOn=RageOn()else powerOn=ManaOn()end
+   if powerOn and NoPower(def,a.spell)then
+    local p=Power(def)
+    a.sub:SetText(detail.."\n|cff"..p[2].."Not enough "..p[1].."|r");a.icon:SetVertexColor(p[3],p[4],p[5])
+   else a.sub:SetText(detail);a.icon:SetVertexColor(1,1,1)end
+   if def.kind=="petHealth"then FadeAlert(a,def)end
+  end
+ end
 end
 
 -- Alerts remain display-only, independently draggable. The optional secure
@@ -635,16 +838,25 @@ local function Paint()
  local mapOpen=WorldMapFrame and WorldMapFrame:IsShown()
  local flying=T.Flying() -- read every paint, so landing is noticed with the map open
  flightHidden=flying
- if not Enabled()or mapOpen or flying or(InCombatLockdown()and not CombatOn())then
+ local combat=InCombatLockdown()
+ local size=SIZES[SizeIndex()]
+ -- The pet alerts the game shows in combat ignore Show during combat.
+ if combat then PaintCombatAlerts()end
+ if not Enabled()or mapOpen or flying or(combat and not CombatOn())then
   for _,row in ipairs(rows)do row:Hide();Disarm(row)end
   panel:Hide()
+  if not combat then SyncCombatAlerts(nil,size)end
   return
  end
- local size=SIZES[SizeIndex()]
  local cache=Cache()
  local n=0
  local stacked=0
  local dedicatedPoisons=DedicatedPoisons()
+ -- In combat, stack slots the game shows a pet alert in are left free. Out
+ -- of combat, where each pet alert goes: its row, or where that would stack.
+ -- Pet reminders never show together, so they don't count for each other.
+ local taken,spots,plain={},not combat and CombatClick()and{},0
+ if combat then for _,a in pairs(combatAlerts)do if a.armed and a.slot and a:IsShown()then taken[a.slot]=true end end end
  for _,def in ipairs(Definitions())do
    local show=false
    local detail
@@ -661,6 +873,8 @@ local function Paint()
     show=true;detail="Switched off"
    end
   end
+  -- Its clickable combat alert is up instead: never both.
+  if show and combat and Covered(def)then show=false end
   if show then
    n=n+1
    local row=Row(n)
@@ -699,14 +913,14 @@ local function Paint()
     -- A faded alert takes no mouse, so while unseen it never blocks a click.
     row:EnableMouse(not faded)
     if faded then Fade(row,def)else row:SetAlpha(1)end
-    local spotX,spotY=Spot(def)
+    local spotX,spotY=PlacedSpot(def)
     row:ClearAllPoints()
     if spotX then
-     spotX=math.max(-1900,math.min(1900,spotX))
-     spotY=math.max(-1600,math.min(950,spotY))
      row:SetPoint("TOPLEFT",panel,"TOPLEFT",spotX,spotY)
     else
      stacked=stacked+1
+     while taken[stacked]do stacked=stacked+1 end
+     if not CombatRule(def)then plain=plain+1 end
      row:SetPoint("TOP",0,-(stacked-1)*size.row)
     end
      row:Show()
@@ -716,9 +930,11 @@ local function Paint()
      row.hint=waiting and PickHint(def)or nil
    end
   end
+  if spots and CombatRule(def)then spots[def]={row=show and rows[n]or nil,slot=show and stacked or plain+1}end
  end
  for i=n+1,#rows do rows[i]:Hide();Disarm(rows[i])end
  if n==0 then panel:Hide()else panel:SetHeight(math.max(stacked,1)*SIZES[SizeIndex()].row);panel:Show()end
+ if not combat then SyncCombatAlerts(spots or nil,size)end
 end
 
 local function Build()
@@ -749,9 +965,15 @@ local function ToggleRow(parent,label,get,set,width)
   b.thumb:ClearAllPoints()
   b.thumb:SetPoint("CENTER",b.track,v and 6 or -6,0)
   b.label:SetTextColor(v and r or .7,v and g or .73,v and bl or .78)
+  -- An option that needs another one on is greyed out until it is.
+  if b.needs then
+   local ready=not not b.needs()
+   b.dependencyDisabled=not ready;b:SetAlpha(ready and 1 or .4)
+   if b.dependencyHelp then b.dependencyHelp:SetShown(not ready)end
+  end
  end
  b:SetScript("OnClick",function()
-  if InCombatLockdown()then return end
+  if InCombatLockdown()or b.dependencyDisabled then return end
   set(not get());paint();M:Refresh()
  end)
  paint()
@@ -768,17 +990,35 @@ local function ActionButton(parent,label,width)
  b:SetScript("OnLeave",function(self)self:SetBackdropColor(r*.1,g*.1,bl*.1,1)end)
  return b
 end
--- A hover tooltip: title, help (read when shown) and default.
+-- A hover tooltip: title, help (read when shown) and default. While greyed
+-- out it first says which option to turn on.
 local function Explain(frame,title,help,default)
- frame:HookScript("OnEnter",function(self)
+ local function show(owner)
   if not GameTooltip then return end
-  GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+  GameTooltip:SetOwner(owner,"ANCHOR_RIGHT")
   GameTooltip:SetText(title,T.Colour())
+  if frame.dependencyDisabled and frame.dependencyHint then GameTooltip:AddLine(frame.dependencyHint,1,.82,.3,true)end
   GameTooltip:AddLine(help(),1,1,1,true)
   GameTooltip:AddLine(default(),.7,.7,.7,true)
   GameTooltip:Show()
- end)
- frame:HookScript("OnLeave",function()if GameTooltip then GameTooltip:Hide()end end)
+ end
+ local function hide()if GameTooltip then GameTooltip:Hide()end end
+ frame:HookScript("OnEnter",show)
+ frame:HookScript("OnLeave",hide)
+ if frame.dependencyHelp then
+  frame.dependencyHelp:SetScript("OnEnter",function()show(frame)end)
+  frame.dependencyHelp:SetScript("OnLeave",hide)
+ end
+end
+-- Greys a switch out until needs() is on. Disabled buttons don't reliably
+-- get mouse motion, so a motion-only cover keeps its hover help.
+local function Needs(switch,needs,hint)
+ switch.needs,switch.dependencyHint=needs,hint
+ local cover=CreateFrame("Frame",nil,switch)
+ cover:SetAllPoints();cover:EnableMouse(true)
+ cover:SetFrameLevel((switch:GetFrameLevel()or 0)+1)
+ cover:Hide();switch.dependencyHelp=cover
+ switch.draw()
 end
 -- A wide reminder's switch takes a whole line. A button of its own sits in
 -- that line, just left of the switch, and the label has the rest.
@@ -834,10 +1074,14 @@ local function BuildOptions(parent,anchor)
  dropdown:SetBackdropColor(.026,.029,.037,.99)
  local r,g,b=T.Colour()
  dropdown:SetBackdropBorderColor(.19,.20,.24,1)
- local groupSupported,clickSupported,power=ReminderCapabilities()
+ local groupSupported,clickSupported,power,petCombatSupported=ReminderCapabilities()
  local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
   local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
-  local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v)end)
+  local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v);M:UpdateOptionsState()end)
+  -- Hunters and warlocks: their pet reminders, clickable in combat too.
+  local combatClick=ToggleRow(dropdown,"Click pet reminders in combat",CombatClick,function(v)SetOpt("reminderCombatClick",v)end)
+  Needs(combatClick,Clickable,"Turn on Clickable reminders to use this.")
+  Explain(combatClick,"Click pet reminders in combat",CombatClickHelp,function()return "Default: Off."end)
   local mana=ToggleRow(dropdown,"Say when you're out of "..power,power=="rage"and RageOn or ManaOn,
    function(v)SetOpt(power=="rage"and "reminderRage"or "reminderMana",v);M:Refresh()end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
@@ -896,15 +1140,15 @@ local function BuildOptions(parent,anchor)
    end
   end
  end
-  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=mana;items[#items+1]=prev
+  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=combatClick;items[#items+1]=mana;items[#items+1]=prev
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
  for _,frame in ipairs(advRows)do items[#items+1]=frame;items[#items+1]=frame.limit;items[#items+1]=frame.choice end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
- dropdown.groupSupported,dropdown.clickSupported=groupSupported,clickSupported
+ dropdown.groupSupported,dropdown.clickSupported,dropdown.petCombatSupported=groupSupported,clickSupported,petCombatSupported
   dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
-  dropdown.clickable,dropdown.mana=clickable,mana
+  dropdown.clickable,dropdown.combatClick,dropdown.mana=clickable,combatClick,mana
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
  dropdown:Hide()
  return dropdown
@@ -921,7 +1165,7 @@ function M:LayoutDropdown()
   frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
  end
   place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported)
-  place(dropdown.mana,dropdown.clickSupported);place(dropdown.prev)
+  place(dropdown.combatClick,dropdown.petCombatSupported);place(dropdown.mana,dropdown.clickSupported);place(dropdown.prev)
  if dropdown.size then
   if dropdown.size.draw then dropdown.size.draw()end
   dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
@@ -957,6 +1201,12 @@ function M:UpdateOptionsState()
  for _,frame in ipairs(dropdown.items)do
   if on then if frame.Enable then frame:Enable()end
   else if frame.Disable then frame:Disable()end end
+ end
+ -- Click pet reminders in combat waits for Clickable reminders.
+ local cc=dropdown.combatClick
+ if cc then
+  cc.draw()
+  if cc.dependencyDisabled and cc.Disable then cc:Disable()end
  end
  if dropdown.offHint then
   local dedicated=DedicatedPoisons()
@@ -1035,6 +1285,15 @@ function M:Initialize()
    groupCache.units={};groupCache.at=GetTime()
   end
   if event=="PLAYER_REGEN_ENABLED"and saveAfterCombat then saveAfterCombat=false;Save()end
+  -- Pet alerts hand over to the rows, and back, at once rather than up to
+  -- half a second later. A refresh in combat never touches a secure frame.
+  if(event=="PLAYER_REGEN_ENABLED"or event=="PLAYER_REGEN_DISABLED")and CombatClickLive()then
+   M:Refresh()
+   -- The fight's lockdown starts just after PLAYER_REGEN_DISABLED, so that
+   -- refresh is still an out-of-combat one: draw again on the next frame,
+   -- inside the fight, so a row its alert now covers goes at once.
+   if event=="PLAYER_REGEN_DISABLED"then elapsed=math.max(elapsed,.5)end
+  end
   dirty=true
  end)
  events:SetScript("OnUpdate",function(_,dt)

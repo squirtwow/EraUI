@@ -476,6 +476,14 @@ loader:SetScript("OnEvent",function(_,event,name)
     end
     EraUI.Persistence:LoadAccount()
     EraUI.Persistence:LoadCharacter()
+    -- 1.3.0 saved AFK Screen off for everyone while it was Coming soon, so nobody
+    -- chose that. Turn it on once, after every saved copy has loaded; the marker
+    -- is backed up too, so a later "off" sticks.
+    if type(EraUIDB.afkScreenVersion) ~= "number" or EraUIDB.afkScreenVersion < 2 then
+        EraUIDB.afkScreen = true
+        EraUIDB.afkScreenVersion = 2
+        EraUI:SaveSettings()
+    end
     for key in pairs(EraUI.reloadSettings) do EraUI.loadedVisualSettings[key]=EraUIDB[key] end
     Sync()
 end)

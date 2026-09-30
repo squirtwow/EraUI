@@ -90,7 +90,7 @@ Equal(inLook.otherWindows, true, "Other Windows belongs to the Classic look")
 
 -- Applying ----------------------------------------------------------------------------------
 
-saved.darkMode, saved.classColourBorders, saved.darkAuraBorders = true, true, true
+saved.darkMode, saved.classColourBorders, saved.darkAuraBorders, saved.darkAuraShadows = true, true, true, true
 -- Class-coloured Tooltips works on the game's own tooltips too, so neither
 -- preset touches it.
 saved.tooltipClassColours = true
@@ -107,6 +107,12 @@ Equal(P:Changes("classic").darkAuraBorders, nil, "the Classic look leaves Dark A
 local inExtras = false
 for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkAuraBorders" then inExtras = true end end
 Equal(inExtras, false, "Dark Aura Borders is not an optional look")
+-- Aura Shadows goes with Dark Aura Borders: presets leave it alone too.
+Equal(P:Changes("qol").darkAuraShadows, nil, "Quality of Life only leaves Aura Shadows alone")
+Equal(P:Changes("classic").darkAuraShadows, nil, "the Classic look leaves Aura Shadows alone")
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkAuraShadows" then inExtras = true end end
+Equal(inExtras, false, "Aura Shadows is not an optional look")
 local _, count = P:Changes("qol")
 Equal(count, #P.LOOK + 3, "Quality of Life only switches every Classic skin and optional look off")
 P:Apply("qol")
@@ -125,11 +131,15 @@ Equal(P:Current(), "classic", "Classic look restored")
 Equal(saved.damageMeterSkin, false, "optional looks stay as chosen")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")
+Equal(saved.darkAuraShadows, true, "Aura Shadows kept through both presets")
 -- Switched off by the player: no preset turns it back on.
 saved.darkAuraBorders = false
+saved.darkAuraShadows = false
 P:Apply("qol"); P:Apply("classic")
 Equal(saved.darkAuraBorders, false, "a switched-off Dark Aura Borders stays off through presets")
+Equal(saved.darkAuraShadows, false, "a switched-off Aura Shadows stays off through presets")
 saved.darkAuraBorders = true
+saved.darkAuraShadows = true
 saved.questTrackerChoice = "questie"; saved.questTracker = false
 _, count = P:Changes("classic")
 Equal(count, 0, "the Classic look keeps Questie's tracker when it was chosen")

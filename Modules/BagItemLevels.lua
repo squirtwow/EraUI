@@ -1,20 +1,30 @@
 local _,E=...
 local M={};E:RegisterModule("BagItemLevels",M)
--- Bag Item Levels: the item level on every piece of gear in your bags, a green
--- up arrow when it's higher than what you wear in that slot, a red down arrow
--- when it's lower, and a red tint when you can't equip it right now. Upgrade
--- means item level only. The marks sit on Blizzard's own bag buttons, which
--- EraUI's Classic bags and One bag (the game's combined bags) reuse. Nothing is
--- written on those buttons: each mark is a mouse-free child frame of ours,
--- kept in a table here, repainted by a post-hook on each bag window's item
--- update and by a few events.
+-- Bag Item Levels: a big item level at the bottom right of every piece of gear
+-- in your bags, in the item's quality colour, a small green up arrow at the top
+-- right when it's higher than what you wear in that slot, a red down arrow when
+-- it's lower, and a red icon when you can't equip it right now. Upgrade means
+-- item level only. The marks sit on Blizzard's own bag buttons, which EraUI's
+-- Classic bags and One bag (the game's combined bags) reuse; the bank's buttons
+-- are different and not covered yet. Nothing is written on those buttons: each
+-- mark is a mouse-free child frame of ours, kept in a table here, repainted by
+-- a post-hook on each bag window's item update and by a few events. Every part
+-- of a mark blends normally, so it fades with the interface (the AFK screen
+-- hides the UI that way) and with a bag search.
 -- Coming soon: while this is true Bag Item Levels never runs, whatever is
--- saved, and its /era card shows SOON. Tests switch it off.
-M.comingSoon=true
+-- saved, and its /era card shows SOON. It ships for testing, off by default.
+M.comingSoon=false
 local ARROW="Interface\\AddOns\\EraUI\\Media\\BagArrow.tga" -- Tools/GenerateBagArrow.mjs
+local FONT="Interface\\AddOns\\EraUI\\Media\\Fonts\\LilitaOne-Regular.ttf" -- bold, OFL, also a damage text font
+local FALLBACK="Fonts\\FRIZQT__.TTF" -- the game's own, should Lilita One ever be refused
+local OUTLINE="THICKOUTLINE"
 local WHITE="Interface\\Buttons\\WHITE8X8"
+-- A normal bag slot is 37 wide; the number, the arrow and the red icon's inset
+-- are sized for it and scale with the slot.
+local SLOT,TEXT,ARROW_SIZE,INSET=37,14,12,2
 local UP,DOWN={.25,1,.3},{1,.22,.2}
-local TINT={1,.12,.12} -- multiplies the icon red, the way Classic shows gear you can't use
+local TINT={1,.12,.12} -- the item's own icon drawn again in red, the way Classic shows gear you can't use
+local LIFT=.3 -- Poor grey moved this far toward white, so it still reads on dark icons
 local MAX_FRAMES=13
 -- Where each kind of gear is worn. Shirts, tabards, bags, quivers and ammo have no entry.
 local SLOTS={INVTYPE_HEAD={1},INVTYPE_NECK={2},INVTYPE_SHOULDER={3},INVTYPE_CHEST={5},INVTYPE_ROBE={5},
@@ -24,8 +34,9 @@ local SLOTS={INVTYPE_HEAD={1},INVTYPE_NECK={2},INVTYPE_SHOULDER={3},INVTYPE_CHES
 local HANDS={INVTYPE_WEAPON="one",INVTYPE_WEAPONMAINHAND="main",INVTYPE_2HWEAPON="two",
  INVTYPE_WEAPONOFFHAND="off",INVTYPE_SHIELD="off",INVTYPE_HOLDABLE="off"}
 local OFF_WEAPON={INVTYPE_WEAPON=true,INVTYPE_WEAPONOFFHAND=true}
+-- ITEM_LOCK_CHANGED: picking an item up greys its icon without a bag update.
 local EVENTS={"PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","PLAYER_LEVEL_UP","SKILL_LINES_CHANGED",
- "SPELLS_CHANGED","UPDATE_FACTION","PLAYER_REGEN_ENABLED","INVENTORY_SEARCH_UPDATE"}
+ "SPELLS_CHANGED","UPDATE_FACTION","PLAYER_REGEN_ENABLED","INVENTORY_SEARCH_UPDATE","ITEM_LOCK_CHANGED"}
 -- Level, armour and weapon skills (plate or mail at 40) and reputation change what you can equip.
 local FORGET={PLAYER_LEVEL_UP=true,SKILL_LINES_CHANGED=true,SPELLS_CHANGED=true,UPDATE_FACTION=true}
 local SIDES={{"leftText","leftColor"},{"rightText","rightColor"}}
@@ -45,9 +56,9 @@ end
 local function ItemInfo(link)
  local get=C_Item and C_Item.GetItemInfo or GetItemInfo
  if type(get)~="function"then return end
- local ok,name,_,_,level,minLevel=pcall(get,link)
+ local ok,name,_,quality,level,minLevel=pcall(get,link)
  if not ok or not Public(name)or name==nil then return end
- return Clean(level),Clean(minLevel)
+ return Clean(level),Clean(minLevel),Clean(quality)
 end
 local function Level(link)
  local level=Number(C_Item and C_Item.GetDetailedItemLevelInfo or GetDetailedItemLevelInfo,link)
@@ -58,8 +69,8 @@ end
 local function EquipLoc(link)
  local get=C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
  if type(get)~="function"then return end
- local ok,id,_,_,loc=pcall(get,link)
- if ok and Public(id)and Public(loc)and type(loc)=="string"then return loc,id end
+ local ok,id,_,_,loc,icon=pcall(get,link)
+ if ok and Public(id)and Public(loc)and type(loc)=="string"then return loc,id,Clean(icon)end
 end
 
 -- The item level worn in a slot (0 when empty) and its kind, or nil while unknown.
@@ -165,10 +176,24 @@ local function Usable(bag,slot,link,id,minLevel)
  return answer
 end
 
+local function Colour(r,g,b)
+ if Public(r)and Public(g)and Public(b)and type(r)=="number"and type(g)=="number"and type(b)=="number"then return r,g,b end
+end
+-- The game's colour for a quality (read at paint time: the table is rebuilt
+-- when the game's colour overrides change), white while unknown.
 local function QualityColour(q)
- local c=type(q)=="number"and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
- if type(c)=="table"and type(c.r)=="number"then return c.r,c.g,c.b end
- return 1,1,1
+ if type(q)~="number"then return 1,1,1 end
+ local c=ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[q]
+ local r,g,b
+ if type(c)=="table"and Public(c)then r,g,b=Colour(c.r,c.g,c.b)end
+ local get=C_Item and C_Item.GetItemQualityColor
+ if not r and type(get)=="function"then
+  local ok,cr,cg,cb=pcall(get,q)
+  if ok then r,g,b=Colour(cr,cg,cb)end
+ end
+ if not r then return 1,1,1 end
+ if q==0 then r,g,b=r+(1-r)*LIFT,g+(1-g)*LIFT,b+(1-b)*LIFT end
+ return r,g,b
 end
 local function Hide(button)local o=marks[button];if o then o:Hide()end end
 -- Made once per button, on first use, and only shown or hidden after that.
@@ -181,17 +206,58 @@ local function Mark(button)
  o:SetAllPoints(button)
  o:EnableMouse(false)
  o:SetFrameLevel((Number(button.GetFrameLevel,button)or 0)+3)
+ -- Can't equip: the item's icon drawn again in red, just inside the slot's
+ -- edge so the quality border and the slot's frame stay in view.
+ local icon=button.Icon or button.icon or o
  o.tint=o:CreateTexture(nil,"ARTWORK")
- o.tint:SetAllPoints(button.Icon or button.icon or o)
- o.tint:SetTexture(WHITE);o.tint:SetBlendMode("MOD");o.tint:SetVertexColor(TINT[1],TINT[2],TINT[3])
- -- Bottom left: the game's junk coin (a merchant open, grey items) has the top
- -- left corner, the stack count the bottom right.
+ o.tint:SetPoint("TOPLEFT",icon,"TOPLEFT",INSET,-INSET);o.tint:SetPoint("BOTTOMRIGHT",icon,"BOTTOMRIGHT",-INSET,INSET)
+ o.tint:SetBlendMode("BLEND")
+ -- Top right, a corner the game leaves free on bag buttons: its junk coin
+ -- (a merchant open, grey items) is top left and the stack count bottom right.
  o.arrow=o:CreateTexture(nil,"OVERLAY")
- o.arrow:SetSize(14,14);o.arrow:SetPoint("BOTTOMLEFT",o,"BOTTOMLEFT",1,1);o.arrow:SetTexture(ARROW)
+ o.arrow:SetPoint("TOPRIGHT",o,"TOPRIGHT",-2,-2);o.arrow:SetTexture(ARROW)
+ -- Bottom right, where gear never has a stack count. The template is only a
+ -- font to start from; Face sets the real one.
  o.level=o:CreateFontString(nil,"OVERLAY","NumberFontNormal")
- o.level:SetPoint("TOPRIGHT",o,"TOPRIGHT",-1,-2);o.level:SetJustifyH("RIGHT")
+ o.level:SetPoint("BOTTOMRIGHT",o,"BOTTOMRIGHT",-2,1);o.level:SetJustifyH("RIGHT")
+ o.level:SetShadowColor(0,0,0,1);o.level:SetShadowOffset(1,-1)
  marks[button]=o
  return o
+end
+-- The slot's width, 37 unless the button says otherwise.
+local function Width(button)
+ local w=Number(button.GetWidth,button)
+ if w and w>1 then return w end
+ return SLOT
+end
+-- The number's font at its size: Lilita One with a thick dark outline, or the
+-- game's own font should Lilita One be refused.
+local function Face(o,size)
+ if o.size==size then return end
+ o.size=size
+ local text=o.level
+ local ok,done=pcall(text.SetFont,text,FONT,size,OUTLINE)
+ if not ok or done==false then pcall(text.SetFont,text,FALLBACK,size,OUTLINE)end
+end
+local function Tint(o,w,icon)
+ local t=o.tint
+ if icon then
+  -- The icon fills the slot, so the copy's corners are cut by the same inset.
+  local f=INSET/w
+  t:SetTexture(icon);t:SetTexCoord(f,1-f,f,1-f);t:SetVertexColor(TINT[1],TINT[2],TINT[3],1)
+ else
+  t:SetTexture(WHITE);t:SetTexCoord(0,1,0,1);t:SetVertexColor(TINT[1],TINT[2],TINT[3],.5)
+ end
+ t:Show()
+end
+local function IconOf(v)v=Clean(v);if type(v)=="number"or type(v)=="string"then return v end end
+-- The game's junk coin (grey items, a merchant open) would be under the red
+-- icon, so while it shows the coin has the slot to itself.
+local function Junk(button)
+ local coin=button.JunkIcon
+ if type(coin)~="table"or type(coin.IsShown)~="function"then return false end
+ local ok,shown=pcall(coin.IsShown,coin)
+ return ok and Public(shown)and shown==true
 end
 local function Where(button)
  if type(button.GetBagID)~="function"or type(button.GetID)~="function"then return end
@@ -208,17 +274,34 @@ local function Paint(button)
   if ok and Public(got)and type(got)=="table"then info=got end
  end
  local link=info and Clean(info.hyperlink)
- local loc,id
- if type(link)=="string"then loc,id=EquipLoc(link)end
+ local loc,id,icon
+ if type(link)=="string"then loc,id,icon=EquipLoc(link)end
  if not loc or not(SLOTS[loc]or HANDS[loc])then Hide(button);return end
  local level=Level(link)
  if not level then pending=true;Hide(button);return end
  local o=Mark(button);if not o then return end
- local _,minLevel=ItemInfo(link)
- o.level:SetText(tostring(math.floor(level+.5)))
- o.level:SetTextColor(QualityColour(Clean(info.quality)))
+ local _,minLevel,quality=ItemInfo(link)
+ local w=Width(button)
+ -- The number, in the item's quality colour. Should gear ever stack, that
+ -- corner is the game's count, so a stack shows no number.
+ local count=Clean(info.stackCount)
+ if type(count)=="number"and count>1 then
+  o.level:Hide()
+ else
+  Face(o,math.max(9,math.floor(w*TEXT/SLOT+.5)))
+  local q=Clean(info.quality)
+  if type(q)~="number"then q=quality end
+  if type(q)~="number"and id then q=Number(C_Item and C_Item.GetItemQualityByID,id)end
+  o.level:SetText(tostring(math.floor(level+.5)))
+  o.level:SetTextColor(QualityColour(q))
+  o.level:Show()
+ end
  local can=Usable(bag,slot,link,id,minLevel)
- o.tint:SetShown(not can)
+ -- Picked up (or held by a trade, mail or sale): the game greys the icon to
+ -- show it, so the red copy stands aside until the item is put down.
+ if can or Junk(button)or Clean(info.isLocked)==true then o.tint:Hide()else Tint(o,w,IconOf(info.iconFileID)or IconOf(icon))end
+ local size=math.floor(w*ARROW_SIZE/SLOT+.5)
+ o.arrow:SetSize(size,size)
  local worn=can and Reference(loc)
  if worn and level~=worn then
   local up=level>worn
