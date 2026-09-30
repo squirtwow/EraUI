@@ -231,8 +231,16 @@ local function AnyChoice(def)
  local last=ChoiceWith(def,tonumber(Opt(LastKey(def))))
  if last and CastKnown(def,last.ids)then return last end
 end
+-- On Any with several known and none cast yet, no one spell is meant: a click
+-- casts nothing and the alert shows no one spell's icon.
+local function Undecided(def)
+ return def.choices and not def.castIds and not ChoiceOf(def)and not AnyChoice(def)
+end
 -- Notes a choice you cast yourself (a Greater Blessing counts as its blessing,
 -- whose single-target version a click then casts); true when that's news.
+-- Paladins swap seals all fight long, so the settings backup waits for the
+-- fight to end.
+local saveAfterCombat=false
 local function Remember(spellID)
  if not T.Number(spellID)then return false end
  for _,def in ipairs(Definitions())do
@@ -240,7 +248,9 @@ local function Remember(spellID)
    local choice=ChoiceWith(def,spellID)
    if choice then
     if tonumber(Opt(LastKey(def)))==choice.ids[1]then return false end
-    SetOpt(LastKey(def),choice.ids[1])
+    if InCombatLockdown()then
+     EraUIDB=EraUIDB or{};EraUIDB[LastKey(def)]=choice.ids[1];saveAfterCombat=true
+    else SetOpt(LastKey(def),choice.ids[1])end
     return true
    end
   end
@@ -253,6 +263,19 @@ local function PickHint(def)
  local article=string.lower(label):find("^[aeiou]")and "an "or "a "
  return "Use "..article..string.lower(label).." once and clicking here casts that one from then on. Or pick one in /era: Advanced, then "..label.."."
 end
+-- Hover help on a choice button that has a whole line of its own.
+local function ChoiceHelp(def)
+ local label=string.lower(def.choiceLabel or "Spell")
+ return "Picks the "..label.." this reminder looks for and a click casts. On Any, a click casts the only "..label.." you know, or else the one you cast last."
+end
+-- Hover help on PET LOW HEALTH!'s switch and its Below button.
+local function PetHealthHelp(def)
+ local id=HighestKnown(def.ids)or def.ids[1]
+ local spell=T.Spell(id)
+ if not T.Public(spell)or type(spell)~="string"or spell==""then spell="your pet heal"end
+ return "Shows PET LOW HEALTH! while your pet is alive and below the health set with Below (20 to 60%). With Clickable reminders on, a click casts your highest rank of "..spell
+  ..", outside combat. In combat the game hides your pet's health from addons, so the game itself shows or hides the alert, which can't be clicked then. It shows in combat only with Show during combat on. A dead or missing pet gets its own reminder instead. Off by default."
+end
 local function AlertText(def)
  local choice=ChoiceOf(def)
  if choice then return string.upper(choice.name).."!"end
@@ -263,11 +286,13 @@ local function AlertText(def)
  end
  return def.text or def.name or"?"
 end
+local UNKNOWN_ICON="Interface\\Icons\\INV_Misc_QuestionMark"
 local function Icon(def)
+ if Undecided(def)then return UNKNOWN_ICON end
  local choice=ChoiceOf(def)or AnyChoice(def)
  local id=CastKnown(def,choice and choice.ids or def.ids)
  if id then local _,icon=T.Spell(id);if icon then return icon end end
- return def.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
+ return def.icon or UNKNOWN_ICON
 end
 local function DefColor(def)
  if def.color then return def.color[1],def.color[2],def.color[3]end
@@ -300,6 +325,61 @@ local function PetState()
  if not T.Public(exists)then return nil end
  return exists and "alive"or "missing"
 end
+-- PET LOW HEALTH!: a living pet below the limit picked in /era Advanced (20 to
+-- 60%, default 35). Out of combat its health is public and compared. In combat
+-- Forever hides it (UnitHealth is secret), so the alert is drawn and the game
+-- sets how much of it shows: UnitHealthPercent through FadeCurve is 1 below the
+-- limit and 0 from it up, handed straight to SetAlpha, which takes hidden
+-- values. EraUI never reads, compares or adds up the hidden health.
+local LIMIT_LOW,LIMIT_HIGH,LIMIT_STEP,LIMIT_DEFAULT=20,60,5,35
+local function LimitKey(def)return "reminderLimit_"..tostring(class).."_"..def.key end
+local function Limit(def)
+ local v=tonumber(Opt(LimitKey(def)))
+ if not v or v<LIMIT_LOW or v>LIMIT_HIGH then return LIMIT_DEFAULT end
+ return v
+end
+local function CycleLimit(def)
+ local v=(math.floor(Limit(def)/LIMIT_STEP)+1)*LIMIT_STEP
+ SetOpt(LimitKey(def),v>LIMIT_HIGH and LIMIT_LOW or v)
+end
+local curve,curveLimit
+local function FadeCurve(limit)
+ if not(C_CurveUtil and C_CurveUtil.CreateCurve and UnitHealthPercent)then return nil end
+ if curve and curveLimit==limit then return curve end
+ curveLimit=nil
+ local ok=pcall(function()
+  curve=curve or C_CurveUtil.CreateCurve()
+  if Enum and Enum.LuaCurveType then curve:SetType(Enum.LuaCurveType.Linear)end
+  curve:ClearPoints()
+  -- A sheer drop just under the limit, so the alert is fully in or out.
+  curve:AddPoint(0,1);curve:AddPoint(limit/100-.001,1);curve:AddPoint(limit/100,0);curve:AddPoint(1,0)
+ end)
+ if not ok then return nil end
+ curveLimit=limit
+ return curve
+end
+local function Fade(row,def)
+ local shape=FadeCurve(Limit(def))
+ -- The hidden result goes straight into SetAlpha; it is never kept or tested.
+ local ok=shape and pcall(function()row:SetAlpha(UnitHealthPercent("pet",true,shape))end)
+ if not ok then row:SetAlpha(0)end
+end
+local function PetHealthState(def)
+ local state=PetState()
+ if not state then return nil end
+ -- Dead or missing: PET DEAD! or SUMMON PET! says so instead.
+ if state=="dead"then return false,"Pet is dead"end
+ if state=="missing"then return false,"No pet summoned"end
+ local limit=Limit(def)
+ local ok,health,most=pcall(function()return UnitHealth("pet"),UnitHealthMax("pet")end)
+ if ok and T.Number(health)and T.Number(most)then
+  if most<=0 then return nil end
+  return health*100<most*limit,"Pet at "..math.max(1,math.floor(health*100/most)).."% health"
+ end
+ -- Hidden: shown for the game to fade (fourth value), or not at all.
+ if FadeCurve(limit)then return true,"Pet below "..limit.."% health",nil,true end
+ return nil
+end
 local function DefState(def,cache)
  local kind=def.kind or "aura"
  if kind=="petDead"then
@@ -307,6 +387,7 @@ local function DefState(def,cache)
   if not state then return nil end
   return state=="dead",state=="dead"and "Revive your pet"or "Pet is not dead"
  end
+ if kind=="petHealth"then return PetHealthState(def)end
  if kind=="pet"then
    local state=PetState()
    if not state then return nil end
@@ -423,9 +504,8 @@ end
 -- last; with several known and none cast yet, a click has nothing to cast.
 -- It is always the single-target spell, never a reagent group version.
 local function ClickSpell(def)
- if def.noCast then return nil end
+ if def.noCast or Undecided(def)then return nil end
  local choice=ChoiceOf(def)or AnyChoice(def)
- if def.choices and not choice and not def.castIds then return nil end
  return CastKnown(def,choice and choice.ids or def.castIds or def.ids)
 end
 -- Whether you lack the mana (or rage: def.power) to cast the reminder's spell
@@ -570,11 +650,12 @@ local function Paint()
    local detail
    local actionable=false
    local selfMissing=false
+   local faded=false -- the game decides how much of it shows (Fade)
   if not(dedicatedPoisons and(def.key=="poisonMain"or def.key=="poisonOff"))and Applicable(def)then
    local on=DefOn(def)
    if on then
-    local missing,info,lacking=DefState(def,cache)
-     if missing==true then show=true;detail=info;actionable=true;selfMissing=lacking==true
+    local missing,info,lacking,fade=DefState(def,cache)
+     if missing==true then show=true;detail=info;faded=fade==true;actionable=not faded;selfMissing=lacking==true
     elseif preview then show=true;detail=(info or "Check unavailable").."  (preview)"end
    elseif preview then
     show=true;detail="Switched off"
@@ -615,7 +696,9 @@ local function Paint()
      row.sub:SetWidth(row:GetWidth()-8)
      row.sub:SetWordWrap(true)
     row:SetHeight(size.row-6)
-    row:EnableMouse(true)
+    -- A faded alert takes no mouse, so while unseen it never blocks a click.
+    row:EnableMouse(not faded)
+    if faded then Fade(row,def)else row:SetAlpha(1)end
     local spotX,spotY=Spot(def)
     row:ClearAllPoints()
     if spotX then
@@ -629,8 +712,7 @@ local function Paint()
      row:Show()
      SyncClick(row,def,actionable,selfMissing)
      -- On Any with several known and none cast yet, hovering says what to do.
-     local waiting=actionable and Clickable()and not preview and not def.noCast and def.choices and not def.castIds
-      and not ChoiceOf(def)and not AnyChoice(def)
+     local waiting=actionable and Clickable()and not preview and not def.noCast and Undecided(def)
      row.hint=waiting and PickHint(def)or nil
    end
   end
@@ -686,6 +768,60 @@ local function ActionButton(parent,label,width)
  b:SetScript("OnLeave",function(self)self:SetBackdropColor(r*.1,g*.1,bl*.1,1)end)
  return b
 end
+-- A hover tooltip: title, help (read when shown) and default.
+local function Explain(frame,title,help,default)
+ frame:HookScript("OnEnter",function(self)
+  if not GameTooltip then return end
+  GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+  GameTooltip:SetText(title,T.Colour())
+  GameTooltip:AddLine(help(),1,1,1,true)
+  GameTooltip:AddLine(default(),.7,.7,.7,true)
+  GameTooltip:Show()
+ end)
+ frame:HookScript("OnLeave",function()if GameTooltip then GameTooltip:Hide()end end)
+end
+-- A wide reminder's switch takes a whole line. A button of its own sits in
+-- that line, just left of the switch, and the label has the rest.
+local function Inline(switch,b,labelWidth)
+ b:SetPoint("RIGHT",switch.track,"LEFT",-8,0)
+ switch.label:SetWidth(labelWidth)
+ local paint=switch.draw
+ switch.draw=function()paint();b.draw()end
+end
+-- PET LOW HEALTH!'s Below button cycles the limit in steps of 5.
+local function LimitButton(switch,def)
+ local b=ActionButton(switch,"",88)
+ Inline(switch,b,194)
+ b.draw=function()b.label:SetText("Below "..Limit(def).."%  >")end
+ b:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  CycleLimit(def);b.draw();M:Refresh()
+ end)
+ b.draw()
+ return b
+end
+local function AnyName(def)
+ for _,choice in ipairs(def.choices)do if choice.key=="any"then return choice.name end end
+ return "Any"
+end
+-- The choice cycle button, beside its switch ("Blessing: Any  >"). In a wide
+-- reminder's line the label already names it, so it shows just the choice
+-- ("Any seal  >", "Seal of Fury  >").
+local function ChoiceButton(parent,def,switch)
+ local b=ActionButton(switch or parent,"",switch and 158 or 170)
+ if switch then Inline(switch,b,126)end
+ b.draw=function()
+  local choice=ChoiceOf(def)
+  if switch then b.label:SetText((choice and choice.name or AnyName(def)).."  >")
+  else b.label:SetText((def.choiceLabel or "Spell")..": "..(choice and choice.name or "Any").."  >")end
+ end
+ b:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  CycleChoice(def);b.draw();M:Refresh()
+ end)
+ b.draw()
+ return b
+end
 
 local function BuildOptions(parent,anchor)
  if dropdown then return dropdown end
@@ -735,24 +871,34 @@ local function BuildOptions(parent,anchor)
    if v==nil then return default end
    return v==true
   end
-  advRows[#advRows+1]=ToggleRow(dropdown,def.text or def.key,get,function(v)SetOpt(key,v)end,170)
+  -- A wide reminder's switch takes a whole line, with its button in it.
+  local wide=def.wide
+  local switch=ToggleRow(dropdown,def.text or def.key,get,function(v)SetOpt(key,v)end,wide and 340 or 170)
+  switch.wide=wide
+  advRows[#advRows+1]=switch
+  if def.kind=="petHealth"then
+   switch.limit=LimitButton(switch,def)
+   local title=def.text or def.key
+   local help=function()return PetHealthHelp(def)end
+   local default=function()return "Default: Off, below "..LIMIT_DEFAULT.."%"end
+   Explain(switch,title,help,default);Explain(switch.limit,title,help,default)
+  end
   if def.choices then
-   local cbtn=ActionButton(dropdown,"",170)
-   cbtn.draw=function()
-    local choice=ChoiceOf(def)
-    cbtn.label:SetText((def.choiceLabel or "Spell")..": "..(choice and choice.name or "Any").."  >")
+   local cbtn=ChoiceButton(dropdown,def,wide and switch)
+   if wide then
+    switch.choice=cbtn
+    local title=def.text or def.key
+    local help=function()return ChoiceHelp(def)end
+    local default=function()return "Default: "..(def.off and "Off"or "On")..", "..AnyName(def)end
+    Explain(switch,title,help,default);Explain(cbtn,title,help,default)
+   else
+    advRows[#advRows+1]=cbtn
    end
-   cbtn:SetScript("OnClick",function()
-    if InCombatLockdown()then return end
-    CycleChoice(def);cbtn.draw();M:Refresh()
-   end)
-   cbtn.draw()
-   advRows[#advRows+1]=cbtn
   end
  end
   items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=mana;items[#items+1]=prev
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
- for _,frame in ipairs(advRows)do items[#items+1]=frame end
+ for _,frame in ipairs(advRows)do items[#items+1]=frame;items[#items+1]=frame.limit;items[#items+1]=frame.choice end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
@@ -789,10 +935,12 @@ function M:LayoutDropdown()
  for _,frame in ipairs(dropdown.advRows)do
   if dropdown.advanced then
    if frame.draw then frame.draw()end
+   -- A wide switch starts its own line and fills it.
+   if frame.wide and column>0 then column=0;y=y-26 end
    frame:ClearAllPoints()
    frame:SetPoint("TOPLEFT",12+column*170,y)
    frame:Show()
-   column=column+1
+   column=column+(frame.wide and 2 or 1)
    if column>=2 then column=0;y=y-26 end
   else
    frame:Hide()
@@ -886,6 +1034,7 @@ function M:Initialize()
   if event=="UNIT_AURA"or event=="GROUP_ROSTER_UPDATE"or event=="PLAYER_ENTERING_WORLD"or event=="PLAYER_REGEN_ENABLED"then
    groupCache.units={};groupCache.at=GetTime()
   end
+  if event=="PLAYER_REGEN_ENABLED"and saveAfterCombat then saveAfterCombat=false;Save()end
   dirty=true
  end)
  events:SetScript("OnUpdate",function(_,dt)

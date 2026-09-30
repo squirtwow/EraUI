@@ -90,20 +90,46 @@ Equal(inLook.otherWindows, true, "Other Windows belongs to the Classic look")
 
 -- Applying ----------------------------------------------------------------------------------
 
-saved.darkMode, saved.classColourBorders = true, true
+saved.darkMode, saved.classColourBorders, saved.darkAuraBorders = true, true, true
+-- Class-coloured Tooltips works on the game's own tooltips too, so neither
+-- preset touches it.
+saved.tooltipClassColours = true
+Equal(P:Changes("qol").tooltipClassColours, nil, "Quality of Life only leaves Class-coloured Tooltips alone")
+Equal(P:Changes("classic").tooltipClassColours, nil, "the Classic look leaves Class-coloured Tooltips alone")
+-- Bag Item Levels is a Quality of Life option: neither preset touches it.
+saved.bagItemLevels = true
+Equal(P:Changes("qol").bagItemLevels, nil, "Quality of Life only leaves Bag Item Levels alone")
+Equal(P:Changes("classic").bagItemLevels, nil, "the Classic look leaves Bag Item Levels alone")
+-- Dark Aura Borders only shows in Dark Mode, so presets leave it alone:
+-- choosing Dark Mode later brings the borders back.
+Equal(P:Changes("qol").darkAuraBorders, nil, "Quality of Life only leaves Dark Aura Borders alone")
+Equal(P:Changes("classic").darkAuraBorders, nil, "the Classic look leaves Dark Aura Borders alone")
+local inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkAuraBorders" then inExtras = true end end
+Equal(inExtras, false, "Dark Aura Borders is not an optional look")
 local _, count = P:Changes("qol")
 Equal(count, #P.LOOK + 3, "Quality of Life only switches every Classic skin and optional look off")
 P:Apply("qol")
 Equal(saved.unitFrames, false, "Classic unit frames off")
 Equal(saved.darkMode, false, "Dark Mode art off")
+Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept, so Dark Mode brings it back")
 Equal(saved.damageMeterSkin, false, "damage meter skin off")
 Equal(saved.vendorPrice, true, "QoL options untouched")
 Equal(saved.cursorRing, true, "cursor effects untouched")
+Equal(saved.tooltipClassColours, true, "Class-coloured Tooltips kept after Quality of Life only")
+Equal(saved.bagItemLevels, true, "Bag Item Levels kept after Quality of Life only")
 _, count = P:Changes("classic")
 Equal(count, #P.LOOK, "the Classic look switches every Classic skin back on")
 P:Apply("classic")
 Equal(P:Current(), "classic", "Classic look restored")
 Equal(saved.damageMeterSkin, false, "optional looks stay as chosen")
+Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
+Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")
+-- Switched off by the player: no preset turns it back on.
+saved.darkAuraBorders = false
+P:Apply("qol"); P:Apply("classic")
+Equal(saved.darkAuraBorders, false, "a switched-off Dark Aura Borders stays off through presets")
+saved.darkAuraBorders = true
 saved.questTrackerChoice = "questie"; saved.questTracker = false
 _, count = P:Changes("classic")
 Equal(count, 0, "the Classic look keeps Questie's tracker when it was chosen")

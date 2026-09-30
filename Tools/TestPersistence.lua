@@ -76,7 +76,7 @@ end
 cvars.EraUICharSwing="Hunter:10;Other:01"
 cvars.EraUIOnboarding="Hunter:110,1,12.13;Other:100,1,"
 local E,flush,fire=Session({reminderSize=3,reminderChoice_HUNTER_aspect=13165,reminderLast_PALADIN_blessing=19742,
-    reminderPX_HUNTER_pet=-165.25,reminderPY_HUNTER_pet=93.125,reminderSpotVersion=2,
+    reminderChoice_PALADIN_seal=20165,reminderLast_PALADIN_aura=19746,reminderLimit_HUNTER_petHealth=45,reminder_WARLOCK_petHealth=true,reminderLimit_WARLOCK_petHealth="55",reminderPX_HUNTER_pet=-165.25,reminderPY_HUNTER_pet=93.125,reminderSpotVersion=2,
     mapPosition={x=-200.5,y=33.25},mapSize={w=800,h=530},profile="Text ;=: | utf8 café",
     resourceBarPositions={HUNTER={x=50,y=-10,width=200,height=22}},
     rewardProfiles={HUNTER=2},cursorRingSize=72,
@@ -109,6 +109,11 @@ equal(registrations,registered,"existing CVars never re-registered at startup")
 equal(EraUIDB.reminderSize,3,"size survives missing SavedVariables")
 equal(EraUIDB.reminderChoice_HUNTER_aspect,13165,"choice survives")
 equal(EraUIDB.reminderLast_PALADIN_blessing,19742,"the blessing cast last survives")
+equal(EraUIDB.reminderChoice_PALADIN_seal,20165,"the picked seal survives")
+equal(EraUIDB.reminderLast_PALADIN_aura,19746,"the aura cast last survives")
+equal(EraUIDB.reminderLimit_HUNTER_petHealth,45,"the PET LOW HEALTH! limit survives")
+equal(EraUIDB.reminder_WARLOCK_petHealth,true,"PET LOW HEALTH! switched on survives")
+equal(EraUIDB.reminderLimit_WARLOCK_petHealth,nil,"a limit that is not a number is not backed up")
 equal(EraUIDB.reminderPX_HUNTER_pet,-165.25,"negative fractional x survives")
 equal(EraUIDB.reminderPY_HUNTER_pet,93.125,"fractional y survives")
 equal(EraUIDB.reminderSpotVersion,2,"migration marker survives")
@@ -167,6 +172,47 @@ flush()
 E:SetSetting("darkMode",true);flush()
 E,flush,fire=Session()
 equal(E:GetSetting("darkMode"),true,"loaded visual choices use recovery")
+flush()
+-- Dark Aura Borders: on by default (it only shows in Dark Mode, so choosing
+-- Dark Mode gives it), applied live, and a switch-off is never undone.
+equal(E.settingDefaults.darkAuraBorders,true,"Dark Aura Borders on by default")
+equal(E.reloadSettings.darkAuraBorders,nil,"Dark Aura Borders applies live, not on reload")
+-- Saved before the option existed (1.2.2): SavedVariables and backup lack it.
+E:SetSetting("darkAuraBorders",nil);E:SaveSettings();flush()
+local older=copy(EraUIDB)
+equal(older.darkAuraBorders,nil,"a save from before the option")
+E,flush,fire=Session(older)
+equal(EraUIDB.darkAuraBorders,true,"an older save gets Dark Aura Borders on")
+flush()
+E:SetSetting("darkAuraBorders",nil);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.darkAuraBorders,true,"an older backup without SavedVariables gets it on too")
+flush()
+-- Switched off by the player: kept off, with or without SavedVariables.
+E:SetSetting("darkAuraBorders",false);E:SaveSettings();flush()
+E,flush,fire=Session(copy(EraUIDB))
+equal(EraUIDB.darkAuraBorders,false,"a switched-off Dark Aura Borders stays off")
+flush()
+E,flush,fire=Session()
+equal(EraUIDB.darkAuraBorders,false,"and stays off when SavedVariables are lost")
+flush()
+E:SetSetting("darkAuraBorders",true);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.darkAuraBorders,true,"switched back on, it survives missing SavedVariables")
+flush()
+-- Class-coloured Tooltips: the same.
+equal(E.settingDefaults.tooltipClassColours,false,"Class-coloured Tooltips off by default")
+equal(E.reloadSettings.tooltipClassColours,nil,"Class-coloured Tooltips applies live, not on reload")
+E:SetSetting("tooltipClassColours",true);flush()
+E,flush,fire=Session()
+equal(EraUIDB.tooltipClassColours,true,"Class-coloured Tooltips survives missing SavedVariables")
+flush()
+-- Bag Item Levels: the same.
+equal(E.settingDefaults.bagItemLevels,false,"Bag Item Levels off by default")
+equal(E.reloadSettings.bagItemLevels,nil,"Bag Item Levels applies live, not on reload")
+E:SetSetting("bagItemLevels",true);flush()
+E,flush,fire=Session()
+equal(EraUIDB.bagItemLevels,true,"Bag Item Levels survives missing SavedVariables")
 flush()
 before=writes
 for size=50,70 do E:SetSetting("cursorRingSize",size) end

@@ -114,6 +114,13 @@ local function SelectedEntry()
 end
 ns.GuildSelectedMember = SelectedEntry
 
+-- Roster names are "First Surname" on Forever, which UnitName("player")
+-- alone never matches; the roster's GUID settles it when it has one.
+local function IsMe(entry)
+    return entry ~= nil and EraUI:IsPlayer(entry.name, entry.guid)
+end
+ns.GuildIsMe = IsMe
+
 local function RowCount()
     if not panel then return 0 end
     return math.max(1, math.floor((panel.list:GetHeight() or 0) / ROW_H))
@@ -244,7 +251,7 @@ end)
 
 local rowMenu
 
-local function NotMe(entry) return entry.name ~= UnitName("player") end
+local function NotMe(entry) return not IsMe(entry) end
 
 local function ShowRowMenu(entry)
     if not rowMenu then
@@ -542,7 +549,7 @@ function ns.UpdateGuildPopout(fromBridge)
     if not panel or not panel.popout or not panel.popout:IsShown() then return end
     local out = panel.popout
     local entry = SelectedEntry()
-    local me = UnitName("player")
+    local me = IsMe(entry)
     if not fromBridge and DockNotes then DockNotes() end
     local live = ns.GuildNotesLive and ns.GuildNotesLive(entry)
     out.title:SetText(entry and entry.name or (PLAYER_STATUS or "Player Status"))
@@ -550,7 +557,7 @@ function ns.UpdateGuildPopout(fromBridge)
     out.zone.Value:SetText(entry and entry.zone or "")
     out.rank.Value:SetText(entry and entry.rank or "")
     out.lastOnline.Value:SetText(entry and LastOnline(entry) or "")
-    local mayNote = ((CanEditPublicNote and CanEditPublicNote()) or (entry and entry.name == me)) and true or false
+    local mayNote = ((CanEditPublicNote and CanEditPublicNote()) or me) and true or false
     local note = entry and entry.note or ""
     if note == "" and mayNote and live then note = GUILD_NOTE_EDITLABEL or "Click here to set a Public Note." end
     out.noteBox.Text:SetText(note)
@@ -570,7 +577,7 @@ function ns.UpdateGuildPopout(fromBridge)
     local leader = IsGuildLeader and IsGuildLeader() and true or false
     out:SetHeight(216 + (seeOfficer and 60 or 0) + (leader and 26 or 0))
 
-    local other = entry and entry.name ~= me
+    local other = entry and not me
     out.promote:SetEnabled(other and CanGuildPromote and CanGuildPromote() and true or false)
     out.demote:SetEnabled(other and CanGuildDemote and CanGuildDemote() and true or false)
     out.remove:SetEnabled(other and CanGuildRemove and CanGuildRemove() and true or false)
@@ -869,8 +876,7 @@ local function MayWriteNotes()
     if CanEditPublicNote and CanEditPublicNote() then return true end
     if C_GuildInfo and C_GuildInfo.CanEditOfficerNote and C_GuildInfo.CanEditOfficerNote() then return true end
     if CanEditOfficerNote and CanEditOfficerNote() then return true end
-    local entry = SelectedEntry()
-    return entry ~= nil and entry.name == UnitName("player")
+    return IsMe(SelectedEntry())
 end
 
 SyncBridge = function()

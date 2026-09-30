@@ -25,7 +25,8 @@
 
 - **Action bar**: the stone band with gryphons, page arrows, micro menu, bag buttons and the XP bar in their original spots
 - **Unit frames**: player, target, target of target, focus, pet and party frames, with Classic player debuff borders and dark, grey-bordered buff/debuff hover boxes
-- **Tooltips**: translucent dark backgrounds and thin, bevelled grey borders with softened corners on item, spell, unit and map-control hover boxes, including linked items and item comparisons. Enabled by default for fresh settings and resets; existing saved choices are respected. Toggle Tooltips in `/era` and reload to apply
+- **Dark Mode**: darker decorative artwork, with thin dark borders round your buff and debuff icons
+- **Tooltips**: translucent dark backgrounds and thin, bevelled grey borders with softened corners on item, spell, unit and map-control hover boxes, including linked items and item comparisons. Enabled by default for fresh settings and resets; existing saved choices are respected. Toggle Tooltips in `/era` and reload to apply. Optional **Class-coloured Tooltips** show a player's border, name and class in their class colour
 - **Cast bars & timers**: player, pet, target and focus cast bars; classic breath and fatigue timers
 - **Minimap & nameplates**: the round classic minimap and 1.x-style nameplates
 - **Windows**: character sheet, spellbook, talents, professions, trade skills, trainers, quest log & tracker, bags & bank, game menu, settings, Who list, guild roster and group finder
@@ -50,12 +51,13 @@
 - Open your class tab in `/era`, enable **Class Reminders & Buffs**, and use the options directly below it
 - Drag each alert independently, choose Small, Normal or Large, and reset positions when needed
 - Use **Show all reminders** to preview and arrange applicable alerts
-- Pick a preferred aspect, blessing, shaman weapon imbue or warlock demon under **Advanced**
+- Pick a preferred aspect, blessing, seal, aura, shaman weapon imbue or warlock demon under **Advanced**
 - Hunters have separate **SUMMON PET!** and **PET DEAD!** reminders, using Call Pet and Revive Pet icons; each can be toggled under **Advanced**. Selected warlock demons are checked by demon family
 - Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
 - On **Any**, clicking a blessing, shaman imbue or warlock demon reminder casts the only one you know, or the one you cast last; pick one under **Advanced** to always cast that one. `/era discord` gives the Discord invite for bugs and ideas. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
 - Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
 - All reminders hide while you're on a flight path and come back a moment after you land
+- Optional **PET LOW HEALTH!** for hunters and warlocks shows below 35% by default (20 to 60%), in combat too with Show during combat. With Clickable reminders, clicking it out of combat casts Mend Pet or Health Funnel
 - Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
 - Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup
 - Soulstone application checks whether a checked member is protected, rather than requiring it on everyone

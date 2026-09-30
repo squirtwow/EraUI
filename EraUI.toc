@@ -2,7 +2,7 @@
 ## Title: EraUI
 ## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
 ## Author: Squirt
-## Version: 1.2.2
+## Version: 1.3.0
 ## SavedVariables: EraUIDB, EraUIClassicDB
 ## SavedVariablesPerCharacter: EraUIClassicCharDB
 ## IconTexture: Interface\AddOns\EraUI\Media\EraUIIcon.tga
@@ -95,10 +95,12 @@ Modules\MageSupplies.lua
 Modules\RoguePoisons.lua
 Modules\PoisonReminders.lua
 Modules\MerchantTools.lua
+Modules\BagItemLevels.lua
 Modules\MinimapTools.lua
 Modules\MovableMap.lua
 Modules\MapRevealData.lua
 Modules\MapReveal.lua
 Modules\SecondaryNames.lua
 Modules\Popups.lua
+Modules\AFKScreen.lua
 Core\Commands.lua

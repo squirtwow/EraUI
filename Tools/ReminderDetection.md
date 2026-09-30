@@ -30,9 +30,16 @@ The 1.0.4 detection changes use independently checked Blizzard data for Forever
   19888/19897/19898, Ice Armor 7320/10219/10220, Trueshot Aura 1299346 (the
   talent, rank 1) and 1299348 (trainer rank 2), Aspect of the Beast
   1299445-1299447 (trainer, levels 40/50/60) and Summon Incubus 713 (quest).
-  Seal and aura clicks cast the last listed spell you know, so Seal of Fury
-  leads its list and the new auras sit before Shadow Resistance Aura: clicks
-  cast what they did before.
+  Seals and auras are choices like blessings: under /era Advanced the
+  "SEAL!" and "AURA!" switches take a whole
+  line each (`wide`), like PET LOW HEALTH!, with the choice button in the line
+  ("Any seal  >", "Seal of Fury  >") and help on hover. Every id belongs to
+  one choice, named and ranked as in TrainingData (Seal of Command: talent
+  20375, then trainer ranks 20915/20918-20920). Before, a click cast the last
+  listed spell you knew, so a level 60 paladin got Seal of Light and Shadow
+  Resistance Aura. On Any with several known and none cast yet, the click
+  casts nothing and the icon is a question mark rather than one spell's
+  (blessings, demons and imbues too), until you cast one.
 - Left out: Aspect of the Viper 415423, Aspect of the Falcon 469145 and Seal of
   Martyrdom 407798 (407799 is its weapon hit, not a buff). They are Season of
   Discovery spells in Forever's client with no Forever learning level
@@ -74,6 +81,36 @@ The 1.0.4 detection changes use independently checked Blizzard data for Forever
   The rogue Poison Reminders panel (which takes over missing-poison alerts
   while on) waits the same way, keeping only its positioning preview. Both
   read one shared flight clock, `T.Flying` in `Modules/ClassTools.lua`.
+- A picked seal or aura counts only itself; on Any every seal or aura counts.
+  On Any a click casts the only one you know, or else the one you cast last
+  (`reminderLast_PALADIN_seal` / `_aura`); with several known and none cast
+  yet it casts nothing and hovering says so. Seals change all fight long, so
+  one cast in combat is remembered at once and backed up when combat ends.
+- PET LOW HEALTH! (off by default; added 2026-09-30) is the
+  hunter's Mend Pet (136, 3111, 3661, 3662, 13542-13544) and the warlock's
+  Health Funnel (755, 3698-3700, 11693-11695), ranks as in TrainingData. It
+  shows while a living pet is below the limit set with the Below button in
+  /era Advanced (`reminderLimit_<CLASS>_petHealth`, 20 to 60% in fives,
+  default 35; anything else reads as 35). A dead or missing pet is left to
+  PET DEAD! or SUMMON PET!. Its switch takes a whole line (label "PET LOW
+  HEALTH!", Below button beside the switch, help on hover),
+  and it is listed last so an unseen row never pushes other alerts down.
+- Secrecy, from the `forever` branch's API documentation: UnitHealth has
+  `SecretReturns`; UnitHealthMax is secret only for units that aren't
+  player-controlled; UnitExists and UnitIsDeadOrGhost are never secret.
+  UnitHealthPercent(unit, usePredicted, curve) returns a 0 to 1 fraction, or
+  the curve evaluated at it, and is secret when UnitHealth is. Frame SetAlpha
+  accepts secret values from addons (`AllowedWhenTainted`, adding the Alpha
+  secret aspect). So out of combat public health is compared
+  (`health*100 < max*limit`), and when it is hidden the alert is drawn with
+  mouse off and no click, and its alpha is UnitHealthPercent("pet", true,
+  curve) passed straight to SetAlpha. The curve is Linear through (0,1),
+  (limit-0.1%,1), (limit,0), (1,0), so it's 1 below the limit and 0 from it
+  up. No hidden value is read, compared or kept. Without C_CurveUtil or
+  UnitHealthPercent it stays hidden in combat. It shows in combat only with
+  Show during combat on, and it hides on a flight path like every alert.
+  Rows are recycled, so every other alert sets alpha 1 and mouse on when it
+  is painted.
 - Soulstone application requires a stone in bags and no protected checked
   member. It does not request one stone per member. Unknown member auras defer
   this reminder; disabling group checks makes it self-only.

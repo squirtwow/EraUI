@@ -5,6 +5,16 @@ local function Equal(a,b,label)
  checks=checks+1;assert(a==b,label..": expected "..tostring(b)..", got "..tostring(a))
 end
 local secret={}
+-- The icon of an alert on Any with nothing to cast yet: no one spell's.
+local UNDECIDED="Interface\\Icons\\INV_Misc_QuestionMark"
+-- Pet health the game hides in combat: comparing it, adding it up or joining
+-- it to text errors, so the addon can only hand it on.
+local hiddenMeta={}
+for _,op in ipairs({"__eq","__lt","__le","__add","__sub","__mul","__div","__mod","__pow","__unm","__idiv","__concat","__len","__index","__call"})do
+ hiddenMeta[op]=function()error("a hidden health value was read")end
+end
+local function Hidden(v)return setmetatable({hidden=true,value=v},hiddenMeta)end
+local function IsHidden(v)return rawequal(v,secret)or(type(v)=="table"and rawget(v,"hidden")==true)end
 local function Session(class)
  local frames,drivers={},{}
  local combat,restricted=false,false
@@ -24,9 +34,16 @@ local function Session(class)
  end
  for _,name in ipairs({"SetBackdrop","SetBackdropColor","SetBackdropBorderColor","SetColorTexture","SetTexCoord",
   "SetTextColor","SetShadowColor","SetShadowOffset","SetJustifyH","SetWordWrap","SetClampedToScreen","SetMovable",
-  "RegisterForDrag","EnableMouse","SetFont","SetAllPoints","Enable","Disable","SetAlpha","SetScale","EnableMouseWheel"})do
+  "RegisterForDrag","SetFont","SetAllPoints","Enable","Disable","SetScale","EnableMouseWheel"})do
   methods[name]=function(self)Guard(self)end
  end
+ -- As the game does, SetAlpha takes a hidden value and draws with it.
+ function methods:SetAlpha(a)
+  Guard(self)
+  if IsHidden(a)then self.alpha=rawget(a,"value");self.hiddenAlpha=true
+  else assert(type(a)=="number","alpha must be a number");self.alpha=a;self.hiddenAlpha=false end
+ end
+ function methods:EnableMouse(v)Guard(self);self.mouse=v end
  function methods:SetScript(event,fn)self.scripts[event]=fn end
  function methods:RegisterEvent(event)Guard(self);self.events=self.events or{};self.events[event]=true end
  function methods:HookScript(event,fn)self.hooks[event]=self.hooks[event]or{};table.insert(self.hooks[event],fn)end
@@ -84,7 +101,32 @@ local function Session(class)
   drivers[f]=state
  end
  env.InCombatLockdown=function()return combat end
- env.issecretvalue=function(v)return v==secret end
+ env.issecretvalue=IsHidden
+ -- Pet health: public out of combat, hidden in combat (or when pet.hideHealth).
+ local function Health(v)if combat or pet.hideHealth then return Hidden(v)end;return v end
+ env.UnitHealth=function(unit)return unit=="pet"and Health(pet.health or 100)or 100 end
+ env.UnitHealthMax=function(unit)return unit=="pet"and(pet.max or 100)or 100 end
+ env.Enum={LuaCurveType={Linear=0,Step=1}}
+ env.C_CurveUtil={CreateCurve=function()
+  local c={points={}}
+  function c:SetType(t)self.kind=t end
+  function c:ClearPoints()self.points={}end
+  function c:AddPoint(x,y)self.points[#self.points+1]={x,y}end
+  function c:Evaluate(x)
+   local p=self.points;if #p==0 then return 0 end
+   if x<=p[1][1]then return p[1][2]end
+   for i=2,#p do
+    if x==p[i][1]then return p[i][2]end
+    if x<p[i][1]then local a,b=p[i-1],p[i];return a[2]+(b[2]-a[2])*(x-a[1])/(b[1]-a[1])end
+   end
+   return p[#p][2]
+  end
+  return c
+ end}
+ env.UnitHealthPercent=function(unit,_,c)
+  local v=unit=="pet"and(pet.health or 100)/(pet.max or 100)or 1
+  return Health(c and c:Evaluate(v)or v)
+ end
  env.UnitClass=function()return class,class end
  env.UnitLevel=function()return 60 end
  env.UnitExists=function(unit)return unit=="player"or pet.exists end
@@ -99,7 +141,11 @@ local function Session(class)
   [25291]="Blessing of Might",[25782]="Greater Blessing of Might",[25916]="Greater Blessing of Might",
   [25894]="Greater Blessing of Wisdom",[10938]="Power Word: Fortitude",[21564]="Prayer of Fortitude",
   [10157]="Arcane Intellect",[23028]="Arcane Brilliance",[9885]="Mark of the Wild",[21850]="Gift of the Wild",
-  [25289]="Battle Shout",[712]="Summon Succubus",[713]="Summon Incubus",[1299346]="Trueshot Aura"}
+  [25289]="Battle Shout",[712]="Summon Succubus",[713]="Summon Incubus",[1299346]="Trueshot Aura",
+  [20154]="Seal of Righteousness",[20293]="Seal of Righteousness",[1311649]="Seal of Fury",[20423]="Seal of Fury",
+  [20165]="Seal of Light",[20349]="Seal of Light",[465]="Devotion Aura",[10293]="Devotion Aura",
+  [7294]="Retribution Aura",[10301]="Retribution Aura",[19876]="Shadow Resistance Aura",[19896]="Shadow Resistance Aura",
+  [136]="Mend Pet",[3661]="Mend Pet",[13544]="Mend Pet",[755]="Health Funnel",[11695]="Health Funnel"}
  env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
   IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
@@ -293,6 +339,7 @@ Equal(warlock:click(warlock:row("pet")),"/cast [nocombat] Summon Imp","Any demon
 Equal(warlock:row("pet").hint,nil,"with nothing to explain")
 warlock.known[697]=true;warlock.M:Refresh()
 Equal(warlock:click(warlock:row("pet")),nil,"two known and neither cast yet: Any never guesses")
+Equal(warlock:row("pet").icon.texture,UNDECIDED,"nor shows either demon's icon")
 Equal(warlock:row("pet").hint,"Use a demon once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Demon.",
  "hovering says what to do")
 warlock:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",697);warlock.M:Refresh()
@@ -313,6 +360,7 @@ local blessing=paladin:row("blessing")
 Equal(paladin:click(blessing),"/cast [nocombat,@player] Blessing of Might","Any blessing with only Might known casts Might")
 paladin.known[19742]=true;paladin.M:Refresh()
 Equal(paladin:click(blessing),nil,"Might and Wisdom known, none cast yet: no guess")
+Equal(blessing.icon.texture,UNDECIDED,"and no one blessing's icon either")
 Equal(blessing.hint,"Use a blessing once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Blessing.",
  "hovering says to use one first, or pick one")
 paladin:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",19742);paladin.M:Refresh()
@@ -340,6 +388,113 @@ paladin.M:Refresh()
 Equal(paladin:row("blessing"),nil,"Greater Blessing of Might on you counts as the buff")
 paladin.env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
 paladin.env.EraUIDB.reminderChoice_PALADIN_blessing=0;paladin.env.EraUIDB.reminderLast_PALADIN_blessing=nil
+-- Seals and auras have a choice button each, like blessings.
+local sealer=Session("PALADIN")
+local tip={}
+sealer.env.GameTooltip={SetOwner=function(_,owner)tip={owner=owner}end,SetText=function(_,text)tip.title=text end,
+ AddLine=function(_,text)tip[#tip+1]=text end,Show=function()tip.shown=true end,Hide=function()tip.shown=false end}
+sealer.known[20154]=true;sealer.known[465]=true
+for key,value in pairs({reminder_PALADIN_seal=true,reminder_PALADIN_aura=true,reminderClickable=true})do sealer.env.EraUIDB[key]=value end
+sealer.M:Initialize()
+Equal(sealer:click(sealer:row("seal")),"/cast [nocombat,@player] Seal of Righteousness","one seal known: a click casts it")
+Equal(sealer:click(sealer:row("aura")),"/cast [nocombat,@player] Devotion Aura","one aura known: a click casts it")
+Equal(sealer:row("seal").icon.texture.." "..sealer:row("aura").icon.texture,"20154 465","each showing that spell's icon")
+Equal(sealer:row("seal").text.text,"SEAL!","on Any the alert says SEAL!")
+sealer.known[20293]=true;sealer.known[20349]=true;sealer.known[20423]=true
+sealer.known[10293]=true;sealer.known[10301]=true;sealer.known[19896]=true;sealer.M:Refresh()
+Equal(sealer:click(sealer:row("seal")),nil,"at 60 on Any, a seal click no longer casts Seal of Light")
+Equal(sealer:click(sealer:row("aura")),nil,"nor an aura click Shadow Resistance Aura")
+Equal(sealer:row("seal").icon.texture,UNDECIDED,"and SEAL! shows no one seal's icon, Seal of Light's included")
+Equal(sealer:row("aura").icon.texture,UNDECIDED,"nor AURA! Shadow Resistance Aura's")
+Equal(sealer:row("seal").hint,"Use a seal once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Seal.","hovering SEAL! says what to do")
+Equal(sealer:row("aura").hint,"Use an aura once and clicking here casts that one from then on. Or pick one in /era: Advanced, then Aura.","and AURA! too")
+sealer:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-1",20423);sealer.M:Refresh()
+Equal(sealer:click(sealer:row("seal")),"/cast [nocombat,@player] Seal of Fury","then a click casts the seal you cast last")
+Equal(sealer:row("seal").icon.texture,20423,"with its icon")
+Equal(sealer:row("seal").hint,nil,"and the hint goes")
+Equal(sealer:click(sealer:row("aura")),nil,"a seal cast leaves the aura on Any")
+sealer:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-2",10301);sealer.M:Refresh()
+Equal(sealer:click(sealer:row("aura")),"/cast [nocombat,@player] Retribution Aura","and the aura you cast last")
+Equal(sealer:click(sealer:row("seal")),"/cast [nocombat,@player] Seal of Fury","each remembered on its own")
+local sealOptions=sealer:options();sealOptions.adv:Fire("OnClick")
+local blessButton,blessSwitch,sealSwitch,auraSwitch
+for _,f in ipairs(sealOptions.advRows)do
+ local text=f.label.text or ""
+ if text:find("^Blessing:")then blessButton=f elseif text=="BLESSING!"then blessSwitch=f
+ elseif text=="SEAL!"then sealSwitch=f elseif text=="AURA!"then auraSwitch=f end
+end
+-- Their switches have plain labels and take a whole line each, like PET LOW
+-- HEALTH!, with the choice button in the line, just left of the switch.
+Equal(sealSwitch~=nil and auraSwitch~=nil,true,"/era Advanced labels SEAL! and AURA! plainly")
+Equal(sealSwitch:IsShown()and sealSwitch.width.." "..sealSwitch.point[2],"340 12","SEAL! takes a whole line")
+Equal(sealSwitch.point[3],blessSwitch.point[3]-26,"under the BLESSING! line")
+Equal(auraSwitch.width.." "..auraSwitch.point[2].." "..auraSwitch.point[3],"340 12 "..(sealSwitch.point[3]-26),"and AURA! the line under it")
+Equal(blessButton.point[3]==blessSwitch.point[3]and blessButton.point[2]-blessSwitch.point[2],170,"the Blessing button still sits beside BLESSING!")
+local sealButton,auraButton=sealSwitch.choice,auraSwitch.choice
+Equal(sealButton.parent==sealSwitch and sealButton.point[2]==sealSwitch.track and sealButton.point[1],"RIGHT","the Seal button is in SEAL!'s line, left of the switch")
+Equal(auraButton.parent==auraSwitch and auraButton.point[2],auraSwitch.track,"the Aura button in AURA!'s")
+Equal(sealButton.label.text,"Any seal  >","the Seal button shows the choice, on Any")
+Equal(auraButton.label.text,"Any aura  >","and the Aura button")
+Equal(sealSwitch.label.width,126,"the label keeps the rest of the line")
+local greyed=0
+for _,f in ipairs(sealOptions.items)do if f==sealButton or f==auraButton then greyed=greyed+1 end end
+Equal(greyed,2,"both buttons grey out with the other options")
+local seen={}
+for _=1,4 do sealButton:Fire("OnClick");seen[#seen+1]=sealButton.label.text end
+Equal(table.concat(seen," | "),"Seal of Righteousness  > | Seal of Fury  > | Seal of Light  > | Any seal  >",
+ "the Seal button cycles through the seals you know and back to Any")
+sealButton:Fire("OnClick")
+Equal(sealer.env.EraUIDB.reminderChoice_PALADIN_seal,20154,"a picked seal is saved")
+Equal(sealer:click(sealer:row("seal")),"/cast [nocombat,@player] Seal of Righteousness","and is what a click casts, whatever you cast last")
+Equal(sealer:row("seal").text.text,"SEAL OF RIGHTEOUSNESS!","the alert names it")
+Equal(sealer:row("seal").icon.texture,20293,"with its highest known rank's icon")
+sealer.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=20423}end end}
+sealer.M:Refresh()
+Equal(sealer:row("seal")~=nil,true,"Seal of Fury up while Righteousness is picked: still reminded")
+sealer.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=20293}end end}
+sealer.M:Refresh()
+Equal(sealer:row("seal"),nil,"Righteousness up: no SEAL!")
+Equal(sealer:row("aura")~=nil,true,"a seal is not an aura")
+seen={}
+for _=1,4 do auraButton:Fire("OnClick");seen[#seen+1]=auraButton.label.text end
+Equal(table.concat(seen," | "),"Devotion Aura  > | Retribution Aura  > | Shadow Resistance Aura  > | Any aura  >",
+ "the Aura button cycles through the auras you know and back to Any")
+auraButton:Fire("OnClick")
+Equal(sealer:click(sealer:row("aura")),"/cast [nocombat,@player] Devotion Aura","a picked aura is what a click casts")
+Equal(sealer:row("aura").text.text,"DEVOTION AURA!","the alert names it")
+sealer.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=10301}end end}
+sealer.M:Refresh()
+Equal(sealer:row("aura")~=nil,true,"Retribution Aura up while Devotion is picked: still reminded")
+sealer.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=10293}end end}
+sealer.M:Refresh()
+Equal(sealer:row("aura"),nil,"Devotion up: no AURA!")
+sealButton:Fire("OnEnter")
+Equal(tip.title,"SEAL!","hovering the Seal button names SEAL!")
+Equal(tip[1],"Picks the seal this reminder looks for and a click casts. On Any, a click casts the only seal you know, or else the one you cast last.",
+ "and what it does")
+Equal(tip[2],"Default: Off, Any seal","and its defaults")
+Equal(tip.owner==sealButton and tip.shown,true,"shown beside the button")
+sealButton:Fire("OnLeave");Equal(tip.shown,false,"leaving hides it")
+sealSwitch:Fire("OnEnter")
+Equal(tip.owner==sealSwitch and tip.title.." | "..tip[2],"SEAL! | Default: Off, Any seal","the SEAL! switch explains the same")
+sealSwitch:Fire("OnLeave")
+auraButton:Fire("OnEnter");Equal(tip.title,"AURA!","the Aura button too")
+Equal(tip[1]:find("the only aura you know",1,true)~=nil,true,"in its own words")
+Equal(tip[1]:find("\226\128\148",1,true),nil,"with no em dash")
+tip={};blessButton:Fire("OnEnter");Equal(tip.title,nil,"the Blessing button is unchanged")
+-- Seals change all fight long: one cast in combat is remembered at once, but
+-- the settings backup waits for the fight to end.
+local saves=0;sealer.E.Classic={MirrorSave=function()saves=saves+1 end}
+sealer:combat(true)
+sealer:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-3",20349)
+Equal(sealer.env.EraUIDB.reminderLast_PALADIN_seal,20165,"a seal cast in combat is remembered")
+sealer:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-4",20423)
+Equal(sealer.env.EraUIDB.reminderLast_PALADIN_seal,1311649,"and the next one")
+Equal(saves,0,"without saving settings mid-fight")
+sealer:combat(false);sealer:event("PLAYER_REGEN_ENABLED")
+Equal(saves,1,"saved once when the fight ends")
+sealer:event("PLAYER_REGEN_ENABLED");Equal(saves,1,"and only once")
+sealer:event("UNIT_SPELLCAST_SUCCEEDED","player","cast-5",20165);Equal(saves,2,"out of combat a new seal saves straight away")
 local quiet=Session("HUNTER")
 quiet.known[883]=true;quiet.known[982]=true;quiet.pet.exists=true
 quiet.env.EraUIDB.reminderCombat=true;quiet.M:Initialize()
@@ -541,4 +696,144 @@ Equal(marksman:click(marksman:row("trueshot")),"/cast [nocombat,@player] Truesho
 marksman.env.C_UnitAuras={GetAuraDataByIndex=function(unit,i)if unit=="player"and i==1 then return {spellId=1299346}end end}
 marksman.M:Refresh()
 Equal(marksman:row("trueshot"),nil,"rank 1 up: no alert")
+
+-- PET LOW HEALTH!: off by default; Mend Pet below the limit.
+local mender=Session("HUNTER")
+local mtip={}
+mender.env.GameTooltip={SetOwner=function(_,owner)mtip={owner=owner}end,SetText=function(_,text)mtip.title=text end,
+ AddLine=function(_,text)mtip[#mtip+1]=text end,Show=function()mtip.shown=true end,Hide=function()mtip.shown=false end}
+for _,id in ipairs({883,982,136,3661,13165})do mender.known[id]=true end
+mender.pet.exists=true;mender.pet.health=30
+mender.env.EraUIDB.reminderClickable=true;mender.M:Initialize()
+Equal(mender:row("petHealth"),nil,"PET LOW HEALTH! is off by default")
+Equal(mender:row("aspect")~=nil,true,"the hunter's other alerts carry on")
+local menderOptions=mender:options();menderOptions.adv:Fire("OnClick")
+local lowSwitch,trueSwitch,aspectSwitch,aspectButton
+for _,f in ipairs(menderOptions.advRows)do
+ local text=f.label.text
+ if text=="PET LOW HEALTH!"then lowSwitch=f elseif text=="TRUESHOT AURA!"then trueSwitch=f
+ elseif text=="ASPECT!"then aspectSwitch=f elseif text and text:find("^Aspect:")then aspectButton=f end
+end
+Equal(lowSwitch~=nil,true,"/era Advanced has its switch, with a plain label")
+Equal(lowSwitch:IsShown()and lowSwitch.width,340,"on a whole line")
+Equal(lowSwitch.point[2],12,"starting at the left")
+Equal(lowSwitch.point[3],trueSwitch.point[3]-26,"on the line under TRUESHOT AURA!")
+Equal(aspectButton.point[3]==aspectSwitch.point[3]and aspectButton.point[2]-aspectSwitch.point[2],170,"the Aspect button still sits beside ASPECT!")
+Equal(lowSwitch.limit.parent,lowSwitch,"its Below button is on the same line")
+Equal(lowSwitch.limit.point[2],lowSwitch.track,"just left of the switch")
+Equal(lowSwitch.limit.label.text,"Below 35%  >","the limit starts at 35%")
+local listed=false
+for _,f in ipairs(menderOptions.items)do if f==lowSwitch.limit then listed=true end end
+Equal(listed,true,"the Below button greys out with the other options")
+lowSwitch:Fire("OnEnter")
+Equal(mtip.title,"PET LOW HEALTH!","hovering the switch names it")
+Equal(mtip[1]:find("^Shows PET LOW HEALTH! while your pet is alive")~=nil and mtip[1]:find("Needs testing",1,true)==nil,true,"its help starts with what it does, no Needs testing")
+Equal(mtip[1]:find("highest rank of Mend Pet",1,true)~=nil,true,"it names Mend Pet")
+Equal(mtip[1]:find("In combat the game hides your pet's health from addons",1,true)~=nil,true,"it explains combat")
+Equal(mtip[1]:find("Show during combat",1,true)~=nil,true,"and Show during combat")
+Equal(mtip[1]:find("\226\128\148",1,true),nil,"with no em dash")
+Equal(mtip[2],"Default: Off, below 35%","and its defaults")
+Equal(mtip.owner==lowSwitch and mtip.shown,true,"shown beside the switch")
+lowSwitch:Fire("OnLeave");Equal(mtip.shown,false,"leaving hides it")
+lowSwitch.limit:Fire("OnEnter")
+Equal(mtip.owner==lowSwitch.limit and mtip.title,"PET LOW HEALTH!","the Below button explains the same")
+lowSwitch:Fire("OnClick")
+Equal(mender.env.EraUIDB.reminder_HUNTER_petHealth,true,"the switch turns it on")
+local low=mender:row("petHealth")
+Equal(low~=nil and low.text.text,"PET LOW HEALTH!","pet at 30%: PET LOW HEALTH!")
+Equal(low.sub.text,"Pet at 30% health","saying how low")
+Equal(mender:click(low),"/cast [nocombat] Mend Pet","a click casts Mend Pet")
+Equal(low.icon.texture,3661,"with the highest known rank's icon")
+Equal(tostring(low.alpha).." "..tostring(low.hiddenAlpha).." "..tostring(low.mouse),"1 false true","fully shown, taking the mouse")
+Equal(mender:row("aspect").point[3],0,"ASPECT! keeps the top of the stack")
+mender.pet.health=35;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"at the limit: no alert")
+Equal(mender:click(low),nil,"and no click")
+local seen={}
+for _=1,9 do lowSwitch.limit:Fire("OnClick");seen[#seen+1]=lowSwitch.limit.label.text:match("%d+")end
+Equal(table.concat(seen,","),"40,45,50,55,60,20,25,30,35","Below cycles 20 to 60% in fives")
+lowSwitch.limit:Fire("OnClick")
+Equal(mender.env.EraUIDB.reminderLimit_HUNTER_petHealth,40,"a picked limit is saved")
+Equal(mender:row("petHealth")~=nil,true,"and applies at once: 35% is below 40%")
+mender.noMana[3661]=true;mender.M:Refresh()
+Equal(mender:row("petHealth").sub.text:find("Not enough mana",1,true)~=nil,true,"out of mana: said, as for other alerts")
+Equal(mender:click(mender:row("petHealth")),nil,"and not clickable")
+mender.noMana[3661]=nil
+mender.pet.dead=true;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"a dead pet: no PET LOW HEALTH!")
+Equal(mender:row("petDead")~=nil,true,"PET DEAD! instead")
+mender.pet.dead=false;mender.pet.exists=false;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"no pet: no PET LOW HEALTH!")
+Equal(mender:click(mender:row("pet")),"/cast [nocombat] Call Pet","SUMMON PET! instead")
+mender.pet.exists=true;mender.pet.health=20
+-- Combat: hidden health. Only with Show during combat, drawn for the game to fade.
+mender:combat(true);mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"in combat it hides unless Show during combat is on")
+mender.env.EraUIDB.reminderCombat=true;mender.M:Refresh()
+low=mender:row("petHealth")
+Equal(low~=nil,true,"with Show during combat on it is drawn in combat")
+Equal(low.hiddenAlpha,true,"its alpha is the game's hidden result, never read")
+Equal(low.alpha,1,"which shows it at 20%")
+Equal(low.mouse,false,"it takes no mouse")
+Equal(mender:click(low),nil,"and can't be clicked in combat")
+Equal(low.sub.text,"Pet below 40% health","it names the limit")
+Equal(mender:row("aspect").point[3],0,"ASPECT! keeps the top of the stack")
+Equal(low.point[3],-134,"PET LOW HEALTH! comes after it")
+mender.noMana[3661]=true;mender.M:Refresh()
+Equal(low.sub.text,"Pet below 40% health","no mana note on a faded alert")
+mender.noMana[3661]=nil
+mender.pet.health=60;mender.M:Refresh()
+Equal(low:IsShown()and low.alpha,0,"at 60% the game hides it")
+Equal(low.mouse,false,"unseen, it never blocks a click")
+mender.pet.health=39;mender.M:Refresh()
+Equal(low.alpha,1,"at 39% the game shows it again")
+mender.env.UnitHealthPercent=nil;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"a client without the percent API: hidden in combat")
+mender.env.UnitHealthPercent=function(_,_,c)return Hidden(c:Evaluate(mender.pet.health/100))end
+mender.env.UnitOnTaxi=function()return true end;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"on a flight path it hides like every alert")
+mender.env.UnitOnTaxi=nil;mender.M:Refresh()
+Equal(mender:row("petHealth"),nil,"just landed: still hidden")
+mender.env.GetTime=function()return 13 end;mender.M:Refresh()
+Equal(mender:row("petHealth")==low and low.hiddenAlpha,true,"and back, faded by the game, after the landing pause")
+-- The pet dies mid-fight: PET DEAD! takes the top row, ASPECT! the faded one.
+mender.pet.dead=true;mender.M:Refresh()
+Equal(mender:row("aspect"),low,"a faded row is reused for another alert")
+Equal(tostring(low.alpha).." "..tostring(low.hiddenAlpha).." "..tostring(low.mouse),"1 false true","which is fully shown and takes the mouse again")
+mender.pet.dead=false;mender.pet.health=20;mender:combat(false);mender.M:Refresh()
+low=mender:row("petHealth")
+Equal(tostring(low.alpha).." "..tostring(low.hiddenAlpha).." "..tostring(low.mouse),"1 false true","after combat it is plain again")
+Equal(mender:click(low),"/cast [nocombat] Mend Pet","and clickable")
+mender.pet.hideHealth=true;mender.M:Refresh()
+Equal(low.hiddenAlpha,true,"health hidden out of combat too: the game fades it")
+Equal(mender:click(low),nil,"with no click over an alert that may be unseen")
+Equal(low.mouse,false,"or mouse")
+mender.pet.hideHealth=nil;mender.M:Refresh()
+lowSwitch:Fire("OnClick")
+Equal(mender:row("petHealth"),nil,"switched off, it goes")
+-- Warlocks channel Health Funnel; a dead demon is SUMMON PET!'s.
+local funnel=Session("WARLOCK")
+funnel.known[688]=true;funnel.known[755]=true;funnel.known[11695]=true
+funnel.env.EraUIDB.reminderClickable=true;funnel.env.EraUIDB.reminder_WARLOCK_petHealth=true
+funnel.pet.exists=true;funnel.pet.health=25;funnel.M:Initialize()
+Equal(funnel:click(funnel:row("petHealth")),"/cast [nocombat] Health Funnel","a warlock's click casts Health Funnel")
+Equal(funnel:row("petHealth").icon.texture,11695,"at its highest known rank")
+funnel.pet.dead=true;funnel.M:Refresh()
+Equal(funnel:row("petHealth"),nil,"a dead demon: no PET LOW HEALTH!")
+Equal(funnel:row("pet")and funnel:row("pet").sub.text,"Pet is dead","SUMMON PET! says it is dead instead")
+local funnelOptions=funnel:options();funnelOptions.adv:Fire("OnClick")
+local demonLow
+for _,f in ipairs(funnelOptions.advRows)do if f.label.text=="PET LOW HEALTH!"then demonLow=f end end
+Equal(demonLow and demonLow.point[2],12,"the warlock's switch has its own line too")
+-- A wide switch fills its line: a switch listed after it starts the next one.
+local wide=Session("HUNTER")
+table.insert(wide.E.ReminderSpells.HUNTER,{key="later",text="LATER!",kind="shards"})
+wide.M:Initialize()
+local wideOptions=wide:options();wideOptions.adv:Fire("OnClick")
+local wideLow,later
+for _,f in ipairs(wideOptions.advRows)do
+ if f.label.text=="PET LOW HEALTH!"then wideLow=f elseif f.label.text=="LATER!"then later=f end
+end
+Equal(later.point[2].." "..later.point[3],"12 "..(wideLow.point[3]-26),"a switch after the wide one starts the next line")
+Equal(wideOptions.height,-(later.point[3]-26)+24,"and the panel grows to fit it")
 print("Reminder click lifecycle: "..checks.." assertions passed")

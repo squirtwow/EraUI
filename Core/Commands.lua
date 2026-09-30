@@ -236,8 +236,13 @@ SlashCmdList.ERAUI = function(msg)
     elseif msg == "discord" then
         if EraUI.ShowDiscord then EraUI.ShowDiscord() else EraUI:Print("Discord: https://discord.gg/FVfcDWJncr") end
         return
+    elseif msg == "afk" then
+        local m = EraUI.modules.AFKScreen; if m then m:Preview() end
+        return
     elseif msg == "help" then
-        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era reminders opens class reminders; /era discord gives the Discord invite; /era status or audit shows diagnostics.")
+        local afk = EraUI.modules.AFKScreen
+        EraUI:Print("/era opens settings; /era welcome opens the welcome; /era setup starts guided setup; /era version shows the version; /era updates reopens the update notes; /era reminders opens class reminders; /era discord gives the Discord invite; /era status or audit shows diagnostics"
+            .. ((afk and not afk.comingSoon) and "; /era afk previews the AFK screen." or "."))
         EraUI:Print("/era reload reloads the UI; /era reset restores default settings and reloads automatically (outside combat).")
         return
     elseif msg == "version" then

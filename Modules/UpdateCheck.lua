@@ -85,15 +85,6 @@ end
 
 local TRUSTED = { GUILD = true, PARTY = true, RAID = true, INSTANCE_CHAT = true }
 
--- Forever names have a surname, which UnitName gives as its second value,
--- and messages come from "First Surname" (confirmed in game 2026-09-29).
-local function Me(sender)
-    local name = Ambiguate and Ambiguate(sender, "none") or sender
-    local first, surname = UnitName("player")
-    if name == first then return true end
-    return type(surname) == "string" and surname ~= "" and name == first .. " " .. surname
-end
-
 local function Hidden(value)
     return issecretvalue and issecretvalue(value)
 end
@@ -105,8 +96,9 @@ function M:Heard(text, channel, sender)
     -- Your own shares come back to you and are ignored. A whisper only counts
     -- from yourself, for testing; anyone else's is ignored. Otherwise only the
     -- channels EraUI shares on count, where it's people you play with: a
-    -- public channel, say or yell could be anyone.
-    local mine = type(sender) == "string" and Me(sender)
+    -- public channel, say or yell could be anyone. Messages come from
+    -- "First Surname", which EraUI:IsPlayer knows is you.
+    local mine = EraUI:IsPlayer(sender)
     if channel == "WHISPER" then
         if not mine then return end
     elseif not TRUSTED[channel] or mine then

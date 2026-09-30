@@ -152,7 +152,8 @@ local function Row_OnClick(self, button)
     end
     UpdateRows()
     UpdateButtons()
-    if button == "RightButton" and self.entry.name ~= UnitName("player") then
+    -- /who names are "First Surname" on Forever: no menu on your own line.
+    if button == "RightButton" and not EraUI:IsPlayer(self.entry.name) then
         ShowRowMenu(self.entry)
     end
 end

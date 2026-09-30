@@ -21,8 +21,11 @@ or off in the settings.
   and default-bar sizing)
 - Unit frames: player, target, target of target, focus, pet and party frames
   with the original art and bars, Classic debuff borders and aura hover boxes
+- Dark Mode: darker decorative artwork, with thin dark borders round your buff
+  and debuff icons
 - Tooltips: translucent dark backgrounds and thin, bevelled grey borders
-  with softened corners, including linked items and item comparisons
+  with softened corners, including linked items and item comparisons, and
+  optional class colours on player tooltips
 - Cast bars and mirror timers: player, pet, target and focus cast bars; classic
   breath and fatigue timers
 - Minimap and nameplates: the round classic minimap with its zone name and old
@@ -72,7 +75,8 @@ or off in the settings.
   imbue or demon reminder casts the only one you know or the one you cast last;
   or pick one under Advanced. A buff you're missing is cast on you, and "Not
   enough mana" (rage for a warrior's shout) shows until you can cast it. All
-  reminders hide while you're on a flight path
+  reminders hide while you're on a flight path. Paladins can pick a seal and
+  aura under Advanced, and hunters and warlocks can turn on PET LOW HEALTH!
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.

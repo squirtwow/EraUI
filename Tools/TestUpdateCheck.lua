@@ -43,6 +43,7 @@ local E = { modules = {}, version = "1.2.0" }
 function E:RegisterModule(name, module) self.modules[name] = module end
 function E:GetSetting(key) return settings[key] end
 function E:Print(message) printed[#printed + 1] = message end
+assert(loadfile("Core/Utils.lua"))("EraUI", E) -- the shared "is this me" helper
 assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
 local M = E.modules.UpdateCheck
 M:Initialize()
@@ -153,6 +154,14 @@ Equal(printed[1], "Version 9.9.9 is out (you have 1.2.0). Update from CurseForge
 M:Heard("v:9.9.9", "GUILD", "Zriel Gustbellow")
 M:Heard("v:9.9.9", "WHISPER", "Zriel Otherperson")
 Equal(#printed, 1, "your own guild share is ignored, and a different surname isn't you")
+assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
+M = E.modules.UpdateCheck
+printed = {}
+M:Heard("v:9.9.9", "WHISPER", "Zriel")
+Equal(#printed, 0, "with a surname, someone called just Zriel isn't you")
+M:Heard("v:9.9.9", "GUILD", "Zriel")
+Equal(printed[1], "Version 9.9.9 is out (you have 1.2.0). Update from CurseForge or GitHub.",
+    "so their guild share counts")
 UnitName = function() return "Zriel" end
 
 -- Switched off: nothing shared or said.

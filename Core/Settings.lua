@@ -12,11 +12,25 @@ local DEPENDS = {
     trainingGuide = "spellbook", spellbookCombatDrag = "spellbook",
     portraitDebuffs = "unitFrames", matchFocusSize = "unitFrames", disableAggroHighlight = "unitFrames",
     classColourBorders = "unitFrames", gryphons = "actionBars",
+    afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
+    afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen",
+    darkAuraBorders="darkMode",
 }
 local DEPEND_NAMES = {
     advancedCastBar = "Advanced Cast Bar", spellbook = "Classic Spellbook",
     unitFrames = "Classic Unit Frames", actionBars = "Classic Action Bars",
+    afkScreen = "AFK Screen", darkMode = "Dark Mode",
 }
+-- AFK Screen options apply live through its module.
+local AFK_KEYS = {afkScreen=true, afkCameraNormal=true, afkTurnRight=true, afkZoom=true,
+    afk24Hour=true, afkShowGuild=true, afkShowZone=true, afkShowDate=true}
+-- Coming soon: while its module says so, a feature's card shows SOON, greyed
+-- out, and can't be switched on. Each module owns its comingSoon flag.
+local SOON_MODULES = {afkScreen="AFKScreen", bagItemLevels="BagItemLevels"}
+local function ComingSoon(key)
+    local module = SOON_MODULES[key] and EraUI.modules[SOON_MODULES[key]]
+    return module ~= nil and module.comingSoon == true
+end
 
 local classIconCoords = CLASS_ICON_TCOORDS or {
     WARRIOR={0,.25,0,.25}, MAGE={.25,.49609375,0,.25},
@@ -67,6 +81,17 @@ local settingHelp = {
     bagSpace = "Shows empty bag slots on the backpack button at the end of the action bar. Filling an empty slot lowers the count; adding to an existing stack does not. Applies immediately.",
     classColors = "Colours player names in new chat messages by class. Untick to use the chat channel's colour. Earlier messages keep their original colours.",
     hideStatusMessages = "Hides EraUI's startup and setting-change notices immediately. Errors and replies to commands still appear. Messages already in chat stay visible.",
+    afkScreen = "When you go AFK, the interface fades away and EraUI shows its own AFK screen: your character on the left, and your name, level, guild, zone, date, time away and local time in a Classic panel. The camera slowly circles your character. Move, press a key or click to come back. It also closes when combat starts, a prompt appears or you are no longer AFK, and the camera goes back to how it was. Off by default.",
+    afkCameraNormal = "Circle the camera once a minute. Off circles once every two minutes.",
+    afkTurnRight = "Circle the camera to the right. Off circles to the left.",
+    afkZoom = "Gently zoom the camera in on your character over about 20 seconds. Your zoom returns when you come back. Skipped when the camera is already close.",
+    afk24Hour = "Show the local time as a 24-hour clock, for example 15:07. Off shows 3:07 PM.",
+    afkShowGuild = "Show your guild name on the AFK screen.",
+    afkShowZone = "Show your zone and subzone on the AFK screen.",
+    afkShowDate = "Show today's date on the AFK screen.",
+    tooltipClassColours = "A player's tooltip shows their class colour on its border, their name and their class, for example a rogue's name and \"Rogue\" in rogue yellow. Works with EraUI's Classic tooltips or the game's own. NPCs and pets keep their usual colours, and if the game hides a player's class the tooltip stays as it is. Only colours change: the tooltip's lines are the game's. Applies the next time you hover a player. Off by default.",
+    bagItemLevels = "Shows the item level on every piece of gear in your bags: armour, rings, necks, cloaks, trinkets, relics and weapons (not ammo, shirts or tabards). A green arrow means it has a higher item level than what you wear in that slot, a red arrow a lower one. Rings, trinkets and, when you dual wield, one-hand weapons are compared with the weaker of the two you wear. Upgrade means item level only for now: stats, armour type and set bonuses are not compared. Gear you can't equip right now is tinted red, using the game's own check, so it follows your level and the armour and weapon skills you learn, such as plate or mail at level 40. Works with Blizzard's bags, EraUI's Classic bags and One bag. Applies immediately. Off by default.",
+    darkAuraBorders = "A thin dark border around your own buff and debuff icons at the top right, including weapon enchants, to match Dark Mode. Debuffs keep their coloured border on top. Target and focus auras are drawn by the game's protected aura frames and keep their own look. Only EraUI's border is added: timers, tooltips and right-click cancelling are unchanged, in and out of combat. Requires Dark Mode. On by default, so choosing Dark Mode adds them; switch this off to keep plain icons. Applies immediately once Dark Mode is active.",
 }
 
 local function HideSettingTooltip(owner)
@@ -124,7 +149,7 @@ local function PaintToggle(check)
         enabled and "RIGHT" or "LEFT", enabled and -3 or 3, 0)
     check.thumb:SetColorTexture(enabled and 0.98 or 0.48, enabled and 0.98 or 0.5,
         enabled and 1 or 0.55, 1)
-    check.state:SetText(enabled and "ON" or "OFF")
+    check.state:SetText(check.unavailable and "SOON" or enabled and "ON" or "OFF")
     check.state:SetTextColor(enabled and r or 0.58, enabled and g or 0.62, enabled and b or 0.68)
 end
 
@@ -296,6 +321,28 @@ local function MakeCheck(parent, label, key, category, column, row, icon, summar
         if charKey then EraUI:SetCharSetting(key, value) else EraUI:SetSetting(key, value) end
         UpdateReloadHint(parent)
         if parent.setupMode and reloadSettings[key] then return end
+        if AFK_KEYS[key] then
+            if EraUI.modules.AFKScreen then EraUI.modules.AFKScreen:Refresh() end
+            if key=="afkScreen" then EraUI:Status(value and "AFK Screen enabled. Type /era afk to preview it." or "AFK Screen disabled.")
+            else EraUI:Status(label..(value and " enabled." or " disabled.")) end
+            return
+        end
+        if key=="darkAuraBorders" then
+            if EraUI.modules.AuraStyle then EraUI.modules.AuraStyle:RefreshBorders() end
+            EraUI:Status("Dark Aura Borders "..(value and "enabled." or "disabled.")
+                ..(value and not EraUI:GetSetting("darkMode") and " They show once Dark Mode is applied." or ""))
+            return
+        end
+        if key=="tooltipClassColours" then
+            if EraUI.modules.AuraStyle then EraUI.modules.AuraStyle:RefreshClassTooltips() end
+            EraUI:Status("Class-coloured Tooltips "..(value and "enabled. Hover a player to see it." or "disabled."))
+            return
+        end
+        if key=="bagItemLevels" then
+            if EraUI.modules.BagItemLevels then EraUI.modules.BagItemLevels:Refresh() end
+            EraUI:Status("Bag Item Levels "..(value and "enabled. Open your bags to see it." or "disabled."))
+            return
+        end
         if key=="cursorRing" or key=="cursorRingClassColour" then
             if EraUI.modules.CursorRing then EraUI.modules.CursorRing:Refresh()end
             if EraUI.modules.CursorEffects then EraUI.modules.CursorEffects:Refresh()end
@@ -503,7 +550,7 @@ function SettingsModule:Initialize()
         {"Quality of Life", "QUALITY OF LIFE", "Independent convenience options. Unfinished conversions are marked Later."},
         {"Chat & Names", "CHAT & NAMES", "Player names, chat colours and EraUI notices."},
         {"Automation", "AUTOMATION", "Optional shortcuts, alerts and useful information."},
-        {"Text & Camera", "TEXT & CAMERA", "Cursor effects, visible labels and camera distance."},
+        {"Text & Camera", "TEXT & CAMERA", "Cursor effects, visible labels, camera distance and the AFK screen."},
     }
     categories[#categories+1] = {"Appearance", "APPEARANCE"}
     local className,classToken=UnitClass("player")
@@ -629,6 +676,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Loot", "lootWindow", 6, 1, 2, "INV_Misc_Book_09", "Classic loot window and item rows.", false)
     MakeCheck(frame, "Damage Meter", "damageMeterSkin", 6, 0, 3, "INV_Misc_Book_09", "Classic tooltip-style frame, bars and text for Blizzard's damage meter. Reload UI to apply.")
     MakeCheck(frame, "Other Windows", "otherWindows", 6, 1, 3, "INV_Misc_Book_09", "Classic frames for trade, taxi, macros, calendar, achievements and more. Reload UI to apply.")
+    MakeCheck(frame, "Class-coloured Tooltips", "tooltipClassColours", 6, 0, 4, "INV_Misc_ArmorKit_17", "Player tooltips: border, name and class in the player's class colour.", false)
     MakeCheck(frame, "Vendor Prices", "vendorPrice", 7, 0, 0, "INV_Misc_Book_09", "Add missing item selling prices.", false)
     MakeCheck(frame, "Bag Space", "bagSpace", 7, 1, 0, "INV_Misc_Book_09", "Show free slots on the backpack.", false)
     MakeCheck(frame, "Quest Levels", "questLevels", 7, 0, 1, "INV_Misc_Book_09", "Show levels on tracked quests.", false)
@@ -640,6 +688,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Auto-sell Junk", "autoSellJunk", 7, 0, 4, "INV_Misc_Book_09", "Sell grey items at merchants.", false)
     MakeCheck(frame, "Auto-repair", "autoRepair", 7, 1, 4, "INV_Misc_Book_09", "Repair using your own gold.", false)
     MakeCheck(frame, "Click Links Again to Close", "linkToggle", 7, 0, 5, "INV_Misc_Note_01", "Click an item or spell link in chat again to close its tooltip.", false)
+    MakeCheck(frame, "Bag Item Levels", "bagItemLevels", 7, 1, 5, "INV_Misc_Bag_07", "Item levels and upgrade arrows on gear in your bags. Red if you can't equip it.", ComingSoon("bagItemLevels"))
     MakeCheck(frame, "Hide Secondary Names", "hideSecondaryNames", 8, 0, 0, "INV_Misc_Book_09", "Hide Forever surnames.", false)
     MakeCheck(frame, "Class Colours in Chat", "classColors", 8, 1, 0, "INV_Misc_Book_09", "Colour new player names by class.", false)
     MakeCheck(frame,"Classic Chat Dragging","classicChatDragging",8,1,1,"INV_Misc_Note_01","Right-click General or a docked chat tab to unlock, drag and lock the chat window. Remembers your position and lock state. Reload to apply.",false)
@@ -848,6 +897,18 @@ function SettingsModule:Initialize()
     end
     CombatFontCard(0,10)
     CombatScaleCard(1,10)
+    -- Coming soon: one SOON card, and its options stay out of the window.
+    local afkSoon=ComingSoon("afkScreen")
+    MakeCheck(frame,"AFK Screen","afkScreen",10,0,11,"Spell_Nature_Sleep","Fades the interface while you are AFK and shows your character."..(afkSoon and "" or " Try /era afk."),afkSoon)
+    if not afkSoon then
+        MakeCheck(frame,"AFK Camera: Normal Speed","afkCameraNormal",10,1,11,"Spell_Nature_Swiftness","Circle the camera at normal speed. Off circles slowly.",false)
+        MakeCheck(frame,"AFK Camera: Circle Right","afkTurnRight",10,0,12,"Spell_Nature_Cyclone","Circle the camera to the right. Off circles to the left.",false)
+        MakeCheck(frame,"AFK Camera: Zoom In","afkZoom",10,1,12,"INV_Misc_Spyglass_02","Gently zoom in on your character. Your zoom returns afterwards.",false)
+        MakeCheck(frame,"AFK Screen: 24-hour Clock","afk24Hour",10,0,13,"INV_Misc_PocketWatch_01","Show local time as 15:07. Off shows 3:07 PM.",false)
+        MakeCheck(frame,"AFK Screen: Show Guild","afkShowGuild",10,1,13,"INV_Shirt_GuildTabard_01","Show your guild name under your level.",false)
+        MakeCheck(frame,"AFK Screen: Show Zone","afkShowZone",10,0,14,"INV_Misc_Map_01","Show your zone and subzone.",false)
+        MakeCheck(frame,"AFK Screen: Show Date","afkShowDate",10,1,14,"INV_Misc_Note_02","Show today's date.",false)
+    end
     -- More from Squirt: the author's other addons, whether you have them, and
     -- a way to open each one.
     local function MoreCard(key,row,info)
@@ -904,6 +965,7 @@ function SettingsModule:Initialize()
         curseforge="https://www.curseforge.com/wow/addons/forever-enhanced-cooldown-manager",
         github="https://github.com/squirtwow/ForeverEnhancedCooldownManager"})
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", 11, 0, 2, "INV_Misc_ArmorKit_17", "Each player's class colour on player, target and focus borders. Dark Mode only; reload to apply.", false)
+    MakeCheck(frame, "Dark Aura Borders", "darkAuraBorders", 11, 1, 2, "Spell_Holy_WordFortitude", "Thin dark borders around your buff and debuff icons. Dark Mode only.", false)
     MakeCheck(frame, "Floating Combo Points", "floatingComboPoints", 12, 0, 0, "Ability_Rogue_Eviscerate", "Hover orbs for controls. Right-click + to unlock; left-click to lock. Reload to enable.", false)
     MakeCheck(frame, "Red Combo Points", "comboPointRed", 12, 0, 0, "Ability_Rogue_Rupture", "Draw the combo point orbs red instead of gold. Applies immediately.", false)
     MakeCheck(frame, "Energy Bar", "energyBar", 12, 1, 0, "ClassIcon_Rogue", "Floating energy and current value. Hover + to move or resize. Applies immediately.", false)
@@ -1282,6 +1344,7 @@ function SettingsModule:Initialize()
     end
     RenderAppearance=function(shown)
         frame.checks.classColourBorders:SetShown(shown)
+        frame.checks.darkAuraBorders:SetShown(shown)
         local dark=EraUI:GetSavedSetting("darkMode")
         for i,button in ipairs(appearanceButtons) do
             PlaceChoice(button);button:SetShown(shown)

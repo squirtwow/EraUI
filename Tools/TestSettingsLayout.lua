@@ -129,7 +129,7 @@ local function Flush()
  for _=1,20 do if #timers==0 then return end;local pending=timers;timers={};for _,fn in ipairs(pending)do fn()end end
  error("layout queue did not settle")
 end
-local function Session(c)
+local function Session(c,ready)
  frames,timers,combat,token={},{},false,c
  UIParent=Frame("Root");UIParent.w=2560/.65;UIParent.h=1440/.65;UIParent.scale=.65
  GameFontHighlight=Frame("Font");GameFontHighlightSmall=GameFontHighlight
@@ -159,6 +159,11 @@ local function Session(c)
  assert(loadfile("Core/SettingsLayout.lua"))("EraUI",E)
   assert(loadfile("Core/Presets.lua"))("EraUI",E)
   assert(loadfile("Modules/CombatFont.lua"))("EraUI",E)
+  -- The real Coming soon flags; ready runs the finished features instead.
+  assert(loadfile("Modules/AFKScreen.lua"))("EraUI",E)
+  assert(loadfile("Modules/BagItemLevels.lua"))("EraUI",E)
+  if ready then E.modules.AFKScreen.comingSoon=false;E.modules.BagItemLevels.comingSoon=false end
+  E.settingDefaults.darkAuraBorders=true -- as Core/Init.lua; TestPersistence checks the real default
  assert(loadfile("Core/Settings.lua"))("EraUI",E)
  E.modules.ClassReminders:Initialize()
  E.modules.MageSupplies:Initialize()
@@ -199,10 +204,179 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
   NoCardOverlaps(f,c.." HUD")
   equal(f.checks.portraitDebuffs:IsShown(),true,c.." portrait setting visible on HUD")
   equal(f.checks.matchFocusSize:IsShown(),true,c.." focus sizing remains visible on HUD")
+  -- Dark Aura Borders: its own card beside the class-coloured borders under
+  -- Appearance, on by default, greyed out until Dark Mode is chosen, applied live.
+  do
+   local aura,class=f.checks.darkAuraBorders,f.checks.classColourBorders
+   equal(aura and aura.category,11,c.." Dark Aura Borders card under Appearance")
+   equal(aura.text:GetText(),"Dark Aura Borders",c.." Dark Aura Borders has a plain label")
+   f.selectedCategory=11;f:SetSetupMode(false);Flush()
+   NoCardOverlaps(f,c.." Appearance")
+   equal(aura:IsShown()and class:IsShown(),true,c.." both Dark Mode options on the Appearance page")
+   equal(aura:GetTop()==class:GetTop()and aura:GetLeft()>class:GetRight(),true,c.." Dark Aura Borders beside the class-coloured borders")
+   E.settings.darkMode=nil;f:RefreshDependencies()
+   equal(aura.dependencyDisabled,true,c.." greyed out while Dark Mode is off")
+   equal(aura.dependencyHelp:IsShown(),true,c.." with its explanation on hover")
+   aura:SetChecked(true);aura:Fire("OnClick")
+   equal(E.settings.darkAuraBorders,nil,c.." cannot be switched on without Dark Mode")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    aura.dependencyHelp:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(text:find("Enable Dark Mode to use this feature.",1,true)~=nil,true,"hover names Dark Mode as the missing option")
+    equal(text:find("Needs testing",1,true),nil,"Dark Aura Borders help no longer says Needs testing")
+    equal(text:find("On by default, so choosing Dark Mode adds them; switch this off to keep plain icons.",1,true)~=nil,true,"help says choosing Dark Mode adds them")
+    equal(text:find("Default: On",1,true)~=nil,true,"help text shows the default as On")
+    equal(text:find("reload",1,true)==nil and text:find("—",1,true)==nil,true,"no reload line and no em dash")
+    GameTooltip=nil
+    -- Choosing Dark Mode in the style buttons makes it available at once.
+    local darkChoice
+    for _,f2 in ipairs(frames)do if f2.label and f2.label.text=="Dark Mode"then darkChoice=f2 end end
+    darkChoice:Fire("OnClick")
+    equal(E.settings.darkMode,true,"Dark Mode chosen")
+    equal(aura.dependencyDisabled,false,"Dark Aura Borders available once Dark Mode is chosen")
+    local refreshed,status=0
+    E.modules.AuraStyle={RefreshBorders=function()refreshed=refreshed+1 end}
+    local print=E.Status;E.Status=function(_,m)status=m end
+    aura:SetChecked(true);aura:Fire("OnClick")
+    equal(E.settings.darkAuraBorders,true,"Dark Aura Borders switched on")
+    equal(refreshed,1,"applies live through AuraStyle, no reload")
+    equal(status,"Dark Aura Borders enabled.","says so in chat")
+    aura:SetChecked(false);aura:Fire("OnClick")
+    equal(E.settings.darkAuraBorders==false and refreshed,2,"switching off applies live too")
+    E.modules.AuraStyle=nil;E.Status=print
+    E.settings.darkMode=nil;E.settings.darkAuraBorders=nil;f:RefreshDependencies()
+    -- The walkthrough's style page shows it with the class-coloured borders.
+    f:SetSetupMode(true);Flush()
+    f.setupPreset="classicqol";f.setupPage=2;f:RenderSetup();Flush()
+    equal(class:IsShown()and aura:IsShown(),true,"setup style page offers Dark Aura Borders too")
+    f:SetSetupMode(false);Flush()
+   end
+  end
+  -- Class-coloured Tooltips: its own card on the Interface page, under the
+  -- Tooltips skin, available with the skin on or off, applied live.
+  do
+   local card,skin=f.checks.tooltipClassColours,f.checks.tooltipSkin
+   equal(card and card.category,6,c.." Class-coloured Tooltips card on the Interface page")
+   equal(card.text:GetText(),"Class-coloured Tooltips",c.." Class-coloured Tooltips has a plain label")
+   f.selectedCategory=6;f:SetSetupMode(false);Flush()
+   NoCardOverlaps(f,c.." Interface")
+   equal(card:IsShown(),true,c.." Class-coloured Tooltips shown on the Interface page")
+   equal(card:GetLeft()==skin:GetLeft()and card:GetTop()<skin:GetBottom(),true,c.." Class-coloured Tooltips in the Tooltips column, below it")
+   equal(card.dependencyHelp,nil,c.." Class-coloured Tooltips needs no other option")
+   equal(card:GetParent()==f.settingsContent and card:GetBottom()>=f.settingsContent:GetBottom()-.01,true,c.." Interface page scrolls far enough for the new card")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    card:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(lines[1],"Class-coloured Tooltips","tooltip title")
+    equal(text:find("Needs testing",1,true),nil,"Class-coloured Tooltips help no longer says Needs testing")
+    equal(text:find("rogue's name and \"Rogue\" in rogue yellow",1,true)~=nil,true,"help gives the rogue example")
+    equal(text:find("Classic tooltips or the game's own",1,true)~=nil,true,"help says it works with or without the Classic skin")
+    equal(text:find("Default: Off",1,true)~=nil,true,"Class-coloured Tooltips default shown as Off")
+    equal(text:find("Requires /reload",1,true)==nil and text:find("—",1,true)==nil,true,"no reload line and no em dash")
+    GameTooltip=nil
+    local refreshed,status=0
+    E.modules.AuraStyle={RefreshClassTooltips=function()refreshed=refreshed+1 end}
+    local print=E.Status;E.Status=function(_,m)status=m end
+    card:SetChecked(true);card:Fire("OnClick")
+    equal(E.settings.tooltipClassColours,true,"Class-coloured Tooltips switched on")
+    equal(refreshed,1,"applies live through AuraStyle, no reload")
+    equal(status,"Class-coloured Tooltips enabled. Hover a player to see it.","says so in chat")
+    card:SetChecked(false);card:Fire("OnClick")
+    equal(E.settings.tooltipClassColours==false and refreshed,2,"switching off applies live too")
+    equal(status,"Class-coloured Tooltips disabled.","says it is off")
+    E.modules.AuraStyle=nil;E.Status=print;E.settings.tooltipClassColours=nil
+   end
+  end
+  -- Bag Item Levels: its own card in Quality of Life, beside Click Links
+  -- Again to Close, needing no other option. Coming soon: SOON, greyed out,
+  -- and it can't be switched on.
+  do
+   local card,links=f.checks.bagItemLevels,f.checks.linkToggle
+   equal(card and card.category,7,c.." Bag Item Levels card in Quality of Life")
+   equal(card.text:GetText(),"Bag Item Levels",c.." Bag Item Levels has a plain label")
+   f.selectedCategory=7;f:SetSetupMode(false);Flush()
+   NoCardOverlaps(f,c.." Quality of Life")
+   equal(card:IsShown(),true,c.." Bag Item Levels shown in Quality of Life")
+   equal(card:GetTop()==links:GetTop()and card:GetLeft()>links:GetRight(),true,c.." Bag Item Levels beside Click Links Again to Close")
+   equal(card.dependencyHelp,nil,c.." Bag Item Levels needs no other option")
+   equal(card:GetParent()==f.settingsContent and card:GetBottom()>=f.settingsContent:GetBottom()-.01,true,c.." Quality of Life page scrolls far enough for the new card")
+   equal(card.unavailable,true,c.." Bag Item Levels is coming soon")
+   equal(card.state:GetText(),"SOON",c.." its switch says SOON")
+   equal(card.enabled==false and card:GetChecked()==false,true,c.." greyed out and off")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    card:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(lines[1],"Bag Item Levels","Bag Item Levels tooltip title")
+    equal(text:find("Coming soon - not finished yet.",1,true)~=nil,true,"hover says it is coming soon")
+    equal(text:find("Needs testing",1,true),nil,"and never Needs testing")
+    equal(text:find("Default: Off",1,true)~=nil,true,"Bag Item Levels default shown as Off")
+    equal(text:find("\226\128\148",1,true),nil,"no em dash")
+    GameTooltip=nil
+    local real,refreshed=E.modules.BagItemLevels,0
+    E.modules.BagItemLevels={Refresh=function()refreshed=refreshed+1 end}
+    -- Saved on while it was being tested: still shows off and SOON.
+    E.settings.bagItemLevels=true;f:Hide();f:Show();Flush()
+    equal(card:GetChecked(),false,"a saved on still shows off while coming soon")
+    equal(card.state:GetText(),"SOON","and SOON")
+    E.settings.bagItemLevels=nil
+    card:SetChecked(true);card:Fire("OnClick")
+    equal(E.settings.bagItemLevels,nil,"Bag Item Levels can't be switched on")
+    equal(refreshed,0,"and nothing runs")
+    E.modules.BagItemLevels=real;card:SetChecked(false)
+   end
+  end
   for _,category in ipairs({9,10})do
    f.selectedCategory=category;f:SetSetupMode(false);Flush()
    NoCardOverlaps(f,c.." category "..category)
    equal(f.settingsContent:GetHeight()>=f.settingsScroll:GetHeight(),true,c.." effects/automation scroll extent")
+  end
+  -- AFK Screen: coming soon. One SOON card in Text & Camera, greyed out and
+  -- impossible to switch on; its options stay out of the window.
+  do
+   local afk=f.checks.afkScreen
+   equal(afk and afk.category,10,c.." AFK Screen card in Text & Camera")
+   equal(afk.text:GetText(),"AFK Screen",c.." AFK Screen has a plain label")
+   equal(afk.unavailable==true and afk.state:GetText()=="SOON",true,c.." AFK Screen says SOON")
+   equal(afk.enabled==false and afk:GetChecked()==false,true,c.." greyed out and off")
+   equal(afk.searchText:find("/era afk",1,true),nil,c.." its summary offers no /era afk preview")
+   for _,key in ipairs({"afkCameraNormal","afkTurnRight","afkZoom","afk24Hour","afkShowGuild","afkShowZone","afkShowDate"})do
+    equal(f.checks[key],nil,c.." "..key.." stays out of the window while coming soon")
+   end
+   f:RefreshDependencies()
+   equal(afk.dependencyDisabled,nil,c.." AFK Screen itself is never greyed out by another option")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    afk:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(lines[1],"AFK Screen","AFK Screen tooltip title")
+    equal(text:find("Coming soon - not finished yet.",1,true)~=nil,true,"hover says it is coming soon")
+    equal(text:find("Needs testing",1,true)==nil and text:find("/era afk",1,true)==nil,true,"no Needs testing and no /era afk")
+    GameTooltip=nil
+    local real,refreshed=E.modules.AFKScreen,0
+    E.modules.AFKScreen={Refresh=function()refreshed=refreshed+1 end}
+    afk:SetChecked(true);afk:Fire("OnClick")
+    equal(E.settings.afkScreen,nil,"AFK Screen can't be switched on")
+    equal(refreshed,0,"and nothing runs")
+    E.modules.AFKScreen=real;afk:SetChecked(false)
+    local printed={}
+    local print=E.Print;E.Print=function(_,m)printed[#printed+1]=m end
+    SlashCmdList.ERAUI("afk");Flush()
+    equal(printed[1],"The AFK screen is coming soon.","/era afk says it is coming soon")
+    printed={};SlashCmdList.ERAUI("help")
+    equal(printed[1]~=nil and printed[1]:find("/era afk",1,true),nil,"/era help leaves /era afk out while it is coming soon")
+    E.Print=print
+   end
   end
   equal(f.checks.cursorCastRing:IsShown(),true,c.." cast ring visible beside existing cursor options")
   equal(f.checks.cursorTrail:IsShown(),true,c.." trail visible beside existing cursor options")
@@ -242,6 +416,52 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
    equal(f.checks.classTools.scripts.OnClick,nil,c.." inline heading has no click action")
   end
  p.adv:Fire("OnClick");Flush();Fits(f,c.." expanded")
+ -- PET LOW HEALTH!: a whole line whose label and Below button fit.
+ local low
+ for _,row in ipairs(p.advRows)do if row.label:GetText()=="PET LOW HEALTH!"then low=row end end
+ equal(low~=nil,c=="HUNTER"or c=="WARLOCK",c.." pet low health switch only for pet classes")
+ if low then
+  equal(low:IsShown()and low:GetLeft()>=p:GetLeft()+11.99 and low:GetRight()<=p:GetRight()+.01,true,c.." pet low health line fits the panel")
+  equal(low.label:GetStringWidth()<=low.label:GetWidth(),true,c.." its label fits its width")
+  equal(low.label:GetRight()<=low.limit:GetLeft()-4,true,c.." its label clears the Below button")
+  equal(low.limit:GetRight()<=low.track:GetLeft()-4,true,c.." the Below button clears the switch")
+  equal(low.limit.label:GetStringWidth()<=low.limit:GetWidth()-8,true,c.." the Below button's text fits")
+  for _,row in ipairs(p.advRows)do
+   if row~=low and row:IsShown()then
+    equal(row:GetTop()<=low:GetBottom()+.01 or row:GetBottom()>=low:GetTop()-.01,true,c.." nothing shares the pet low health line")
+   end
+  end
+ end
+ -- SEAL! and AURA!: whole lines too, with the choice button in
+ -- the line. The label and every choice's text fit.
+ local choiceLines=0
+ for _,row in ipairs(p.advRows)do
+  local cb=row.choice
+  if cb then
+   choiceLines=choiceLines+1
+   local name=c.." "..row.label:GetText()
+   equal(row.label:GetText()=="SEAL!"or row.label:GetText()=="AURA!",true,name.." has a plain label")
+   equal(row:IsShown()and row:GetLeft()>=p:GetLeft()+11.99 and row:GetRight()<=p:GetRight()+.01,true,name.." line fits the panel")
+   equal(row.label:GetStringWidth()<=row.label:GetWidth(),true,name.." label fits its width")
+   equal(row.label:GetRight()<=cb:GetLeft()-4,true,name.." label clears the choice button")
+   equal(cb:IsShown()and cb:GetRight()<=row.track:GetLeft()-4,true,name.." choice button clears the switch")
+   for _,def in ipairs(E.ReminderSpells.PALADIN)do
+    if row.label:GetText()==def.text then
+     for _,choice in ipairs(def.choices)do
+      cb.label:SetText(choice.name.."  >")
+      equal(cb.label:GetStringWidth()<=cb:GetWidth()-8,true,name.." "..choice.name.." fits its button")
+     end
+    end
+   end
+   cb.draw()
+   for _,other in ipairs(p.advRows)do
+    if other~=row and other:IsShown()then
+     equal(other:GetTop()<=row:GetBottom()+.01 or other:GetBottom()>=row:GetTop()-.01,true,name.." shares its line with nothing")
+    end
+   end
+  end
+ end
+ equal(choiceLines,c=="PALADIN"and 2 or 0,c.." whole choice lines only for SEAL! and AURA!")
  local endHeight=f.settingsContent:GetHeight()
  equal(endHeight>=f.settingsScroll:GetHeight(),true,c.." measured scroll extent")
  f:SetSettingsScroll(99999)
@@ -314,6 +534,77 @@ for _,c in ipairs({"DRUID","WARRIOR","PALADIN","SHAMAN","PRIEST","WARLOCK","HUNT
  equal(f:IsShown(),false,c.." combat attempt does not open settings")
  if c=="ROGUE"then equal(EraUIRogueTools:IsShown(),false,"combat attempt does not open poison window")end
  combat=false
+end
+
+-- Coming soon features as they will be once finished: the same cards switch
+-- on and apply live through their modules.
+do
+ local E,f=Session("DRUID",true)
+ local c="DRUID ready"
+ -- Bag Item Levels, beside Click Links Again to Close.
+ do
+  local card=f.checks.bagItemLevels
+  f.selectedCategory=7;f:SetSetupMode(false);Flush()
+  equal(card.unavailable,false,"finished: Bag Item Levels is not coming soon")
+  equal(card.enabled~=false and card.state:GetText()=="OFF",true,"finished: its switch works and shows OFF")
+  local lines={}
+  GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+   Show=function()end,Hide=function()end,IsOwned=function()return true end}
+  card:Fire("OnEnter")
+  local text=table.concat(lines,"\n")
+  equal(lines[1],"Bag Item Levels","Bag Item Levels tooltip title")
+  equal(text:find("Needs testing",1,true)==nil and text:find("Coming soon",1,true)==nil,true,"no Needs testing and no Coming soon line")
+  equal(text:find("Upgrade means item level only for now",1,true)~=nil,true,"help says an upgrade is item level only for now")
+  equal(text:find("weaker of the two you wear",1,true)~=nil,true,"help explains rings, trinkets and one-hand weapons")
+  equal(text:find("tinted red, using the game's own check",1,true)~=nil,true,"help explains the red can't-equip mark")
+  equal(text:find("One bag",1,true)~=nil,true,"help says it works with One bag")
+  equal(text:find("Default: Off",1,true)~=nil,true,"Bag Item Levels default shown as Off")
+  equal(text:find("Requires /reload",1,true)==nil and text:find("\226\128\148",1,true)==nil,true,"no reload line and no em dash")
+  GameTooltip=nil
+  local refreshed,status=0
+  E.modules.BagItemLevels={Refresh=function()refreshed=refreshed+1 end}
+  local print=E.Status;E.Status=function(_,m)status=m end
+  card:SetChecked(true);card:Fire("OnClick")
+  equal(E.settings.bagItemLevels,true,"Bag Item Levels switched on")
+  equal(refreshed,1,"applies live through its module, no reload")
+  equal(status,"Bag Item Levels enabled. Open your bags to see it.","says so in chat")
+  card:SetChecked(false);card:Fire("OnClick")
+  equal(E.settings.bagItemLevels==false and refreshed,2,"switching off applies live too")
+  equal(status,"Bag Item Levels disabled.","says it is off")
+  E.modules.BagItemLevels=nil;E.Status=print;E.settings.bagItemLevels=nil
+  -- The walkthrough's Quality of Life page offers it too.
+  f:SetSetupMode(true);Flush()
+  f.setupPreset="classicqol";f.setupPage=5;f:RenderSetup();Flush()
+  equal(f.setupProgress:GetText(),"OPTIONS  2 / 6","walkthrough on its Quality of Life page")
+  equal(card:IsShown(),true,"the walkthrough's Quality of Life page offers Bag Item Levels")
+  f:SetSetupMode(false);Flush()
+ end
+ -- AFK Screen: its own cards in Text & Camera, options greyed out until it is on.
+ do
+  local printed={}
+  local print=E.Print;E.Print=function(_,m)printed[#printed+1]=m end
+  SlashCmdList.ERAUI("help")
+  equal(printed[1]~=nil and printed[1]:find("/era afk previews the AFK screen.",1,true)~=nil,true,"finished: /era help lists /era afk")
+  E.Print=print
+  equal(f.checks.afkScreen.unavailable,false,"finished: AFK Screen is not coming soon")
+  equal(f.checks.afkScreen.searchText:find("try /era afk",1,true)~=nil,true,"finished: its summary offers /era afk")
+  f.selectedCategory=10;f:SetSetupMode(false);Flush()
+  NoCardOverlaps(f,c.." Text & Camera with every AFK card")
+  for _,key in ipairs({"afkScreen","afkCameraNormal","afkTurnRight","afkZoom","afk24Hour","afkShowGuild","afkShowZone","afkShowDate"})do
+   equal(f.checks[key]and f.checks[key].category,10,c.." "..key.." card in Text & Camera")
+  end
+  f:RefreshDependencies()
+  equal(f.checks.afkZoom.dependencyDisabled,true,c.." AFK options greyed out while AFK Screen is off")
+  equal(f.checks.afkScreen.dependencyDisabled,nil,c.." AFK Screen itself is never greyed out")
+  local refreshed=0;E.modules.AFKScreen={Refresh=function()refreshed=refreshed+1 end}
+  f.checks.afkScreen:SetChecked(true);f.checks.afkScreen:Fire("OnClick")
+  equal(E.settings.afkScreen,true,"AFK Screen switched on")
+  equal(refreshed,1,"AFK Screen applies live, no reload")
+  equal(f.checks.afkZoom.dependencyDisabled,false,"AFK options available once it is on")
+  f.checks.afkShowDate:SetChecked(false);f.checks.afkShowDate:Fire("OnClick")
+  equal(E.settings.afkShowDate==false and refreshed,2,"AFK display options apply live too")
+  E.modules.AFKScreen=nil;E.settings.afkScreen=nil;E.settings.afkShowDate=nil;f:RefreshDependencies()
+ end
 end
 
 local E,f=Session("MAGE")
@@ -608,6 +899,7 @@ do
  choices[1]:Fire("OnClick");Flush()
  equal(E.settings.classColourBorders,false,"Quality of Life only switched the optional look off")
  equal(f.checks.classColourBorders:GetChecked()and true or false,false,"its toggle shows the saved state after the preset click")
+ equal(f.checks.bagItemLevels.state:GetText(),"SOON","a preset click keeps a Coming soon card on SOON")
  f:SetSetupMode(false);Flush()
 end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

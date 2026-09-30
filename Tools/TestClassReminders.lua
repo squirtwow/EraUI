@@ -317,13 +317,104 @@ equal(applies(defs.seal),true,"the Seal of Righteousness paladins start with ena
 Counts("seal",{20154,20356,20357,20915,20918,20919,20920,1311649,1311656,20163,20419,20421,20422,20423},"seal")
 equal(casts(defs.seal),20154,"a click casts the starting seal")
 for _,id in ipairs(fury)do known[id]=true end
-equal(casts(defs.seal),20154,"learning Seal of Fury leaves the click on the seal it cast before")
+equal(casts(defs.seal),nil,"with Seal of Fury learned too and neither cast yet, Any never guesses")
 Rising(defs.aura.ids,{7294,10298,10299,10300,10301},"Retribution Aura");Rising(defs.aura.ids,{19876,19895,19896},"Shadow Resistance Aura")
 Rising(defs.aura.ids,{19891,19899,19900},"Fire Resistance Aura");Rising(defs.aura.ids,{19888,19897,19898},"Frost Resistance Aura")
 Counts("aura",{10298,10299,10300,10301,19895,19896,19891,19899,19900,19888,19897,19898},"aura")
-known[19746]=true;known[19876]=true;known[19891]=true;known[19898]=true
-equal(casts(defs.aura),19876,"new auras leave the click on Shadow Resistance Aura, as before")
+known[19876]=true
+equal(casts(defs.aura),19876,"the only aura known is what a click casts")
 known[19896]=true;equal(casts(defs.aura),19896,"at its highest rank")
+known[19746]=true;known[19891]=true;known[19898]=true
+equal(casts(defs.aura),nil,"several auras and none cast yet: no longer Shadow Resistance Aura by default")
+
+-- Seals and auras are choices like blessings. Every id belongs to exactly one
+-- choice, named and ranked as in Forever's TrainingData.
+local training={}
+assert(loadfile("Modules/TrainingData.lua"))("EraUI",training)
+local taught={}
+for _,row in ipairs(training.TrainingData.classes.PALADIN)do taught[row[1]]={name=row[6],rank=tonumber((row[7]or""):match("%d+"))or 1}end
+local expectChoices={seal="any,righteousness,crusader,fury,command,justice,light,wisdom",
+ aura="any,devotion,retribution,concentration,shadow,frost,fire"}
+for _,key in ipairs({"seal","aura"})do
+ local def,owner,names=defs[key],{},{}
+ equal(def.choiceLabel,key=="seal"and "Seal"or "Aura",key.." has its own choice button")
+ equal(def.wide==true and def.testing==nil,true,key.." choice takes a whole line, no longer marked Needs testing")
+ for _,choice in ipairs(def.choices)do
+  names[#names+1]=choice.key
+  local last=0
+  for _,id in ipairs(choice.ids or{})do
+   equal(owner[id],nil,key.." "..id.." belongs to one choice only")
+   owner[id]=choice.key
+   local row=taught[id]
+   if row then
+    equal(row.name,choice.name,key.." "..id.." is "..choice.name)
+    equal(row.rank>last,true,key.." "..choice.key.." rank "..row.rank.." of "..id.." follows the one before")
+    last=row.rank
+   end
+  end
+ end
+ equal(table.concat(names,","),expectChoices[key],key.." choices")
+ for _,id in ipairs(def.ids)do equal(owner[id]~=nil,true,key.." "..id.." can be picked")end
+ local n=0;for _ in pairs(owner)do n=n+1 end
+ equal(n,#def.ids,key.." choices list only the reminder's own ids")
+end
+local command;for _,c in ipairs(defs.seal.choices)do if c.key=="command"then command=c end end
+equal(table.concat(command.ids,","),"20375,20915,20918,20919,20920","Seal of Command: the talent, then its trainer ranks")
+
+-- Picking a seal or aura: only known ones are offered, detection counts only
+-- the pick, and on Any a click casts the only one known or the one cast last.
+E,check,defs,event=Session("PALADIN")
+casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+local choiceOf=assert(up(E.modules.ClassReminders.Refresh,"ChoiceOf"))
+local offered=assert(up(E.modules.ClassReminders.AttachOptions,"ChoiceList"))
+local cycleChoice=assert(up(E.modules.ClassReminders.AttachOptions,"CycleChoice"))
+local function Offered(def)local t={};for _,c in ipairs(offered(def))do t[#t+1]=c.key end;return table.concat(t,",")end
+local function Cast(id)frames[#frames].scripts.OnEvent(nil,"UNIT_SPELLCAST_SUCCEEDED","player",nil,id)end
+equal(Offered(defs.seal),"any","no seal known: only Any")
+known[20154]=true;known[20287]=true
+equal(Offered(defs.seal),"any,righteousness","Seal of Righteousness once known")
+for _,id in ipairs(fury)do known[id]=true end;known[21082]=true;known[20165]=true;known[20349]=true
+equal(Offered(defs.seal),"any,righteousness,crusader,fury,light","only the seals you know are offered")
+local order={}
+for _=1,5 do cycleChoice(defs.seal);order[#order+1]=tostring(EraUIDB.reminderChoice_PALADIN_seal)end
+equal(table.concat(order,","),"20154,21082,1311649,20165,0","the Seal button cycles through them and back to Any")
+equal(casts(defs.seal),nil,"level 60 on Any, none cast yet: no longer Seal of Light")
+EraUIDB.reminderChoice_PALADIN_seal=20154
+auras.player={20423};event("UNIT_AURA")
+equal(check("seal"),true,"Righteousness picked: Seal of Fury up still reminds")
+auras.player={20287};event("UNIT_AURA")
+equal(check("seal"),false,"Righteousness rank 2 up does not")
+equal(casts(defs.seal),20287,"a click casts the picked seal's highest known rank")
+EraUIDB.reminderChoice_PALADIN_seal=20166
+equal(choiceOf(defs.seal),nil,"a saved seal you don't know reads as Any")
+EraUIDB.reminderChoice_PALADIN_seal=0;auras.player={20423};event("UNIT_AURA")
+equal(check("seal"),false,"on Any, any seal counts")
+Cast(20349)
+equal(EraUIDB.reminderLast_PALADIN_seal,20165,"a seal you cast is remembered by its choice")
+equal(casts(defs.seal),20349,"then a click casts it at its highest rank")
+Cast(19740)
+equal(EraUIDB.reminderLast_PALADIN_seal,20165,"a blessing is not a seal")
+equal(EraUIDB.reminderLast_PALADIN_blessing,19740,"it is remembered as a blessing")
+known[465]=true;known[10293]=true
+equal(Offered(defs.aura),"any,devotion","Devotion Aura once known")
+equal(casts(defs.aura),10293,"the only aura known: a click casts it")
+known[10301]=true;known[19896]=true
+equal(Offered(defs.aura),"any,devotion,retribution,shadow","only the auras you know are offered")
+equal(casts(defs.aura),nil,"several auras on Any, none cast: no click")
+Cast(10301)
+equal(EraUIDB.reminderLast_PALADIN_aura,7294,"an aura you cast is remembered")
+equal(EraUIDB.reminderLast_PALADIN_seal,20165,"apart from the seal")
+equal(casts(defs.aura),10301,"then a click casts it")
+EraUIDB.reminderChoice_PALADIN_aura=465
+equal(casts(defs.aura),10293,"a picked aura always wins")
+auras.player={10301};event("UNIT_AURA")
+equal(check("aura"),true,"Devotion picked: Retribution Aura up still reminds")
+auras.player={10293};event("UNIT_AURA")
+equal(check("aura"),false,"Devotion up does not")
+EraUIDB.reminderChoice_PALADIN_aura=0;auras.player={19896};event("UNIT_AURA")
+equal(check("aura"),false,"on Any, any aura counts")
+auras.player={};event("UNIT_AURA")
+equal(check("aura"),true,"no aura up on Any reminds")
 
 E,check,defs,event=Session("MAGE")
 casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
@@ -402,5 +493,161 @@ for _,c in ipairs(classes)do for _,def in ipairs(E.ReminderSpells[c])do
 end end
 for _,key in ipairs({"MAGE_elemental","SHAMAN_elemental","WARLOCK_pet_felguard","PALADIN_blessing_sanctuary"})do
  equal(keys[key],nil,key.." is gone")
+end
+
+-- PET LOW HEALTH!: a living pet below the limit (default 35%).
+-- In combat Forever hides pet health: a hidden value here errors when it is
+-- compared, added up or joined to text, so any read fails the test.
+local hiddenMeta={}
+for _,op in ipairs({"__eq","__lt","__le","__add","__sub","__mul","__div","__mod","__pow","__unm","__idiv","__concat","__len","__index","__call"})do
+ hiddenMeta[op]=function()error("a hidden health value was read")end
+end
+local function Hidden(v)return setmetatable({hidden=true,value=v},hiddenMeta)end
+issecretvalue=function(v)return rawequal(v,secret)or(type(v)=="table"and rawget(v,"hidden")==true)end
+local hp={health=100,max=100}
+UnitHealth=function(u)if u~="pet"then return 1 end;return hp.hidden and Hidden(hp.health)or hp.health end
+UnitHealthMax=function(u)return u=="pet"and hp.max or 1 end
+local curves={}
+Enum={LuaCurveType={Linear=0,Step=1,Cosine=2,Cubic=3}}
+local function NewCurve()
+ local c={points={}}
+ function c:SetType(t)self.kind=t end
+ function c:ClearPoints()self.points={}end
+ function c:AddPoint(x,y)self.points[#self.points+1]={x,y}end
+ -- Linear between points, flat past the ends (the curve's own evaluation).
+ function c:Evaluate(x)
+  local p=self.points;if #p==0 then return 0 end
+  if x<=p[1][1]then return p[1][2]end
+  for i=2,#p do
+   if x==p[i][1]then return p[i][2]end
+   if x<p[i][1]then local a,b=p[i-1],p[i];return a[2]+(b[2]-a[2])*(x-a[1])/(b[1]-a[1])end
+  end
+  return p[#p][2]
+ end
+ curves[#curves+1]=c;return c
+end
+C_CurveUtil={CreateCurve=NewCurve}
+local percentCalls={}
+UnitHealthPercent=function(u,predicted,c)
+ percentCalls[#percentCalls+1]={u,predicted,c}
+ local v=hp.health/hp.max;if c then v=c:Evaluate(v)end
+ return hp.hidden and Hidden(v)or v
+end
+E,check,defs,event=Session("HUNTER")
+local reminders=E.modules.ClassReminders
+local defOn=assert(up(reminders.Refresh,"DefOn"))
+local applies=assert(up(reminders.Refresh,"Applicable"))
+local casts=assert(up(reminders.Refresh,"ClickSpell"))
+local cycleLimit=assert(up(reminders.AttachOptions,"CycleLimit"))
+local function Low()local a,b,c,d=check("petHealth");return a,b,c,d end
+local low=defs.petHealth
+equal(low.text,"PET LOW HEALTH!","hunters have PET LOW HEALTH!")
+equal(low.wide==true and low.testing==nil,true,"a whole line in /era, no longer marked Needs testing")
+equal(defOn(low),false,"off by default")
+equal(applies(low),false,"no alert before Mend Pet is learned")
+known[136]=true;known[3661]=true
+equal(applies(low),true,"Mend Pet learned: it applies")
+equal(casts(low),3661,"a click casts the highest Mend Pet rank known")
+known[13544]=true;equal(casts(low),13544,"up to rank 7")
+units.pet={}
+local missing,detail=Low()
+equal(missing,false,"no pet: no PET LOW HEALTH!");equal(detail,"No pet summoned","it says why")
+equal(check("pet"),true,"SUMMON PET! instead")
+units.pet={exists=true,dead=true};hp.health=0
+missing,detail=Low()
+equal(missing,false,"a dead pet: no PET LOW HEALTH!");equal(detail,"Pet is dead","it says why")
+equal(check("petDead"),true,"PET DEAD! instead")
+units.pet={exists=true}
+for _,case in ipairs({{30,true,"Pet at 30% health"},{34,true,"Pet at 34% health"},{35,false,"Pet at 35% health"},{90,false,"Pet at 90% health"}})do
+ hp.health=case[1]
+ missing,detail=Low()
+ equal(missing,case[2],"pet at "..case[1].."% against the default 35%");equal(detail,case[3],"says the pet's health at "..case[1].."%")
+end
+hp.max=3000;hp.health=1049;equal(Low(),true,"34.97% is below 35%")
+hp.health=1050;equal(Low(),false,"exactly 35% is not")
+hp.health=1;equal(select(2,Low()),"Pet at 1% health","a sliver of health still reads 1%")
+hp.max=100
+EraUIDB.reminderLimit_HUNTER_petHealth=45
+hp.health=40;equal(Low(),true,"a 45% limit: 40% alerts")
+hp.health=50;equal(Low(),false,"and 50% does not")
+for _,bad in ipairs({99,5,"x"})do
+ EraUIDB.reminderLimit_HUNTER_petHealth=bad
+ hp.health=40;equal(Low(),false,"a saved limit of "..tostring(bad).." reads as 35%")
+end
+EraUIDB.reminderLimit_HUNTER_petHealth=nil
+local order={}
+for _=1,9 do cycleLimit(low);order[#order+1]=tostring(EraUIDB.reminderLimit_HUNTER_petHealth)end
+equal(table.concat(order,","),"40,45,50,55,60,20,25,30,35","the limit cycles 20 to 60% in fives")
+EraUIDB.reminderLimit_HUNTER_petHealth=33;cycleLimit(low)
+equal(EraUIDB.reminderLimit_HUNTER_petHealth,35,"an odd saved limit steps to the next five")
+EraUIDB.reminderLimit_HUNTER_petHealth=nil
+hp.max=0;hp.health=0;equal(Low(),nil,"no maximum health yet: unknown, not low")
+hp.max=100
+units.pet={exists=true,dead=secret};equal(Low(),nil,"a hidden death state: unknown")
+units.pet={exists=true}
+-- In combat: never read, the game fades the alert through the curve.
+hp.hidden=true;hp.health=20
+local fourth
+missing,detail,_,fourth=Low()
+equal(missing,true,"hidden health: drawn for the game to fade");equal(fourth,true,"marked faded")
+equal(detail,"Pet below 35% health","it names the limit, not the hidden health")
+local shape=curves[#curves]
+equal(shape and shape.kind,0,"a linear curve")
+equal(#shape.points,4,"four points")
+for _,x in ipairs({0,.1,.2,.3,.34,.345})do equal(shape:Evaluate(x),1,"fully shown at "..(x*100).."%")end
+for _,x in ipairs({.35,.36,.5,.9,1})do equal(shape:Evaluate(x),0,"hidden at "..(x*100).."%")end
+local fade=assert(up(reminders.Refresh,"Fade"))
+local drawn={}
+local row={SetAlpha=function(_,a)drawn[#drawn+1]=a end}
+percentCalls={};fade(row,low)
+equal(#drawn,1,"the alert's alpha is set once")
+equal(type(drawn[1])=="table"and rawget(drawn[1],"hidden"),true,"to the hidden result itself")
+equal(rawget(drawn[1],"value"),1,"which the game shows at 20%")
+equal(percentCalls[1][1].." "..tostring(percentCalls[1][2]).." "..tostring(percentCalls[1][3]==shape),"pet true true","the pet's percent through the curve")
+hp.health=90;drawn={};fade(row,low)
+equal(rawget(drawn[1],"value"),0,"and hides at 90%")
+hp.health=90;missing,_,_,fourth=Low()
+equal(missing==true and fourth,true,"at 90% it is still drawn: only the game knows")
+EraUIDB.reminderLimit_HUNTER_petHealth=50
+missing,detail=Low()
+equal(detail,"Pet below 50% health","a new limit")
+equal(curves[#curves],shape,"reshapes the same curve")
+equal(shape:Evaluate(.49),1,"shown just under 50%");equal(shape:Evaluate(.5),0,"hidden at 50%")
+local made=#curves;Low();Low()
+equal(#curves,made,"the curve is made once")
+EraUIDB.reminderLimit_HUNTER_petHealth=nil
+local keep=UnitHealthPercent;UnitHealthPercent=nil
+equal(Low(),nil,"no percent API: hidden in combat")
+drawn={};fade(row,low);equal(drawn[1],0,"a fade without it hides the alert")
+UnitHealthPercent=keep
+C_CurveUtil={CreateCurve=function()error("unavailable")end}
+E,check,defs,event=Session("HUNTER")
+units.pet={exists=true};known[136]=true;hp.hidden=true;hp.health=20
+equal(check("petHealth"),nil,"no curve: hidden in combat")
+C_CurveUtil=nil;equal(check("petHealth"),nil,"no curve API: hidden in combat")
+C_CurveUtil={CreateCurve=NewCurve}
+hp.hidden=false
+Rising(defs.petHealth.ids,{136,3111,3661,3662,13542,13543,13544},"Mend Pet")
+-- Warlocks: Health Funnel. A dead demon is SUMMON PET!'s job.
+E,check,defs,event=Session("WARLOCK")
+casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+Rising(defs.petHealth.ids,{755,3698,3699,3700,11693,11694,11695},"Health Funnel")
+known[755]=true;known[11694]=true
+equal(casts(defs.petHealth),11694,"a click casts the highest Health Funnel rank known")
+units.pet={exists=true};hp.health=25
+equal(check("petHealth"),true,"a demon at 25%: PET LOW HEALTH!")
+units.pet={exists=true,dead=true}
+equal(check("petHealth"),false,"a dead demon: no PET LOW HEALTH!")
+missing,detail=check("pet")
+equal(missing,true,"SUMMON PET! instead");equal(detail,"Pet is dead","saying it is dead")
+units.pet={}
+equal(check("petHealth"),false,"no demon: no PET LOW HEALTH!");equal(check("pet"),true,"SUMMON PET! instead")
+local named={HUNTER="Mend Pet",WARLOCK="Health Funnel"}
+for c,name in pairs(named)do
+ local ranks={}
+ for _,row in ipairs(forever.TrainingData.classes[c])do if row[6]==name then ranks[#ranks+1]=row[1]end end
+ local def;for _,d in ipairs(E.ReminderSpells[c])do if d.key=="petHealth"then def=d end end
+ equal(table.concat(def.ids,","),table.concat(ranks,","),c.." PET LOW HEALTH! lists every "..name.." rank, lowest first")
+ equal(E.ReminderSpells[c][#E.ReminderSpells[c]],def,c.." PET LOW HEALTH! is listed last")
 end
 print("Class reminder detection checks passed: "..checks.." assertions.")

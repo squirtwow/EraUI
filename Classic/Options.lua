@@ -216,10 +216,18 @@ function ns.FitBarsToSize(big)
     return true
 end
 
+-- This character for the AddOns list. The game's own list names it by GUID
+-- on Forever; a first name alone isn't the character (names have surnames).
+local function ThisCharacter()
+    local ok, guid = pcall(UnitGUID, "player")
+    if ok and not (issecretvalue and issecretvalue(guid)) and type(guid) == "string" and guid ~= "" then return guid end
+    return EraUI:PlayerFullName()
+end
+
 function ns.BeingTurnedOff()
     local state = C_AddOns and C_AddOns.GetAddOnEnableState
     if not state then return false end
-    local ok, value = pcall(state, ns.ADDON, UnitName("player"))
+    local ok, value = pcall(state, ns.ADDON, ThisCharacter())
     return ok and value == 0
 end
 
@@ -249,7 +257,7 @@ function ns.TurnOffCleanly()
     end
     local disable = C_AddOns and C_AddOns.DisableAddOn
     if not disable then return end
-    pcall(disable, ns.ADDON, UnitName("player"))
+    pcall(disable, ns.ADDON, ThisCharacter())
     if ns.HandBack then pcall(ns.HandBack) end
     if C_UI and C_UI.Reload then C_UI.Reload() end
 end

@@ -1,6 +1,6 @@
 local _,E=...
 -- One entry per reminder. text is the big alert word; dynamic names use the
--- learned spell instead. kind: aura | pet | petDead | item | imbue | totems | shards
+-- learned spell instead. kind: aura | pet | petDead | petHealth | item | imbue | totems | shards
 --   ids       learned ranks (highest learned supplies the icon)
 --   requires  at least one of these spells must be learned
 --   auras     extra aura ids that also satisfy the buff
@@ -15,6 +15,8 @@ local _,E=...
 --   minLevel  level required before the reminder applies
 --   nameMatch accept any aura whose name contains this text
 --   choices   pick which spell is tracked (Advanced cycle button)
+--   wide      its /era switch takes a whole line, with its choice or Below
+--             button in it
 --   subgroup  party-only effects do not check other raid subgroups
 --   mana      skip warriors and rogues, including when druids are shapeshifted
 --   anyTarget one protected group member satisfies this reminder
@@ -49,10 +51,31 @@ E.ReminderSpells={
     {key="salvation",name="Blessing of Salvation",ids={1038,25895}},
     {key="light",name="Blessing of Light",ids={19977,19978,19979,25890}},
    }},
-  -- Seal and aura clicks cast the last spell listed that you know, so the
-  -- Forever-only Seal of Fury leads and new auras sit before Shadow Resistance.
-  {key="seal",text="SEAL!",kind="aura",self=true,off=true,ids={1311649,1311656,20163,20419,20421,20422,20423,20154,21084,20162,20375,20915,20918,20919,20920,20305,20306,20307,20308,21082,20164,20165,20166,20356,20357,20287,20288,20289,20290,20291,20292,20293,20347,20348,20349}},
-  {key="aura",text="AURA!",kind="aura",self=true,off=true,ids={465,10290,643,10291,1032,10292,10293,7294,10298,10299,10300,10301,19746,19888,19897,19898,19891,19899,19900,19876,19895,19896}},
+  -- Seals and auras are choices like blessings: every id belongs to one
+  -- choice, whose ranks run lowest to highest (Forever's TrainingData).
+  {key="seal",text="SEAL!",kind="aura",self=true,off=true,choiceLabel="Seal",wide=true,
+   ids={1311649,1311656,20163,20419,20421,20422,20423,20154,21084,20162,20375,20915,20918,20919,20920,20305,20306,20307,20308,21082,20164,20165,20166,20356,20357,20287,20288,20289,20290,20291,20292,20293,20347,20348,20349},
+   choices={
+    {key="any",name="Any seal"},
+    {key="righteousness",name="Seal of Righteousness",ids={20154,21084,20287,20288,20289,20290,20291,20292,20293}},
+    {key="crusader",name="Seal of the Crusader",ids={21082,20162,20305,20306,20307,20308}},
+    {key="fury",name="Seal of Fury",ids={1311649,1311656,20163,20419,20421,20422,20423}},
+    {key="command",name="Seal of Command",ids={20375,20915,20918,20919,20920}},
+    {key="justice",name="Seal of Justice",ids={20164}},
+    {key="light",name="Seal of Light",ids={20165,20347,20348,20349}},
+    {key="wisdom",name="Seal of Wisdom",ids={20166,20356,20357}},
+   }},
+  {key="aura",text="AURA!",kind="aura",self=true,off=true,choiceLabel="Aura",wide=true,
+   ids={465,10290,643,10291,1032,10292,10293,7294,10298,10299,10300,10301,19746,19888,19897,19898,19891,19899,19900,19876,19895,19896},
+   choices={
+    {key="any",name="Any aura"},
+    {key="devotion",name="Devotion Aura",ids={465,10290,643,10291,1032,10292,10293}},
+    {key="retribution",name="Retribution Aura",ids={7294,10298,10299,10300,10301}},
+    {key="concentration",name="Concentration Aura",ids={19746}},
+    {key="shadow",name="Shadow Resistance Aura",ids={19876,19895,19896}},
+    {key="frost",name="Frost Resistance Aura",ids={19888,19897,19898}},
+    {key="fire",name="Fire Resistance Aura",ids={19891,19899,19900}},
+   }},
  },
  HUNTER={
     {key="pet",text="SUMMON PET!",kind="pet",missingOnly=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_BeastCall",minLevel=10,ids={883}},
@@ -70,6 +93,9 @@ E.ReminderSpells={
     {key="wild",name="Aspect of the Wild",ids={20043,20190}},
    }},
    {key="trueshot",text="TRUESHOT AURA!",kind="aura",group=true,subgroup=true,ids={1299346,1299348,19506,20905,20906}},
+   -- Mend Pet ranks. Listed last: in combat its row may be drawn unseen, and
+   -- last in the stack it never pushes the other alerts down.
+   {key="petHealth",text="PET LOW HEALTH!",kind="petHealth",off=true,wide=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_MendPet",ids={136,3111,3661,3662,13542,13543,13544}},
  },
  ROGUE={
   {key="poisonMain",text="POISON: MAIN HAND!",kind="imbue",weapon="main",color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison",minLevel=20},
@@ -115,6 +141,8 @@ E.ReminderSpells={
   {key="soulstone",text="CREATE SOULSTONE!",kind="item",color={.78,.58,1},icon="Interface\\Icons\\Spell_Shadow_SoulGem",ids={693,20752,20755,20756,20757},items={5232,16892,16893,16895,16896}},
    {key="soulstoneApply",text="SOULSTONE!",kind="aura",group=true,anyTarget=true,off=true,noCast=true,color={.78,.58,1},icon="Interface\\Icons\\Spell_Shadow_SoulGem",ids={693,20752,20755,20756,20757},auras={20707,20762,20763,20764,20765},items={5232,16892,16893,16895,16896}},
   {key="shards",text="LOW SOUL SHARDS!",kind="shards",color={.78,.58,1},icon="Interface\\Icons\\INV_Misc_Gem_Amethyst_02",minLevel=10},
+  -- Health Funnel ranks; last for the same reason as the hunter's.
+  {key="petHealth",text="PET LOW HEALTH!",kind="petHealth",off=true,wide=true,color={1,.36,.3},icon="Interface\\Icons\\Spell_Shadow_LifeDrain",ids={755,3698,3699,3700,11693,11694,11695}},
  },
  DRUID={
   {key="mark",text="MARK OF THE WILD!",kind="aura",group=true,ids={1126,5232,6756,5234,8907,9884,9885,21849,21850},reagentIds={21849,21850},reagentItems={[21849]=17021,[21850]=17026}},
