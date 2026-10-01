@@ -476,6 +476,19 @@ loader:SetScript("OnEvent",function(_,event,name)
     end
     EraUI.Persistence:LoadAccount()
     EraUI.Persistence:LoadCharacter()
+    -- The /era reorganisation after 1.4.0: a one-time "New layout" note at the
+    -- top of /era (layoutNotice 1), only for accounts that used an earlier
+    -- EraUI. Fresh installs start with the new layout (0). Decided once, after
+    -- every saved copy has loaded and before the AFK marker below is set for
+    -- everyone; the value is backed up, so the X sticks.
+    if type(EraUIDB.layoutNotice) ~= "number" then
+        local state = CharacterWelcome()
+        local returning = (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
+            or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
+            or type(EraUIDB.afkScreenVersion) == "number"
+        EraUIDB.layoutNotice = returning and 1 or 0
+        EraUI:SaveSettings()
+    end
     -- 1.3.0 saved AFK Screen off for everyone while it was Coming soon, so nobody
     -- chose that. Turn it on once, after every saved copy has loaded; the marker
     -- is backed up too, so a later "off" sticks.

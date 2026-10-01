@@ -3,7 +3,8 @@ local _,E=...
 -- Expanded pages pack complete card + inline-panel blocks into measured rows.
 function E:CreateSettingsViewport(frame)
  local scroll=CreateFrame("ScrollFrame",nil,frame)
- scroll:SetPoint("TOPLEFT",202,-148);scroll:SetPoint("BOTTOMRIGHT",-40,94)
+ -- Just right of the tab list (frame.viewLeft, set by Core/Settings.lua).
+ scroll:SetPoint("TOPLEFT",frame.viewLeft or 226,-148);scroll:SetPoint("BOTTOMRIGHT",-40,94)
  scroll:EnableMouseWheel(true)
  local content=CreateFrame("Frame",nil,scroll)
  content:SetSize(718,1);scroll:SetScrollChild(content)
@@ -45,16 +46,21 @@ function E:CreateSettingsViewport(frame)
    return card:GetHeight()+((inline and inline:IsShown())and(6+inline:GetHeight())or 0)
   end
   if self.settingsEntries then
-   local y=0
-   for i=1,#self.settingsEntries,2 do
-    local height=0
-    for j=i,math.min(i+1,#self.settingsEntries)do
-     local card=self.settingsEntries[j]
-     card:ClearAllPoints();card:SetPoint("TOPLEFT",content,"TOPLEFT",(j-i)*366,-y)
-     height=math.max(height,Height(card))
-    end
-    bottom=y+height;y=bottom+4
+   -- Two per row in order. A full-width entry (section label, the Appearance
+   -- choice, the More card) takes a row of its own, and an entry in breaks
+   -- (a card with its options on show) starts one. pad leaves room above
+   -- each entry for its search tag.
+   local y,column,height,pad=0,0,0,self.settingsPad or 0
+   local breaks=self.settingsBreaks or {}
+   for _,card in ipairs(self.settingsEntries)do
+    local wide=card.fullWidth
+    if(wide or breaks[card])and column>0 then bottom=y+height;y=bottom+4;column,height=0,0 end
+    card:ClearAllPoints();card:SetPoint("TOPLEFT",content,"TOPLEFT",wide and 0 or column*366,-(y+pad))
+    height=math.max(height,pad+Height(card))
+    column=wide and 2 or column+1
+    if column>=2 then bottom=y+height;y=bottom+4;column,height=0,0 end
    end
+   if column>0 then bottom=y+height end
   else
    for _,card in pairs(self.checks)do
     if card:IsShown()then

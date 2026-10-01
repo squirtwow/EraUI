@@ -28,6 +28,7 @@ local function SettingType(key)
     if key == "showAllSpellRanks" then return "boolean" end
     if key == "cameraZoomBackup" then return "string" end
     if key == "afkScreenVersion" then return "number" end -- the one-time AFK Screen switch-on
+    if key == "layoutNotice" then return "number" end -- the one-time new /era layout note
     local default = E.settingDefaults[key]
     if default ~= nil then return type(default) end
     local prefix, class = key:match("^(reminder%w*)_([A-Z]+)_[%w]+$")

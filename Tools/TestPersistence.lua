@@ -366,4 +366,84 @@ equal(EraUIDB.reminderSize,nil,"reset starts without custom reminder size")
 equal(E.ClassTools.Options().mageWaterStacks,nil,"reset starts without tool quantities")
 flush()
 equal(cvars.EraUIRecovery1Reset,"","verified fresh snapshot completes reset")
+-- Class icon portraits read the game's own switches (Options > Interface), never EraUIDB.
+do
+    local oldBool,oldEra=GetCVarBool,_G.EraUI
+    GetCVarBool=function(name) return name=="ReplaceMyPlayerPortrait" end
+    local P={};assert(loadfile("Core/Init.lua"))("EraUI",P)
+    equal(P.cvarSettings.classIconPortraitMine,"ReplaceMyPlayerPortrait","mine maps to the game's switch")
+    equal(P.cvarSettings.classIconPortraitOthers,"ReplaceOtherPlayerPortraits","others map to the game's switch")
+    EraUIDB={classIconPortraitMine=false,classIconPortraitOthers=true}
+    equal(P:GetSavedSetting("classIconPortraitMine"),true,"mine reads the game's setting, not EraUIDB")
+    equal(P:GetSavedSetting("classIconPortraitOthers"),false,"others too")
+    GetCVarBool,_G.EraUI=oldBool,oldEra
+end
+-- The new /era layout note (the reorganisation after 1.4.0): decided once per
+-- account, 1 (show once) only for accounts that used an earlier EraUI, 0 for
+-- fresh installs; backed up, so a dismissed note stays dismissed.
+do
+    local function Fresh()
+        for k in pairs(cvars) do cvars[k]=nil end
+        character,realm="Hunter","RealmOne"
+    end
+    local classic=function(extra)
+        local db={erauiMigrated=true,erauiSettingsMenuMigrated=true}
+        for k,v in pairs(extra or {}) do db[k]=v end
+        return db
+    end
+    Fresh();E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutNotice,0,"a fresh install never gets the new layout note")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutNotice,0,"and it stays decided when SavedVariables are lost")
+    flush()
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
+    equal(EraUIDB.layoutNotice,1,"a 1.4.0 save gets the note once")
+    equal(EraUIDB.afkScreenVersion,2,"the AFK marker is untouched")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutNotice,1,"a waiting note survives lost SavedVariables")
+    flush()
+    E:SetSetting("layoutNotice",0);E:SaveSettings();flush()
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.4.0"}))
+    equal(EraUIDB.layoutNotice,0,"once put away it is never asked for again")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutNotice,0,"not even when SavedVariables are lost")
+    flush()
+    Fresh();E,flush,fire=Session({},{},classic({updateNotesSeen="1.3.0"}))
+    equal(EraUIDB.layoutNotice,1,"an account that saw earlier update notes gets it")
+    flush()
+    Fresh();E,flush,fire=Session({},{},classic({erauiWelcomeSeen=true}))
+    equal(EraUIDB.layoutNotice,1,"an account that saw the welcome gets it")
+    flush()
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:110,2,5"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutNotice,1,"a character that finished setup before gets it")
+    flush()
+    -- Each sign of an earlier EraUI on its own is enough.
+    Fresh();E,flush,fire=Session({},{},classic({erauiSetupComplete=true}))
+    equal(EraUIDB.layoutNotice,1,"an account that finished setup gets it, with nothing else seen")
+    flush()
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:010,2,5"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIClassicCharDB.onboarding.welcomeSeen==false and EraUIClassicCharDB.onboarding.setupComplete,true,"a character with only setup finished")
+    equal(EraUIDB.layoutNotice,1,"gets it")
+    flush()
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:100,0,"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIClassicCharDB.onboarding.welcomeSeen==true and EraUIClassicCharDB.onboarding.setupComplete==false,true,"a character that only saw the welcome")
+    equal(EraUIDB.layoutNotice,1,"gets it")
+    flush()
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:000,0,"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutNotice,0,"a character record with nothing seen is a fresh install")
+    flush()
+    Fresh();E,flush,fire=Session({layoutNotice=1},{},classic())
+    equal(EraUIDB.layoutNotice,1,"a waiting note is kept")
+    flush()
+    Fresh();E,flush,fire=Session({layoutNotice=0,afkScreenVersion=2},{},classic({updateNotesSeen="1.4.0"}))
+    equal(EraUIDB.layoutNotice,0,"a decided 0 is never turned into 1")
+    flush()
+end
 print("Persistence recovery checks passed: " .. checks .. " assertions.")

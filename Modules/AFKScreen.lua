@@ -682,7 +682,7 @@ end
 function M:Preview()
  if self.comingSoon then E:Print("The AFK screen is coming soon.");return end
  if not E:GetSetting("enabled")then E:Print("EraUI is turned off, so the AFK screen can't open.");return end
- if not E:GetSetting("afkScreen")then E:Print("Turn on AFK Screen in /era > Text & Camera first.");return end
+ if not E:GetSetting("afkScreen")then E:Print("Turn on AFK Screen in /era > Screen & Cursor first.");return end
  if InCombat()then E:Print("The AFK screen can't open in combat.");return end
  -- The short delay lets the chat box give up keyboard focus first.
  C_Timer.After(.3,function()M:Enter(true)end)

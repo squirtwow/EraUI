@@ -1,9 +1,27 @@
 # Changelog
 
+## 1.5.0
+
+### Added
+- Class Icon Portraits: two switches under Frames & Nameplates show class icons instead of faces. Mine is for your own unit frame, Others for other players'. They're the game's own options from Options > Interface, so both always match, and they change at once. Not in combat.
+
+### Changed
+- The /era window is streamlined: every option now lives with its topic, so things are easier to find. Can't spot something? Search still finds it all.
+- The /era tabs are now Appearance, your class, Action Bars, Frames & Nameplates, Casting, Map & Minimap, Quests, Character & Spells, Bags & Vendors, Chat & Names, Group & Invites, Windows & Tooltips, Screen & Cursor and More from Squirt, each with a line under its title saying what's on it.
+- Search also finds cards by their old names (some are shorter now, like Discard Junk When Full and Hide Surnames), and the Classic / Dark Mode choice and Update Notice. It takes colour or color and grey or gray, and shows each result's tab.
+- Cursor Ring, Cast Progress Ring and Cursor Trail: their options show once you switch them on.
+- Setup walkthrough: its pages follow the new tabs, and every option it offered is still there.
+- Updating from an earlier EraUI? A one-time note at the top of /era points you to Search. It shows once.
+- Class-coloured Unit Borders is greyed out until Dark Mode is on, as well as Unit Frames.
+
+### Fixed
+- Spellbook: your spellbook key (P) closes the spellbook from the Training Guide tab too (in combat, press it twice). In combat, the spells under the Training Guide can no longer be clicked through it.
+- More from Squirt: the card's text no longer runs under its CurseForge button.
+
 ## 1.4.0
 
 ### Added
-- AFK Screen, on by default: when you go AFK your interface and minimap fade away and EraUI shows its banner in your class colour, your character standing still, a card with your name, level, guild, zone, time away and the clock, and a famous World of Warcraft Classic line for your class. Move or press a key to come back. Its options are under Text & Camera.
+- AFK Screen, on by default: when you go AFK your interface and minimap fade away and EraUI shows its banner in your class colour, your character standing still, a card with your name, level, guild, zone, time away and the clock, and a famous World of Warcraft Classic line for your class. Move or press a key to come back. Its options are under Screen & Cursor.
 - Bag Item Levels: the item level of the gear in your bags as a big number in the item's quality colour, a green or red arrow for upgrades, and a red icon on gear you can't equip. Off by default.
 - Class reminders: Click pet reminders in combat, for hunters and warlocks. SUMMON PET!, PET DEAD! and PET LOW HEALTH! can be clicked mid-fight (Call Pet, Revive Pet, your demon, Mend Pet, Health Funnel). Off by default, and it needs Clickable reminders on.
 - Aura Shadows (Needs testing): a soft shadow behind your buff and debuff icons, with Dark Aura Borders in Dark Mode.

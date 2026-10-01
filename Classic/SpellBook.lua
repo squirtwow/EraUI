@@ -601,6 +601,7 @@ local function CreateBook()
         on = on and not f.trainingShown and true or false
         if clicks.fcuiLinked then clicks:SetAttribute("unit", on and "player" or "none") end
         clicks:SetShown(on)
+        if f.trainingShown and f.ApplyPages then f.ApplyPages() end
     end
 
     local function LayerPad(over, width, height, point, x, y, after)
@@ -989,8 +990,11 @@ local function CreateBook()
             Fill(c, SlotsFor(state.bank, state.line, state.search), state.bank)
             ArmTabs(c, pages.lines or {})
         end
-        holder:SetAttribute("unit", c.selector)
-        for _, other in pairs(containers) do other.frame:SetShown(other == c) end
+        -- While the Training Guide shows, no page is up under the click layer,
+        -- so the key raising the layer in combat can't arm spells through it.
+        local guide = f.trainingShown
+        holder:SetAttribute("unit", guide and "none" or c.selector)
+        for _, other in pairs(containers) do other.frame:SetShown(not guide and other == c) end
         local page = math.min(CurrentPage(), c.pages)
         for i, layer in ipairs(c.layers) do
             local up = i <= page
@@ -1543,7 +1547,11 @@ local function Init()
         end
         local layer = book and book.Clicks
         if layer and layer.fcuiLinked then
-            if book:LayerUp() then
+            if book.trainingShown and book:IsShown() and not closedInFight and not InCombatLockdown() then
+                -- The Training Guide keeps the click layer down, so this press
+                -- just raised it: close the book, which lowers it again.
+                Hide()
+            elseif book:LayerUp() then
                 Show()
             elseif book:IsShown() then
                 Hide()

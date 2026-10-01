@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.4.0"
+EraUI.version = "1.5.0"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
@@ -153,8 +153,16 @@ for _, key in ipairs({"classicChatDragging", "floatingComboPoints", "classColour
 end
 EraUI.settingDefaults = defaults
 
+-- Blizzard's own switches (Options > Interface), mirrored in /era: the card
+-- reads and writes the game's setting, so the two always match.
+EraUI.cvarSettings = {
+    classIconPortraitMine = "ReplaceMyPlayerPortrait",
+    classIconPortraitOthers = "ReplaceOtherPlayerPortraits",
+}
 function EraUI:GetSavedSetting(key)
     if key == "showAllSpellRanks" and GetCVarBool then return GetCVarBool("ShowAllSpellRanks") end
+    local cvar = self.cvarSettings[key]
+    if cvar then return GetCVarBool ~= nil and GetCVarBool(cvar) and true or false end
     return EraUIDB and EraUIDB[key]
 end
 

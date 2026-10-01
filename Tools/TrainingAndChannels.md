@@ -12,6 +12,10 @@ The information-only page is a child of the Classic spellbook. It replaces the
 visible spell grid, search and page controls while selected. Switching in or
 out is guarded in combat, since the native spell click layer is protected.
 The click layer remains hidden during training-tab refreshes and reopening.
+Because of that, the spellbook key's secure click raises the layer on this tab,
+so out of combat the key closes the book whenever the guide shows. The spell
+pages under the layer stay off while the guide is selected, so a layer the key
+raises in combat has nothing clickable over the guide.
 
 `C_SpellBook.GetSpellBookItemInfo` provides names, ranks, spell IDs and future
 entries. `C_Spell.GetSpellLevelLearned` supplies the future entries' levels.
@@ -82,6 +86,8 @@ an update gets one deferred retry rather than immediately hiding the bar.
   and recorded evidence for every packaged class entry.
 - `Tools/TestTrainingGuide.lua`: live filters, future/known ranks, quotes, totals,
   prerequisites, level-up, class-only collection, failed captures and isolation.
+- `Tools/TestSpellBookToggle.lua`: the spellbook key on the spell pages and on
+  the Training Guide, in and out of combat, with and without spell dragging.
 - `Tools/TestPersistence.lua`: training quotes and prerequisite maps survive
   missing SavedVariables, with character/realm separation.
 - `Tools/TestChannelTiming.lua`: both actual cast-bar modules with shortened
