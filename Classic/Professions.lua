@@ -482,19 +482,22 @@ local function ToCraft()
     return true
 end
 
-local tabsQuieted = false
-local function QuietTabs()
-    local frame = ProfessionsFrame
-    if tabsQuieted or not frame or not (EventRegistry and EventRegistry.UnregisterCallback) then return end
-    local tabs = {}
-    for _, tab in ipairs(frame.rightProfessionTabs or {}) do tabs[#tabs + 1] = tab end
-    if frame.ProfessionsOverviewTab then tabs[#tabs + 1] = frame.ProfessionsOverviewTab end
-    if #tabs == 0 then return end
-    tabsQuieted = true
-    for _, tab in ipairs(tabs) do
-        pcall(EventRegistry.UnregisterCallback, EventRegistry, "ProfessionsFrame.Show", tab)
-    end
-    ns.Persist("professions: " .. #tabs .. " tabs taken off the show list")
+-- Since build 70170 the window remembers the last profession opened and, when
+-- it opens again with no trade skill open, casts that profession once more.
+-- Written for 70170 and later only: on 70124 every profession tab cast itself
+-- whenever the window opened, and the old workaround for that is gone.
+local function Remembered(frame)
+    return frame ~= nil and type(frame.RecastSelectedProfession) == "function" and frame.selectedSkillLine ~= nil
+end
+
+-- The window's own book page, chosen the way its book tab does: that forgets
+-- the remembered profession, so the next opening shows the book. Never in a
+-- fight. True when nothing is remembered any more.
+local function ForgetProfession(frame)
+    if not Remembered(frame) then return true end
+    if InCombatLockdown() or type(frame.SelectBookPage) ~= "function" then return false end
+    pcall(frame.SelectBookPage, frame)
+    return not Remembered(frame)
 end
 
 function ns.OpenProfessionsBook()
@@ -505,7 +508,10 @@ function ns.OpenProfessionsBook()
     end
     local frame = ProfessionsFrame
     if not frame then return false end
-    if active then QuietTabs() end
+    -- Opened from here, a remembered profession's cast would not be the
+    -- player's: refused by the game, or the wrong page. Forgotten first, and
+    -- if it can't be, the window stays shut.
+    if not frame:IsShown() and not ForgetProfession(frame) then return false end
     BackToBook()
     if not frame:IsShown() then ShowUIPanel(frame) end
     return true
@@ -519,27 +525,17 @@ local function StartWatch()
     watch:RegisterEvent("SPELLS_CHANGED")
     watch:RegisterEvent("PLAYER_REGEN_ENABLED")
     watch:RegisterEvent("TRADE_SKILL_SHOW")
-    watch:RegisterEvent("ADDON_LOADED")
     watch:SetScript("OnEvent", function(self, event)
-        if event == "ADDON_LOADED" then
-            if active and ProfessionsFrame then QuietTabs() end
-            return
-        end
         if event == "TRADE_SKILL_SHOW" then
             local frame = ProfessionsFrame
             local now = GetTime()
-            if not tabsQuieted and frame and frame:IsShown() and active and self.bookWhenShut
-                and now - (self.shutAt or 0) < 0.5 then
-                self.restoreBook = true
-            else
-                self.ownCastAt = now
-                self.wantCraft = now
-                if active and frame and ToCraft() then
-                    local tick = self:GetScript("OnUpdate")
-                    if tick then
-                        self.since = 1
-                        tick(self, 0)
-                    end
+            self.ownCastAt = now
+            self.wantCraft = now
+            if active and frame and ToCraft() then
+                local tick = self:GetScript("OnUpdate")
+                if tick then
+                    self.since = 1
+                    tick(self, 0)
                 end
             end
         end
@@ -550,27 +546,35 @@ local function StartWatch()
         local shut = ProfessionsFrame and not ProfessionsFrame:IsShown()
         if shut then
             local book = Page()
-            self.shutAt = GetTime()
             local castNow = (GetTime() - (self.ownCastAt or 0)) < 3
             self.bookWhenShut = (book and book:IsShown() or (not self.everShown and not castNow)) and true or false
             local ownCast = (GetTime() - (self.ownCastAt or 0)) < 3
-            if active and book and not book:IsShown() and not InCombatLockdown() and not ownCast then
+            -- The shut window goes back to the book, as in 1.5.0. Since build
+            -- 70170 it also forgets the last profession (once per closing),
+            -- or the next opening would cast that profession again.
+            local remembered = not self.forgetTried and Remembered(ProfessionsFrame)
+            if active and book and (remembered or not book:IsShown()) and not InCombatLockdown() and not ownCast then
+                local forgot = false
+                if remembered then
+                    self.forgetTried = true
+                    forgot = ForgetProfession(ProfessionsFrame)
+                end
                 if BackToBook() then
                     self.bookWhenShut = true
-                    ns.Persist("professions: shut window turned to the book")
+                    ns.Persist("professions: shut window turned to the book" .. (forgot and ", last profession forgotten" or ""))
                 end
             end
         elseif ProfessionsFrame then
             self.everShown = true
             self.ownCastAt = nil
+            self.forgetTried = nil
         end
         if self.wasShut and not shut then self.since = 1 end
         self.wasShut = shut and true or false
-        if self.restoreBook and BackToBook() then self.restoreBook = false end
         if self.wantCraft then
             if GetTime() - self.wantCraft > 3 then
                 self.wantCraft = nil
-            elseif active and ProfessionsFrame and not self.restoreBook and ToCraft() then
+            elseif active and ProfessionsFrame and ToCraft() then
                 if ProfessionsFrame:IsShown() then self.wantCraft = nil end
             end
         end
@@ -590,10 +594,7 @@ local function StartWatch()
         local frame = ProfessionsFrame
         local page = Page()
         if not frame or not page then return end
-        if active then
-            QuietTabs()
-            FillTabIcons()
-        end
+        if active then FillTabIcons() end
         TabToggle()
         SyncTabs()
         BookTabs()

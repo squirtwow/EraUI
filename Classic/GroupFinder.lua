@@ -11,6 +11,9 @@ local ADDON_NAME = "Blizzard_GroupFinder_VanillaStyle"
 local active = false
 local dressed = false
 local sideTabs = {}
+-- The play style choice in Create Listing: where it starts, its own width
+-- (the most it takes), the least it's cut to, and the gap before the tick.
+local STYLE_X, STYLE_W, STYLE_MIN, STYLE_GAP = 22, 210, 120, 6
 
 local function Size()
     local social = FriendsFrame
@@ -123,6 +126,11 @@ local function DressBrowse(page, width)
 end
 
 local function DressListing(page, width)
+    -- The game's line across the top of the list (since build 70009) is a
+    -- fixed 454 long for its own 458 wide window, so it sticks out of both
+    -- sides of the narrower one. The old window had no such line. First, so
+    -- a later dressing error can't leave it showing.
+    if page.DividerFrame then Hide(page.DividerFrame.Divider) end
     Red(page.BackButton, 124)
     Red(page.PostButton, 124)
     if page.BackButton then
@@ -177,7 +185,39 @@ local function DressListing(page, width)
     if view then
         if view.Comment then view.Comment:SetWidth(width - 40) end
         if ns.SkinScrollBarsUnder then ns.SkinScrollBarsUnder(view, 2) end
+        -- The play style choice (build 70170; a listing can't be posted
+        -- without one) wears the old drop down like the others.
+        local style = view.PlayStyleDropdown
+        if style then
+            if ns.DressDropdown then ns.DressDropdown(style, 14) end
+            style:ClearAllPoints()
+            style:SetPoint("TOPLEFT", view, "TOPLEFT", STYLE_X, -10)
+        end
     end
+end
+
+-- The play style choice and the level ranges tick share the top row. In the
+-- narrower window the choice ends short of the tick's label, so the two
+-- never overlap (the old drop down's ends stick out 14 on each side).
+local function FitPlayStyle(page)
+    local view = page and page.ActivityView
+    local style = view and view.PlayStyleDropdown
+    if not style or not view:IsVisible() then return end
+    local ranges = view.LevelRangesCheckbox
+    local label = ranges and ranges.Text
+    local labelLeft = label and ranges:IsVisible() and label:IsShown() and label:GetLeft()
+    local viewLeft, viewWidth = view:GetLeft(), view:GetWidth()
+    if issecretvalue and (issecretvalue(labelLeft) or issecretvalue(viewLeft) or issecretvalue(viewWidth)) then return end
+    local right
+    if labelLeft and viewLeft then
+        right = labelLeft - viewLeft - 14 - STYLE_GAP
+    else
+        right = viewWidth - 14 - STYLE_GAP
+    end
+    local want = math.min(STYLE_W, math.max(STYLE_MIN, right - STYLE_X))
+    local now = style:GetWidth()
+    if issecretvalue and issecretvalue(now) then return end
+    if math.abs(now - want) > 0.5 then style:SetWidth(want) end
 end
 
 local function FitCategories(page, width)
@@ -248,7 +288,10 @@ local function Fit()
     end
     QuietClientTabs(parent)
     SyncSideTabs(parent)
-    if _G["LFGListingFrame"] then FitCategories(_G["LFGListingFrame"], width) end
+    if _G["LFGListingFrame"] then
+        FitCategories(_G["LFGListingFrame"], width)
+        FitPlayStyle(_G["LFGListingFrame"])
+    end
     DressRows(_G["LFGBrowseFrame"])
 end
 

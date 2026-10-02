@@ -39,7 +39,7 @@ for(const row of rows){
 for(const id of [409580,415423,425336,401977,438040,468766,469145,1221404]){
  equal(rows.some(r=>r.id===id),false,`${id}: unverified seasonal leftover absent from package`);
 }
-for(const [id,className,level]of [[6991,'HUNTER',10],[1515,'HUNTER',10],[674,'HUNTER',20],[674,'ROGUE',10],[402927,'WARRIOR',20]]){
+for(const [id,className,level]of [[6991,'HUNTER',10],[1515,'HUNTER',10],[674,'HUNTER',20],[674,'ROGUE',10],[402927,'WARRIOR',20],[407995,'DRUID',25]]){
  equal(rows.some(r=>r.id===id&&r.className===className&&r.level===level),true,`${id}: legitimate training entry survives cleanup`);
 }
 console.log(`Training source audit passed: ${checks} checks; ${rows.length} packaged class entries.`);

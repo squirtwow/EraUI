@@ -1,6 +1,6 @@
 -- Generated from independent Blizzard metadata. See Tools/TrainingDataSources.json.
 local _,E=...
-E.TrainingData={build="1.60.1.70009",classes={
+E.TrainingData={build="1.60.1.70170",classes={
  WARRIOR={
   {6673,1,0,0,10,"Battle Shout","Rank 1"},
   {1310222,1,0,0,nil,"Spearing Strike",""},
@@ -1273,9 +1273,9 @@ E.TrainingData={build="1.60.1.70009",classes={
   {1075,24,0,0,4000,"Thorns","Rank 3"},
   {1822,24,0,0,4000,"Rake","Rank 1"},
   {2782,24,0,0,4000,"Remove Curse",""},
-  {5217,24,0,0,4000,"Tiger's Fury",""},
   {8939,24,0,0,4000,"Regrowth","Rank 3"},
   {1237948,24,0,0,nil,"Revive","Rank 2"},
+  {407995,25,0,0,nil,"Primal Bite","Rank 1"},
   {1850,26,0,0,4500,"Dash","Rank 1"},
   {2893,26,0,0,4500,"Abolish Poison",""},
   {5189,26,0,0,4500,"Healing Touch","Rank 5"},
@@ -1316,6 +1316,7 @@ E.TrainingData={build="1.60.1.70009",classes={
   {9493,36,9492,0,11000,"Rip","Rank 3"},
   {22842,36,0,0,11000,"Frenzied Regeneration",""},
   {1237949,36,0,0,nil,"Revive","Rank 3"},
+  {1238069,36,0,0,nil,"Primal Bite","Rank 2"},
   {5196,38,0,0,12000,"Entangling Roots","Rank 4"},
   {5201,38,3029,0,12000,"Claw","Rank 3"},
   {6780,38,0,0,12000,"Wrath","Rank 6"},
@@ -1363,6 +1364,7 @@ E.TrainingData={build="1.60.1.70009",classes={
   {16813,48,0,0,nil,"Nature's Grasp","Rank 5"},
   {22828,48,22827,0,22000,"Ferocious Bite","Rank 3"},
   {1237950,48,0,0,nil,"Revive","Rank 4"},
+  {1238070,48,0,0,nil,"Primal Bite","Rank 3"},
   {9862,50,0,0,23000,"Tranquility","Rank 3"},
   {9866,50,6787,0,23000,"Ravage","Rank 3"},
   {9875,50,0,0,23000,"Starfire","Rank 5"},
@@ -1415,6 +1417,7 @@ E.TrainingData={build="1.60.1.70009",classes={
   {25299,60,0,0,nil,"Rejuvenation","Rank 11"},
   {31018,60,22829,0,nil,"Ferocious Bite","Rank 5"},
   {1237951,60,0,0,nil,"Revive","Rank 5"},
+  {1238073,60,0,0,nil,"Primal Bite","Rank 4"},
   {1238215,60,0,0,nil,"Wild Growth","Rank 3"},
  },
 }}

@@ -37,6 +37,14 @@ that originated in a season. The source manifest records per-entry decisions;
 these checks improve filtering but are not a server-side trainer catalog.
 Native future entries with only a default level of 1 are also omitted.
 
+Data build: 1.60.1.70170 (regenerated 2026-10-02; 70009 and 70124 exports were
+identical). The Wowhead price pages are the same cached copies as before, so
+their checksums are unchanged. The only catalog change is Druid: SkillLineAbility
+now marks Tiger's Fury (5217) as not trainer-learned (AcquireMethod 3) and Primal
+Bite ranks 1-4 (407995, 1238069, 1238070, 1238073; levels 25/36/48/60) as
+trainer-learned. Primal Bite has no Classic price reference, so it shows as an
+unknown price until a trainer visit records one.
+
 Known entries are checked separately, with exact rank keys and higher-rank
 recognition for hidden lower ranks. Future entries are not treated as learned.
 

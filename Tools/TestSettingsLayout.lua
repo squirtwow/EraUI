@@ -1603,6 +1603,23 @@ do
  -- on it): a switch with its options among them starts no row.
  equal(table.concat(Results("casting"),","),"castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency","casting finds the Casting tab")
  equal(f.checks.advancedCastBar:GetTop()==f.checks.castBars:GetTop()and Rows(),3,"in search Advanced Cast Bar stays beside Cast Bars")
+ -- Cast Bars' hover says the boss bars follow Forever Enhanced Cooldown
+ -- Manager's Raid Timers when that's on (Classic/CastBars.lua hands them over).
+ do
+  local lines={}
+  GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+   Show=function()end,Hide=function()end,IsOwned=function()return true end}
+  f.checks.castBars:Fire("OnEnter")
+  GameTooltip=nil
+  local text=table.concat(lines,"\n")
+  equal(text:find("player, target, focus, boss and styled nameplate cast bars",1,true)~=nil,true,"Cast Bars hover names the boss bars")
+  -- After the reload note, and saying the hand-over itself needs none.
+  equal(text:find("Reload UI to apply. Boss bars follow Forever Enhanced Cooldown Manager's Raid Timers when that's on, with no reload.",1,true)~=nil,true,
+   "Cast Bars hover: boss bars follow the Raid Timers, with no reload")
+  equal(text:find("\226\128\148",1,true),nil,"Cast Bars hover: no em dash")
+  -- The card's summary names the boss bars too.
+  equal(f.checks.castBars.description:GetText(),"Player, target, focus, boss and nameplate casts.","Cast Bars summary names the boss bars")
+ end
 
  -- A tab's name finds its cards: "vendors" all of Bags & Vendors, "group
  -- invites" all of Group & Invites, your class name all of your class tab.

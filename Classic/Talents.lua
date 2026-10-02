@@ -649,7 +649,7 @@ local function Build()
 
     local events = CreateFrame("Frame")
     for _, event in ipairs({ "TRAIT_CONFIG_UPDATED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "TRAIT_NODE_CHANGED", "PLAYER_TALENT_UPDATE",
-        "ACTIVE_COMBAT_CONFIG_CHANGED", "PLAYER_LEVEL_UP" }) do
+        "ACTIVE_COMBAT_CONFIG_CHANGED", "PLAYER_LEVEL_UP", "PLAYER_LEVEL_CHANGED" }) do
         pcall(events.RegisterEvent, events, event)
     end
     local words = CreateFrame("Frame")

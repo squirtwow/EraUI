@@ -131,13 +131,78 @@ end
 
 local bagButtonHooked
 
+-- Since build 70170 the game has its own Show Free Bag Space switch (the
+-- displayFreeBagSlots setting) and shows or hides the count from it. There
+-- Bag Space is that switch: it reads the game's setting, and a flip of Bag
+-- Space in EraUI is written to it. Without the setting EraUI shows or hides
+-- the count itself, as before. Written for 70170 and later: the test is
+-- whether the setting exists, so an older game that had it unused is not
+-- told apart.
+local BAG_CVAR = "displayFreeBagSlots"
+
+-- The game's switch: true or false, or nil on a game without it.
+local function GameBagSpace()
+    local getCVar = C_CVar and C_CVar.GetCVar or GetCVar
+    if not getCVar then return nil end
+    local ok, value = pcall(getCVar, BAG_CVAR)
+    if not ok or value == nil or (issecretvalue and issecretvalue(value)) then return nil end
+    return tostring(value) == "1"
+end
+
+local function IsBagCVar(name)
+    if type(name) ~= "string" or (issecretvalue and issecretvalue(name)) then return false end
+    return name:lower() == BAG_CVAR:lower()
+end
+
 local function ApplyBagCountVisibility(button)
+    if GameBagSpace() ~= nil then return end
     if button.SetCountShown then
         button:SetCountShown(EraUI:GetSetting("bagSpace") and true or false)
     end
 end
 
+-- The game's switch, read at login and whenever it changes: Bag Space and its
+-- cards follow it. A flip made in EraUI during a fight, not yet handed to the
+-- game, stays until the fight ends.
+function Module:ReadBagSpace()
+    local shown = GameBagSpace()
+    if shown == nil or self.bagSpacePending then return shown end
+    if (EraUI:GetSetting("bagSpace") and true or false) == shown then return shown end
+    EraUI:SetSetting("bagSpace", shown)
+    local frame = EraUI.settingsFrame
+    local check = frame and frame.checks and frame.checks.bagSpace
+    if check and not check.unavailable and (check:GetChecked() and true or false) ~= shown then
+        check:SetChecked(shown)
+    end
+    local classic = EraUI.Classic
+    if classic and classic.RefreshOptionsWindow then classic.RefreshOptionsWindow() end
+    return shown
+end
+
+-- Bag Space flipped in EraUI: the game gets the choice, never in a fight
+-- (then when the fight ends).
+local function WriteBagSpace(module)
+    local want = EraUI:GetSetting("bagSpace") and true or false
+    if GameBagSpace() == want then
+        module.bagSpacePending = nil
+        return
+    end
+    if InCombatLockdown() then
+        module.bagSpacePending = true
+        return
+    end
+    module.bagSpacePending = nil
+    local setCVar = C_CVar and C_CVar.SetCVar or SetCVar
+    if setCVar then pcall(setCVar, BAG_CVAR, want and "1" or "0") end
+    -- If the game kept its own value, Bag Space shows that at once.
+    module:ReadBagSpace()
+end
+
 function Module:UpdateBagSpace()
+    if GameBagSpace() ~= nil then
+        WriteBagSpace(self)
+        return
+    end
     local button = _G.MainMenuBarBackpackButton
     if not button then return end
 
@@ -174,6 +239,16 @@ function Module:UpdateBagSpace()
     count:SetText(total)
 end
 
+-- At login and on bag events: with the game's switch Bag Space follows it,
+-- without it EraUI keeps the count shown or hidden.
+function Module:RefreshBagSpace()
+    if GameBagSpace() ~= nil then
+        self:ReadBagSpace()
+    else
+        self:UpdateBagSpace()
+    end
+end
+
 function Module:ApplyChatClassColors()
     local getCVar = C_CVar and C_CVar.GetCVar or GetCVar
     local setCVar = C_CVar and C_CVar.SetCVar or SetCVar
@@ -194,12 +269,27 @@ function Module:Initialize()
         self.bagEvents:RegisterEvent("BAG_UPDATE_DELAYED")
         self.bagEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
         self.bagEvents:RegisterEvent("ADDON_LOADED")
-        self.bagEvents:SetScript("OnEvent", function(_, event)
-            self:UpdateBagSpace()
+        self.bagEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+        pcall(self.bagEvents.RegisterEvent, self.bagEvents, "CVAR_UPDATE")
+        self.bagEvents:SetScript("OnEvent", function(_, event, name)
+            if event == "CVAR_UPDATE" then
+                -- The game's switch flipped (its Options, or EraUI's own
+                -- write): that's the newest choice.
+                if IsBagCVar(name) then
+                    self.bagSpacePending = nil
+                    self:ReadBagSpace()
+                end
+                return
+            end
+            if event == "PLAYER_REGEN_ENABLED" then
+                if self.bagSpacePending then self:UpdateBagSpace() end
+                return
+            end
+            self:RefreshBagSpace()
             if event ~= "BAG_UPDATE_DELAYED" then self:SetupQuestLevels() end
         end)
     end
-    self:UpdateBagSpace()
+    self:RefreshBagSpace()
     self:SetupQuestLevels()
 
     local tooltip = _G.GameTooltip

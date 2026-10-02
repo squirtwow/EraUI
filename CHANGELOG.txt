@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.1
+
+### Changed
+- Boss cast bars switch to Forever Enhanced Cooldown Manager's look when its Raid Timers option is ticked.
+- Bag Space now uses the game's new Show Free Bag Space switch.
+- Training Guide updated for the level 30 patch (druids get Primal Bite).
+
+### Fixed
+- Opening Professions from the spellbook works with the new patch.
+- The backpack no longer shows your arrow count.
+- Group Finder: the new Play Style choice has the Classic look, and the line under the role icons no longer sticks out.
+- Training Guide and Talents show your new level straight after a level-up.
+- The PvP icon updates straight away.
+
 ## 1.5.0
 
 ### Added

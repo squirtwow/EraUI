@@ -306,11 +306,20 @@ local function ApplyBagArt(button)
     if state.backpack and button.icon then
         ns.SetTex(button.icon, "backpackIcon")
         button.icon:SetTexCoord(0, 1, 0, 1)
-        if button.Count then
-            button.Count:ClearAllPoints()
-            button.Count:SetPoint("BOTTOM", button, "BOTTOM", 0, 3)
-            button.Count:SetFontObject("NumberFontNormalSmall")
+        -- The free-slot number: its own FreeSlots text since build 70170,
+        -- the button's Count before.
+        local free = button.FreeSlots or button.Count
+        if free then
+            free:ClearAllPoints()
+            free:SetPoint("BOTTOM", button, "BOTTOM", 0, 3)
+            free:SetFontObject("NumberFontNormalSmall")
         end
+    end
+    -- Since 70170 the free-slot number has its own text, yet the game still
+    -- fills the backpack's Count from inventory slot 0, the ammo slot (the
+    -- arrow or bullet count). The backpack shows only free slots.
+    if state.backpack and button.FreeSlots and button.Count then
+        button.Count:SetAlpha(0)
     end
 end
 
@@ -352,6 +361,13 @@ function ns.UnskinBagButton(button)
     if button.Count then
         button.Count:ClearAllPoints()
         button.Count:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -3, 4)
+    end
+    -- Where the game puts the backpack's own free-slot text.
+    if state.backpack and button.FreeSlots then
+        button.FreeSlots:ClearAllPoints()
+        button.FreeSlots:SetPoint("CENTER", button, "CENTER", 0, -10)
+        button.FreeSlots:SetFontObject("NumberFontNormal")
+        if button.Count then button.Count:SetAlpha(1) end
     end
 end
 

@@ -3,6 +3,11 @@
 The 1.0.4 detection changes use independently checked Blizzard data for Forever
 1.60.1.70009, not another addon's implementation or tables.
 
+Rechecked on 1.60.1.70170 (2026-10-02): no reminder ID changed. That build's
+SpellItemEnchantment only edits effect columns (Flametongue ranks, SoD-style
+weapon enchants) and moves row 7567; its CreatureFamily only changes Fox's pet
+skill line. The demon families, coating IDs and audited spells are unaffected.
+
 ## Sources
 
 - `https://wago.tools/db2/SpellItemEnchantment/csv?build=1.60.1.70009`

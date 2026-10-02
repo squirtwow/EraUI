@@ -1,16 +1,21 @@
 # Map reveal development data
 
 `Modules/MapRevealData.lua` is generated from Blizzard's DB2 records for Forever
-**1.60.1.70009**, exported by Wago Tools. The generator does not read any addon.
+**1.60.1.70170**, exported by Wago Tools. The generator does not read any addon.
 Only numeric metadata is included. The game supplies all referenced artwork.
 
 Sources, with this build explicitly selected:
 
-- `https://wago.tools/db2/WorldMapOverlay/csv?build=1.60.1.70009`
-- `https://wago.tools/db2/WorldMapOverlayTile/csv?build=1.60.1.70009`
-- `https://wago.tools/db2/UiMapXMapArt/csv?build=1.60.1.70009`
-- `https://wago.tools/db2/UiMapArt/csv?build=1.60.1.70009`
-- `https://wago.tools/db2/UiMapArtStyleLayer/csv?build=1.60.1.70009`
+- `https://wago.tools/db2/WorldMapOverlay/csv?build=1.60.1.70170`
+- `https://wago.tools/db2/WorldMapOverlayTile/csv?build=1.60.1.70170`
+- `https://wago.tools/db2/UiMapXMapArt/csv?build=1.60.1.70170`
+- `https://wago.tools/db2/UiMapArt/csv?build=1.60.1.70170`
+- `https://wago.tools/db2/UiMapArtStyleLayer/csv?build=1.60.1.70170`
+
+Against 70009 and 70124 (identical exports), 70170 changes one WorldMapOverlay
+record: Dun Morogh overlay 5126 gains a hit rectangle and flag 4. The generator
+reads neither, so the regions and tiles are unchanged; only the build label and
+the source checksum differ.
 
 `MapRevealData.json` records source checksums, counts and excluded records. Only
 art IDs linked to maps in this build are retained. Empty regions and regions

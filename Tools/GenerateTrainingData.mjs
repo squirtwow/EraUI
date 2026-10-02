@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {trainingLevel} from './TrainingLevelRules.mjs';
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const cache=process.argv[2];assert(cache,'Pass a cache directory');await mkdir(cache,{recursive:true});
-const build='1.60.1.70009',sources=[];
+const build='1.60.1.70170',sources=[];
 async function download(name,url){
  let text;try{text=await readFile(join(cache,name),'utf8');}catch(e){if(e.code!=='ENOENT')throw e;
   const r=await fetch(url);assert(r.ok,`${url}: ${r.status}`);text=await r.text();await writeFile(join(cache,name),text);}

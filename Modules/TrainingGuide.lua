@@ -345,6 +345,8 @@ function M:Initialize()
  local events=CreateFrame("Frame")
  for _,event in ipairs({"TRAINER_SHOW","TRAINER_CLOSED","TRAINER_UPDATE","TRAINER_SERVICE_INFO_NAME_UPDATE",
   "SPELLS_CHANGED","LEARNED_SPELL_IN_SKILL_LINE","PLAYER_LEVEL_UP","PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED"})do events:RegisterEvent(event)end
+ -- The level-up event can come before the new level is in; this one comes after.
+ pcall(events.RegisterEvent,events,"PLAYER_LEVEL_CHANGED")
  events:SetScript("OnEvent",function(_,event)
   if event=="TRAINER_SHOW"then trainerOpen=true elseif event=="TRAINER_CLOSED"then trainerOpen=false end
   if scanning or queued then return end

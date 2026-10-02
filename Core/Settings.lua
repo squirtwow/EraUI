@@ -191,10 +191,10 @@ local settingHelp = {
     gryphons = "Show the gryphons at the ends of the action bar. Applies immediately.",
     minimap = "Uses the original round Classic minimap border and zoom-button artwork, fitted to your map size. Reload UI to apply.",
     unitFrames = "Uses Classic artwork and bar proportions on player, target and focus frames, with Classic player debuff borders and buff/debuff hover boxes. Keeps native unit data and controls. Reload UI to apply.",
-    castBars = "Classic borders and fill on player, target, focus and styled nameplate cast bars. Keeps native timing, colours and interrupt indicators. Reload UI to apply.",
+    castBars = "Classic borders and fill on player, target, focus, boss and styled nameplate cast bars. Keeps native timing, colours and interrupt indicators. Reload UI to apply. Boss bars follow Forever Enhanced Cooldown Manager's Raid Timers when that's on, with no reload.",
     vendorPrice = "Adds a vendor price to item tooltips only when one is missing. Applies the next time you hover an item.",
     questLevels = "Shows a level in brackets before quest titles in the right-hand quest tracker. Applies immediately.",
-    bagSpace = "Shows empty bag slots on the backpack button at the end of the action bar. Filling an empty slot lowers the count; adding to an existing stack does not. Applies immediately.",
+    bagSpace = "Shows empty bag slots on the backpack button at the end of the action bar. Filling an empty slot lowers the count; adding to an existing stack does not. Where the game has its own switch (Options > Interface: Show Free Bag Space), this is that setting, so both always match. Applies immediately.",
     classColors = "Colours player names in new chat messages by class. Untick to use the chat channel's colour. Earlier messages keep their original colours.",
     hideStatusMessages = "Hides EraUI's startup and setting-change notices immediately. Errors and replies to commands still appear. Messages already in chat stay visible.",
     afkScreen = "When you go AFK, the interface and the minimap fade away and EraUI shows its own AFK screen: the EraUI logo in your class colour, your character standing on the left, a card with your name, level, guild, zone, time away, local time and date, and a famous line for your class. Your character stays still while the camera slowly circles. Move, press a key or click to come back. It also closes when combat starts, a prompt appears or you are no longer AFK, and your camera and minimap come back as they were. On by default.",
@@ -962,7 +962,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Friendly Nameplates", "friendlyNameplates", "INV_Misc_Book_09", "Classic look on friendly nameplates.", false)
     MakeCheck(frame, "Enemy Nameplates", "enemyNameplates", "INV_Misc_Book_09", "Classic look on enemy and neutral nameplates.", false)
     -- Casting.
-    MakeCheck(frame, "Cast Bars", "castBars", "INV_Misc_Book_09", "Player, target, focus and nameplate casts.", false)
+    MakeCheck(frame, "Cast Bars", "castBars", "INV_Misc_Book_09", "Player, target, focus, boss and nameplate casts.", false)
     MakeCheck(frame, "Advanced Cast Bar", "advancedCastBar", "Spell_Arcane_Blast", "Icon, time and latency. Hover + on its preview to move or resize.", false)
     MakeCheck(frame, "Class-coloured Cast Fill", "advancedCastClassFill", "INV_Misc_ArmorKit_17", "A muted class colour instead of gold. Priests get dark silver.", false)
     MakeCheck(frame, "Channel Tick Marks", "advancedCastTicks", "Spell_Shadow_DrainSoul", "Tick marks on channels, when the spell's text gives them.", false)

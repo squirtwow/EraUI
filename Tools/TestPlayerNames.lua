@@ -288,6 +288,14 @@ C_AddOns = {
 }
 C_UI = { Reload = function() reloaded = true end }
 assert(loadfile("Classic/Options.lua"))("EraUI", E)
+-- Loaded here anyway: its Classic cast bars text says the boss bars follow
+-- Forever Enhanced Cooldown Manager's Raid Timers (Classic/CastBars.lua).
+local castText
+for _, entry in ipairs(ns.TOGGLES) do
+    if entry[1] == "castBars" then castText = entry[3] end
+end
+Equal(castText and castText:find("boss bars. The boss bars follow Forever Enhanced Cooldown Manager's Raid Timers while that's on.", 1, true) ~= nil
+    and castText:find("\226\128\148", 1, true) == nil, true, "Classic cast bars text: boss bars follow the Raid Timers")
 Equal(ns.BeingTurnedOff(), true, "turned off for this character")
 Equal(asked, "EraUI|Player-4-0001", "asked by GUID, as the AddOns list does")
 ns.TurnOffCleanly()

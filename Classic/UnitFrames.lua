@@ -183,7 +183,7 @@ local function OnEvent(_, event, unit)
     elseif event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_FOCUS_CHANGED"
         or event == "PLAYER_UPDATE_RESTING" or event == "PLAYER_REGEN_DISABLED"
         or event == "PLAYER_FLAGS_CHANGED" or event == "UNIT_CLASSIFICATION_CHANGED"
-        or event == "UNIT_FACTION" or event == "UNIT_LEVEL" then
+        or event == "UNIT_FACTION" or event == "UNIT_LEVEL" or event == "PLAYER_PVP_FLAG_CHANGED" then
         KeepFrames()
         UpdateAll()
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -1216,7 +1216,9 @@ local function Apply()
             "PLAYER_TARGET_CHANGED", "PLAYER_FOCUS_CHANGED", "PLAYER_ENTERING_WORLD", "UNIT_ENTERED_VEHICLE", "UNIT_EXITED_VEHICLE",
             "GROUP_ROSTER_UPDATE", "PARTY_MEMBER_ENABLE", "PARTY_MEMBER_DISABLE", "PLAYER_REGEN_ENABLED", "UNIT_PET",
             "PLAYER_UPDATE_RESTING", "PLAYER_REGEN_DISABLED", "PLAYER_FLAGS_CHANGED", "UNIT_CLASSIFICATION_CHANGED",
-            "UNIT_FACTION", "UNIT_LEVEL", "PLAYER_LEVEL_UP", "PLAYER_LEVEL_CHANGED" }) do
+            "UNIT_FACTION", "UNIT_LEVEL", "PLAYER_LEVEL_UP", "PLAYER_LEVEL_CHANGED",
+            -- Build 70170: the PvP flag turning on or off, so the PvP icon follows at once.
+            "PLAYER_PVP_FLAG_CHANGED" }) do
             pcall(driver.RegisterEvent, driver, event)
         end
         driver:SetScript("OnUpdate", function(self, elapsed)

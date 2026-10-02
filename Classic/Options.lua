@@ -31,7 +31,7 @@ local TOGGLES = {
     { "trainer", "Classic trainer window", "A trainer's window as the old one: the greeting, the All tab and the filter, the list in green, red and gray under its headers, the chosen service with what it needs and costs below, and your money, Train and Exit along the foot." },
     { "hideBuffArrow", "No arrow beside the buffs", "1.x had no arrow next to the buff icons. The small arrow that folds the buffs away is hidden until the mouse is over it. Turn this off to have it always shown." },
     { "mirrorTimers", "Classic breath and fatigue bars", "The breath, fatigue and feign death timers drawn as 1.x drew them: the old cast bar border around a plain bar, blue for breath and yellow while you are tiring, with the label written on the bar rather than on a plate." },
-    { "castBars", "Classic cast bars", "The 1.x cast bar border, spark, flash and colors on the player, pet, target, focus and boss bars." },
+    { "castBars", "Classic cast bars", "The 1.x cast bar border, spark, flash and colors on the player, pet, target, focus and boss bars. The boss bars follow Forever Enhanced Cooldown Manager's Raid Timers while that's on." },
     { "welcomeNote", "Welcome note", "Shows the welcome note the first time a character logs in with the addon (on Forever, as a chat link). Turn off to never see it." },
     { "comboPoints", "Classic combo points", "Five orbs curving down the right side of the target portrait, lit as combo points are earned, the way rogues and cat druids saw them in 1.x. Retail's display under the player frame is hidden." },
     { "minimap", "Classic minimap", "The round 1.x minimap ring with the zone name across the top and the old tracking, zoom, mail and clock spots." },

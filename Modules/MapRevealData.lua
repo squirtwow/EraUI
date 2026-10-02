@@ -1,8 +1,8 @@
 local _,E=...
--- Generated from Blizzard DB2 exports for 1.60.1.70009. See Tools/MapRevealData.md.
+-- Generated from Blizzard DB2 exports for 1.60.1.70170. See Tools/MapRevealData.md.
 -- No texture assets are bundled; these IDs address artwork already in the client.
 -- Region: {overlayID, x, y, width, height, {{column, row, fileDataID}, ...}}.
-E.MapRevealData={build="1.60.1.70009",maps={
+E.MapRevealData={build="1.60.1.70170",maps={
  [1411]={[2169]=true},
  [1412]={[1200]=true},
  [1413]={[2181]=true},

@@ -81,6 +81,15 @@ Fire("TRAINER_CLOSED");Flush()
 level=12;Fire("PLAYER_LEVEL_UP");Flush();rows,s=M:Collect()
 equal(s.nowCount,4,"level-up updates eligibility away from trainer")
 equal(s.now,400,"newly available spell joins current total")
+-- Build 70170: PLAYER_LEVEL_UP can come before the new level is in, so the
+-- guide also refreshes on PLAYER_LEVEL_CHANGED, which comes after it.
+do
+ local refreshes,refresh=0,M.Refresh
+ M.Refresh=function(...)refreshes=refreshes+1;return refresh(...)end
+ Fire("PLAYER_LEVEL_CHANGED");Flush()
+ equal(refreshes,1,"the level change refreshes the guide")
+ M.Refresh=refresh
+end
 knownIDs[2]=true;Fire("SPELLS_CHANGED");Flush();rows,s=M:Collect()
 equal(s.count,3,"newly learned spell disappears without trainer visit")
 equal(s.all,300,"learned spell removed from cost total")

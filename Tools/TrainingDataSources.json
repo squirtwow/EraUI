@@ -1,40 +1,40 @@
 {
-  "build": "1.60.1.70009",
+  "build": "1.60.1.70170",
   "sources": [
     {
-      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70009",
-      "sha256": "80e0fee1521678dc218ac5b45c1fd26cb60e34b95258cb2aa8d5cec39c2e449a"
+      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70170",
+      "sha256": "7eb6f42784f7174b4465256f477d8e83705ce23d112a6736d1a848ea26148049"
     },
     {
-      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70009",
-      "sha256": "55a870d9e414496a167ebff864d16228bfbf9d3c36788c14ac66f75a6fd1857e"
+      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70170",
+      "sha256": "821ec6661b41f3e6a6eb77151bc644fffeffc62981af3ddcbe6fd3631c70d1a3"
     },
     {
-      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70009",
+      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70170",
       "sha256": "2193908c90f65d38fa9bc68907217fd759c132ccdc9f882cd3bc5acecabba322"
     },
     {
-      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70009",
-      "sha256": "9eb3c7b6431e6f74395aa920033eb456d0ef7f70d75ca47c09c1ad62c2ca76bc"
+      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70170",
+      "sha256": "da19f8391c5c6f72fe858d4e35e91ba82d335a53c06530cad6477d28a81cb721"
     },
     {
-      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70009",
-      "sha256": "b9a0d125fd47e02c13790504e2f10c4e67a3e5d5c4a91295bd96514ba36610a6"
+      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70170",
+      "sha256": "b0afb64d7d256bdb5be7ba5fdc594ca7e93959579d0a1259faff454de7c47d21"
     },
     {
-      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70009",
-      "sha256": "291e588d209182febd2f5f8554d13373aa8dc0262b33f325ac4fbe78e2791f93"
+      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70170",
+      "sha256": "24ac370c86e0cad3036e775691630c0161aa89c56a1b33d4193bf07ab20b8354"
     },
     {
-      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70009",
-      "sha256": "6e4c26027a38b519c2a61cbaf94b557d06cbf61b94c94377504957774ed7e145"
+      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70170",
+      "sha256": "f49b251f2f15b06f10f575edeb3eeab917a0d152088e10eaed2efee9dd6ddca8"
     },
     {
-      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70009",
-      "sha256": "fdecddfd93a3c27b48d7bbbebc8cc733a502fa8d58de623646550f9a5cffeb00"
+      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70170",
+      "sha256": "4df9522a8c8ae84ff3454642b5d2925124974b700ece2d13053ad90405a02416"
     },
     {
-      "url": "https://wago.tools/db2/Talent/csv?build=1.60.1.70009",
+      "url": "https://wago.tools/db2/Talent/csv?build=1.60.1.70170",
       "sha256": "ef5518c5a3aaa7458e074a7e41e87837f8a1c74da00938244019e2e8c0428b4a"
     },
     {
@@ -108,8 +108,8 @@
       "basePrices": 127
     },
     "DRUID": {
-      "spells": 196,
-      "basePrices": 162
+      "spells": 199,
+      "basePrices": 161
     }
   },
   "excluded": [
@@ -1407,20 +1407,6 @@
         "cost": 900
       },
       "level": 14,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 5217,
-      "name": "Tiger's Fury",
-      "classMask": 1024,
-      "baseLevel": 24,
-      "spellLevel": 24,
-      "reference": {
-        "level": 24,
-        "season": 0,
-        "cost": 4000
-      },
-      "level": 24,
       "source": "forever-base-level"
     },
     {
@@ -21392,7 +21378,7 @@
     },
     {
       "id": 437032,
-      "name": "Soul Harvesting",
+      "name": "Soul Harvest",
       "classMask": 256,
       "baseLevel": 0,
       "spellLevel": 0,
@@ -21591,6 +21577,46 @@
       "spellLevel": 60,
       "level": 60,
       "source": "forever-base-level"
+    },
+    {
+      "id": 1238069,
+      "name": "Primal Bite",
+      "classMask": 1024,
+      "baseLevel": 36,
+      "spellLevel": 36,
+      "level": 36,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1238070,
+      "name": "Primal Bite",
+      "classMask": 1024,
+      "baseLevel": 48,
+      "spellLevel": 48,
+      "level": 48,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1238073,
+      "name": "Primal Bite",
+      "classMask": 1024,
+      "baseLevel": 60,
+      "spellLevel": 60,
+      "level": 60,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 407995,
+      "name": "Primal Bite",
+      "classMask": 1024,
+      "baseLevel": 25,
+      "spellLevel": 25,
+      "reference": {
+        "level": 1,
+        "season": 2
+      },
+      "level": 25,
+      "source": "forever-relevelled-seasonal"
     },
     {
       "id": 22571,

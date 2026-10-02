@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 
-const build = '1.60.1.70009';
+const build = '1.60.1.70170';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const cache = process.argv[2] || join(tmpdir(), 'eraui-map-data', build);
 const names = ['WorldMapOverlay', 'WorldMapOverlayTile', 'UiMapXMapArt', 'UiMapArt', 'UiMapArtStyleLayer'];
