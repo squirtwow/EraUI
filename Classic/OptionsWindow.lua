@@ -313,9 +313,9 @@ local function Build(canvas)
     all:SetScript("OnEnter", ShowTooltip)
     all:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    local defaults = ns.PanelButton(frame, "Reset toggles", 100)
-    defaults:SetPoint("TOPLEFT", search, "BOTTOM", 3, -6)
-    defaults:SetScript("OnClick", function()
+    -- What Reset toggles has always done. It now runs from the Reset button of
+    -- EraUI's reset prompt (Core/Commands.lua), never from this button alone.
+    local function ResetToggles()
         local wentOff = false
         local wasBig = ns.db.defaultBarSize == true
         for _, entry in ipairs(rows) do
@@ -328,8 +328,20 @@ local function Build(canvas)
         ns.ApplyAll()
         frame:Refresh()
         if wentOff and StaticPopup_Show then StaticPopup_Show("ERAUICLASSIC_RELOAD") end
-    end)
-    defaults.tooltip = "Puts every checkbox back to its default. Nothing to do with edit mode layouts."
+    end
+    local resetAsk = {
+        title = "Reset toggles",
+        question = "Reset every checkbox on this page to its default?",
+        combat = "Finish combat before resetting the toggles.",
+        run = ResetToggles,
+    }
+    local defaults = ns.PanelButton(frame, "Reset toggles", 100)
+    defaults:SetPoint("TOPLEFT", search, "BOTTOM", 3, -6)
+    defaults:SetScript("OnClick", function() EraUI:AskReset(resetAsk) end)
+    -- The question is about this page, so it goes when the page does: Escape
+    -- closes the game's options (or this window) before the prompt.
+    frame:HookScript("OnHide", function() EraUI:CloseResetPrompt(resetAsk) end)
+    defaults.tooltip = "Asks first, then puts every checkbox back to its default. Nothing to do with edit mode layouts."
     defaults.label = "Reset toggles"
     defaults:SetScript("OnEnter", ShowTooltip)
     defaults:SetScript("OnLeave", function() GameTooltip:Hide() end)

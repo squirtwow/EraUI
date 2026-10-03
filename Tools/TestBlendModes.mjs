@@ -2,7 +2,8 @@
 // No MOD blending: it multiplies the screen whatever the alpha, so a MOD
 // texture stays on screen when the UI fades (Bag Item Levels' old red tint
 // was the red square left on the AFK screen). Plus Bag Item Levels' art and
-// font, and the AFK screen's banner, glow, quote font and quotes.
+// font, and the AFK screen's banner, glow, quote font and quotes. Plus the
+// TOC order the Lua tests can't see (they load modules by file).
 // Run: node Tools/TestBlendModes.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -228,6 +229,13 @@ test('the TOC loads the quotes just before the AFK screen', () => {
  const q=toc.indexOf('Modules\\AFKQuotes.lua'),a=toc.indexOf('Modules\\AFKScreen.lua');
  assert.ok(q>0,'Modules\\AFKQuotes.lua is listed');
  assert.equal(a,q+1,'directly before Modules\\AFKScreen.lua');
+});
+test('the TOC loads Character Item Levels once, after Bag Item Levels', () => {
+ const toc=readFileSync(join(root,'EraUI.toc'),'utf8').split(/\r?\n/).map(l=>l.trim());
+ const b=toc.indexOf('Modules\\BagItemLevels.lua'),c=toc.indexOf('Modules\\CharacterItemLevels.lua');
+ assert.ok(b>0,'Modules\\BagItemLevels.lua is listed');
+ assert.ok(c>b,'Modules\\CharacterItemLevels.lua is listed after it');
+ assert.equal(toc.lastIndexOf('Modules\\CharacterItemLevels.lua'),c,'and only once');
 });
 
 test('Bag Item Levels uses a bundled font that is shipped with its licence', () => {

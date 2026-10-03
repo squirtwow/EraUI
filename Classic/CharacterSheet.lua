@@ -130,6 +130,63 @@ local function Buffed(base, pos, neg)
     return color .. total .. "|r", detail .. ")"
 end
 
+-- Attack rating from the Skills list. Forever 1.60.1 (70170) has no
+-- UnitAttackBothHands or UnitRangedAttack, so the equipped weapon's skill line
+-- is read by ID with C_SkillInfo.GetSkillLineInfoByID, as the game's own
+-- Camelot PaperDollFrameStats.lua does for its weapon skill tooltip line.
+-- Item weapon subclass (Enum.ItemWeaponSubclass) to skill line ID, the same
+-- pairs as that file. Fist weapons use Unarmed (skill line 473's text says so).
+local MELEE_SKILL = {
+    [0] = 44, [1] = 172, [4] = 54, [5] = 160, [6] = 229, [7] = 43, [8] = 55,
+    [10] = 136, [13] = 162, [15] = 173,
+}
+local RANGED_SKILL = { [2] = 45, [3] = 46, [16] = 176, [18] = 226, [19] = 228 }
+local UNARMED_SKILL, FERAL_SKILL, WEAPON_CLASS = 162, 3014, 2
+
+local function Readable(value)
+    return value ~= nil and not (issecretvalue and issecretvalue(value))
+end
+
+local function WeaponSkillID(slot, ranged)
+    if not ranged and GetShapeshiftForm and UnitClass and select(2, UnitClass("player")) == "DRUID" then
+        local ok, form = pcall(GetShapeshiftForm)
+        if ok and Readable(form) and form ~= 0 then return FERAL_SKILL end
+    end
+    local itemID = GetInventoryItemID("player", slot)
+    if itemID == nil then return not ranged and UNARMED_SKILL or nil end
+    if not Readable(itemID) then return nil end
+    local lookup = C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
+    if not lookup then return nil end
+    local ok, _, _, _, _, _, classID, subclassID = pcall(lookup, itemID)
+    if not ok or not Readable(classID) then return nil end
+    if classID ~= WEAPON_CLASS then return not ranged and UNARMED_SKILL or nil end
+    if not Readable(subclassID) then return nil end
+    return (ranged and RANGED_SKILL or MELEE_SKILL)[subclassID]
+end
+
+-- The rating text and a tooltip line, or nil when nothing can be read.
+local function SkillRating(slot, ranged)
+    if not (C_SkillInfo and C_SkillInfo.GetSkillLineInfoByID) then return nil end
+    local skillID = WeaponSkillID(slot, ranged)
+    if not skillID then return nil end
+    local ok, info = pcall(C_SkillInfo.GetSkillLineInfoByID, skillID)
+    if not ok or not Readable(info) or type(info) ~= "table" then return nil end
+    local rank = info.rank
+    if not Readable(rank) or type(rank) ~= "number" then return nil end
+    local mod = info.modifier
+    if not Readable(mod) or type(mod) ~= "number" then mod = 0 end
+    local text, detail = Buffed(rank, math.max(mod, 0), math.min(mod, 0))
+    local name, tip = info.name, nil
+    if Readable(name) and type(name) == "string" and name ~= "" then
+        local amount = detail or tostring(rank)
+        local shaped = type(WEAPON_SKILL_RANK_TOOLTIP) == "string"
+        local fine, line = false, nil
+        if shaped then fine, line = pcall(string.format, WEAPON_SKILL_RANK_TOOLTIP, amount, name) end
+        tip = (fine and type(line) == "string") and line or string.format("Your %s skill: %s", name, amount)
+    end
+    return text, tip
+end
+
 function ns.SetClassicStatsShown(shown)
     if not sheet or not sheet.attrs then return end
     sheet.attrs:SetShown(shown and true or false)
@@ -158,7 +215,9 @@ local function UpdateStats()
         local base, mod = UnitAttackBothHands("player")
         sheet.attack.value:SetText(Buffed(base, mod, 0))
     else
-        sheet.attack.value:SetText("--")
+        local text, tip = SkillRating(INVSLOT_MAINHAND or 16, false)
+        sheet.attack.value:SetText(text or "--")
+        sheet.attack.tip2 = tip
     end
     do
         local base, pos, neg = UnitAttackPower("player")
@@ -172,6 +231,7 @@ local function UpdateStats()
     local hasRanged = CharacterRangedSlot and CharacterRangedSlot:IsShown() and GetInventoryItemID("player", CharacterRangedSlot:GetID()) ~= nil
     if not hasRanged then
         sheet.rangedAttack.value:SetText("--")
+        sheet.rangedAttack.tip2 = nil
         sheet.rangedPower.value:SetText("--")
         sheet.rangedDamage.value:SetText("--")
     else
@@ -179,7 +239,9 @@ local function UpdateStats()
             local base, mod = UnitRangedAttack("player")
             sheet.rangedAttack.value:SetText(Buffed(base, mod, 0))
         else
-            sheet.rangedAttack.value:SetText("--")
+            local text, tip = SkillRating(CharacterRangedSlot:GetID(), true)
+            sheet.rangedAttack.value:SetText(text or "--")
+            sheet.rangedAttack.tip2 = tip
         end
         local base, pos, neg = UnitRangedAttackPower("player")
         sheet.rangedPower.value:SetText(Buffed(base, pos, neg))
@@ -356,11 +418,13 @@ local function Build()
 
     local watcher = CreateFrame("Frame")
     for _, event in ipairs({ "UNIT_STATS", "UNIT_ATTACK_POWER", "UNIT_RANGED_ATTACK_POWER", "UNIT_DAMAGE", "UNIT_ATTACK_SPEED",
-        "UNIT_RESISTANCES", "UNIT_INVENTORY_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_LEVEL", "COMBAT_RATING_UPDATE", "UNIT_AURA" }) do
+        "UNIT_RESISTANCES", "UNIT_INVENTORY_CHANGED", "PLAYER_EQUIPMENT_CHANGED", "UNIT_LEVEL", "COMBAT_RATING_UPDATE", "UNIT_AURA",
+        "SKILL_LINES_CHANGED", "UPDATE_SHAPESHIFT_FORM" }) do
         pcall(watcher.RegisterEvent, watcher, event)
     end
     watcher:SetScript("OnEvent", function(_, event, unit)
-        if unit == nil or unit == "player" then UpdateStats() end
+        -- PLAYER_EQUIPMENT_CHANGED's first value is the slot, not a unit.
+        if unit == nil or unit == "player" or event == "PLAYER_EQUIPMENT_CHANGED" then UpdateStats() end
         -- The level line and the fade over the client's level text were only
         -- applied when the sheet was laid out, so dinging with the sheet open
         -- left the old level showing.

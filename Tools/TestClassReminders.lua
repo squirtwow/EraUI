@@ -18,7 +18,8 @@ local class,known,units,auras,raid,n,frames,time
 local weapons,coatings,totems
 local function unit(token)return units[token]or{}end
 UnitClass=function(token)return "Class",token=="player"and class or unit(token).class or "PRIEST"end
-UnitLevel=function()return 60 end
+local level=60
+UnitLevel=function()return level end
 UnitExists=function(token)return unit(token).exists==true end
 UnitCanAssist=function(_,token)return unit(token).friendly~=false end
 UnitIsConnected=function(token)return unit(token).online~=false end
@@ -35,7 +36,8 @@ InCombatLockdown=function()return false end
 GetInventoryItemID=function(_,slot)return weapons[slot]end
 C_Item={GetItemInfoInstant=function(id)return id,nil,nil,nil,nil,id==200 and 4 or 2 end}
 local spells={[688]="Summon Imp",[697]="Summon Voidwalker",[8232]="Windfury Weapon",[8024]="Flametongue Weapon",
- [8512]="Windfury Totem",[10613]="Windfury Totem",[10614]="Windfury Totem",[8681]="Instant Poison"}
+ [8512]="Windfury Totem",[10613]="Windfury Totem",[10614]="Windfury Totem",[8681]="Instant Poison",
+ [2835]="Deadly Poison",[3420]="Crippling Poison",[5763]="Mind-numbing Poison",[13220]="Wound Poison"}
 C_Spell={GetSpellInfo=function(id)return {name=spells[id]or("Spell"..id),iconID=id}end}
 GetSpellInfo=function(id)return spells[id]or("Spell"..id),nil,id end
 IsPlayerSpell=function(id)return known[id]==true end
@@ -62,17 +64,19 @@ CreateFrame=function()
   function f:HookScript()end
  frames[#frames+1]=f;return f
 end
-local function Session(c)
- class=c;known={};units={player={exists=true},pet={}};auras={};raid=false;n=0;frames={};time=10
+local function Session(c,data)
+ class=c;known={};units={player={exists=true},pet={}};auras={};raid=false;n=0;frames={};time=10;level=60
  weapons={[16]=100,[17]=100};coatings={};totems={};counts={}
  C_PaperDollInfo={GetTemporaryEnchantmentInfo=function(slot)return coatings[slot]end}
- EraUIDB={reminderSpotVersion=2}
+ EraUIDB={reminderSpotVersion=2};EraUIClassicCharDB={}
  local E={modules={},settingDefaults={}}
  function E:RegisterModule(name,m)self.modules[name]=m end
  function E:GetSetting()return false end -- No UI; detection below still uses real functions.
+ assert(loadfile("Modules/PoisonData.lua"))("EraUI",E)
+ if data then data(E.PoisonData)end
  assert(loadfile("Modules/ClassTools.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminderData.lua"))("EraUI",E)
- assert(loadfile("Modules/PoisonReminders.lua"))("EraUI",E)
+ assert(loadfile("Modules/ClassReminderPoisons.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua"))("EraUI",E)
  local M=E.modules.ClassReminders
  M:Initialize()
@@ -116,39 +120,172 @@ units.pet.family=secret;equal(check("pet"),nil,"restricted demon family")
 EraUIDB.reminderChoice_WARLOCK_pet=0;equal(check("pet"),false,"any demon does not require identity")
 units.pet.dead=true;equal(check("pet"),true,"dead demon does not count")
 
+-- POISON!: one reminder for both hands. It says which hand needs a poison,
+-- never mentions a hand without a weapon, and names the poison a click would
+-- use when there is none of it to use.
 E,check,defs,event=Session("ROGUE")
-equal(check("poisonMain"),true,"bare main-hand weapon")
-coatings[16]={enchantID=323,remainingTimeMs=600000,chargesRemaining=50}
-coatings[17]={enchantID=7,remainingTimeMs=600000,chargesRemaining=50}
-equal(check("poisonMain"),false,"main-hand poison")
-equal(check("poisonOff"),false,"off-hand poison")
-coatings[17]=nil;equal(check("poisonOff"),true,"main enchant cannot satisfy bare off hand")
-weapons[17]=200;equal(check("poisonOff"),false,"shield needs no poison")
-equal(E.modules.PoisonReminders:Snapshot(17),nil,"poison panel also skips shield")
-weapons[17]=nil;equal(check("poisonOff"),false,"empty off-hand slot needs no poison")
-weapons[17]=100;coatings[17]={enchantID=283,chargesRemaining=0}
-equal(check("poisonOff"),true,"Windfury is not poison")
-equal(E.modules.PoisonReminders:Snapshot(17).warning,true,"poison panel agrees about different coating")
-coatings[17]={enchantID=999999};equal(check("poisonOff"),nil,"unknown coating is unconfirmed")
-equal(E.modules.PoisonReminders:Snapshot(17).badge,"CHECK","panel marks unknown coating")
-coatings[17]={enchantID=22,chargesRemaining=0}
-equal(check("poisonOff"),false,"zero-charge poison is still active")
-equal(E.modules.PoisonReminders:Snapshot(17).warning,false,"zero charges not a low warning")
-coatings[16].remainingTimeMs=59000
-equal(E.modules.PoisonReminders:Snapshot(16).warning,true,"low-duration warning retained")
-coatings[16].remainingTimeMs=600000;coatings[16].chargesRemaining=9
-equal(E.modules.PoisonReminders:Snapshot(16).warning,true,"low-charge warning retained")
+local P=E.ReminderPoisons
+local function plain(s)return(tostring(s):gsub("|c%x%x%x%x%x%x%x%x",""):gsub("|r",""))end
+local function poison()local a,b,c=check("poison");return a,b and plain(b),c end
+local fine={enchantID=323,remainingTimeMs=600000,chargesRemaining=50}
+local function copy(t)local o={};for k,v in pairs(t)do o[k]=v end;return o end
+equal(#E.ReminderSpells.ROGUE,1,"rogues have one poison reminder")
+equal(defs.poison.text.." "..defs.poison.kind,"POISON! poison","it is POISON!, for both hands")
+equal(defs.poisonMain==nil and defs.poisonOff==nil,true,"the two hand alerts are gone")
+equal(defs.poison.off,nil,"on by default")
+equal(defs.poison.minLevel,nil,"its level comes from the poison data, not a number of its own")
+counts[8928]=1;counts[20844]=1 -- Instant Poison VI and Deadly Poison V in bags
+missing,detail=poison()
+equal(missing,true,"bare weapons need poison");equal(detail,"Main and off hand: no poison","both hands, said once")
+coatings[16]=copy(fine);coatings[17]={enchantID=7,remainingTimeMs=600000,chargesRemaining=50}
+missing,detail=poison()
+equal(missing,false,"both hands poisoned");equal(detail,"Poison applied","says so")
+coatings[17]=nil;missing,detail=poison()
+equal(missing,true,"main enchant cannot satisfy a bare off hand");equal(detail,"Off hand: no poison","only the off hand is named")
+weapons[17]=200;missing,detail=poison()
+equal(missing,false,"a shield needs no poison");equal(detail,"Poison applied","and the off hand is never mentioned")
+weapons[17]=nil;equal(poison(),false,"an empty off-hand slot needs no poison")
+coatings[16]=nil;missing,detail=poison()
+equal(detail,"Main hand: no poison","a two-hander: only the main hand")
+weapons[16]=nil;missing,detail=poison()
+equal(missing,false,"no weapons: nothing to poison");equal(detail,"No weapon equipped","says so")
+weapons[16]=100;weapons[17]=100;coatings[16]=copy(fine)
+coatings[17]={enchantID=283,chargesRemaining=0};missing,detail=poison()
+equal(missing,true,"Windfury is not poison");equal(detail,"Off hand: another coating","says it has another coating")
+coatings[17]={enchantID=999999};missing,detail=poison()
+equal(missing,nil,"an unknown coating is unconfirmed");equal(detail,"Poison check unavailable","said in the preview")
+coatings[16]=nil;equal(poison(),true,"an unconfirmed hand never hides a bare one")
+coatings[16]=copy(fine);coatings[17]={enchantID=22,chargesRemaining=0}
+equal(poison(),false,"zero charges is still a poison, not running out")
+coatings[16].remainingTimeMs=45000;missing,detail=poison()
+equal(missing,true,"under a minute left is about to run out");equal(detail,"Main hand: 0:45 left","with the time left")
+coatings[16].remainingTimeMs=60000;equal(select(2,poison()),"Main hand: 1:00 left","a minute exactly counts")
+coatings[16].remainingTimeMs=61000;equal(poison(),false,"just over a minute does not")
+coatings[16].chargesRemaining=10;equal(select(2,poison()),"Main hand: 10 charges left","10 charges or fewer counts")
+coatings[16].chargesRemaining=1;equal(select(2,poison()),"Main hand: 1 charge left","one charge")
+coatings[16].chargesRemaining=11;equal(poison(),false,"11 charges does not")
+coatings[16].remainingTimeMs=secret;coatings[16].chargesRemaining=secret
+equal(poison(),false,"hidden time and charges are never read as low")
+coatings[16]=copy(fine);coatings[16].remainingTimeMs=30000;coatings[17]=nil;missing,detail=poison()
+equal(detail,"Main hand: 0:30 left\nOff hand: no poison","two hands, two lines")
+coatings[17]={enchantID=7,remainingTimeMs=30000,chargesRemaining=50}
+equal(select(2,poison()),"Main and off hand: 0:30 left","the same for both is said once")
+local need=select(3,check("poison"))
+equal(need.main and need.off,true,"both hands need one")
+-- Clicks off (the default): the picks don't matter, so only no usable
+-- poison at all is said.
+counts={}
+coatings[16]=nil;coatings[17]=nil;missing,detail=poison()
+equal(detail,"Main and off hand: no poison\nNo poison in your bags","clicks off: no poison at all in your bags")
+counts[3775]=1;equal(select(2,poison()),"Main and off hand: no poison","clicks off: any usable poison, even one neither hand picked: no note")
+level=40;counts={[3776]=1};equal(select(2,poison()),"Main and off hand: no poison\nYour poisons need a higher level","clicks off: only ranks above your level")
+level=60;counts={}
+EraUIDB.reminderClickable=true;equal(select(2,poison()),"Main and off hand: no poison\nNo poison in your bags","Clickable reminders alone: still no pick named")
+EraUIDB.reminderClickable=nil;EraUIDB.reminderPoisonClick=true
+equal(select(2,poison()),"Main and off hand: no poison\nNo poison in your bags","Click to apply poisons alone (greyed out): still no pick named")
+-- With the click live, nothing of the hand's pick to use: said under it,
+-- once per poison.
+EraUIDB.reminderClickable=true
+missing,detail=poison()
+equal(detail,"Main and off hand: no poison\nNo Instant Poison in your bags\nNo Deadly Poison in your bags","names each hand's poison it has none of")
+equal(select(2,check("poison")):find("|cff",1,true)~=nil,true,"in its own colour")
+EraUIClassicCharDB.classTools.poisonPickOff=6947
+equal(select(2,poison()),"Main and off hand: no poison\nNo Instant Poison in your bags","the same poison on both: said once")
+EraUIClassicCharDB.classTools.poisonPickOff=nil
+counts[8928]=1;coatings[16]=copy(fine)
+equal(select(2,poison()),"Off hand: no poison\nNo Deadly Poison in your bags","only for a hand that needs one")
+level=52;counts={[8928]=1};coatings[16]=nil;coatings[17]=copy(fine)
+equal(select(2,poison()),"Main hand: no poison\nYour Instant Poison needs a higher level","only a rank above your level: says so")
+EraUIDB.reminderClickable=nil;EraUIDB.reminderPoisonClick=nil
+level=60;counts={[8928]=1,[20844]=1}
 C_PaperDollInfo.GetTemporaryEnchantmentInfo=function()error("unavailable")end
-equal(check("poisonMain"),nil,"API failure is not missing poison")
+equal(poison(),nil,"API failure is not missing poison")
 C_PaperDollInfo=nil
 GetWeaponEnchantInfo=function()return true,600000,50,323,true,600000,50,7 end
-equal(check("poisonOff"),false,"legacy fifth return is off-hand flag")
+equal(poison(),false,"legacy fifth return is the off-hand flag")
 GetWeaponEnchantInfo=function()return true,600000,50,323,false,0,0,nil end
-equal(check("poisonOff"),true,"legacy false off-hand never falls back to main")
+equal(select(2,poison()),"Off hand: no poison","legacy false off hand never falls back to main")
 GetWeaponEnchantInfo=function()return true,600000,50,nil,nil,0,0,nil end
-equal(check("poisonOff"),true,"legacy nil off-hand means no enchant")
+equal(select(2,poison()),"Off hand: no poison","legacy nil off hand means no enchant")
 GetWeaponEnchantInfo=function()return true,600000,50,323,secret,0,0,7 end
-equal(check("poisonOff"),nil,"restricted legacy flag")
+equal(poison(),nil,"restricted legacy flag")
+GetWeaponEnchantInfo=nil
+
+-- Only once you can use poisons: from the first level one can be used
+-- (Forever's data says 20), with Poisons learned or one your level allows
+-- in your bags.
+E,check,defs,event=Session("ROGUE")
+P=E.ReminderPoisons
+local applies=assert(up(E.modules.ClassReminders.Refresh,"Applicable"))
+equal(P.MinLevel(),20,"the first poison level is 20 in Forever's data")
+level=1;known[2842]=true
+equal(applies(defs.poison),false,"a level 1 rogue: no POISON!")
+level=19;equal(applies(defs.poison),false,"level 19: not yet")
+level=20;equal(applies(defs.poison),true,"level 20 with Poisons learned")
+known[2842]=nil;equal(applies(defs.poison),false,"level 20 without Poisons and none in bags: no POISON!")
+counts[6947]=3;equal(applies(defs.poison),true,"a poison your level allows in your bags is enough")
+counts[6947]=nil;counts[2892]=3;equal(applies(defs.poison),false,"Deadly Poison at 20 is not one you can use")
+counts[2892]=nil;known[1298494]=true;equal(applies(defs.poison),true,"Forever's own Poisons spell counts as learned")
+level=secret;equal(applies(defs.poison),false,"a hidden level is never enough")
+level=60
+
+-- Each hand's pick: only poisons your level allows are offered, in the order
+-- Instant, Deadly, Crippling, Mind-numbing, Wound, saved by rank 1's item.
+local function keys(list)local t={};for _,f in ipairs(list)do t[#t+1]=f.key end;return table.concat(t,",")end
+equal(keys(P.Families()),"instant,deadly,crippling,numbing,wound","every Forever poison family, in button order")
+level=20;equal(keys(P.ChoiceList()),"instant,crippling","level 20: Instant and Crippling")
+level=24;equal(keys(P.ChoiceList()),"instant,crippling,numbing","24: Mind-numbing too")
+level=30;equal(keys(P.ChoiceList()),"instant,deadly,crippling,numbing","30: Deadly too")
+level=32;equal(keys(P.ChoiceList()),"instant,deadly,crippling,numbing,wound","32: all five")
+level=29;equal(P.Choice("main").key.." "..P.Choice("off").key,"instant instant","before 30 both hands default to Instant")
+level=30;equal(P.Choice("main").key.." "..P.Choice("off").key,"instant deadly","from 30 the off hand defaults to Deadly")
+equal(P.DefaultText("main"),"Default: Instant Poison.","the main hand's default, in words")
+equal(P.DefaultText("off"),"Default: Deadly Poison, or Instant Poison before level 30.","the off hand's, with Deadly's level from the data")
+-- Before any poison: each button already shows the one you'll get first,
+-- as its hover's default says, and there is nothing to pick yet.
+for _,l in ipairs({1,19})do
+ level=l
+ equal(P.Label("main").." / "..P.Label("off"),"Main hand: Instant Poison  > / Off hand: Instant Poison  >","level "..l..": both buttons show Instant Poison")
+ equal(#P.ChoiceList(),0,"level "..l..": nothing to pick yet")
+ P.Cycle("off");equal(EraUIClassicCharDB.classTools.poisonPickOff,nil,"level "..l..": cycling saves nothing")
+end
+level=20;equal(P.Label("off"),"Off hand: Instant Poison  >","level 20: Instant too")
+equal(P.ChoiceHelp("main"),"Picks the poison a left-click on POISON! puts on your main hand: the highest rank you carry that your level allows. "
+ .."Only poisons your level allows are offered, from level 20. With none in your bags, POISON! says so. Each rogue keeps its own picks.","the main hand's pick help, with the first poison level from the data")
+equal(P.ChoiceHelp("off"),"Picks the poison a right-click on POISON! puts on your off hand: the highest rank you carry that your level allows. "
+ .."Only poisons your level allows are offered, from level 20. With none in your bags, POISON! says so. Each rogue keeps its own picks.","the off hand's")
+level=60
+local order={}
+local picks=EraUIClassicCharDB.classTools
+for _=1,5 do P.Cycle("main");order[#order+1]=tostring(picks.poisonPickMain)end
+equal(table.concat(order,","),"2892,3775,5237,10918,6947","the main hand cycles Deadly, Crippling, Mind-numbing, Wound and back to Instant")
+P.Cycle("off");equal(picks.poisonPickOff,3775,"the off hand cycles on from its own default")
+equal(P.Label("off"),"Off hand: Crippling Poison  >","its button names the pick")
+equal(EraUIDB.reminderChoice_ROGUE_poisonMain==nil and EraUIDB.reminderChoice_ROGUE_poisonOff==nil,true,"each rogue's own picks, not the account's")
+picks.poisonPickMain=10918;level=25
+equal(P.Choice("main").key,"instant","a pick your level doesn't allow reads as the default")
+level=25;P.Cycle("main");equal(picks.poisonPickMain,3775,"and cycling goes on from what is shown")
+picks.poisonPickMain="x";equal(P.Choice("main").key,"instant","a saved pick that isn't a number reads as the default")
+picks.poisonPickMain=1234;equal(P.Choice("main").key,"instant","nor does one that isn't a poison")
+-- A click uses the highest rank you carry that your level allows.
+local instant=P.Choice("main")
+level=50;counts={[6947]=1,[8926]=2,[8927]=1}
+equal(P.Best(instant).item,8926,"level 50: Instant Poison IV, not V (level 52)")
+level=52;equal(P.Best(instant).item,8927,"level 52: V")
+counts={};equal(select(2,P.Best(instant)),"none","none in your bags")
+counts={[8928]=1};equal(select(2,P.Best(instant)),"level","only a rank above your level")
+level=60;equal(P.Best(instant).item,8928,"at 60: VI")
+equal(P.Name(instant),"Instant Poison","names come from the game's spell names")
+-- A family Forever adds later comes after the five, wherever its data puts
+-- it, and is offered from its own level.
+E,check,defs,event=Session("ROGUE",function(data)
+ table.insert(data.families,1,{key="madeUp",name="Made-up Poison",ranks={{item=99001,level=40,spell=99002,enchant=99003,recipe=99004}}})
+end)
+P=E.ReminderPoisons
+equal(keys(P.Families()),"instant,deadly,crippling,numbing,wound,madeUp","a family Forever adds comes last")
+level=39;equal(keys(P.ChoiceList()),"instant,deadly,crippling,numbing,wound","not offered before its level")
+level=40;equal(keys(P.ChoiceList()),"instant,deadly,crippling,numbing,wound,madeUp","offered from its level")
+level=60
 
 E,check,defs,event=Session("SHAMAN")
 local applicable=up(E.modules.ClassReminders.Refresh,"Applicable")
@@ -663,5 +800,43 @@ for _,c in ipairs(classes)do
   equal(combatRule(def),want,c.." "..def.key..(want and " has its combat rule"or " is clickable outside combat only"))
   if want then equal(want:find("^%[nocombat%]")~=nil,true,c.." "..def.key.." always hides out of combat")end
  end
+end
+-- Learned spells on Forever: IsPlayerSpell and IsSpellKnown only exist in the
+-- game's deprecated copies, which load while the loadDeprecationFallbacks
+-- setting is on (the rest of this file mocks them). Without them a learned
+-- spell comes from C_SpellBook.IsSpellKnown, whose bank defaults to the
+-- player's spells, the same question the old names asked.
+do
+ E,check,defs,event=Session("HUNTER")
+ local oldPlayerSpell,oldSpellKnown=IsPlayerSpell,IsSpellKnown
+ IsPlayerSpell=nil;IsSpellKnown=nil
+ local asked={}
+ C_SpellBook={IsSpellKnown=function(id,bank)asked[#asked+1]={id=id,bank=bank};return known[id]==true end}
+ local Known=E.ClassTools.Known
+ local petApplies=assert(up(E.modules.ClassReminders.Refresh,"Applicable"))
+ known[883]=true
+ equal(Known(883),true,"no old names: a learned spell is known through C_SpellBook")
+ equal(Known(982),false,"no old names: an unlearned spell is not")
+ equal(#asked,2,"each asks C_SpellBook.IsSpellKnown")
+ equal(asked[1].id,883,"about that spell")
+ equal(asked[1].bank,nil,"in the default bank, the player's spells")
+ equal(petApplies(defs.pet),true,"no old names: Call Pet learned, the pet alert applies")
+ known[883]=nil
+ equal(petApplies(defs.pet),false,"no old names: Call Pet not learned, no pet alert")
+ known[883]=true
+ C_SpellBook.IsSpellKnown=function()error("unavailable")end
+ equal(Known(883),false,"an erroring answer is not known")
+ C_SpellBook.IsSpellKnown=function()return secret end
+ equal(Known(883),false,"a restricted answer is not known")
+ C_SpellBook=nil
+ equal(Known(883),false,"none of them: nothing is known, no error")
+ -- A client that still has the old names, alone or with C_SpellBook, answers the same.
+ IsSpellKnown=oldSpellKnown
+ equal(Known(883),true,"only the old IsSpellKnown: still known")
+ IsPlayerSpell=oldPlayerSpell
+ C_SpellBook={IsSpellKnown=function(id)return known[id]==true end}
+ equal(Known(883),true,"old and new: known")
+ equal(Known(982),false,"old and new: not learned, not known")
+ C_SpellBook=nil
 end
 print("Class reminder detection checks passed: "..checks.." assertions.")

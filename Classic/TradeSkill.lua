@@ -198,7 +198,9 @@ local function Row_OnClick(self, button)
     local info = line.info
     if button == "LeftButton" and IsModifiedClick and IsModifiedClick("CHATLINK") then
         local link = API().GetRecipeLink and API().GetRecipeLink(info.recipeID)
-        if link and ChatEdit_InsertLink then ChatEdit_InsertLink(link) end
+        -- ChatFrameUtil first: ChatEdit_InsertLink is a deprecated copy of it.
+        local insert = ChatFrameUtil and ChatFrameUtil.InsertLink or ChatEdit_InsertLink
+        if link and insert then insert(link) end
         return
     end
     selected = info.recipeID

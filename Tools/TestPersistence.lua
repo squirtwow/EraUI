@@ -57,6 +57,8 @@ local function Session(db, char, classic, lateIdentity)
     end)
     assert(loadfile("Core/Integration.lua"))("EraUI",E)
     assert(loadfile("Modules/ClassTools.lua"))("EraUI",E)
+    assert(loadfile("Modules/ClassReminderData.lua"))("EraUI",E)
+    assert(loadfile("Modules/ClassReminderPoisons.lua"))("EraUI",E)
     local function fire(event,...)
         for _,f in ipairs(frames) do
             if f.events[event] and f.scripts.OnEvent then f.scripts.OnEvent(f,event,...) end
@@ -241,6 +243,13 @@ equal(E.reloadSettings.bagItemLevels,nil,"Bag Item Levels applies live, not on r
 E:SetSetting("bagItemLevels",true);flush()
 E,flush,fire=Session()
 equal(EraUIDB.bagItemLevels,true,"Bag Item Levels survives missing SavedVariables")
+flush()
+-- Character Item Levels: the same.
+equal(E.settingDefaults.characterItemLevels,false,"Character Item Levels off by default")
+equal(E.reloadSettings.characterItemLevels,nil,"Character Item Levels applies live, not on reload")
+E:SetSetting("characterItemLevels",true);flush()
+E,flush,fire=Session()
+equal(EraUIDB.characterItemLevels,true,"Character Item Levels survives missing SavedVariables")
 flush()
 -- AFK Screen: on by default now, and a choice already saved is kept, with or
 -- without SavedVariables.
@@ -445,5 +454,130 @@ do
     Fresh();E,flush,fire=Session({layoutNotice=0,afkScreenVersion=2},{},classic({updateNotesSeen="1.4.0"}))
     equal(EraUIDB.layoutNotice,0,"a decided 0 is never turned into 1")
     flush()
+end
+-- The Poison Reminders panel became the rogue's POISON! class reminder (after
+-- 1.5.1). Its users keep poison alerts, once; the two old alerts become one;
+-- the new switches and picks are backed up like the others.
+do
+    local function Fresh()
+        for k in pairs(cvars) do cvars[k]=nil end
+        character,realm="Hunter","RealmOne"
+    end
+    local classic=function(extra)
+        local db={erauiMigrated=true,erauiSettingsMenuMigrated=true}
+        for k,v in pairs(extra or {}) do db[k]=v end
+        return db
+    end
+    equal(E.settingDefaults.poisonReminders,false,"the old switch is still known, so a backup of it is read")
+    Fresh();E,flush,fire=Session({poisonReminders=true,classReminders=false,reminder_PRIEST_inner=true},{},classic({eraui_poisonReminders=true}))
+    equal(EraUIDB.classReminders,true,"an old Poison Reminders user gets Class Reminders & Buffs on")
+    equal(EraUIDB.reminder_ROGUE_poison,true,"with POISON! on")
+    equal(EraUIDB.poisonReminders,false,"the old switch is spent")
+    equal(E.Classic.db.eraui_poisonReminders==false and E.Classic.db.eraui_classReminders==true,true,"in the old mirror too")
+    -- Class Reminders & Buffs is one switch for the whole account and was off,
+    -- so every other class still shows nothing: each alert on by default goes
+    -- off; ones off by default, and a choice already made, are left alone.
+    local function OtherClasses()
+        local on,off,untouched=0,0,0
+        for class,defs in pairs(E.ReminderSpells) do
+            if class~="ROGUE" then
+                for _,def in ipairs(defs) do
+                    local v=EraUIDB["reminder_"..class.."_"..def.key]
+                    if v==nil then untouched=untouched+1 elseif v then on=on+1 else off=off+1 end
+                end
+            end
+        end
+        return on,off,untouched
+    end
+    local on,off,untouched=OtherClasses()
+    equal(on.." on, "..off.." off, "..untouched.." untouched","1 on, 17 off, 9 untouched","the other classes' alerts")
+    equal(EraUIDB.reminder_WARRIOR_battleShout==false and EraUIDB.reminder_HUNTER_pet==false and EraUIDB.reminder_WARLOCK_healthstone==false,true,
+        "BATTLE SHOUT!, SUMMON PET! and CREATE HEALTHSTONE! go off")
+    equal(EraUIDB.reminder_PALADIN_seal==nil and EraUIDB.reminder_HUNTER_petHealth==nil,true,"SEAL! and PET LOW HEALTH!, off by default, are left alone")
+    equal(EraUIDB.reminder_PRIEST_inner,true,"INNER FIRE! switched on before stays on")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.classReminders==true and EraUIDB.reminder_ROGUE_poison==true and EraUIDB.poisonReminders==false,true,"the move survives missing SavedVariables")
+    equal(EraUIDB.reminder_WARRIOR_battleShout,false,"and so do the other classes' alerts going off")
+    flush()
+    -- With Class Reminders & Buffs already on, every class keeps its alerts.
+    Fresh();E,flush,fire=Session({poisonReminders=true,classReminders=true},{},classic())
+    on,off,untouched=OtherClasses()
+    equal(EraUIDB.reminder_ROGUE_poison==true and on+off==0,true,"Class Reminders & Buffs already on: POISON! on, every other class untouched")
+    flush()
+    Fresh();E,flush,fire=Session({poisonReminders=true,classReminders=false},{},classic({eraui_poisonReminders=true}))
+    flush()
+    E:SetSetting("classReminders",false);E:SaveSettings();flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.classReminders,false,"Class Reminders & Buffs switched off after that stays off")
+    flush()
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({eraui_poisonReminders=false,eraui_classReminders=false}))
+    equal(EraUIDB.classReminders,false,"with SavedVariables too: it happens once")
+    flush()
+    -- A 1.5.1 backup alone, with SavedVariables lost, moves over too.
+    Fresh();E,flush,fire=Session({},{},classic())
+    E:SetSetting("poisonReminders",true);E:SaveSettings();flush()
+    equal(EraUIDB.classReminders,false,"a 1.5.1 backup: Poison Reminders on, Class Reminders & Buffs off")
+    E,flush,fire=Session()
+    equal(EraUIDB.classReminders==true and EraUIDB.reminder_ROGUE_poison==true and EraUIDB.poisonReminders==false,true,"read from the backup alone, it moves over")
+    flush()
+    -- Without the old panel nothing changes.
+    Fresh();E,flush,fire=Session({classReminders=false},{},classic())
+    equal(EraUIDB.classReminders==false and EraUIDB.reminder_ROGUE_poison==nil,true,"no old panel: Class Reminders & Buffs left as it was")
+    flush()
+    -- The two old alerts: off only when both were. The main hand's spot is kept.
+    Fresh();E,flush,fire=Session({reminder_ROGUE_poisonMain=false,reminder_ROGUE_poisonOff=false,
+        reminderPX_ROGUE_poisonMain=40.5,reminderPY_ROGUE_poisonMain=-20,reminderPX_ROGUE_poisonOff=1,reminderPY_ROGUE_poisonOff=2},{},classic())
+    equal(EraUIDB.reminder_ROGUE_poison,false,"both old poison alerts off: POISON! off")
+    equal(EraUIDB.reminderPX_ROGUE_poison==40.5 and EraUIDB.reminderPY_ROGUE_poison==-20,true,"where the main hand's alert was dragged")
+    local left=0
+    for _,key in ipairs({"reminder_ROGUE_poisonMain","reminder_ROGUE_poisonOff","reminderPX_ROGUE_poisonMain","reminderPY_ROGUE_poisonMain","reminderPX_ROGUE_poisonOff","reminderPY_ROGUE_poisonOff"}) do
+        if EraUIDB[key]~=nil then left=left+1 end
+    end
+    equal(left,0,"the old keys are cleared")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.reminder_ROGUE_poison==false and EraUIDB.reminderPX_ROGUE_poison==40.5,true,"that survives missing SavedVariables")
+    equal(EraUIDB.reminder_ROGUE_poisonMain,nil,"and the old keys don't come back")
+    flush()
+    Fresh();E,flush,fire=Session({reminder_ROGUE_poisonMain=false,reminder_ROGUE_poisonOff=true},{},classic())
+    equal(EraUIDB.reminder_ROGUE_poison,nil,"the off hand's alert on: POISON! stays on")
+    flush()
+    Fresh();E,flush,fire=Session({reminder_ROGUE_poisonOff=false},{},classic())
+    equal(EraUIDB.reminder_ROGUE_poison,nil,"the main hand's alert on by default: POISON! stays on")
+    flush()
+    Fresh();E,flush,fire=Session({reminder_ROGUE_poisonMain=false},{},classic())
+    equal(EraUIDB.reminder_ROGUE_poison,false,"the main hand's alert off, the off hand's left at its default (off): POISON! off")
+    flush()
+    Fresh();E,flush,fire=Session({reminder_ROGUE_poison=true,reminder_ROGUE_poisonMain=false},{},classic())
+    equal(EraUIDB.reminder_ROGUE_poison,true,"a POISON! choice already made wins")
+    equal(EraUIDB.reminder_ROGUE_poisonMain,nil,"and the old key still goes")
+    flush()
+    -- Old alerts that only the skinning layer's mirror remembers.
+    Fresh();local mirror=classic({eraui_reminder_ROGUE_poisonMain=false,eraui_reminder_ROGUE_poisonOff=false})
+    E,flush,fire=Session({},{},mirror)
+    equal(EraUIDB.reminder_ROGUE_poison,false,"old alerts from the mirror move over too")
+    equal(mirror.eraui_reminder_ROGUE_poisonMain==nil and mirror.eraui_reminder_ROGUE_poisonOff==nil,true,"and the mirror forgets them")
+    flush()
+    -- New switches and picks survive missing SavedVariables. The picks are
+    -- each character's own.
+    E:SetSetting("reminderPoisonClick",true)
+    E.ClassTools.Options().poisonPickMain=2892;E.ClassTools.Options().poisonPickOff=3775
+    EraUIDB.reminderPX_ROGUE_poison=12;EraUIDB.reminderPY_ROGUE_poison=-34;E:SaveSettings();flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.reminderPoisonClick,true,"Click to apply poisons survives")
+    equal(E.ClassTools.Options().poisonPickMain==2892 and E.ClassTools.Options().poisonPickOff==3775,true,"each hand's poison survives, for this character")
+    equal(EraUIDB.poisonPickMain==nil and EraUIDB.reminderChoice_ROGUE_poisonMain==nil,true,"not as an account setting")
+    equal(EraUIDB.reminderPX_ROGUE_poison==12 and EraUIDB.reminderPY_ROGUE_poison==-34,true,"POISON!'s spot survives")
+    flush()
+    character="Alt"
+    E,flush,fire=Session()
+    equal(E.ClassTools.Options().poisonPickMain==nil and EraUIDB.reminderPoisonClick==true,true,"another character keeps picks of its own, and the account's switches")
+    character="Hunter"
+    E,flush,fire=Session();flush()
+    -- Nothing to move: nothing is saved for it.
+    local saved=writes
+    E,flush,fire=Session(copy(EraUIDB),nil,classic());flush()
+    equal(writes,saved,"a settled account writes nothing at login")
 end
 print("Persistence recovery checks passed: " .. checks .. " assertions.")

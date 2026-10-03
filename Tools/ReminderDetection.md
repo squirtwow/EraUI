@@ -66,10 +66,40 @@ skill line. The demon families, coating IDs and audited spells are unaffected.
 - Pet checks require a living pet. Selected demons match localized creature
   family names obtained from Blizzard's family API, not the pet's personal name.
   The Incubus choice has no family yet, so any living demon satisfies it.
-- Both poison displays use `ClassTools.WeaponCoating`. Modern slot data is
-  preferred; legacy off-hand data starts at the fifth API return. Empty slots
-  and shields do not need coatings. Unknown coating types remain unconfirmed.
-  Zero charges alone do not mean the enchant is depleted.
+- The rogue's POISON! (one reminder for both hands, after 1.5.1; it replaced
+  the two hand alerts and the separate Poison Reminders panel) uses
+  `ClassTools.WeaponCoating`. Modern slot data is preferred; legacy off-hand
+  data starts at the fifth API return. Empty slots and shields do not need
+  coatings and are never mentioned. Unknown coating types remain unconfirmed.
+  A hand needs a poison when it has none, another coating, 60 seconds or less
+  left, or 1 to 10 charges left; zero charges alone do not mean the enchant
+  is depleted, and hidden time or charges are never read as low. It applies
+  from the first level any poison can be used (20, from
+  `Modules/PoisonData.lua`), with Poisons (2842, or Forever's 1298494)
+  learned or a poison your level allows in your bags.
+- POISON!'s click (`Modules/ClassReminderPoisons.lua`): each hand has a pick
+  (`poisonPickMain` / `poisonPickOff` in the character's class tools
+  settings, so each rogue has its own, saved as the family's rank 1 item;
+  only families your level allows are offered; defaults Instant, and Deadly
+  from its first level for the off hand, Instant before, also below level 20
+  where nothing can be picked yet). With
+  Clickable reminders and "Click to apply poisons" (`reminderPoisonClick`,
+  off by default, Needs testing) on, one secure button over the icon has
+  `type1`/`type2` "item", `item1`/`item2` "item:<id>" (the highest rank in
+  your bags your level allows) and `target-slot1` 16 / `target-slot2` 17:
+  Blizzard's SecureActionButton uses the item, then, while the cursor waits
+  for an item (`SpellCanTargetItem`), uses the inventory slot. Only a hand
+  that needs a poison and has one to use is armed. Attributes change only
+  out of combat; a `[combat] 1; 0` state driver clears both clicks and hides
+  the button the moment a fight starts, and the next refresh after it
+  re-arms. The driver hands its snippet the number 1, not the text "1"
+  (Forever 70170 SecureStateDriver.lua resolveDriver: `tonumber(newValue)`),
+  so the snippets accept both. The bag notes name each hand's pick only
+  while a click is live; otherwise POISON! only says when no poison at all
+  can be used ("No poison in your bags", "Your poisons need a higher level").
+  Forever applies these poisons with spell effect 360 (see
+  `Tools/PoisonDataSources.json`); that the target slot is honoured for it
+  is the in-game check still to do.
 - Shaman selection requires the chosen weapon imbue. Windfury Totem's temporary
   coating is distinct from the player's Windfury Weapon. The generic totem
   check means at least one active totem; the optional Windfury check requires
@@ -83,9 +113,8 @@ skill line. The demon families, coating IDs and audited spells are unaffected.
   disarmed, until 2 seconds after landing so a pet the game brings back does
   not flash SUMMON PET!. A hidden, failing or missing taxi answer counts as
   not flying. PLAYER_CONTROL_LOST/GAINED and UNIT_FLAGS refresh the alerts.
-  The rogue Poison Reminders panel (which takes over missing-poison alerts
-  while on) waits the same way, keeping only its positioning preview. Both
-  read one shared flight clock, `T.Flying` in `Modules/ClassTools.lua`.
+  Every reminder panel reads one shared flight clock, `T.Flying` in
+  `Modules/ClassTools.lua`.
 - A picked seal or aura counts only itself; on Any every seal or aura counts.
   On Any a click casts the only one you know, or else the one you cast last
   (`reminderLast_PALADIN_seal` / `_aura`); with several known and none cast

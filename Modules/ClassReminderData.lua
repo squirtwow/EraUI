@@ -1,6 +1,6 @@
 local _,E=...
 -- One entry per reminder. text is the big alert word; dynamic names use the
--- learned spell instead. kind: aura | pet | petDead | petHealth | item | imbue | totems | shards
+-- learned spell instead. kind: aura | pet | petDead | petHealth | item | imbue | poison | totems | shards
 --   ids       learned ranks (highest learned supplies the icon)
 --   requires  at least one of these spells must be learned
 --   auras     extra aura ids that also satisfy the buff
@@ -10,7 +10,7 @@ local _,E=...
 --   off       reminder starts switched off
 --   dynamic   the alert word comes from the learned spell
 --   color     optional text colour, otherwise the class colour
---   weapon    which hand an imbue or poison reminder watches
+--   weapon    which hand an imbue reminder watches (a poison one watches both)
 --   items     products counted in bags (item kind) or required (aura kinds)
 --   minLevel  level required before the reminder applies
 --   nameMatch accept any aura whose name contains this text
@@ -98,8 +98,11 @@ E.ReminderSpells={
    {key="petHealth",text="PET LOW HEALTH!",kind="petHealth",off=true,wide=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_MendPet",ids={136,3111,3661,3662,13542,13543,13544}},
  },
  ROGUE={
-  {key="poisonMain",text="POISON: MAIN HAND!",kind="imbue",weapon="main",color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison",minLevel=20},
-  {key="poisonOff",text="POISON: OFF HAND!",kind="imbue",weapon="off",off=true,color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison",minLevel=20},
+  -- One alert for both hands; the line under it says which hand. Poisons,
+  -- ranks and levels come from Modules/PoisonData.lua (see
+  -- Modules/ClassReminderPoisons.lua), so it starts at the first level a
+  -- poison can be used, and a click can put the picked poison on.
+  {key="poison",text="POISON!",kind="poison",color={.52,1,.4},icon="Interface\\Icons\\Trade_BrewPoison"},
  },
  PRIEST={
   {key="fortitude",text="FORTITUDE!",kind="aura",group=true,dynamic=true,ids={1243,1244,1245,2791,10937,10938,21562,21564},reagentIds={21562,21564},reagentItems={[21562]=17029,[21564]=17029}},

@@ -34,12 +34,29 @@ local function Session(saved)
             cvars[name]=value
         end,
     }
+    env.UnitClass=function() return "Hunter","HUNTER" end
+    env.UISpecialFrames={}
     local frames,timers={},{}
-    env.CreateFrame=function()
-        local f={events={},scripts={}}
+    -- Enough of a frame for the /era reset prompt too.
+    local function Region()
+        local r={}
+        for _,m in ipairs({"SetPoint","SetWidth","SetHeight","SetJustifyH","SetColorTexture","SetTextColor","SetText"}) do r[m]=function() end end
+        return r
+    end
+    env.CreateFrame=function(_,name)
+        local f={events={},scripts={},shown=true}
         function f:RegisterEvent(event) self.events[event]=true end
         function f:UnregisterEvent(event) self.events[event]=nil end
         function f:SetScript(event,fn) self.scripts[event]=fn end
+        for _,m in ipairs({"SetSize","SetPoint","SetFrameStrata","SetToplevel","SetClampedToScreen","EnableMouse",
+            "SetBackdrop","SetBackdropColor","SetBackdropBorderColor","Raise"}) do f[m]=function() end end
+        function f:Show() self.shown=true end
+        function f:Hide() self.shown=false end
+        function f:IsShown() return self.shown end
+        function f:CreateTexture() return Region() end
+        function f:CreateFontString() return Region() end
+        function f:Click() self.scripts.OnClick(self) end
+        if name then env[name]=f end
         frames[#frames+1]=f;return f
     end
     env.C_Timer={After=function(_,fn) timers[#timers+1]=fn end}
@@ -64,7 +81,13 @@ local function Session(saved)
         for _,fn in ipairs(pending) do fn() end
     end
     Fire("ADDON_LOADED","EraUI");Fire("PLAYER_LOGIN")
-    return {E=E,env=env,fire=Fire,flush=Flush,reset=function() env.SlashCmdList.ERAUI("reset") end,
+    -- /era reset asks first; its Reset button is what resets (Tools/TestResetPrompt.lua).
+    local function Reset()
+        env.SlashCmdList.ERAUI("reset")
+        local prompt=env.EraUIResetPrompt
+        if prompt and prompt:IsShown() then prompt.reset:Click() end
+    end
+    return {E=E,env=env,fire=Fire,flush=Flush,reset=Reset,
         reloads=function() return reloads end,
         saved=function() return {account=Copy(env.EraUIDB),classic=Copy(env.EraUIClassicDB),character=Copy(env.EraUIClassicCharDB)} end}
 end
@@ -81,7 +104,17 @@ local oldHead=cvars.EraUIRecovery1Head
 local oldMirrors={classic=cvars.EraUIClassicSettings,swing=cvars.EraUICharSwing,onboarding=cvars.EraUIOnboarding}
 local account,classic,char=s.env.EraUIDB,s.env.EraUIClassicDB,s.env.EraUIClassicCharDB
 
-combat=true;s.reset()
+s.env.SlashCmdList.ERAUI("reset")
+Equal(s.env.EraUIResetPrompt:IsShown(),true,"/era reset asks first")
+Equal(s.reloads(),0,"asking does not reload")
+Equal(cvars.EraUIRecovery1Reset,nil,"asking makes no durable request")
+Equal(s.E.Persistence.resetting,nil,"asking does not suspend saves")
+s.env.EraUIResetPrompt.cancel:Click()
+Equal(s.reloads(),0,"Cancel does not reload")
+Equal(cvars.EraUIRecovery1Reset,nil,"Cancel makes no durable request")
+combat=true;s.env.SlashCmdList.ERAUI("reset")
+Equal(s.env.EraUIResetPrompt:IsShown(),false,"combat /era reset opens no prompt")
+s.reset()
 Equal(s.reloads(),0,"combat reset does not reload")
 Equal(cvars.EraUIRecovery1Reset,nil,"combat reset makes no durable request")
 Equal(s.E.Persistence.resetting,nil,"combat reset does not suspend saves")

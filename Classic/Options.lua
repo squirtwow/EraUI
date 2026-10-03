@@ -698,7 +698,7 @@ local function Help()
     ns.Print("  /eraui-classic layout - create and select a fresh classic edit mode layout")
     ns.Print("  /eraui-classic prompt - show the first-login layout question again")
     ns.Print("  /eraui-classic welcome - show the welcome note again")
-    ns.Print("  /eraui-classic reset - restore defaults")
+    ns.Print("  /eraui-classic reset - asks first, then resets the Classic look's own options and saved positions (outside combat)")
 end
 
 local function Status()
@@ -1148,10 +1148,21 @@ SlashCmdList.ERAUICLASSIC = function(msg)
         ns.db.layoutPrompted = nil
         StaticPopup_Show("ERAUI_BASE_FIRST_LOGIN")
     elseif cmd == "reset" then
-        wipe(ns.db)
-        for k, v in pairs(ns.DB_DEFAULTS) do ns.db[k] = v end
-        ns.Print("defaults restored")
-        ns.ApplyAll()
+        -- Asks first in EraUI's reset prompt (Core/Commands.lua); only its
+        -- Reset button runs the reset, which is unchanged. The question names
+        -- only what changes: ApplyAll copies the main Classic switches back
+        -- from /era straight after the wipe.
+        EraUI:AskReset({
+            title = "Reset Classic look",
+            question = "Reset the Classic look's own options and saved positions to their defaults?",
+            combat = "Finish combat before resetting the Classic look.",
+            run = function()
+                wipe(ns.db)
+                for k, v in pairs(ns.DB_DEFAULTS) do ns.db[k] = v end
+                ns.Print("defaults restored")
+                ns.ApplyAll()
+            end,
+        })
     elseif cmd == "textures" then
         if arg == "builtin" or arg == "bundled" then
             ns.db.textureSource = arg

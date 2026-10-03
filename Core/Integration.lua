@@ -497,6 +497,10 @@ loader:SetScript("OnEvent",function(_,event,name)
         EraUIDB.afkScreenVersion = 2
         EraUI:SaveSettings()
     end
+    -- The Poison Reminders panel became the rogue's POISON! class reminder
+    -- (after 1.5.1). Its users keep poison alerts; done once, after every
+    -- saved copy has loaded, like the AFK Screen switch-on above.
+    if EraUI.ReminderPoisons and EraUI.ReminderPoisons.Migrate(EraUIDB, ns.db) then EraUI:SaveSettings() end
     for key in pairs(EraUI.reloadSettings) do EraUI.loadedVisualSettings[key]=EraUIDB[key] end
     Sync()
 end)

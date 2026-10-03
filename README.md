@@ -81,6 +81,9 @@ or off in the settings.
   enough mana" (rage for a warrior's shout) shows until you can cast it. All
   reminders hide while you're on a flight path. Paladins can pick a seal and
   aura under Advanced, and hunters and warlocks can turn on PET LOW HEALTH!
+  Rogues get POISON! with a poison picked for each hand in /era; Click to
+  apply poisons (Needs testing, off by default) puts it on outside combat,
+  left-click for the main hand and right-click for the off hand
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
   spell levels, unlearned ranks, availability groups and search work immediately.
@@ -106,7 +109,7 @@ or off in the settings.
 - `/era audit` runs the addon audit report
 - `/era mapdebug` opens map diagnostics
 - `/era version` shows the loaded version
-- `/era reset` restores default settings and reloads automatically; use it outside combat
+- `/era reset` asks first, then restores default settings and reloads; use it outside combat
 
 Most options apply immediately; the settings panel marks the few that need a
 reload. General settings and reminder layouts are shared across your characters;

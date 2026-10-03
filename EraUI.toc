@@ -2,7 +2,7 @@
 ## Title: EraUI
 ## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
 ## Author: Squirt
-## Version: 1.5.1
+## Version: 1.5.2
 ## SavedVariables: EraUIDB, EraUIClassicDB
 ## SavedVariablesPerCharacter: EraUIClassicCharDB
 ## IconTexture: Interface\AddOns\EraUI\Media\EraUIIcon.tga
@@ -81,6 +81,7 @@ Modules\ClassAccents.lua
 Modules\AdvancedCastBar.lua
 Modules\AuraStyle.lua
 Modules\PortraitDebuffs.lua
+Modules\PoisonData.lua
 Modules\ClassTools.lua
 Modules\TrainingData.lua
 Modules\ClassQuestData.lua
@@ -89,13 +90,14 @@ Modules\CursorRing.lua
 Modules\CursorEffects.lua
 Modules\ChatDragging.lua
 Modules\ClassReminderData.lua
+Modules\ClassReminderPoisons.lua
 Modules\ClassReminders.lua
 Modules\HunterFeed.lua
 Modules\MageSupplies.lua
 Modules\RoguePoisons.lua
-Modules\PoisonReminders.lua
 Modules\MerchantTools.lua
 Modules\BagItemLevels.lua
+Modules\CharacterItemLevels.lua
 Modules\MinimapTools.lua
 Modules\MovableMap.lua
 Modules\MapRevealData.lua

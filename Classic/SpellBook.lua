@@ -274,7 +274,10 @@ local function Button_PostClick(self)
     if not self.slot then return end
     if IsModifiedClick("CHATLINK") then
         local ok, link = pcall(C_SpellBook.GetSpellBookItemLink, self.slot, state.bank)
-        if ok and link and not IsSecret(link) then ChatEdit_InsertLink(link) end
+        -- Forever's chat code is ChatFrameUtil; ChatEdit_InsertLink is only a
+        -- deprecated copy the game loads when its fallbacks are on.
+        local insert = ChatFrameUtil and ChatFrameUtil.InsertLink or ChatEdit_InsertLink
+        if ok and link and not IsSecret(link) and insert then insert(link) end
     end
 end
 

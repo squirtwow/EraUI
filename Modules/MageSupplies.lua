@@ -34,7 +34,8 @@ function M:SyncButtons()
  if InCombatLockdown()then return end
  local frame=E.settingsFrame
  for kind,slot in pairs(buttons)do
-  local visible=slot:IsShown()and frame and frame:IsShown()and slot.entry~=nil
+  -- IsVisible: a hidden options box or tab takes its conjure button with it.
+  local visible=slot:IsVisible()and frame and frame:IsShown()and slot.entry~=nil
   local left,top=slot:GetLeft(),slot:GetTop()
   local clip=frame and frame.settingsScroll
   if visible and clip then

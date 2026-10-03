@@ -319,7 +319,7 @@ local function Session(drag)
     for _, mod in ipairs(ns.modules) do if mod.key == "spellBook" then mod.init(); mod.apply() end end
     Tick()
 
-    local s = { env = env, client = client, casts = casts, settings = settings }
+    local s = { env = env, client = client, casts = casts, settings = settings, frames = frames }
     function s.Book() return env.EraUIClassicSpellBook end
     function s.Layer() return env.EraUIClassicSpellBookClicks end
     function s.Guide() return env.EraUITrainingGuide end
@@ -499,6 +499,40 @@ for _, drag in ipairs({ true, false }) do
     s.LeaveCombat()
     s.Press("P")
     Equal(s.Open(), false, "P closes the spell pages at the end" .. how)
+end
+
+-- Shift-click a spell to link it in chat. Forever's chat code is ChatFrameUtil;
+-- ChatEdit_InsertLink is only a deprecated copy the game loads while its
+-- fallbacks are on (Blizzard_DeprecatedChatInfo), so a link must not need it.
+do
+    local s = Session(false)
+    local env = s.env
+    s.Press("P")
+    local spell
+    for _, f in ipairs(s.frames) do
+        if f.secure and f.slot and f.scripts.PostClick and f:IsVisible() then spell = f; break end
+    end
+    Equal(spell ~= nil, true, "a spell on the open page")
+    local link = "|cff71d5ff|Hspell:" .. (1000 + spell.slot) .. "|h[Spell " .. spell.slot .. "]|h|r"
+    env.C_SpellBook.GetSpellBookItemLink = function(slot) return "|cff71d5ff|Hspell:" .. (1000 + slot) .. "|h[Spell " .. slot .. "]|h|r" end
+    local shift = true
+    env.IsModifiedClick = function(action) return shift and action == "CHATLINK" end
+    -- new: ChatFrameUtil.InsertLink (Forever), old: ChatEdit_InsertLink.
+    local function ShiftClick(new, old, label)
+        local got = {}
+        env.ChatFrameUtil = new and { InsertLink = function(text) got[#got + 1] = "new " .. text; return true end } or nil
+        env.ChatEdit_InsertLink = old and function(text) got[#got + 1] = "old " .. text end or nil
+        local ok, err = pcall(s.Click, spell)
+        Equal(ok, true, label .. ": shift-clicking a spell is not an error (" .. tostring(err) .. ")")
+        return table.concat(got, ", ")
+    end
+    Equal(ShiftClick(true, false, "Forever"), "new " .. link, "Forever: the spell's link goes to chat through ChatFrameUtil")
+    Equal(ShiftClick(false, true, "old client"), "old " .. link, "old client: through ChatEdit_InsertLink")
+    Equal(ShiftClick(true, true, "both"), "new " .. link, "both: ChatFrameUtil only")
+    Equal(ShiftClick(false, false, "neither"), "", "neither: no link, no error")
+    shift = false
+    Equal(ShiftClick(true, true, "plain click"), "", "a plain click links nothing")
+    env.ChatFrameUtil, env.ChatEdit_InsertLink = nil, nil
 end
 
 print("Spellbook key checks passed: " .. checks .. " assertions.")

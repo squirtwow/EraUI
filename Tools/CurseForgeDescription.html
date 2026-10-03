@@ -17,7 +17,7 @@
 <li>🔗&nbsp;<strong>Click links again to close</strong>: a second click on an item or spell link in chat closes its tooltip</li>
 <li>📣&nbsp;<strong>Update notice</strong>: EraUI tells you in chat when someone in your guild or group has a newer version</li>
 <li>💤&nbsp;<strong>AFK Screen</strong>: when you go AFK, the EraUI banner in your class colour, your character, your details and a famous Classic line for your class. On by default</li>
-<li>🎒&nbsp;<strong>Bag Item Levels</strong>: item levels in quality colours, upgrade arrows and a red icon on gear you can't equip (optional)</li>
+<li>🎒&nbsp;<strong>Bag &amp; Character Item Levels</strong>: item levels in quality colours on your bags and worn gear, upgrade arrows and a red icon on gear you can't equip (optional)</li>
 <li>🧑&nbsp;<strong>Class icon portraits</strong>: class icons instead of faces on your frame and other players'</li>
 <li>🔴&nbsp;<strong>Combo points your way</strong>: floating orbs in gold or red</li>
 <li>🖱️&nbsp;<strong>Cursor effects</strong>: independently optional cursor ring, cast-progress ring and fading trail, with adjustable appearance</li>
@@ -70,90 +70,16 @@
 <li>Damage &amp; healing text font and size &middot; click chat links again to close &middot; update notice</li>
 <li>Coordinates &middot; clean minimap &middot; cursor ring &middot; draggable chat<img src="https://media.forgecdn.net/attachments/description/1709918/description_3821712e-486e-47b5-9dd6-f9a7e2c9eef7.png" alt="" width="613" height="430"></li>
 </ul>
-<h2>🖱️ Cursor effects</h2>
+<h2>✨ And more</h2>
 <ul>
-<li>Find the controls under <code>/era</code> &rarr; <strong>Screen &amp; Cursor</strong></li>
-<li><strong>Cursor Ring</strong>: a ring follows your pointer, with adjustable diameter and thickness and an optional class colour</li>
-<li><strong>Cast Progress Ring</strong>: a thin ring fills during casts and drains during channels. When Cursor Ring is enabled, it stays outside that ring with a small gap. Interruptions simply hide it, without a red flash</li>
-<li><strong>Cursor Trail</strong>: a short, soft trail follows movement and fades away when the pointer stops</li>
-<li>The cast ring and trail each support class or custom colours and adjustable size and opacity. Trail fade length is also adjustable</li>
-<li>All three effects can be enabled or disabled independently and start off by default</li>
-</ul>
-<h2>🔤 Damage &amp; healing text</h2>
-<ul>
-<li>Find it under <code>/era</code> &rarr; <strong>Screen &amp; Cursor</strong>, or on its own page in <code>/era setup</code></li>
-<li>Pick the font of the damage and healing numbers over your targets, your own heals included: <strong>Pepsi</strong> by default, Bangers, Luckiest Guy, Lilita One, Titan One, Black Ops One, Russo One, Bungee, Permanent Marker, Press Start 2P, and the game's Skurri, Morpheus, Friz Quadrata and Arial Narrow</li>
-<li>A new font shows after you log out and back in. If you pick one during <code>/era setup</code>, the last page offers to log you out</li>
-<li>The size slider shows a sample number and applies straight away</li>
-<li>Fonts: Pepsi by Jakub Degórski; the others from Google Fonts under their own open licences</li>
-</ul>
-<h2>🎯 Important Debuffs on Portraits</h2>
-<ul>
-<li>Find this optional feature under <code>/era</code> &rarr; <strong>Frames &amp; Nameplates</strong>. Requires <strong>Unit Frames</strong></li>
-<li>Shows crowd control on player, target, focus and party <strong>unit portraits only</strong>, with the game's own icon, cooldown sweep and countdown, in and out of combat</li>
-<li>Enemy targets show the most important effect: stuns, then fear/incapacitation, silences and roots. Friendly units show any crowd control, and your own portrait shows what is controlling you</li>
-<li>While shown, the icon covers the portrait's level badge; your level returns when the effect ends</li>
-<li>Ordinary movement slows are not shown. Off by default</li>
-</ul>
-<h2>🧹 Full-bag junk cleanup</h2>
-<ul>
-<li>Enable <strong>Discard Junk When Full</strong> under <code>/era</code> &rarr; <strong>Bags &amp; Vendors</strong>. It starts off by default</li>
-<li>EraUI checks your bags automatically. You do not need to open them manually</li>
-<li>When bags are full, right-clicking a corpse the client identifies as lootable can free the cheapest grey stack during that click. If loot rights are unavailable, cleanup waits for a bags-full loot error and your next normal world or loot click</li>
-<li>Compares <strong>total stack vendor value</strong>, with at most one stack discarded per loot window</li>
-<li>Runs outside combat, skips locked and quest items, and leaves an occupied cursor alone. Unknown prices prevent choosing a potentially more expensive stack</li>
-<li>Hold <strong>Shift</strong> to bypass. No separate deletion confirmation is needed; a linked local chat message reports the discarded item and quantity</li>
-<li>Automatic looting gets one retry after space is freed; manual looting stays manual</li>
-</ul>
-<h2>🔔 Class reminders &amp; buffs</h2>
-<ul>
-<li>Open your class tab in <code>/era</code>, enable <strong>Class Reminders &amp; Buffs</strong>, and use the options directly below it</li>
-<li>Drag each alert independently, choose Small, Normal or Large, and reset positions when needed</li>
-<li>Use <strong>Show all reminders</strong> to preview and arrange applicable alerts</li>
-<li>Pick a preferred aspect, blessing, seal, aura, shaman weapon imbue or warlock demon under <strong>Advanced</strong></li>
-<li>Hunters have separate <strong>SUMMON PET!</strong> and <strong>PET DEAD!</strong> reminders, using Call Pet and Revive Pet icons; each can be toggled under <strong>Advanced</strong>. Selected warlock demons are checked by demon family</li>
-<li>Optional <strong>Clickable reminders (outside combat)</strong> starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast</li>
-<li>Hunters and warlocks can also turn on <strong>Click pet reminders in combat</strong> to click SUMMON PET!, PET DEAD! and PET LOW HEALTH! mid-fight</li>
-<li>Blessing, shaman imbue and warlock demon reminders left on <strong>Any</strong> cast the only one you know, or the one you cast last; or pick a specific one under <strong>Advanced</strong>. A buff you're missing yourself is cast on you, even with someone else targeted; otherwise targetable group buffs use your friendly living target. Reminders without an associated spell remain informational</li>
-<li>When you don't have the mana (or a warrior's rage) for a reminder's spell, <strong>Not enough mana</strong> (or rage) shows under it and it can't be clicked until you can cast it. Turn this off with <strong>Say when you're out of mana</strong> (<strong>out of rage</strong> for warriors)</li>
-<li>Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types</li>
-<li>All reminders hide while you're on a flight path and come back a moment after you land</li>
-<li>Optional <strong>PET LOW HEALTH!</strong> for hunters and warlocks shows below 35% by default (20 to 60%), in combat too with Show during combat. With Clickable reminders, clicking it out of combat casts Mend Pet or Health Funnel</li>
-<li>Shamans can enable a separate <strong>Windfury Totem</strong> reminder under Advanced; the general totem reminder checks whether any totem is active</li>
-<li>Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup</li>
-<li>Options follow class capabilities: ineffective Rogue/Shaman group checks and unsupported Rogue reminder clicking are hidden</li>
-<li>Dedicated Rogue <strong>Poison Reminders</strong> handles missing-poison alerts while enabled, avoiding duplicate generic alerts while retaining low-time and low-charge warnings. Poison Supplies remains a separate purchase/crafting tool</li>
-<li>Soulstone application checks whether a checked member is protected, rather than requiring it on everyone</li>
-<li>Alerts are silent and hidden during combat by default. <strong>Show during combat</strong> enables informational alerts; click actions always stay disabled during combat</li>
-</ul>
-<h2>🐾 Hunter feeding</h2>
-<ul>
-<li>Enable <strong>Pet Feeding</strong> in <code>/era</code> under Hunter; a feeding button appears outside combat when Feed Pet is learned and your living pet's happiness is low</li>
-<li>Configure food preferences under <strong>Pet Feeding Options</strong> in the Hunter tab</li>
-<li>Right-click the icon to unlock, drag it to move, scroll to resize and left-click to lock</li>
-<li>Once locked, left-click feeds your pet with the selected food</li>
-<li><strong>Move / resize feeding button</strong> opens a positioning preview, including before Feed Pet is learned</li>
-<li>The floating icon stays hidden while browsing settings; the Hunter panel explains pet-related visibility conditions</li>
-</ul>
-<h2>🧙 Class-tool settings</h2>
-<ul>
-<li>Class-reminder controls are available directly on each class page, without redundant Configure shortcuts</li>
-<li>Expanded class options and search results scroll within the settings window, keeping the footer accessible</li>
-<li>A centred <strong>Scroll down for more options</strong> hint appears when additional settings are below the viewport</li>
-<li>Mage <strong>Conjuring &amp; Trade Options</strong> includes one-click conjuring outside combat and configurable food/water trade stack counts</li>
-<li>Mage conjure buttons hide during combat; settings navigation, scrolling and closing remain available</li>
-</ul>
-<h2>📖 Training Guide</h2>
-<ul>
-<li><strong>Training Guide</strong> is enabled by default for fresh settings and resets; existing saved choices are respected. Its tab appears below the class icons and displays inside the Classic spellbook, which must also be enabled. Toggle Training Guide in <code>/era</code> and reload to apply</li>
-<li>Bundled spell metadata for all nine Forever classes populates the list immediately, without visiting a trainer</li>
-<li>Unverified seasonal/default learning levels are excluded rather than displayed as level-1 training</li>
-<li>Search unlearned spells and ranks, with groups for <strong>Available Now</strong>, <strong>Available but Missing Requirements</strong>, <strong>Coming Soon</strong> and <strong>Not Yet Available</strong></li>
-<li>See required levels and separate reference totals for current and all listed unlearned spells</li>
-<li>Cost references use Classic base prices and may differ on Forever; unverified prices are marked <strong>?</strong> and excluded from the priced subtotal</li>
-<li>Optional trainer visits update recorded quotes, including discounts, per character and realm</li>
-<li>Spells taught by class quests (Bear Form, Teleport: Moonglade, warrior stances, hunter pet skills, shaman totems, warlock demons and more) show <strong>Quest:</strong> with the quest's name and where it starts, for your race and faction, including Skyborne. Hover to see who gives it. They don't count as unknown prices</li>
-<li>Learned spells disappear from the list; return to a class tab to use the normal spellbook</li>
+<li>🖱️&nbsp;<strong>Cursor effects</strong></li>
+<li>🔤&nbsp;<strong>Damage &amp; healing text</strong></li>
+<li>🎯&nbsp;<strong>Important Debuffs on Portraits</strong></li>
+<li>🧹&nbsp;<strong>Full-bag junk cleanup</strong></li>
+<li>🔔&nbsp;<strong>Class reminders &amp; buffs</strong></li>
+<li>🐾&nbsp;<strong>Hunter feeding</strong></li>
+<li>🧙&nbsp;<strong>Class-tool settings</strong></li>
+<li>📖&nbsp;<strong>Training Guide</strong></li>
 </ul>
 <hr>
 <h2>💬 Commands</h2>
@@ -168,7 +94,7 @@
 <li><code>/era-classic status</code>&nbsp;opens the detailed status/error-report window, including the <strong>Discord</strong> button and a copyable support invite</li>
 <li><code>/era audit</code>&nbsp;runs the addon audit report</li>
 <li><code>/era mapdebug</code>&nbsp;opens map diagnostics</li>
-<li><code>/era reset</code>&nbsp;restores default settings and reloads automatically; use it outside combat</li>
+<li><code>/era reset</code>&nbsp;asks first, then restores default settings and reloads; use it outside combat</li>
 </ul>
 <hr>
 <p><em>Most options apply immediately; the panel marks the few that need a reload. General settings and reminder layouts are shared across your characters. Swing toggles and class-tool preferences are remembered per character and realm. Settings and supplementary panels use your class colour. Quiet Mode is on by default.</em></p>

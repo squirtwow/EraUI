@@ -1,0 +1,141 @@
+{
+  "build": "1.60.1.70170",
+  "sources": [
+    {
+      "url": "https://wago.tools/db2/Item/csv?build=1.60.1.70170",
+      "sha256": "b566cf59347ae5712fe8e8d8b0d71af4ddad9e7bee25b0a1512b7076fed04f22"
+    },
+    {
+      "url": "https://wago.tools/db2/ItemSparse/csv?build=1.60.1.70170",
+      "sha256": "4ace92a12e1c11c22d2d463d311817a77ba29c9787b229749e02d447851c3515"
+    },
+    {
+      "url": "https://wago.tools/db2/ItemEffect/csv?build=1.60.1.70170",
+      "sha256": "e9a98817821bcda2099110f6e3ee531515209b25f18fc6cdc3707072a6d1d2bc"
+    },
+    {
+      "url": "https://wago.tools/db2/ItemXItemEffect/csv?build=1.60.1.70170",
+      "sha256": "6e34ad9b4964e91f3bccf6ab5151efb9105c4eebd24ad54a28d9ee64e579892f"
+    },
+    {
+      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70170",
+      "sha256": "4df9522a8c8ae84ff3454642b5d2925124974b700ece2d13053ad90405a02416"
+    },
+    {
+      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70170",
+      "sha256": "b0afb64d7d256bdb5be7ba5fdc594ca7e93959579d0a1259faff454de7c47d21"
+    },
+    {
+      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70170",
+      "sha256": "24ac370c86e0cad3036e775691630c0161aa89c56a1b33d4193bf07ab20b8354"
+    },
+    {
+      "url": "https://wago.tools/db2/SpellItemEnchantment/csv?build=1.60.1.70170",
+      "sha256": "c7c23584388abd13e69c9806c69bbb39766b90cfd8868591a50a953b290b8a37"
+    },
+    {
+      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70170",
+      "sha256": "821ec6661b41f3e6a6eb77151bc644fffeffc62981af3ddcbe6fd3631c70d1a3"
+    }
+  ],
+  "summary": {
+    "Crippling Poison": "3775@20 3776@50",
+    "Instant Poison": "6947@20 6949@28 6950@36 8926@44 8927@52 8928@60",
+    "Mind-numbing Poison": "5237@24 6951@38 9186@52",
+    "Deadly Poison": "2892@30 2893@38 8984@46 8985@54 20844@60",
+    "Wound Poison": "10918@32 10920@40 10921@48 10922@56"
+  },
+  "excluded": [
+    {
+      "item": 2896,
+      "name": "Creeping Anguish",
+      "level": 0,
+      "spell": 2826,
+      "effect": 54,
+      "enchant": 10,
+      "enchantName": "Poison (20 Dmg)",
+      "reason": "item class 15/1, not a consumable"
+    },
+    {
+      "item": 2927,
+      "name": "Creeping Torment",
+      "level": 0,
+      "spell": 2827,
+      "effect": 54,
+      "enchant": 11,
+      "enchantName": "Poison (25 Dmg)",
+      "reason": "item class 15/1, not a consumable"
+    },
+    {
+      "item": 5654,
+      "name": "Instant Toxin",
+      "level": 24,
+      "spell": 6650,
+      "effect": 360,
+      "enchant": 42,
+      "enchantName": "Poison (Instant 20)",
+      "reason": "item class 15/1, not a consumable"
+    },
+    {
+      "item": 202316,
+      "name": "Runecarving Test - Crippling Poison",
+      "level": 20,
+      "spell": 398608,
+      "effect": 54,
+      "enchant": 22,
+      "enchantName": "Crippling Poison",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    },
+    {
+      "item": 217345,
+      "name": "Sebacious Poison",
+      "level": 60,
+      "spell": 439462,
+      "effect": 54,
+      "enchant": 7254,
+      "enchantName": "Sebacious Poison",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    },
+    {
+      "item": 217346,
+      "name": "Numbing Poison",
+      "level": 60,
+      "spell": 439464,
+      "effect": 54,
+      "enchant": 7255,
+      "enchantName": "Numbing Poison",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    },
+    {
+      "item": 217347,
+      "name": "Atrophic Poison",
+      "level": 60,
+      "spell": 439465,
+      "effect": 54,
+      "enchant": 7256,
+      "enchantName": "Atrophic Poison",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    },
+    {
+      "item": 226374,
+      "name": "Occult Poison I",
+      "level": 54,
+      "spell": 458821,
+      "effect": 54,
+      "enchant": 7542,
+      "enchantName": "Occult Poison I",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    },
+    {
+      "item": 234444,
+      "name": "Occult Poison II",
+      "level": 60,
+      "spell": 1214171,
+      "effect": 54,
+      "enchant": 7651,
+      "enchantName": "Occult Poison II",
+      "reason": "applied with the old temporary enchant effect 54, not Forever's imbue effect 360 (not converted for Forever: Season of Discovery or test item)"
+    }
+  ],
+  "note": "A poison is a consumable item usable only by rogues whose use spell coats a weapon with Forever's imbue effect 360 and an enchant that casts a spell on hit. Rogue items still on the old temporary enchant effect 54 (Season of Discovery poisons, test items) were not converted for Forever and are left out. Families and ranks come from the item names (a trailing Roman numeral is the rank), checked against the use spell's rank and rising required levels."
+}

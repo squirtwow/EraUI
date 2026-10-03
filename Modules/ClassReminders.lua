@@ -16,9 +16,8 @@ local SIZES={
 
 local function Enabled()return E:GetSetting("enabled") and E:GetSetting("classReminders")end
 local function Definitions()return E.ReminderSpells[class]or{}end
-local function DedicatedPoisons()
- return class=="ROGUE"and E:GetSetting("poisonReminders")
-end
+-- POISON!'s hands, picks and clicks (Modules/ClassReminderPoisons.lua).
+local Poisons=E.ReminderPoisons
 -- Only pet reminders can be clicked in combat: the game itself shows each
 -- one's secure alert by these macro conditions, as no addon may show a secure
 -- button mid-fight. Macro conditions can't see buffs, items or totems, so
@@ -33,15 +32,19 @@ end
 local function CombatMacro(def,name)
  return "/cast "..(def.kind=="petHealth"and "[combat,@pet,exists,nodead]"or "[combat]").." "..name
 end
+-- What the class's reminders can do: group checks, clicks, the resource
+-- they cost, pet clicks in combat, spell clicks (the "out of" note) and
+-- poison clicks.
 local function ReminderCapabilities()
- local group,clickable,power,petCombat=false,false,nil,false
+ local group,clickable,power,petCombat,spells,poisons=false,false,nil,false,false,false
  for _,def in ipairs(Definitions())do
   if def.group and not def.self and(not def.kind or def.kind=="aura")then group=true end
+  if def.kind=="poison"then clickable=true;poisons=true end
   if not def.noCast then
    local can=#(def.castIds or def.ids or{})>0
    for _,choice in ipairs(def.choices or{})do if #(choice.ids or{})>0 then can=true end end
    if can then
-    clickable=true
+    clickable=true;spells=true
     if CombatRule(def)then petCombat=true end
     -- The "out of" option names what your reminders cost; a mix says mana.
     local p=def.power or "mana"
@@ -49,7 +52,7 @@ local function ReminderCapabilities()
    end
   end
  end
- return group,clickable,power or "mana",petCombat
+ return group,clickable,power or "mana",petCombat,spells,poisons
 end
 local function Save()if E.Classic and E.Classic.MirrorSave then E.Classic.MirrorSave()end end
 local function Opt(key)return EraUIDB and EraUIDB[key]end
@@ -69,6 +72,9 @@ local function CombatClick()return Opt("reminderCombatClick")==true end
 -- the class has a pet alert. A saved "on" that is greyed out, or on a class
 -- without a pet, changes nothing (EraUIDB is shared by every character).
 local function CombatClickLive()return CombatClick()and Clickable()and Enabled()and select(4,ReminderCapabilities())==true end
+-- "Click to apply poisons" (Needs testing): off by default, and only with
+-- Clickable reminders on.
+local function PoisonClick()return Opt("reminderPoisonClick")==true end
 local function ManaOn()return Opt("reminderMana")~=false end
 -- Rage has its own switch, so a warrior turning it off keeps mana notes on alts.
 local function RageOn()return Opt("reminderRage")~=false end
@@ -195,6 +201,7 @@ local function CastKnown(def,ids)
 end
 -- A reminder never fires for a spell the character cannot use yet.
 local function Applicable(def)
+ if def.kind=="poison"and not Poisons.Usable()then return false end
  if def.minLevel then
   local level=UnitLevel("player")
   if not T.Number(level)or level<def.minLevel then return false end
@@ -334,6 +341,8 @@ local function AlertText(def)
 end
 local UNKNOWN_ICON="Interface\\Icons\\INV_Misc_QuestionMark"
 local function Icon(def)
+ -- POISON!: the poison a click would put on, once its state was read.
+ if def.kind=="poison"then return Poisons.Icon()or def.icon end
  if Undecided(def)then return UNKNOWN_ICON end
  local choice=ChoiceOf(def)or AnyChoice(def)
  local id=CastKnown(def,choice and choice.ids or def.ids)
@@ -464,17 +473,14 @@ local function DefState(def,cache)
   local n=ItemCount(def.items)
   return n==0,n>0 and("In bags: "..n)or "None in bags"
  end
+ -- The pick-by-pick bag notes only while a click can put a poison on.
+ if kind=="poison"then return Poisons.State(Clickable()and PoisonClick())end
  if kind=="imbue"then
    local state=T.WeaponCoating(def.weapon=="off"and 17 or 16)
    if not state then return nil,"Coating data unavailable"end
    if not state.weapon then return false,"No weapon equipped"end
    local hand=(def.weapon=="off")and "Off hand"or "Main hand"
    if not state.has then return true,hand.." empty"end
-   if class=="ROGUE"then
-    local poison=T.CoatingIsPoison(state)
-    if poison==nil then return nil,"Coating type unconfirmed"end
-    return not poison,poison and(hand.." poison applied")or(hand.." has another coating")
-   end
    local choice=ChoiceOf(def)
    if not state.kind then return nil,"Coating type unconfirmed"end
    if choice then return state.kind~=choice.key,state.kind==choice.key and "Selected imbue applied"or "Different coating applied"end
@@ -577,11 +583,16 @@ end
 -- The note's word, colour and icon tint for each resource.
 local POWER={mana={"mana","8fa8ff",.5,.5,1},rage={"rage","ff7a6e",1,.5,.5}}
 local function Power(def)return POWER[def.power or "mana"]or POWER.mana end
-local function Disarm(row)
+-- A row's spell click only; Disarm also puts POISON!'s click away.
+local function DisarmSpell(row)
  if InCombatLockdown()or not row.action then return end
  row.action:SetAttribute("type1",nil)
  row.action:SetAttribute("macrotext1",nil)
  row.action:Hide()
+end
+local function Disarm(row)
+ Poisons.DisarmRow(row)
+ DisarmSpell(row)
 end
 local function DisarmAll()
  for _,row in ipairs(rows or{})do Disarm(row)end
@@ -590,9 +601,9 @@ local function SyncClick(row,def,missing,selfMissing)
  if InCombatLockdown()then return end
  local id=Clickable()and not preview and missing and ClickSpell(def)
  local name=id and T.Spell(id)
- if not T.Public(name)or type(name)~="string"or name==""then Disarm(row);return end
+ if not T.Public(name)or type(name)~="string"or name==""then DisarmSpell(row);return end
  local x,y=row.iconFrame:GetCenter()
- if not T.Number(x)or not T.Number(y)then Disarm(row);return end
+ if not T.Number(x)or not T.Number(y)then DisarmSpell(row);return end
  local action=row.action
  if not action then
   -- Independent parent AND screen-space anchors: alert rows remain free to
@@ -602,7 +613,7 @@ local function SyncClick(row,def,missing,selfMissing)
   action:Hide();action:SetFrameStrata("HIGH")
   action:RegisterForClicks("LeftButtonUp","LeftButtonDown")
   action:SetAttribute("_onstate-combat",[[
-   if newstate == "1" then
+   if newstate == 1 or newstate == "1" then
     self:SetAttribute("type1", nil)
     self:SetAttribute("macrotext1", nil)
     self:Hide()
@@ -851,7 +862,6 @@ local function Paint()
  local cache=Cache()
  local n=0
  local stacked=0
- local dedicatedPoisons=DedicatedPoisons()
  -- In combat, stack slots the game shows a pet alert in are left free. Out
  -- of combat, where each pet alert goes: its row, or where that would stack.
  -- Pet reminders never show together, so they don't count for each other.
@@ -863,7 +873,7 @@ local function Paint()
    local actionable=false
    local selfMissing=false
    local faded=false -- the game decides how much of it shows (Fade)
-  if not(dedicatedPoisons and(def.key=="poisonMain"or def.key=="poisonOff"))and Applicable(def)then
+  if Applicable(def)then
    local on=DefOn(def)
    if on then
     local missing,info,lacking,fade=DefState(def,cache)
@@ -925,9 +935,17 @@ local function Paint()
     end
      row:Show()
      SyncClick(row,def,actionable,selfMissing)
-     -- On Any with several known and none cast yet, hovering says what to do.
-     local waiting=actionable and Clickable()and not preview and not def.noCast and Undecided(def)
-     row.hint=waiting and PickHint(def)or nil
+     if def.kind=="poison"then
+      -- Left-click for the main hand, right-click for the off hand: out of
+      -- combat, with Clickable reminders and Click to apply poisons on.
+      local tip=Poisons.Sync(row,actionable and Clickable()and PoisonClick()and not preview,Poisons.need)
+      row.hint=tip and table.concat(tip,"\n")or nil
+     else
+      Poisons.DisarmRow(row)
+      -- On Any with several known and none cast yet, hovering says what to do.
+      local waiting=actionable and Clickable()and not preview and not def.noCast and Undecided(def)
+      row.hint=waiting and PickHint(def)or nil
+     end
    end
   end
   if spots and CombatRule(def)then spots[def]={row=show and rows[n]or nil,slot=show and stacked or plain+1}end
@@ -1063,6 +1081,20 @@ local function ChoiceButton(parent,def,switch)
  return b
 end
 
+-- A hand's poison button ("Main hand: Instant Poison  >") cycles through the
+-- poisons your level allows.
+local function PoisonButton(parent,hand)
+ local b=ActionButton(parent,"",328)
+ b.draw=function()b.label:SetText(Poisons.Label(hand))end
+ b:SetScript("OnClick",function()
+  if InCombatLockdown()then return end
+  Poisons.Cycle(hand);b.draw();M:Refresh()
+ end)
+ Explain(b,hand=="off"and "Off hand poison"or "Main hand poison",function()return Poisons.ChoiceHelp(hand)end,function()return Poisons.DefaultText(hand)end)
+ b.draw()
+ return b
+end
+
 local function BuildOptions(parent,anchor)
  if dropdown then return dropdown end
  local items={}
@@ -1074,7 +1106,7 @@ local function BuildOptions(parent,anchor)
  dropdown:SetBackdropColor(.026,.029,.037,.99)
  local r,g,b=T.Colour()
  dropdown:SetBackdropBorderColor(.19,.20,.24,1)
- local groupSupported,clickSupported,power,petCombatSupported=ReminderCapabilities()
+ local groupSupported,clickSupported,power,petCombatSupported,spellSupported,poisonSupported=ReminderCapabilities()
  local group=ToggleRow(dropdown,"Check my party and raid",GroupOn,function(v)SetOpt("reminderGroup",v)end)
   local combat=ToggleRow(dropdown,"Show during combat",CombatOn,function(v)SetOpt("reminderCombat",v)end)
   local clickable=ToggleRow(dropdown,"Clickable reminders (outside combat)",Clickable,function(v)SetOpt("reminderClickable",v);M:UpdateOptionsState()end)
@@ -1082,6 +1114,14 @@ local function BuildOptions(parent,anchor)
   local combatClick=ToggleRow(dropdown,"Click pet reminders in combat",CombatClick,function(v)SetOpt("reminderCombatClick",v)end)
   Needs(combatClick,Clickable,"Turn on Clickable reminders to use this.")
   Explain(combatClick,"Click pet reminders in combat",CombatClickHelp,function()return "Default: Off."end)
+  -- Rogues: POISON! clickable to apply, and each hand's poison.
+  local poisonClick,mainPoison,offPoison
+  if poisonSupported then
+   poisonClick=ToggleRow(dropdown,"Click to apply poisons (Needs testing)",PoisonClick,function(v)SetOpt("reminderPoisonClick",v)end)
+   Needs(poisonClick,Clickable,"Turn on Clickable reminders to use this.")
+   Explain(poisonClick,"Click to apply poisons",Poisons.ClickHelp,function()return "Default: Off."end)
+   mainPoison,offPoison=PoisonButton(dropdown,"main"),PoisonButton(dropdown,"off")
+  end
   local mana=ToggleRow(dropdown,"Say when you're out of "..power,power=="rage"and RageOn or ManaOn,
    function(v)SetOpt(power=="rage"and "reminderRage"or "reminderMana",v);M:Refresh()end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
@@ -1140,15 +1180,19 @@ local function BuildOptions(parent,anchor)
    end
   end
  end
-  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=combatClick;items[#items+1]=mana;items[#items+1]=prev
+  items[#items+1]=group;items[#items+1]=combat;items[#items+1]=clickable;items[#items+1]=combatClick
+  if poisonSupported then items[#items+1]=poisonClick;items[#items+1]=mainPoison;items[#items+1]=offPoison end
+  items[#items+1]=mana;items[#items+1]=prev
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
  for _,frame in ipairs(advRows)do items[#items+1]=frame;items[#items+1]=frame.limit;items[#items+1]=frame.choice end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
  dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
  dropdown.groupSupported,dropdown.clickSupported,dropdown.petCombatSupported=groupSupported,clickSupported,petCombatSupported
+ dropdown.spellSupported=spellSupported
   dropdown.group,dropdown.combat,dropdown.prev=group,combat,prev
   dropdown.clickable,dropdown.combatClick,dropdown.mana=clickable,combatClick,mana
+ dropdown.poisonClick,dropdown.mainPoison,dropdown.offPoison=poisonClick,mainPoison,offPoison
  dropdown.size,dropdown.reset,dropdown.adv,dropdown.advRows=size,reset,adv,advRows
  dropdown:Hide()
  return dropdown
@@ -1165,7 +1209,9 @@ function M:LayoutDropdown()
   frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
  end
   place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported)
-  place(dropdown.combatClick,dropdown.petCombatSupported);place(dropdown.mana,dropdown.clickSupported);place(dropdown.prev)
+  place(dropdown.combatClick,dropdown.petCombatSupported)
+  place(dropdown.poisonClick);place(dropdown.mainPoison);place(dropdown.offPoison)
+  place(dropdown.mana,dropdown.spellSupported);place(dropdown.prev)
  if dropdown.size then
   if dropdown.size.draw then dropdown.size.draw()end
   dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
@@ -1202,17 +1248,13 @@ function M:UpdateOptionsState()
   if on then if frame.Enable then frame:Enable()end
   else if frame.Disable then frame:Disable()end end
  end
- -- Click pet reminders in combat waits for Clickable reminders.
- local cc=dropdown.combatClick
- if cc then
+ -- Click pet reminders in combat and Click to apply poisons wait for
+ -- Clickable reminders.
+ for _,cc in ipairs({dropdown.combatClick,dropdown.poisonClick})do
   cc.draw()
   if cc.dependencyDisabled and cc.Disable then cc:Disable()end
  end
- if dropdown.offHint then
-  local dedicated=DedicatedPoisons()
-  dropdown.offHint:SetText(dedicated and "Poison Reminders handles missing-poison alerts while enabled."or "Turn on Class Reminders & Buffs to use these options.")
-  dropdown.offHint:SetShown(not on or not not dedicated)
- end
+ if dropdown.offHint then dropdown.offHint:SetShown(not on)end
 end
 function M:OptionsPanel()
  return dropdown

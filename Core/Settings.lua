@@ -157,7 +157,6 @@ local classIconCoords = CLASS_ICON_TCOORDS or {
 local settingHelp = {
     discardCheapestJunk = "With full bags, right-clicking a corpse the client identifies as lootable frees the lowest-value grey stack during that click. If loot rights are unavailable, cleanup waits for a bags-full loot error and the next normal world/loot click. At most one stack per loot window. No separate confirmation; the deleted item is reported in chat. Compares total stack vendor value and skips locked/quest items or unknown prices. Never runs in combat or with an occupied cursor. Hold Shift to bypass.",
     cursorCastRing = "A thin progress ring follows your cursor, filling during casts and draining during channels. Works independently of Cursor Ring and the normal cast bar. When Cursor Ring is enabled, the cast ring grows as needed to stay outside it with a small gap. Stops quietly on interruption.",
-    poisonReminders = "Shows missing poison, low remaining time and low charges. While enabled, this panel handles missing-poison warnings instead of duplicating the generic Rogue class alerts. Poison Supplies is separate and manages buying/crafting. Preview while settings are open; right-click the header to move or resize.",
     portraitDebuffs = "Shows crowd control on player, target, focus and party portraits with the game's own icon, sweep and countdown, in and out of combat. Enemy targets show the most important effect: stuns, then fears/incapacitates, silences and roots. Friendly units show any crowd control. While shown, the icon extends slightly past the portrait's edge on purpose, to cover the level badge; your level returns when the effect ends. Requires Unit Frames. Applies immediately; off by default.",
     classColourBorders = "Use each player's class colour on normal player, target and focus borders in Dark Mode. Keeps dark interiors, health/power colours and special rare/elite artwork. Requires Dark Mode and Unit Frames. Reload to apply. Off by default.",
     darkMode = "Dark decorative artwork. Character, party and raid frames keep their appearance. Reload to apply either style; Quality of Life choices are unchanged.",
@@ -208,6 +207,7 @@ local settingHelp = {
     afkShowQuote = "A famous line from World of Warcraft Classic for your class, like a loading-screen tip. A new one each time you're away.",
     tooltipClassColours = "A player's tooltip shows their class colour on its border, their name and their class, for example a rogue's name and \"Rogue\" in rogue yellow. Works with EraUI's Classic tooltips or the game's own. NPCs and pets keep their usual colours, and if the game hides a player's class the tooltip stays as it is. Only colours change: the tooltip's lines are the game's. Applies the next time you hover a player. Off by default.",
     bagItemLevels = "Shows the item level of every piece of gear in your bags as a big number at the bottom right, in the item's quality colour: grey, white, green, blue or purple. Armour, rings, necks, cloaks, trinkets, relics and weapons get one (not bags, quivers, ammo, shirts or tabards). A small green arrow at the top right means it has a higher item level than what you wear in that slot, a red arrow a lower one. Rings, trinkets and, when you dual wield, one-hand weapons are compared with the weaker of the two you wear. Upgrade means item level only for now: stats, armour type and set bonuses are not compared. Gear you can't equip right now has its icon tinted red, using the game's own check, so it follows your level and the armour and weapon skills you learn, such as plate or mail at level 40. Works with Blizzard's bags, EraUI's Classic bags and One bag, not the bank yet. Applies immediately. Off by default.",
+    characterItemLevels = "Shows the item level of each piece of gear you wear as a big number at the bottom right of its slot in the character window, in the item's quality colour: grey, white, green, blue or purple. Every slot gets one except the shirt, tabard and ammo slots. A stack of throwing weapons keeps the game's count in that corner instead, and an empty slot shows nothing. The same numbers and look as Bag Item Levels, so your bags and your character window agree. Works with EraUI's Classic character window and Blizzard's own. Applies immediately. Needs testing. Off by default.",
     darkAuraBorders = "A thin dark border around your own buff and debuff icons at the top right, including weapon enchants, to match Dark Mode. Debuffs keep their coloured border on top. Target and focus auras are drawn by the game's protected aura frames and keep their own look. Only EraUI's border is added: timers, tooltips and right-click cancelling are unchanged, in and out of combat. Requires Dark Mode. On by default, so choosing Dark Mode adds them; switch this off to keep plain icons. Applies immediately once Dark Mode is active.",
     darkAuraShadows = "A soft shadow round your own buff and debuff icons, just outside the dark border. It fades out in the gap between icons, so it never covers the next icon, and it sits under every timer and debuff border. Requires Dark Mode and Dark Aura Borders. Needs testing. On by default. Applies immediately once Dark Mode is active.",
     -- Fuller help for cards whose one-line summary is short.
@@ -493,6 +493,11 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             EraUI:Status("Bag Item Levels "..(value and "enabled. Open your bags to see it." or "disabled."))
             return
         end
+        if key=="characterItemLevels" then
+            if EraUI.modules.CharacterItemLevels then EraUI.modules.CharacterItemLevels:Refresh() end
+            EraUI:Status("Character Item Levels "..(value and "enabled. Open your character window to see it." or "disabled."))
+            return
+        end
         -- Its folded options open or close under it at once.
         if FOLD_PARENTS[key] and parent.RefreshFolds then parent:RefreshFolds() end
         if key=="cursorRing" or key=="cursorRingClassColour" then
@@ -529,15 +534,13 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:Refresh() end
             return
         end
-        if key=="poisonReminders" then
-            if EraUI.modules.PoisonReminders then EraUI.modules.PoisonReminders:Refresh()end
-            local reminders=EraUI.modules.ClassReminders
-            if reminders then reminders:Refresh();reminders:UpdateOptionsState()end
-            return
-        end
         if key=="hunterFeed" or key=="mageSupplies" or key=="mageAutoTrade" or key=="roguePoisons" or key=="classReminders" then
             local tools=EraUI.modules.ClassTools
             if tools then tools:Refresh() end
+            -- Every class has class reminders, whichever class tool it runs
+            -- (a rogue's is Poison Supplies), so they and their clicks follow at once.
+            local reminders=EraUI.modules.ClassReminders
+            if key=="classReminders" and reminders and not(tools and tools:ActiveModule()==reminders) then reminders:Refresh() end
             return
         end
         if key=="mapQuestObjectives" or key=="rewardUpgradeHighlight" then
@@ -818,7 +821,20 @@ function SettingsModule:Initialize()
     local function ShowEntries(entries,reset,pad)
         local wanted={}
         for _,entry in ipairs(entries)do wanted[entry]=true end
-        for _,check in pairs(frame.checks)do check:SetShown(wanted[check]==true)end
+        for _,check in pairs(frame.checks)do
+            check:SetShown(wanted[check]==true)
+            -- A class card's options box opens under it on its tab only:
+            -- search lists the card alone, and leaving search (the card may
+            -- never hide) brings the box back.
+            local box=check.inlinePanel
+            if check.attachPanel and check:IsShown()then
+                if frame.searching then
+                    if box then box:Hide()end
+                elseif not(box and box:IsShown())and check:IsVisible()then
+                    check.attachPanel()
+                end
+            end
+        end
         for _,label in pairs(frame.sectionLabels)do label:SetShown(wanted[label]==true)end
         for _,tag in pairs(searchTags)do tag:Hide()end
         -- A card with its options on show starts a row, so they follow it
@@ -984,6 +1000,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Highlight Reward Upgrades", "rewardUpgradeHighlight", "INV_Misc_ArmorKit_17", "Suggests a reward using your stat profile. You still choose.", false)
     -- Character & Spells.
     MakeCheck(frame, "Character Window", "characterPanel", "INV_Misc_Book_09", "Classic panels, rows and bottom tabs.", false)
+    MakeCheck(frame, "Character Item Levels", "characterItemLevels", "INV_Helmet_08", "Item levels on the gear you wear, in quality colours. Needs testing.", false)
     MakeCheck(frame, "Talents", "talentWindow", "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
     MakeCheck(frame, "Spellbook", "spellbook", "INV_Misc_Book_09", "Classic book and native spell actions.", false)
     MakeCheck(frame, "Combat Spell Dragging", "spellbookCombatDrag", "Spell_Holy_MagicalSentry", "Use native spell buttons to drag spells during combat. Reload to apply.", false)
@@ -1321,13 +1338,13 @@ function SettingsModule:Initialize()
         {"hunterFeed","Pet Feeding","HUNTER","Feeding button when pet happiness is low, plus Feed Pet duration. Right-click the icon to unlock, drag or scroll to arrange it, then left-click to lock. Use Move / resize below to preview it before learning Feed Pet."},
         {"mageSupplies","Conjuring Suggestions","MAGE","Suggest learned food and water for your target's level. Open Class Tools to conjure."},
         {"mageAutoTrade","Auto-fill Trade","MAGE","Place full stacks of suitable conjured food and water in trade. Stack counts are in Class Tools."},
-        {"poisonReminders","Poison Reminders","ROGUE","Missing weapon coatings, low time and charges. Preview while settings are open; right-click header to move/resize."},
         {"roguePoisons","Poison Supplies","ROGUE","Poison vendor quantities, material purchases, crafting and Flash Powder. Open Class Tools for controls."},
     }) do
         MakeCheck(frame,entry[2],entry[1],"INV_Misc_Bag_10",entry[4],false)
         frame.checks[entry[1]].classAllowed=classToken==entry[3]
     end
-    MakeCheck(frame,"Class Reminders & Buffs","classReminders","Spell_Holy_MagicalSentry","Big on-screen alerts when a class buff, pet or supply is missing.",false)
+    -- Rogue poisons are one of these alerts (POISON!), so "poison" finds it.
+    MakeCheck(frame,"Class Reminders & Buffs","classReminders","Spell_Holy_MagicalSentry","Big on-screen alerts when a class buff, pet, poison or supply is missing.",false)
     frame.checks.classReminders.classAllowed=true
     do
         local reminders=frame.checks.classReminders
@@ -1335,7 +1352,9 @@ function SettingsModule:Initialize()
         if reminders and module then
             module.settingsFrame=frame
             module.settingsAnchor=reminders
-            reminders:HookScript("OnShow",function()module:AttachOptions(frame,reminders)end)
+            -- Its options box opens under it, except in search (ShowEntries).
+            reminders.attachPanel=function()module:AttachOptions(frame,reminders)end
+            reminders:HookScript("OnShow",function()if not frame.searching then reminders.attachPanel()end end)
             reminders:HookScript("OnHide",function()module:HideOptions()end)
             reminders:HookScript("OnClick",function()module:UpdateOptionsState()end)
         end
@@ -1345,7 +1364,9 @@ function SettingsModule:Initialize()
     local toolsButton=CreateFrame(toolsInline and "Frame" or "Button",nil,frame,"BackdropTemplate")
     -- Reminder-only classes already have their full controls on this page.
     toolsButton.classAllowed=not not(hasClassControls and toolsModule and toolsModule~=EraUI.modules.ClassReminders)
-    toolsButton.searchText="class tools pet feeding food water conjure trade poison supplies flash powder options"
+    -- Each class's own tool words, so a hunter's "poison" finds nothing here.
+    toolsButton.searchText="class tools options "..(({HUNTER="pet feeding food",
+        MAGE="conjure conjuring food water trade",ROGUE="poison supplies flash powder"})[classToken] or "")
     toolsButton:SetSize(350,74)
     toolsButton:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
     local tr,tg,tb=ClassColour()
@@ -1372,14 +1393,21 @@ function SettingsModule:Initialize()
             if EraUI.modules.ClassTools then EraUI.modules.ClassTools:Open() end
         end)
     end
-    toolsButton:HookScript("OnShow",function()
-        local tools=EraUI.modules.ClassTools
-        local m=tools and tools:ActiveModule()
-        if m and m.Attach and m~=EraUI.modules.ClassReminders then
-            m.settingsFrame=frame
-            m.settingsAnchor=toolsButton
-            m:Attach(frame,toolsButton)
+    -- Hunter and Mage options open under this heading, except in search
+    -- (ShowEntries).
+    if toolsInline then
+        toolsButton.attachPanel=function()
+            local tools=EraUI.modules.ClassTools
+            local m=tools and tools:ActiveModule()
+            if m and m.Attach and m~=EraUI.modules.ClassReminders then
+                m.settingsFrame=frame
+                m.settingsAnchor=toolsButton
+                m:Attach(frame,toolsButton)
+            end
         end
+    end
+    toolsButton:HookScript("OnShow",function()
+        if toolsButton.attachPanel and not frame.searching then toolsButton.attachPanel()end
     end)
     toolsButton:HookScript("OnHide",function()
         local tools=EraUI.modules.ClassTools
@@ -1388,7 +1416,7 @@ function SettingsModule:Initialize()
     end)
     frame.checks.classTools=toolsButton
     -- Compact class controls so unavailable features never leave empty cells.
-    classOrder={"floatingComboPoints","comboPointRed","energyBar","rageBar","manaBar","druidResourceBar","swingTimer","rangedSwingTimer","hunterFeed","mageSupplies","mageAutoTrade","roguePoisons","poisonReminders","classReminders","classTools"}
+    classOrder={"floatingComboPoints","comboPointRed","energyBar","rageBar","manaBar","druidResourceBar","swingTimer","rangedSwingTimer","hunterFeed","mageSupplies","mageAutoTrade","roguePoisons","classReminders","classTools"}
     -- The reward profile, right after Highlight Reward Upgrades.
     local profile=CreateFrame("Button",nil,frame,"BackdropTemplate")
     profile:SetSize(350,74)
@@ -1432,7 +1460,7 @@ function SettingsModule:Initialize()
         map={"minimap","cleanMinimap","coordinates","mapQuestObjectives","movableMap","revealMap"},
         quests={"questLog","questDialogs","questTracker","questLevels","autoQuests","autoGossip",
             "rewardUpgradeHighlight","rewardProfile"},
-        character={"characterPanel","talentWindow","spellbook","spellbookCombatDrag","trainingGuide",
+        character={"characterPanel","characterItemLevels","talentWindow","spellbook","spellbookCombatDrag","trainingGuide",
             "showAllSpellRanks","trainer","professions"},
         bags={"#bagsLoot","bagsBank","bagSpace","bagItemLevels","lootWindow","fastAutoLoot","discardCheapestJunk",
             "#vendors","merchantSkin","autoSellJunk","autoRepair","vendorPrice","junkValueSummary","durabilityWarning"},
@@ -1798,7 +1826,8 @@ function SettingsModule:Initialize()
     trackerButtons[2]=Choice("Questie Tracker","Questie's own tracker, unfolded. |cffffd24aDoes not list quests on WoW Forever yet.|r",1,function()ChooseTracker("questie")end)
     frame.trackerChoices=trackerButtons
 
-    -- Reuse the actual controls so search preserves their normal actions and dependencies.
+    -- Reuse the actual controls so search preserves their normal actions and
+    -- dependencies. Class options boxes stay on the class tab.
     local search = CreateFrame("EditBox", nil, frame, "BackdropTemplate")
     frame.searchBox=search
     search:SetSize(440,28);search:SetPoint("TOPLEFT",PAGE_LEFT,-96)
@@ -1820,15 +1849,36 @@ function SettingsModule:Initialize()
         frame.searching=false
     end
     -- Each result shows the tab it lives on, in small capitals above it.
+    -- Clicking the name opens that tab at the card, its options under it.
     local function SearchTag(check)
         local tag=searchTags[check]
         if not tag then
-            tag=Text(check,"",10);tag:SetPoint("BOTTOMLEFT",check,"TOPLEFT",8,3)
+            tag=CreateFrame("Button",nil,check)
+            tag:SetHeight(14);tag:SetPoint("BOTTOMLEFT",check,"TOPLEFT",8,2)
+            tag.label=Text(tag,"",10)
+            tag:SetFontString(tag.label)
+            tag.label:ClearAllPoints();tag.label:SetPoint("LEFT")
+            tag:SetScript("OnEnter",function()tag.label:SetTextColor(1,1,1)end)
+            tag:SetScript("OnLeave",function()tag.label:SetTextColor(ClassColour())end)
+            tag:SetScript("OnClick",function()
+                local tab=tabs[check.category]
+                if not tab then return end
+                tab:Click()
+                -- A folded option opens at its switch.
+                local target=check
+                if not target:IsShown()then target=frame.checks[FOLDS[check.settingKey or ""] or ""] end
+                if target and target:IsShown()then
+                    frame:SetSettingsScroll(frame.settingsContent:GetTop()-target:GetTop())
+                end
+            end)
             searchTags[check]=tag
         end
         local tab=categories[check.category]
         tag:SetText(check.searchTag or string.upper(tab and tab.name or ""))
-        tag:SetTextColor(ClassColour())
+        tag:SetWidth(tag.label:GetStringWidth()+2)
+        -- The Update notice's tick is not on a tab: its name stays plain grey.
+        if tab then tag.label:SetTextColor(ClassColour())else tag.label:SetTextColor(.58,.62,.68)end
+        tag:EnableMouse(tab~=nil)
         return tag
     end
     frame.searchTags,frame.searchResultsText,frame.searchPrev,frame.searchNext=searchTags,results,prev,next
@@ -1870,7 +1920,7 @@ function SettingsModule:Initialize()
         end
         if #current>0 then resultPages[#resultPages+1]=current end
         local pages=math.max(1,#resultPages);page=math.max(1,math.min(page,pages))
-        section:SetText("Search results");about:SetText("Each result shows the tab it lives on.")
+        section:SetText("Search results");about:SetText("Each result shows its tab. Click the tab name to go there.")
         for _,tab in ipairs(tabs) do
             tab.underline:Hide();tab.selected:SetColorTexture(0,0,0,0);tab.text:SetTextColor(.58,.62,.68)
         end

@@ -192,6 +192,19 @@ local function AttachTooltip(tip)
  if tip:IsShown()then PaintTooltip(tip)end
 end
 
+-- Forever's client has no DebuffTypeColor; its own aura buttons colour a
+-- debuff's border with AuraUtil.GetAuraBorderColor. Use that, the old table
+-- where a client still has it, then plain red.
+local function DebuffColour(dispel)
+ local get=AuraUtil and AuraUtil.GetAuraBorderColor
+ if get then
+  local ok,colour=pcall(get,dispel)
+  if ok and type(colour)=="table" and type(colour.r)=="number" then return colour.r,colour.g or 0,colour.b or 0 end
+ end
+ local old=DebuffTypeColor and(DebuffTypeColor[dispel or "none"]or DebuffTypeColor.none)
+ if old then return old.r or .8,old.g or 0,old.b or 0 end
+ return .8,0,0
+end
 local function StyleButton(button)
  if not button or button.isAuraAnchor then return end
  owners[button]=true
@@ -203,10 +216,9 @@ local function StyleButton(button)
  local dispel=info and info.debuffType
  -- Keep the native border when its type is restricted; never infer a dispel.
  if not Public(dispel)then return end
- local colour=DebuffTypeColor and(DebuffTypeColor[dispel or "none"]or DebuffTypeColor.none)
  border:SetTexture("Interface\\Buttons\\UI-Debuff-Border")
  border:SetTexCoord(0,1,0,1)
- border:SetVertexColor(colour and colour.r or .8,colour and colour.g or 0,colour and colour.b or 0)
+ border:SetVertexColor(DebuffColour(dispel))
   if button.Icon then
    -- Native aura geometry can be secret. Let anchors follow the icon without
    -- reading or performing arithmetic on its width/height.

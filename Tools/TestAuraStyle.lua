@@ -52,7 +52,13 @@ end
 SharedTooltip_SetBackdropStyle=function(tip)tip.NineSlice:SetAtlas("NativeBrown");tip.NineSlice:SetAlpha(1)end
 local secret=setmetatable({}, {__add=function()error("arithmetic on a secret dimension")end})
 issecretvalue=function(v)return v==secret end
-DebuffTypeColor={Magic={r=.2,g=.6,b=1},Poison={r=0,g=.6,b=0},none={r=.8,g=0,b=0}}
+-- As on Forever 1.60.1.70170: no DebuffTypeColor. The game's own aura buttons
+-- colour a debuff's border with AuraUtil.GetAuraBorderColor
+-- (Blizzard_FrameXMLUtil/AuraUtil.lua): the type's colour, or None's.
+local BORDER_COLOURS={Magic={r=.2,g=.6,b=1},Curse={r=.6,g=0,b=1},Disease={r=.6,g=.4,b=0},Poison={r=0,g=.6,b=0},None={r=.8,g=0,b=0}}
+local GAME_AURAUTIL={GetAuraBorderColor=function(dispelType)return BORDER_COLOURS[dispelType]or BORDER_COLOURS.None end}
+AuraUtil=GAME_AURAUTIL
+DebuffTypeColor=nil
 local function Tooltip()
  local t=Frame();t.NineSlice=Frame(t)
  function t:SetUnitAuraByAuraInstanceID(unit,id)
@@ -113,6 +119,40 @@ DebuffFrame:UpdateAuraButtons()
 equal(debuff.Icon.dimensionReads,0,"recycled resized icon also uses native anchoring")
 debuff.buttonInfo.debuffType=secret;DebuffFrame:UpdateAuraButtons()
 equal(debuff.DebuffBorder.atlas,"NativeTypeBorder","restricted debuff type keeps native border")
+-- Where the border colour comes from: the game's AuraUtil first, the old
+-- DebuffTypeColor where a client still has it, then plain red.
+local function Border(kind,r,g,b,label)
+ debuff.buttonInfo={debuffType=kind}
+ local ok,err=pcall(DebuffFrame.UpdateAuraButtons,DebuffFrame)
+ equal(ok,true,label.." is not an error ("..tostring(err)..")")
+ equal(debuff.DebuffBorder.texture,"Interface\\Buttons\\UI-Debuff-Border",label..": Classic border")
+ local c=debuff.DebuffBorder.colour
+ equal(c[1],r,label..": red");equal(c[2],g,label..": green");equal(c[3],b,label..": blue")
+end
+Border("Magic",.2,.6,1,"Forever: Magic in the game's Magic colour")
+Border("Curse",.6,0,1,"Forever: Curse")
+Border("Disease",.6,.4,0,"Forever: Disease")
+Border("Poison",0,.6,0,"Forever: Poison")
+Border(nil,.8,0,0,"Forever: a debuff with no type in the game's no-type colour")
+local oldReads=0
+local OLD={Magic={r=.1,g=.2,b=.3},none={r=.7,g=.1,b=.1}}
+local function OldTable()return setmetatable({},{__index=function(_,k)oldReads=oldReads+1;return OLD[k]end})end
+AuraUtil=nil;DebuffTypeColor=OldTable()
+Border("Magic",.1,.2,.3,"old client: the old table's Magic colour")
+Border("Bleed",.7,.1,.1,"old client: a type the table lacks uses its none colour")
+Border(nil,.7,.1,.1,"old client: no type uses its none colour")
+AuraUtil=GAME_AURAUTIL;oldReads=0
+Border("Magic",.2,.6,1,"both: the game's colour")
+equal(oldReads,0,"both: DebuffTypeColor is never read")
+AuraUtil={GetAuraBorderColor=function()error("no colour")end}
+Border("Magic",.1,.2,.3,"an AuraUtil that errors: the old table")
+AuraUtil={GetAuraBorderColor=function()return nil end}
+Border("Magic",.1,.2,.3,"an AuraUtil that answers nothing: the old table")
+DebuffTypeColor=nil
+Border("Magic",.8,0,0,"that, with no old table: plain red")
+AuraUtil=nil
+Border("Poison",.8,0,0,"neither: plain red")
+AuraUtil=GAME_AURAUTIL
 local function Backdrop(tip)
  for _,f in ipairs(all)do if f.parent==tip and f.backdrop then return f end end
 end

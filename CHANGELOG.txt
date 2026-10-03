@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.2
+
+### Added
+- Character Item Levels: item levels on your worn gear in the character window (off by default).
+- Rogues: click POISON! to apply poisons, left-click main hand, right-click off hand (Needs testing, off by default).
+
+### Changed
+- Rogues: POISON! replaces the Poison Reminders panel, and stays on if you used it.
+- /era reset, Reset toggles and /eraui-classic reset now ask before resetting.
+- /era search shows just the cards, with no option boxes or gaps. Click a result's tab name to go there.
+
+### Fixed
+- Poison Supplies works again on Forever's new patch.
+- Character window: Melee and Ranged Attack show your weapon skill again.
+- Debuff borders show their type colour again (Magic, Curse, Poison, Disease) instead of always red.
+- Spellbook and profession shift-click links, and Whisper in the Guild and Who lists, updated for Forever's new patch.
+- Clickable reminders no longer leave an invisible click spot on screen in combat.
+- Mage Conjure buttons no longer float over other cards.
+
 ## 1.5.1
 
 ### Changed

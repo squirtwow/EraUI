@@ -100,6 +100,10 @@ Equal(P:Changes("classic").tooltipClassColours, nil, "the Classic look leaves Cl
 saved.bagItemLevels = true
 Equal(P:Changes("qol").bagItemLevels, nil, "Quality of Life only leaves Bag Item Levels alone")
 Equal(P:Changes("classic").bagItemLevels, nil, "the Classic look leaves Bag Item Levels alone")
+-- Character Item Levels too: it works on Blizzard's character window as well.
+saved.characterItemLevels = true
+Equal(P:Changes("qol").characterItemLevels, nil, "Quality of Life only leaves Character Item Levels alone")
+Equal(P:Changes("classic").characterItemLevels, nil, "the Classic look leaves Character Item Levels alone")
 -- Dark Aura Borders only shows in Dark Mode, so presets leave it alone:
 -- choosing Dark Mode later brings the borders back.
 Equal(P:Changes("qol").darkAuraBorders, nil, "Quality of Life only leaves Dark Aura Borders alone")
@@ -124,12 +128,14 @@ Equal(saved.vendorPrice, true, "QoL options untouched")
 Equal(saved.cursorRing, true, "cursor effects untouched")
 Equal(saved.tooltipClassColours, true, "Class-coloured Tooltips kept after Quality of Life only")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after Quality of Life only")
+Equal(saved.characterItemLevels, true, "Character Item Levels kept after Quality of Life only")
 _, count = P:Changes("classic")
 Equal(count, #P.LOOK, "the Classic look switches every Classic skin back on")
 P:Apply("classic")
 Equal(P:Current(), "classic", "Classic look restored")
 Equal(saved.damageMeterSkin, false, "optional looks stay as chosen")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
+Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")
 Equal(saved.darkAuraShadows, true, "Aura Shadows kept through both presets")
 -- Switched off by the player: no preset turns it back on.
@@ -151,6 +157,23 @@ P:Apply("qol")
 Equal(applyingSeen, true, "applying is flagged, so the tracker prompt stays quiet")
 Equal(P.applying, false, "flag cleared afterwards")
 P:Apply("classic")
+-- POISON! (the rogue's class reminder), Click to apply poisons and each
+-- hand's poison are Quality of Life: no preset touches them. The picks are
+-- the character's own (its class tools settings).
+local poisonKeys = { classReminders = true, reminder_ROGUE_poison = false, reminderClickable = true,
+    reminderPoisonClick = true }
+for key, value in pairs(poisonKeys) do saved[key] = value end
+local charBefore = EraUIClassicCharDB
+EraUIClassicCharDB = { classTools = { poisonPickMain = 2892, poisonPickOff = 3775 } }
+for _, name in ipairs({ "qol", "classic" }) do
+    local changed = P:Changes(name)
+    for key in pairs(poisonKeys) do Equal(changed[key], nil, P.NAMES[name] .. " leaves " .. key .. " alone") end
+    P:Apply(name)
+    for key, value in pairs(poisonKeys) do Equal(saved[key], value, key .. " kept after " .. P.NAMES[name]) end
+    Equal(EraUIClassicCharDB.classTools.poisonPickMain == 2892 and EraUIClassicCharDB.classTools.poisonPickOff == 3775, true,
+        "each hand's poison kept after " .. P.NAMES[name])
+end
+EraUIClassicCharDB = charBefore
 
 -- Presets window ------------------------------------------------------------------------------
 

@@ -197,7 +197,8 @@ local function Session(class)
   [20154]="Seal of Righteousness",[20293]="Seal of Righteousness",[1311649]="Seal of Fury",[20423]="Seal of Fury",
   [20165]="Seal of Light",[20349]="Seal of Light",[465]="Devotion Aura",[10293]="Devotion Aura",
   [7294]="Retribution Aura",[10301]="Retribution Aura",[19876]="Shadow Resistance Aura",[19896]="Shadow Resistance Aura",
-  [136]="Mend Pet",[3661]="Mend Pet",[13544]="Mend Pet",[755]="Health Funnel",[11695]="Health Funnel"}
+  [136]="Mend Pet",[3661]="Mend Pet",[13544]="Mend Pet",[755]="Health Funnel",[11695]="Health Funnel",
+  [8681]="Instant Poison",[2835]="Deadly Poison",[3420]="Crippling Poison",[5763]="Mind-numbing Poison",[13220]="Wound Poison"}
  env.C_Spell={GetSpellInfo=function(id)return {name=names[id]or "Spell"..id,iconID=id}end,
   IsSpellUsable=function(id)if noMana[id]==secret then return false,secret end;if noMana[id]then return false,true end;return true,false end}
  env.C_UnitAuras={GetAuraDataByIndex=function()return nil end}
@@ -206,9 +207,11 @@ local function Session(class)
  local E={modules={}}
  function E:RegisterModule(name,module)self.modules[name]=module end
  function E:GetSetting(key)return settings[key]end
+ assert(loadfile("Modules/PoisonData.lua","t",env))("EraUI",E)
  assert(loadfile("Modules/ClassTools.lua","t",env))("EraUI",E)
  E.ClassTools.BindInlinePanel=function()end
  assert(loadfile("Modules/ClassReminderData.lua","t",env))("EraUI",E)
+ assert(loadfile("Modules/ClassReminderPoisons.lua","t",env))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua","t",env))("EraUI",E)
  local M=E.modules.ClassReminders
  local s={E=E,M=M,env=env,known=known,pet=pet,settings=settings,frames=frames,noMana=noMana,registered=registered}
@@ -216,13 +219,21 @@ local function Session(class)
  function s:drivers()
   for f,list in pairs(drivers)do if list.visibility then Resolve(f,list.visibility)end end
  end
+ -- As Forever 70170's SecureStateDriver (resolveDriver): the rule's answer
+ -- turns into a number when it reads as one ("1" is sent as 1), and the
+ -- state's snippet runs only when the state changes.
  function s:combat(value)
   combat=value
   for f,list in pairs(drivers)do
    if list.combat then
-    restricted=true
-    assert(load(f.attrs["_onstate-combat"],"restricted state","t",{self=f,newstate=value and "1"or "0"}))()
-    restricted=false
+    local state=Parse(list.combat)
+    if state=="nil"then state=nil else state=tonumber(state)or state end
+    if f.attrs["state-combat"]~=state then
+     restricted=true
+     f.attrs["state-combat"]=state
+     assert(load(f.attrs["_onstate-combat"],"restricted state","t",{self=f,newstate=state}))()
+     restricted=false
+    end
    end
   end
   s:drivers()
@@ -566,29 +577,262 @@ Equal(quiet:row("petDead"),nil,"healthy login starts without pet-dead alert")
 quiet:combat(true);quiet.pet.dead=true;quiet.M:Refresh()
 Equal(quiet:row("petDead")~=nil,true,"first ever alert can appear during combat")
 Equal(quiet:click(quiet:row("petDead")),nil,"first combat alert stays informational")
-local rogue=Session("ROGUE")
-rogue.E.ClassTools.WeaponCoating=function()return {weapon=true,has=false}end
-rogue.env.EraUIDB.reminder_ROGUE_poisonOff=true
-rogue.env.EraUIDB.reminderGroup=true;rogue.env.EraUIDB.reminderClickable=true
+-- POISON!: a click puts the picked poison on, left-click on the main hand
+-- and right-click on the off hand, through one secure button whose
+-- attributes change only out of combat. Weapons, coatings and bags are the
+-- game's own answers here, read by the real ClassTools.
+local ITEM_NAMES={[8928]="Instant Poison VI",[8927]="Instant Poison V",[6947]="Instant Poison",[20844]="Deadly Poison V",
+ [3776]="Crippling Poison II",[2892]="Deadly Poison"}
+local function Rogue(level)
+ local s=Session("ROGUE")
+ local env=s.env
+ s.level,s.weapons,s.coatings,s.bags=level or 60,{[16]=100,[17]=100},{},{}
+ env.UnitLevel=function()return s.level end
+ env.GetInventoryItemID=function(_,slot)return s.weapons[slot]end
+ env.C_Item={GetItemInfoInstant=function(id)return id,nil,nil,nil,"icon"..id,id==200 and 4 or 2 end,
+  GetItemCount=function(id)return s.bags[id]or 0 end,GetItemNameByID=function(id)return ITEM_NAMES[id]end}
+ env.C_PaperDollInfo={GetTemporaryEnchantmentInfo=function(slot)return s.coatings[slot]end}
+ s.known[2842]=true -- Poisons
+ function s:poisonButton()
+  for _,f in ipairs(self.frames)do if f.clicks and f.clicks[3]=="RightButtonUp"then return f end end
+ end
+ -- "type item target-slot | ..." for the left and right click, or nil while put away.
+ function s:clicks()
+  local b=self:poisonButton()
+  if not b or not b:IsShown()then return nil end
+  local a=b.attrs
+  return tostring(a.type1).." "..tostring(a.item1).." "..tostring(a["target-slot1"]).." | "
+   ..tostring(a.type2).." "..tostring(a.item2).." "..tostring(a["target-slot2"])
+ end
+ return s
+end
+local FINE={enchantID=323,remainingTimeMs=600000,chargesRemaining=50}
+local function Fine()local t={};for k,v in pairs(FINE)do t[k]=v end;return t end
+local rogue=Rogue()
+rogue.env.EraUIDB.reminderGroup=true
 rogue.M:Initialize()
-Equal(rogue:row("poisonMain")~=nil,true,"generic main-hand poison alert initially visible")
-Equal(rogue:row("poisonOff")~=nil,true,"generic off-hand poison alert initially visible")
+local poisonRow=rogue:row("poison")
+Equal(poisonRow and poisonRow.text.text,"POISON!","bare weapons: POISON!")
+Equal(poisonRow.sub.text,"Main and off hand: no poison\n|cffffb35cNo poison in your bags|r",
+ "it says which hands; with clicks off the picks don't matter, so only that no poison at all is in your bags")
+Equal(poisonRow.icon.texture,"Interface\\Icons\\Trade_BrewPoison","with none to use, the poison icon")
+Equal(rogue:poisonButton(),nil,"clicks are off by default: no secure button is even made")
 local poisonOptions=rogue:options()
-Equal(poisonOptions.group:IsShown(),false,"Rogue has no ineffective group toggle")
-Equal(poisonOptions.clickable:IsShown(),false,"Rogue has no unsupported click toggle")
-Equal(rogue.env.EraUIDB.reminderGroup,true,"hidden group setting preserved")
-Equal(rogue.env.EraUIDB.reminderClickable,true,"hidden click setting preserved")
-rogue.settings.poisonReminders=true;rogue.M:Refresh();rogue.M:UpdateOptionsState()
-Equal(rogue:row("poisonMain"),nil,"dedicated poison panel suppresses duplicate main-hand alert")
-Equal(rogue:row("poisonOff"),nil,"dedicated poison panel suppresses duplicate off-hand alert")
-Equal(poisonOptions.offHint:IsShown(),true,"settings explain dedicated poison ownership")
+Equal(poisonOptions.group:IsShown(),false,"rogues have no group toggle")
+Equal(rogue.env.EraUIDB.reminderGroup,true,"a hidden group setting is kept")
+Equal(poisonOptions.clickable:IsShown(),true,"rogues now have Clickable reminders")
+Equal(poisonOptions.poisonClick:IsShown(),true,"and Click to apply poisons")
+Equal(poisonOptions.poisonClick.label.text,"Click to apply poisons (Needs testing)","labelled Needs testing")
+Equal(poisonOptions.poisonClick.dependencyDisabled,true,"greyed out until Clickable reminders is on")
+Equal(poisonOptions.mana:IsShown(),false,"no out-of-mana note: poisons cost none")
+Equal(poisonOptions.combatClick:IsShown(),false,"no pet clicks in combat")
+Equal(poisonOptions.mainPoison.label.text,"Main hand: Instant Poison  >","the main hand's pick: Instant by default")
+Equal(poisonOptions.offPoison.label.text,"Off hand: Deadly Poison  >","the off hand's: Deadly by default at 60")
+local function Below(a,b)return a:IsShown()and b:IsShown()and a.point[3]<b.point[3]end
+Equal(Below(poisonOptions.poisonClick,poisonOptions.clickable)and Below(poisonOptions.mainPoison,poisonOptions.poisonClick)
+ and Below(poisonOptions.offPoison,poisonOptions.mainPoison)and Below(poisonOptions.prev,poisonOptions.offPoison),true,
+ "Click to apply poisons and the two picks sit under Clickable reminders, before Show all reminders")
+poisonOptions.poisonClick:Fire("OnClick")
+Equal(rogue.env.EraUIDB.reminderPoisonClick,nil,"can't be switched on before Clickable reminders")
+poisonOptions.clickable:Fire("OnClick")
+Equal(poisonOptions.poisonClick.dependencyDisabled,false,"available once Clickable reminders is on")
+Equal(rogue:clicks(),nil,"Clickable reminders alone puts no poison on")
+poisonOptions.poisonClick:Fire("OnClick")
+Equal(rogue.env.EraUIDB.reminderPoisonClick,true,"Click to apply poisons switched on")
+Equal(rogue:clicks(),nil,"with none of either pick in your bags there is nothing to click")
+Equal(poisonRow.sub.text,"Main and off hand: no poison\n|cffffb35cNo Instant Poison in your bags|r\n|cffffb35cNo Deadly Poison in your bags|r",
+ "with the click live it names each hand's pick there's none of")
+rogue.bags={[3776]=1};rogue.M:Refresh()
+Equal(rogue:clicks(),nil,"only a poison neither hand picked: still nothing to click")
+Equal(poisonRow.sub.text,"Main and off hand: no poison\n|cffffb35cNo Instant Poison in your bags|r\n|cffffb35cNo Deadly Poison in your bags|r",
+ "and still names the picks")
+poisonOptions.poisonClick:Fire("OnClick")
+Equal(poisonRow.sub.text,"Main and off hand: no poison","clicks off with a usable poison in your bags: no note about picks")
+rogue.level=40;rogue.bags={[3776]=1};rogue.M:Refresh()
+Equal(poisonRow.sub.text,"Main and off hand: no poison\n|cffffb35cYour poisons need a higher level|r","only ranks above your level: says so, without naming a pick")
+rogue.level=60;rogue.bags={};poisonOptions.poisonClick:Fire("OnClick")
+rogue.bags={[8928]=2,[20844]=1,[6947]=4};rogue.M:Refresh()
+local poisonButton=rogue:poisonButton()
+Equal(rogue:clicks(),"item item:8928 16 | item item:20844 17","left-click: Instant Poison VI on the main hand; right-click: Deadly Poison V on the off hand")
+Equal(table.concat(poisonButton.clicks,","),"LeftButtonUp,LeftButtonDown,RightButtonUp,RightButtonDown","left and right clicks, down or up")
+Equal(poisonButton.parent,rogue.env.UIParent,"the secure button's parent is independent")
+Equal(poisonButton.point[2],rogue.env.UIParent,"and so is its anchor")
+Equal(poisonButton.point[4]==1000 and poisonButton.point[5]==500 and poisonButton.width==52,true,"over the alert's icon, its size")
+Equal(poisonButton.strata,"HIGH","above the alert panel's layer")
+Equal(poisonButton.level>poisonRow.iconFrame:GetFrameLevel(),true,"and above the icon it covers")
+poisonRow.iconFrame.x,poisonRow.iconFrame.y,poisonRow.iconFrame.scale=1800,900,.32
+rogue.M:Refresh()
+Equal(poisonButton.point[4]==900 and poisonButton.point[5]==450,true,"with a differing effective scale it still sits over the icon")
+Equal(poisonButton.width==26 and poisonButton.height==26,true,"and is the icon's size on screen")
+poisonRow.iconFrame.x=nil;rogue.M:Refresh()
+Equal(poisonButton:IsShown()or poisonButton.attrs.type1~=nil,false,"an icon the game can't place yet: the click is put away")
+poisonRow.iconFrame.x,poisonRow.iconFrame.y,poisonRow.iconFrame.scale=1000,500,.64;rogue.M:Refresh()
+Equal(rogue:clicks(),"item item:8928 16 | item item:20844 17","placed again: armed again")
+Equal(poisonRow.protected,false,"the alert row stays unprotected")
+Equal(poisonRow.sub.text,"Main and off hand: no poison","with poisons to use, no note")
+Equal(poisonRow.icon.texture,"icon8928","the icon is the poison a left-click puts on")
+local poisonHides=0
+poisonButton.Hide=function(self)poisonHides=poisonHides+1;return getmetatable(self).__index.Hide(self)end
+rogue.M:Refresh();rogue.M:Refresh()
+Equal(poisonHides,0,"refreshing never hides the armed click in between, so it never flickers under the mouse")
+poisonButton.Hide=nil
+local poisonTip={}
+rogue.env.GameTooltip={SetOwner=function(_,o)poisonTip.owner=o end,SetText=function(_,t)poisonTip.title=t end,
+ AddLine=function(_,t)poisonTip[#poisonTip+1]=t end,Show=function()poisonTip.shown=true end,Hide=function()poisonTip.shown=false end}
+poisonButton:Fire("OnEnter")
+Equal(poisonTip.title.." | "..tostring(poisonTip[1]).." | "..tostring(poisonTip[2]),
+ "POISON! | Left-click: Instant Poison VI on your main hand | Right-click: Deadly Poison V on your off hand","hovering the icon says what each click puts on")
+Equal(poisonTip.owner==poisonButton and poisonTip.shown,true,"beside it")
+poisonButton:Fire("OnLeave");Equal(poisonTip.shown,false,"leaving hides it")
+poisonTip={};poisonRow:Fire("OnEnter")
+Equal(poisonTip.title,"Left-click: Instant Poison VI on your main hand\nRight-click: Deadly Poison V on your off hand","hovering the words says the same")
+poisonRow:Fire("OnLeave");rogue.env.GameTooltip=nil
+-- Only a hand that needs a poison can be clicked.
+rogue.coatings[16]=Fine();rogue.M:Refresh()
+Equal(rogue:clicks(),"nil nil nil | item item:20844 17","only the off hand needs one: only a right-click")
+Equal(poisonRow.sub.text,"Off hand: no poison","and only it is named")
+Equal(poisonRow.icon.texture,"icon20844","the icon is the off hand's poison")
+rogue.weapons[17]=200;rogue.M:Refresh()
+Equal(rogue:row("poison"),nil,"a shield in the off hand: nothing needs poison, POISON! goes")
+Equal(poisonButton:IsShown(),false,"and its click with it")
+Equal(poisonButton.attrs.type1,nil,"nothing left armed")
+rogue.weapons[17]=100;rogue.coatings[16].remainingTimeMs=30000;rogue.M:Refresh()
+Equal(rogue:clicks(),"item item:8928 16 | item item:20844 17","under a minute left: the main hand can be clicked again")
+Equal(rogue:row("poison").sub.text,"Main hand: 0:30 left\nOff hand: no poison","saying how long is left")
+rogue.coatings={[16]=Fine(),[17]=Fine()};rogue.M:Refresh()
+Equal(rogue:row("poison"),nil,"both hands poisoned: POISON! goes")
+Equal(poisonButton:IsShown(),false,"with its click")
+rogue.coatings={}
+-- The highest rank you carry that your level allows.
+rogue.bags={[6947]=5,[8927]=1,[20844]=1};rogue.M:Refresh()
+Equal(poisonButton.attrs.item1,"item:8927","Instant Poison V is the highest carried")
+rogue.level=50;rogue.M:Refresh()
+Equal(poisonButton.attrs.item1,"item:6947","at 50, V (level 52) can't be used: rank 1 instead")
+Equal(poisonButton.attrs.item2,nil,"Deadly Poison V needs 60: no right-click")
+Equal(rogue:row("poison").sub.text,"Main and off hand: no poison\n|cffffb35cYour Deadly Poison needs a higher level|r","and it says why")
+rogue.level=60;rogue.M:Refresh()
+-- None of the hand's pick in your bags: that hand has no click.
+rogue.bags={[8928]=1};rogue.M:Refresh()
+Equal(rogue:clicks(),"item item:8928 16 | nil nil nil","no Deadly Poison: no right-click")
+Equal(rogue:row("poison").sub.text,"Main and off hand: no poison\n|cffffb35cNo Deadly Poison in your bags|r","and it says so")
+-- The picks in /era: a click puts the new pick on at once.
+rogue.bags={[8928]=1,[3776]=1,[20844]=1}
+local pickSaves=0
+rogue.E.SaveSettings=function()pickSaves=pickSaves+1 end
+poisonOptions.mainPoison:Fire("OnClick")
+Equal(poisonOptions.mainPoison.label.text,"Main hand: Deadly Poison  >","the main hand's button cycles to Deadly")
+Equal(rogue.env.EraUIClassicCharDB.classTools.poisonPickMain,2892,"saved for this rogue, by Deadly's rank 1 item")
+Equal(rogue.env.EraUIDB.reminderChoice_ROGUE_poisonMain,nil,"not for every rogue on the account")
+Equal(pickSaves,1,"and the settings backup is saved")
+Equal(poisonButton.attrs.item1,"item:20844","a left-click now puts Deadly on")
+poisonOptions.mainPoison:Fire("OnClick")
+Equal(poisonButton.attrs.item1,"item:3776","then Crippling Poison II")
+poisonOptions.offPoison:Fire("OnClick")
+Equal(poisonOptions.offPoison.label.text,"Off hand: Crippling Poison  >","the off hand's button cycles on its own")
+Equal(poisonButton.attrs.item2,"item:3776","a right-click puts Crippling on too")
+-- Never armed by Show all reminders, the map, a drag or a switch turned off.
 poisonOptions.prev:Fire("OnClick")
-Equal(rogue:row("poisonMain"),nil,"preview does not reintroduce duplicate poison alerts")
-rogue.settings.poisonReminders=false;poisonOptions.prev:Fire("OnClick");rogue.M:UpdateOptionsState()
-Equal(rogue:row("poisonMain")~=nil,true,"turning dedicated panel off restores generic main-hand alert")
-Equal(rogue:row("poisonOff")~=nil,true,"turning dedicated panel off restores generic off-hand alert")
-Equal(rogue.env.EraUIDB.reminder_ROGUE_poisonOff,true,"deduplication preserves per-alert preference")
-Equal(poisonOptions.offHint:IsShown(),false,"ownership explanation clears when generic alerts resume")
+Equal(poisonButton:IsShown(),false,"Show all reminders never arms a click")
+poisonOptions.prev:Fire("OnClick")
+Equal(poisonButton:IsShown(),true,"back after the preview")
+rogue.env.WorldMapFrame:Show()
+Equal(poisonButton:IsShown(),false,"opening the map puts the click away at once")
+rogue.env.WorldMapFrame:Hide()
+Equal(poisonButton:IsShown(),true,"closing it brings it back")
+local liveRow=rogue:row("poison")
+liveRow:Fire("OnDragStart")
+Equal(poisonButton:IsShown(),false,"dragging the alert puts the click away")
+liveRow:Fire("OnDragStop")
+Equal(poisonButton:IsShown(),true,"and dropping it brings it back")
+poisonOptions.poisonClick:Fire("OnClick")
+Equal(poisonButton:IsShown()or poisonButton.attrs.type1~=nil,false,"Click to apply poisons off: put away")
+poisonOptions.poisonClick:Fire("OnClick")
+poisonOptions.clickable:Fire("OnClick")
+Equal(poisonButton:IsShown(),false,"Clickable reminders off: put away too")
+Equal(poisonOptions.poisonClick.dependencyDisabled,true,"and Click to apply poisons greys out")
+poisonOptions.clickable:Fire("OnClick")
+Equal(poisonButton:IsShown(),true,"both on again: armed")
+rogue.env.EraUIDB.reminder_ROGUE_poison=false;rogue.M:Refresh()
+Equal(rogue:row("poison"),nil,"POISON! switched off in Advanced: no alert")
+Equal(poisonButton:IsShown(),false,"and no click")
+rogue.env.EraUIDB.reminder_ROGUE_poison=nil
+rogue.settings.classReminders=false;rogue.M:Refresh()
+Equal(poisonButton:IsShown(),false,"Class Reminders & Buffs off: no click")
+rogue.M:UpdateOptionsState()
+local greyedPicks=0
+for _,f in ipairs(poisonOptions.items)do if f==poisonOptions.mainPoison or f==poisonOptions.offPoison then greyedPicks=greyedPicks+1 end end
+Equal(greyedPicks,2,"both picks grey out with the other options")
+Equal(poisonOptions.mainPoison.enabled==false and poisonOptions.offPoison.enabled==false,true,"Class Reminders & Buffs off: the picks are greyed out")
+rogue.settings.classReminders=true;rogue.M:Refresh();rogue.M:UpdateOptionsState()
+Equal(poisonOptions.mainPoison.enabled and poisonOptions.offPoison.enabled,true,"on again: the picks work again")
+-- A fight takes the click away at once, and nothing secure is touched until
+-- it ends. (This harness errors on any change to a protected frame in combat.)
+-- Without Show during combat (the default) the alert hides in the fight, and
+-- the game's own code hides the click too: nothing unseen is left on screen
+-- to catch a click or start a poison mid-fight.
+Equal(rogue:clicks(),"item item:3776 16 | item item:3776 17","armed before the fight")
+rogue:combat(true)
+Equal(poisonButton.shown,false,"the fight hides the click at once, by the game's own code, with the state as the number it sends")
+Equal(poisonButton.attrs.type1==nil and poisonButton.attrs.type2==nil,true,"and clears both clicks")
+rogue.M:Refresh()
+Equal(rogue:row("poison"),nil,"without Show during combat POISON! hides in the fight")
+Equal(poisonButton.shown,false,"and its click stays hidden")
+rogue:combat(false);rogue:event("PLAYER_REGEN_ENABLED");rogue:tick(.6)
+Equal(rogue:clicks(),"item item:3776 16 | item item:3776 17","after the fight: armed again")
+rogue.env.EraUIDB.reminderCombat=true
+rogue:combat(true)
+Equal(poisonButton.shown,false,"the fight hides the click at once, by the game's own code")
+Equal(poisonButton.attrs.type1==nil and poisonButton.attrs.type2==nil,true,"and clears both clicks")
+rogue.M:Refresh()
+Equal(rogue:row("poison")~=nil,true,"POISON! still shows in the fight with Show during combat")
+Equal(poisonButton.shown,false,"without its click")
+rogue.coatings={[17]=Fine()};rogue.M:Refresh()
+Equal(rogue:row("poison").sub.text,"Main hand: no poison","it still updates in the fight")
+local picked=rogue.env.EraUIClassicCharDB.classTools.poisonPickMain
+poisonOptions.mainPoison:Fire("OnClick")
+Equal(rogue.env.EraUIClassicCharDB.classTools.poisonPickMain,picked,"a pick can't change in the fight")
+poisonOptions.poisonClick:Fire("OnClick")
+Equal(rogue.env.EraUIDB.reminderPoisonClick,true,"nor can Click to apply poisons")
+rogue:combat(false)
+Equal(poisonButton.shown,false,"the fight's end alone doesn't bring it back")
+rogue:event("PLAYER_REGEN_ENABLED");rogue:tick(.6)
+Equal(rogue:clicks(),"item item:3776 16 | nil nil nil","the next refresh after the fight arms what's needed now")
+rogue.env.EraUIDB.reminderCombat=nil
+-- A first click wanted in a fight waits for its end to be made. (This
+-- harness also errors on any secure frame made in combat.)
+local late=Rogue()
+late.bags={[8928]=1};late.env.EraUIDB.reminderClickable=true;late.env.EraUIDB.reminderPoisonClick=true
+late.env.EraUIDB.reminderCombat=true;late.coatings={[16]=Fine(),[17]=Fine()}
+late.M:Initialize()
+Equal(late:row("poison"),nil,"poisoned at login: no POISON!")
+late:combat(true);late.coatings[16]=nil;late.M:Refresh()
+Equal(late:row("poison")~=nil,true,"POISON! can first show in a fight")
+Equal(late:poisonButton(),nil,"its secure button isn't made in the fight")
+late:combat(false);late.M:Refresh()
+Equal(late:clicks(),"item item:8928 16 | nil nil nil","it's made once the fight ends")
+-- Only once you can use poisons; the off hand only with a weapon there.
+local young=Rogue(19);young.bags={[6947]=1}
+young.env.EraUIDB.reminderClickable=true;young.env.EraUIDB.reminderPoisonClick=true
+young.M:Initialize()
+Equal(young:row("poison"),nil,"level 19: no POISON!")
+young.level=1;young.weapons[17]=nil;young.M:Refresh()
+Equal(young:row("poison"),nil,"a level 1 rogue with no off-hand weapon: nothing about poisons")
+local youngOptions=young:options()
+Equal(youngOptions.mainPoison.label.text.." / "..youngOptions.offPoison.label.text,"Main hand: Instant Poison  > / Off hand: Instant Poison  >",
+ "level 1: both picks show Instant Poison, the first poison you'll get")
+youngOptions.offPoison:Fire("OnClick");youngOptions.mainPoison:Fire("OnClick")
+Equal(young.env.EraUIClassicCharDB.classTools.poisonPickOff or young.env.EraUIClassicCharDB.classTools.poisonPickMain,nil,"none to pick yet: nothing is saved")
+young.level=19;youngOptions.mainPoison.draw();youngOptions.offPoison.draw()
+Equal(youngOptions.mainPoison.label.text.." / "..youngOptions.offPoison.label.text,"Main hand: Instant Poison  > / Off hand: Instant Poison  >","level 19 too")
+young.level=20;young.M:Refresh()
+Equal(young:row("poison").sub.text,"Main hand: no poison","level 20: POISON!, for the main hand only")
+Equal(young:clicks(),"item item:6947 16 | nil nil nil","a left-click puts Instant Poison on")
+young.known[2842]=nil;young.bags={};young.M:Refresh()
+Equal(young:row("poison"),nil,"without Poisons learned or any poison in bags: no POISON!")
+young.bags={[6947]=1};young.weapons[17]=100;young.level=25;young.M:Refresh()
+Equal(young:clicks(),"item item:6947 16 | item item:6947 17","before 30 the off hand uses Instant Poison too")
+youngOptions.offPoison.draw()
+Equal(youngOptions.offPoison.label.text,"Off hand: Instant Poison  >","and its button says so")
 
 -- On a flight path every alert goes, clicks included, until a moment after
 -- landing, so a pet the game puts away and brings back never flashes.
@@ -665,46 +909,22 @@ flier:tick(.6);flier:tick(.6);flier:tick(.6)
 Equal(asked,0,"then the refresh clock is back to its usual pace")
 flier:tick(.6);Equal(asked,1,"and refreshes after 2 seconds as before")
 
--- A rogue with Poison Reminders on gets missing-poison alerts from that panel
--- instead, and it waits for landing too. Its positioning preview still shows.
-local poisoner=Session("ROGUE")
+-- POISON! waits for landing like every alert, and its click goes with it.
+local poisoner=Rogue()
 local pnow,ptaxi=100,false
 poisoner.env.GetTime=function()return pnow end
 poisoner.env.UnitOnTaxi=function(unit)return unit=="player"and ptaxi end
-poisoner.E.ClassTools.WeaponCoating=function()return {weapon=true,has=false}end
-poisoner.settings.poisonReminders=true;poisoner.M:Initialize()
-local classClock=poisoner:listener()
-assert(loadfile("Modules/PoisonReminders.lua","t",poisoner.env))("EraUI",poisoner.E)
-poisoner.E.modules.PoisonReminders:Initialize()
-local poisonPanel=poisoner.env.EraUIPoisonReminders
-local poisonClock
-for _,f in ipairs(poisoner.frames)do if f~=classClock and f.scripts.OnEvent and f.scripts.OnUpdate then poisonClock=f end end
-local function PoisonEvent(name)poisonClock.scripts.OnEvent(poisonClock,name)end
-local function PoisonTick(dt)poisonClock.scripts.OnUpdate(poisonClock,dt)end
-for _,name in ipairs({"PLAYER_CONTROL_LOST","PLAYER_CONTROL_GAINED","PLAYER_EQUIPMENT_CHANGED"})do
- Equal(poisonClock.events[name],true,"the poison panel refreshes on "..name)
-end
-Equal(poisonPanel:IsShown(),true,"on the ground a missing poison shows")
-Equal(poisoner:row("poisonMain"),nil,"and the class alerts leave it to the poison panel")
-ptaxi=true;PoisonEvent("PLAYER_CONTROL_LOST")
-Equal(poisonPanel:IsShown(),false,"taking off hides the poison panel")
-pnow=130;PoisonTick(.6)
-Equal(poisonPanel:IsShown(),false,"its half-second refresh keeps it hidden in flight")
-Equal(poisoner:row("poisonMain"),nil,"the class alerts stay out of it in flight")
-poisoner.E.settingsFrame=poisoner.env.CreateFrame("Frame");poisoner.E.settingsFrame:Show();PoisonTick(.6)
-Equal(poisonPanel:IsShown(),true,"with /era open its positioning preview still shows in flight")
-poisoner.E.settingsFrame:Hide();PoisonTick(.6)
-Equal(poisonPanel:IsShown(),false,"closing /era hides it again")
-pnow=160;ptaxi=false;PoisonEvent("PLAYER_CONTROL_GAINED")
-Equal(poisonPanel:IsShown(),false,"just landed: still hidden")
-pnow=161.9;PoisonTick(.6)
-Equal(poisonPanel:IsShown(),false,"1.9 seconds after landing: still hidden")
-pnow=162.1;PoisonTick(.6)
-Equal(poisonPanel:IsShown(),true,"2 seconds after landing the missing poison shows again")
-poisoner.env.UnitOnTaxi=function()return secret end;PoisonTick(.6)
-Equal(poisonPanel:IsShown(),true,"a hidden taxi answer is not a flight")
-poisoner.env.UnitOnTaxi=nil;PoisonTick(.6)
-Equal(poisonPanel:IsShown(),true,"a client without the taxi check keeps the poison panel")
+poisoner.bags={[8928]=1};poisoner.env.EraUIDB.reminderClickable=true;poisoner.env.EraUIDB.reminderPoisonClick=true
+poisoner.M:Initialize()
+Equal(poisoner:clicks(),"item item:8928 16 | nil nil nil","on the ground POISON! is clickable")
+poisoner:tick(3)
+ptaxi=true;poisoner:event("PLAYER_CONTROL_LOST");poisoner:tick(.6)
+Equal(poisoner:row("poison"),nil,"taking off hides POISON!")
+Equal(poisoner:clicks(),nil,"and puts its click away")
+pnow=160;ptaxi=false;poisoner:event("PLAYER_CONTROL_GAINED");poisoner:tick(.6)
+Equal(poisoner:row("poison"),nil,"just landed: still hidden")
+pnow=162.1;poisoner:tick(.6)
+Equal(poisoner:clicks(),"item item:8928 16 | nil nil nil","2 seconds after landing it is back, clickable")
 
 -- Reminders for spells Forever lacks are gone; old saved settings for them
 -- (switches, spots, a Felguard or Sanctuary choice) are ignored safely.

@@ -102,8 +102,12 @@ local function ScaleSetting()
     for _, name in ipairs(SCALE_SETTINGS) do
         if C_CVar.GetCVar(name) ~= nil then scaleSetting = name; return name end
     end
-    -- Otherwise look for it among all of the game's settings.
-    local ok, all = pcall(function() return C_Console and C_Console.GetAllCommands and C_Console.GetAllCommands() end)
+    -- Otherwise look for it among all of the game's settings: Forever lists them
+    -- with ConsoleGetAllCommands (it has no C_Console); a client with only
+    -- C_Console.GetAllCommands uses that.
+    local list = ConsoleGetAllCommands or (C_Console and C_Console.GetAllCommands)
+    local ok, all = false, nil
+    if list then ok, all = pcall(list) end
     for _, info in ipairs(ok and type(all) == "table" and all or {}) do
         local name = type(info) == "table" and info.command
         if type(name) == "string" and name:lower():find("^worldtextscale") and C_CVar.GetCVar(name) ~= nil then

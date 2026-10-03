@@ -42,12 +42,38 @@ end
 local function Inventory(group)
  local count=0;for _,id in ipairs(group.items)do count=count+T.Count(id)end;return count
 end
+-- Forever's new patch removed GetMerchantItemInfo; the game's own vendor window
+-- reads C_MerchantFrame.GetItemInfo. A client that still has the old one uses it.
+local function MerchantItem(i)
+ local api=C_MerchantFrame
+ if api and api.GetItemInfo then
+  local ok,info=pcall(api.GetItemInfo,i)
+  if not ok or type(info)~="table" then return end
+  return info.name,info.price,info.stackCount,info.numAvailable,info.hasExtendedCost
+ end
+ if GetMerchantItemInfo then
+  local name,_,price,bundle,available,_,extended=GetMerchantItemInfo(i)
+  return name,price,bundle,available,extended
+ end
+end
+-- The global GetCoinTextureString is gone on Forever too; the game's own code
+-- has C_CurrencyInfo.GetCoinTextureString. A client with only the old one uses
+-- it, and with neither the cost is shown in copper.
+local function Coins(get,copper)
+ if not get then return end
+ local ok,text=pcall(get,copper)
+ if ok and type(text)=="string" and text~="" then return text end
+end
+local function CoinText(copper)
+ return Coins(C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString,copper)
+  or Coins(GetCoinTextureString,copper)or copper.." copper"
+end
 local function MerchantItems()
  local result={}
  if not MerchantOpen()then return result end
  for i=1,GetMerchantNumItems()do
   local id=ItemID(GetMerchantItemLink(i))
-  local name,_,price,bundle,available,usable,extended=GetMerchantItemInfo(i)
+  local name,price,bundle,available,extended=MerchantItem(i)
   if id and name and price and bundle and bundle>0 and not extended then
    result[id]={index=i,id=id,name=name,price=price,bundle=bundle,available=available,max=GetMerchantItemMaxStack and GetMerchantItemMaxStack(i)or bundle}
   end
@@ -254,7 +280,7 @@ function M:Refresh()
   elseif visible==0 then Tell("Open your Poison book to load your learned ranks. Flash Powder can still be bought here.")
   elseif MerchantOpen()then
    local plan,err=self:PurchasePlan(Selection(),recipes)
-   Tell(plan and ("Materials: "..(GetCoinTextureString and GetCoinTextureString(plan.cost)or plan.cost.." copper").." · existing bag materials deducted")or err)
+   Tell(plan and ("Materials: "..CoinText(plan.cost).." · existing bag materials deducted")or err)
   else Tell("Set quantities, then visit a poison vendor to buy materials.")end
  end
  buy:SetEnabled(Enabled() and MerchantOpen() and not purchase and not crafting)
@@ -310,7 +336,9 @@ end
 function M:Initialize()
  local _,class=UnitClass("player");if class~="ROGUE"then return end
  local f=CreateFrame("Frame")
- for _,event in ipairs({"MERCHANT_SHOW","MERCHANT_UPDATE","MERCHANT_CLOSED","BAG_UPDATE_DELAYED","TRADE_SKILL_SHOW","TRADE_SKILL_LIST_UPDATE","TRADE_SKILL_UPDATE","SPELLS_CHANGED","PLAYER_REGEN_ENABLED"})do f:RegisterEvent(event)end
+ -- Forever has no TRADE_SKILL_UPDATE, and the game refuses an unknown event,
+ -- so each is registered on its own: one a build lacks is skipped, not fatal.
+ for _,event in ipairs({"MERCHANT_SHOW","MERCHANT_UPDATE","MERCHANT_CLOSED","BAG_UPDATE_DELAYED","TRADE_SKILL_SHOW","TRADE_SKILL_LIST_UPDATE","TRADE_SKILL_UPDATE","SPELLS_CHANGED","PLAYER_REGEN_ENABLED"})do pcall(f.RegisterEvent,f,event)end
  f:SetScript("OnEvent",function(_,event)
   if event=="MERCHANT_CLOSED" then
    if vendorStrip then vendorStrip:Hide()end

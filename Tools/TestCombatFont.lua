@@ -136,15 +136,34 @@ local newer = Module()
 Equal(newer:CombatTextScale(), 120, "the renamed setting is read")
 newer:SetCombatTextScale(150)
 Equal(cvars.WorldTextScale_v2, "1.5", "and set")
--- Or found among the game's settings under another name.
+-- Or found among the game's settings under another name. Forever lists them
+-- with ConsoleGetAllCommands and has no C_Console; another client may have
+-- only C_Console.GetAllCommands.
+local SETTINGS = { { command = "nameplateMaxDistance" }, { command = "worldTextScale_v3" } }
+local consoleCalls, oldCalls = 0, 0
+local function GameList() consoleCalls = consoleCalls + 1; return SETTINGS end
+local function OldList() oldCalls = oldCalls + 1; return SETTINGS end
 cvars = { worldTextScale_v3 = "0.8" }
-C_Console = { GetAllCommands = function() return { { command = "nameplateMaxDistance" }, { command = "worldTextScale_v3" } } end }
-Equal(Module():CombatTextScale(), 80, "found by name among the game's settings")
+ConsoleGetAllCommands, C_Console = GameList, nil
+Equal(Module():CombatTextScale(), 80, "Forever: found by name with ConsoleGetAllCommands")
+Equal(consoleCalls, 1, "Forever: the game's list read once")
+ConsoleGetAllCommands, C_Console = nil, { GetAllCommands = OldList }
+Equal(Module():CombatTextScale(), 80, "another client: found with C_Console.GetAllCommands")
+consoleCalls, oldCalls = 0, 0
+ConsoleGetAllCommands, C_Console = GameList, { GetAllCommands = OldList }
+Equal(Module():CombatTextScale(), 80, "both: found")
+Equal(consoleCalls .. " " .. oldCalls, "1 0", "both: ConsoleGetAllCommands read, C_Console never asked")
+ConsoleGetAllCommands = function() error("no list") end
+C_Console = nil
+Equal(Module():CombatTextScale(), nil, "a list that errors: no size, no error")
+ConsoleGetAllCommands = nil
+Equal(Module():CombatTextScale(), nil, "neither list: no size, no error")
 cvars = {}
+ConsoleGetAllCommands = GameList
 local none = Module()
 Equal(none:CombatTextScale(), nil, "no setting: no size")
 Equal(none:SetCombatTextScale(100), false, "and nothing changed")
-C_Console = nil
+ConsoleGetAllCommands, C_Console = nil, nil
 
 -- Clicking a chat link again closes its tooltip ---------------------------------------------
 

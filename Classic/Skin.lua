@@ -783,15 +783,21 @@ end
 -- Whisper a name: the box opens with the line already written and the cursor
 -- after it. The client's own opener adds to whatever was half typed, so the
 -- box is emptied first and the whole line written at once.
+-- Forever's chat code is ChatFrameUtil; the ChatEdit_ and ChatFrame_ names are
+-- deprecated copies the game loads only when its fallbacks are on.
 function ns.Whisper(name)
     if type(name) ~= "string" or name == "" then return end
-    local box = (ChatEdit_ChooseBoxForSend and ChatEdit_ChooseBoxForSend(DEFAULT_CHAT_FRAME)) or ChatFrame1EditBox
+    local chat = ChatFrameUtil or {}
+    local choose = chat.ChooseBoxForSend or ChatEdit_ChooseBoxForSend
+    local box = (choose and choose(DEFAULT_CHAT_FRAME)) or ChatFrame1EditBox
     if not box then
-        if ChatFrame_SendTell then ChatFrame_SendTell(name) end
+        local tell = chat.SendTell or ChatFrame_SendTell
+        if tell then tell(name) end
         return
     end
     box:SetText("")
-    if ChatEdit_ActivateChat then ChatEdit_ActivateChat(box) else box:Show() end
+    local activate = chat.ActivateChat or ChatEdit_ActivateChat
+    if activate then activate(box) else box:Show() end
     box:SetText("/w " .. name .. " ")
     if box.SetCursorPosition and box.GetNumLetters then box:SetCursorPosition(box:GetNumLetters()) end
     box:SetFocus()

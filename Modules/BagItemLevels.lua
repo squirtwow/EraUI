@@ -196,6 +196,15 @@ local function QualityColour(q)
  return r,g,b
 end
 local function Hide(button)local o=marks[button];if o then o:Hide()end end
+-- The item level, bottom right of a mark, where gear never has a stack count.
+-- The template is only a font to start from; Face sets the real one.
+local function LevelText(o)
+ local text=o:CreateFontString(nil,"OVERLAY","NumberFontNormal")
+ text:SetPoint("BOTTOMRIGHT",o,"BOTTOMRIGHT",-2,1);text:SetJustifyH("RIGHT")
+ text:SetShadowColor(0,0,0,1);text:SetShadowOffset(1,-1)
+ o.level=text
+ return text
+end
 -- Made once per button, on first use, and only shown or hidden after that.
 local function Mark(button)
  local o=marks[button];if o then return o end
@@ -216,11 +225,7 @@ local function Mark(button)
  -- (a merchant open, grey items) is top left and the stack count bottom right.
  o.arrow=o:CreateTexture(nil,"OVERLAY")
  o.arrow:SetPoint("TOPRIGHT",o,"TOPRIGHT",-2,-2);o.arrow:SetTexture(ARROW)
- -- Bottom right, where gear never has a stack count. The template is only a
- -- font to start from; Face sets the real one.
- o.level=o:CreateFontString(nil,"OVERLAY","NumberFontNormal")
- o.level:SetPoint("BOTTOMRIGHT",o,"BOTTOMRIGHT",-2,1);o.level:SetJustifyH("RIGHT")
- o.level:SetShadowColor(0,0,0,1);o.level:SetShadowOffset(1,-1)
+ LevelText(o)
  marks[button]=o
  return o
 end
@@ -239,6 +244,8 @@ local function Face(o,size)
  local ok,done=pcall(text.SetFont,text,FONT,size,OUTLINE)
  if not ok or done==false then pcall(text.SetFont,text,FALLBACK,size,OUTLINE)end
 end
+-- The number's size on a slot this wide: 14 on a normal 37 slot, never below 9.
+local function TextSize(w)return math.max(9,math.floor(w*TEXT/SLOT+.5))end
 local function Tint(o,w,icon)
  local t=o.tint
  if icon then
@@ -288,7 +295,7 @@ local function Paint(button)
  if type(count)=="number"and count>1 then
   o.level:Hide()
  else
-  Face(o,math.max(9,math.floor(w*TEXT/SLOT+.5)))
+  Face(o,TextSize(w))
   local q=Clean(info.quality)
   if type(q)~="number"then q=quality end
   if type(q)~="number"and id then q=Number(C_Item and C_Item.GetItemQualityByID,id)end
@@ -391,3 +398,13 @@ end
 function M:Initialize()
  if Active()then self:Refresh()end
 end
+
+-- Shared with Character Item Levels, so the gear you wear shows the same
+-- number the arrows here weigh your bags against, in the same look. These
+-- work whether Bag Item Levels is on or off.
+M.ItemLevel=Level
+function M.ItemQuality(link)local _,_,quality=ItemInfo(link);return quality end
+M.QualityColour=QualityColour
+M.LevelText=LevelText
+function M.SizeLevel(o,w)Face(o,TextSize(w))end
+M.SlotWidth=Width

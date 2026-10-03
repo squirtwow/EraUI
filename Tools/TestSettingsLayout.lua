@@ -86,7 +86,10 @@ function methods:GetRight()local x,_,w=self:Rect();return x+w end
 function methods:SetSize(w,h)Guard(self);local changed=self.w~=w or self.h~=h;self.w,self.h=w,h;if changed then self:Fire("OnSizeChanged",w,h)end end
 function methods:SetWidth(w)self:SetSize(w,self.h)end
 function methods:SetHeight(h)self:SetSize(self.w,h)end
-function methods:SetText(text)self.text=text;self:Fire("OnTextChanged")end
+-- As in the client, a button's text goes to the font string it was given.
+function methods:SetText(text)self.text=text;if self.fontString then self.fontString:SetText(text)end;self:Fire("OnTextChanged")end
+function methods:SetFontString(fs)self.fontString=fs end
+function methods:Click()self:Fire("OnClick")end
 function methods:GetText()return self.text or""end
 function methods:SetFont(...)self.font={...};self.h=self.font[2]or 12 end
 function methods:GetFont()return "font",12,""end
@@ -113,6 +116,8 @@ end
 -- Kept, so a label's wrapping and justification can be checked.
 function methods:SetWordWrap(v)Guard(self);self.wordWrap=v end
 function methods:SetJustifyH(v)Guard(self);self.justifyH=v end
+function methods:EnableMouse(v)Guard(self);self.mouse=v end
+function methods:SetTextColor(r,g,b)Guard(self);self.colour={r,g,b}end
 CreateFrame=Frame
 methods.SetStatusBarTexture=function()end
 methods.SetStatusBarColor=function()end
@@ -149,8 +154,10 @@ local function Session(c,ready,soon,char,setup)
   E.Persistence={}
   E.Classic={DB_DEFAULTS={},TOGGLES={},RELOAD_KEYS={},MirrorSave=function()end,
    OpenOptions=function()end,ApplyAll=function()end,ToggleChanged=function()end,FirstRun=function()end}
+ assert(loadfile("Modules/PoisonData.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassTools.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminderData.lua"))("EraUI",E)
+ assert(loadfile("Modules/ClassReminderPoisons.lua"))("EraUI",E)
  assert(loadfile("Modules/ClassReminders.lua"))("EraUI",E)
  assert(loadfile("Modules/HunterFeed.lua"))("EraUI",E)
   assert(loadfile("Modules/MageSupplies.lua"))("EraUI",E)
@@ -462,6 +469,58 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
     E.modules.BagItemLevels=real;E.Status=say
    end
   end
+  -- Character Item Levels: its own card on Character & Spells, right after
+  -- Character Window, needing no other option, off by default, labelled
+  -- Needs testing, switched on and off live.
+  do
+   local card,window=f.checks.characterItemLevels,f.checks.characterPanel
+   equal(card and card.category,Tab(f,"character"),c.." Character Item Levels card on Character & Spells")
+   equal(card.text:GetText(),"Character Item Levels",c.." Character Item Levels label")
+   equal(card.description:GetText(),"Item levels on the gear you wear, in quality colours. Needs testing.",c.." its card says what it shows and Needs testing")
+   Open(f,"character")
+   NoCardOverlaps(f,c.." Character & Spells")
+   equal(card:IsShown(),true,c.." Character Item Levels shown on Character & Spells")
+   equal(card:GetTop()==window:GetTop()and card:GetLeft()>window:GetLeft(),true,c.." Character Item Levels right after Character Window, beside it")
+   equal(card.dependencyHelp,nil,c.." Character Item Levels needs no other option")
+   equal(card.unavailable==false and card.enabled~=false,true,c.." Character Item Levels can be switched")
+   equal(card.state:GetText(),"OFF",c.." off by default, and its switch says OFF")
+   equal(card:GetChecked()and true or false,false,c.." shown off")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    card:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(lines[1],"Character Item Levels","Character Item Levels tooltip title")
+    equal(text:find("big number at the bottom right of its slot in the character window, in the item's quality colour",1,true)~=nil,true,"hover describes the number on each slot")
+    equal(text:find("except the shirt, tabard and ammo slots",1,true)~=nil,true,"hover says which slots get no number")
+    equal(text:find("A stack of throwing weapons keeps the game's count in that corner instead",1,true)~=nil,true,"hover says a stack of thrown weapons keeps its count")
+    equal(text:find("The same numbers and look as Bag Item Levels",1,true)~=nil,true,"hover says it matches Bag Item Levels")
+    equal(text:find("EraUI's Classic character window and Blizzard's own",1,true)~=nil,true,"hover says it works with either character window")
+    equal(text:find("Needs testing",1,true)~=nil,true,"hover says Needs testing")
+    equal(text:find("Default: Off",1,true)~=nil and text:find("Off by default.",1,true)~=nil,true,"Character Item Levels default shown as Off")
+    equal(text:find("Requires /reload",1,true),nil,"applies without a reload")
+    equal(text:find("Coming soon",1,true),nil,"not coming soon")
+    equal(text:find("\226\128\148",1,true),nil,"no em dash")
+    GameTooltip=nil
+    local real,refreshed,status=E.modules.CharacterItemLevels,0
+    E.modules.CharacterItemLevels={Refresh=function()refreshed=refreshed+1 end}
+    local say=E.Status;E.Status=function(_,m)status=m end
+    card:SetChecked(true);card:Fire("OnClick")
+    equal(E.settings.characterItemLevels,true,"Character Item Levels switched on")
+    equal(refreshed,1,"applies live through its module, no reload")
+    equal(status,"Character Item Levels enabled. Open your character window to see it.","says so in chat")
+    card:SetChecked(false);card:Fire("OnClick")
+    equal(E.settings.characterItemLevels==false and refreshed,2,"switching off applies live too")
+    equal(status,"Character Item Levels disabled.","says it is off")
+    -- A choice saved earlier is kept and shown.
+    E.settings.characterItemLevels=true;f:Hide();f:Show();Flush()
+    equal(card:GetChecked()and true or false,true,"a saved on shows on")
+    equal(card.state:GetText(),"ON","and ON")
+    E.settings.characterItemLevels=nil;f:Hide();f:Show();Flush()
+    E.modules.CharacterItemLevels=real;E.Status=say
+   end
+  end
   for _,id in ipairs({"bags","screen"})do
    Open(f,id)
    NoCardOverlaps(f,c.." "..id)
@@ -581,7 +640,56 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
   local p=E.modules.ClassReminders:OptionsPanel()
   equal(f.checks.classTools:IsShown(),c=="HUNTER"or c=="MAGE"or c=="ROGUE",c.." only useful tool cards shown")
   equal(p.group:IsShown(),c~="ROGUE"and c~="SHAMAN",c.." group checking matches supported reminders")
-  equal(p.clickable:IsShown(),c~="ROGUE",c.." reminder clicking matches supported actions")
+  -- Every class has a clickable reminder now (rogues: POISON!), but only
+  -- spell clicks can be short of mana or rage.
+  equal(p.clickable:IsShown(),true,c.." reminder clicking matches supported actions")
+  equal(p.mana:IsShown(),c~="ROGUE",c.." the out-of-mana note only where a click casts a spell")
+  -- Click to apply poisons and each hand's pick: rogues only, under
+  -- Clickable reminders, fitting the panel, greyed until Clickable is on.
+  equal(p.poisonClick~=nil and p.poisonClick:IsShown(),c=="ROGUE",c.." Click to apply poisons only for rogues")
+  equal(p.mainPoison~=nil and p.offPoison~=nil,c=="ROGUE",c.." poison picks only for rogues")
+  if c=="ROGUE"then
+   local pc,main,off=p.poisonClick,p.mainPoison,p.offPoison
+   equal(pc.label:GetText(),"Click to apply poisons (Needs testing)","Click to apply poisons is labelled Needs testing")
+   equal(pc.label:GetStringWidth()<=pc.label:GetWidth(),true,"its label fits its width")
+   equal(pc.dependencyDisabled,true,"greyed out until Clickable reminders is on")
+   equal(pc:GetTop()<=p.clickable:GetBottom()+.01 and main:GetTop()<=pc:GetBottom()+.01 and off:GetTop()<=main:GetBottom()+.01
+    and p.prev:GetTop()<=off:GetBottom()+.01,true,"it and the two picks sit under Clickable reminders, before Show all reminders")
+   for _,b in ipairs({pc,main,off})do
+    equal(b:IsShown()and b:GetLeft()>=p:GetLeft()+11.99 and b:GetRight()<=p:GetRight()+.01,true,"rogue poison controls fit the panel")
+   end
+   equal(main.label:GetText().." / "..off.label:GetText(),"Main hand: Spell8681  > / Off hand: Spell8681  >","level 20: both hands pick Instant Poison")
+   for _,hand in ipairs({"Main hand: ","Off hand: "})do
+    for _,family in ipairs(E.PoisonData.families)do
+     main.label:SetText(hand..family.name.."  >")
+     equal(main.label:GetStringWidth()<=main:GetWidth()-8,true,hand..family.name.." fits its button")
+    end
+   end
+   main.draw()
+   local lines={}
+   GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+    Show=function()end,Hide=function()end,IsOwned=function()return true end}
+   -- Each hover, word for word, and none with an em or en dash.
+   local function Hover(b,label)
+    b:Fire("OnEnter")
+    for _,l in ipairs(lines)do
+     equal(l:find("\226\128\148",1,true)==nil and l:find("\226\128\147",1,true)==nil,true,"no em or en dash in the "..label.." help")
+    end
+    return table.concat(lines,"\n")
+   end
+   equal(Hover(pc,"Click to apply poisons"),"Click to apply poisons\nTurn on Clickable reminders to use this.\n"
+    .."With Clickable reminders on, a left-click on POISON!'s icon puts your main hand's poison on your main hand, and a right-click puts your off hand's poison on your off hand. "
+    .."It uses the game's own item use, outside combat only, with the highest rank you carry that your level allows. "
+    .."Pick each hand's poison with the buttons below. Needs testing.\nDefault: Off.",
+    "Click to apply poisons: its title, what to turn on while greyed, what each click does, Needs testing, off by default")
+   equal(Hover(off,"off hand pick"),"Off hand poison\nPicks the poison a right-click on POISON! puts on your off hand: the highest rank you carry that your level allows. "
+    .."Only poisons your level allows are offered, from level 20. With none in your bags, POISON! says so. Each rogue keeps its own picks.\n"
+    .."Default: Spell2835, or Spell8681 before level 30.","the off hand's pick, in its own words, with its default from Forever's data")
+   equal(Hover(main,"main hand pick"),"Main hand poison\nPicks the poison a left-click on POISON! puts on your main hand: the highest rank you carry that your level allows. "
+    .."Only poisons your level allows are offered, from level 20. With none in your bags, POISON! says so. Each rogue keeps its own picks.\n"
+    .."Default: Spell8681.","the main hand's too")
+   GameTooltip=nil
+  end
   -- Click pet reminders in combat: pet classes only, its label fits, and it
   -- waits for Clickable reminders.
   equal(p.combatClick:IsShown(),c=="HUNTER"or c=="WARLOCK",c.." pet clicks in combat only for pet classes")
@@ -649,7 +757,13 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
  p.adv:Fire("OnClick");Flush()
  equal(f.settingsScroll:GetVerticalScroll()<=f.settingsContent:GetHeight()-f.settingsScroll:GetHeight(),true,c.." collapse clamps offset")
  f.searchBox:SetText("class");Flush();Fits(f,c.." search expanded cards")
+ -- Search lists the class cards alone; clearing it opens their boxes again.
+ for key,card in pairs(f.checks)do
+  if card.inlinePanel then equal(card.inlinePanel:IsShown(),false,c.." search shows no options box under "..key)end
+ end
  f.searchBox:SetText("");Flush();Fits(f,c.." restored class page")
+ equal(p:IsShown(),true,c.." the class tab opens Class Reminders & Buffs' box again")
+ if c=="HUNTER"or c=="MAGE"then equal(f.checks.classTools.inlinePanel:IsShown(),true,c.." and the class tools box")end
  f:SetSetupMode(true);Flush()
  equal(f.settingsScroll:GetLeft()-f:GetLeft(),30,c.." setup viewport position")
  f:SetSetupMode(false);Flush();Fits(f,c.." return from setup")
@@ -660,6 +774,21 @@ for _,c in ipairs({"DRUID","WARRIOR","PALADIN","SHAMAN","PRIEST","WARLOCK","HUNT
  E.settings.classReminders=true
  local expected=c=="HUNTER"and "HunterFeed"or c=="MAGE"and "MageSupplies"or c=="ROGUE"and "RoguePoisons"or "ClassReminders"
  equal(E.ClassTools:ActiveModule(),E.modules[expected],c.." real class route")
+ -- The Class Reminders & Buffs card refreshes the alerts at once, whichever
+ -- class tool the class runs (a rogue's is Poison Supplies), so POISON! and
+ -- its click never linger after it's switched off. Once, not twice.
+ do
+  local reminders=E.modules.ClassReminders
+  local refresh,count=reminders.Refresh,0
+  reminders.Refresh=function(self,...)count=count+1;return refresh(self,...)end
+  local card=f.checks.classReminders
+  card:SetChecked(false);card:Fire("OnClick")
+  equal(E.settings.classReminders,false,c.." the card switches Class Reminders & Buffs off")
+  equal(count,1,c.." and refreshes the alerts at once")
+  count=0;card:SetChecked(true);card:Fire("OnClick")
+  equal(E.settings.classReminders==true and count==1,true,c.." the same switching it on")
+  reminders.Refresh=refresh
+ end
  local button=f.checks.classTools
  local function OpenTools()
    if button:IsShown() and button.scripts.OnClick then button:Fire("OnClick")else E.ClassTools:Open()end
@@ -818,7 +947,19 @@ Aligned("initial")
 f:ClearAllPoints();f:SetPoint("CENTER",UIParent,"CENTER",150,-40);f:Fire("OnDragStop");Aligned("moved")
 f:SetScale(.7);Aligned("scaled")
 f.searchBox:SetText("conjure");Flush();Fits(f,"mage search")
-Aligned("search")
+-- Search lists Conjuring & Trade Options alone: its box, and the conjure
+-- buttons over it, stay on the class tab.
+equal(f.checks.classTools:IsShown()and panel:IsShown(),false,"mage search lists the heading without its box")
+for _,b in ipairs(actions)do equal(b:IsShown(),false,"conjure actions hidden in search")end
+f.searchBox:SetText("");Flush()
+equal(panel:IsShown(),true,"clearing search opens the box again")
+for _,b in ipairs(actions)do equal(b:IsShown(),true,"with its conjure actions")end
+Aligned("after search")
+-- Another tab takes the box and its conjure buttons with it.
+Open(f,"frames")
+for _,b in ipairs(actions)do equal(b:IsShown(),false,"conjure actions hidden on another tab")end
+Open(f,"class");Aligned("back on the class tab")
+for _,b in ipairs(actions)do equal(b:IsShown(),true,"conjure actions back on the class tab")end
 f:Hide();for _,b in ipairs(actions)do equal(b:IsShown(),false,"close hides independent action")end
 f:Show();Flush()
 
@@ -1298,7 +1439,10 @@ local EXPECTED_PAGES={
  casting={"castBars","advancedCastBar","advancedCastClassFill","advancedCastTicks","advancedCastLatency"},
  map={"minimap","cleanMinimap","coordinates","mapQuestObjectives","movableMap","revealMap"},
  quests={"questLog","questDialogs","questTracker","questLevels","autoQuests","autoGossip","rewardUpgradeHighlight","rewardProfile"},
- character={"characterPanel","talentWindow","spellbook","spellbookCombatDrag","trainingGuide","showAllSpellRanks","trainer","professions"},
+ -- Character Item Levels (2026-10-02) right after Character Window, as asked:
+ -- the only change to this page, so Talents now ends its row on its own,
+ -- since Spellbook starts the next row with its two options.
+ character={"characterPanel","characterItemLevels","talentWindow","spellbook","spellbookCombatDrag","trainingGuide","showAllSpellRanks","trainer","professions"},
  bags={"bagsBank","bagSpace","bagItemLevels","lootWindow","fastAutoLoot","discardCheapestJunk",
   "merchantSkin","autoSellJunk","autoRepair","vendorPrice","junkValueSummary","durabilityWarning"},
  chat={"hideSecondaryNames","classicChatDragging","linkToggle","hideStatusMessages","showWelcomeOnLogin"},
@@ -1444,7 +1588,10 @@ do
   for _,key in ipairs(f.pages[id])do if key:sub(1,1)~="#"then got[#got+1]=key end end
   equal(table.concat(got,","),table.concat(want,","),id.." holds the approved cards, in order")
  end
- equal(table.concat(f.pages.class,","),"floatingComboPoints,comboPointRed,energyBar,rageBar,manaBar,druidResourceBar,swingTimer,rangedSwingTimer,hunterFeed,mageSupplies,mageAutoTrade,roguePoisons,poisonReminders,classReminders,classTools","the class tab is unchanged")
+ -- The Poison Reminders card is gone (after 1.5.1): poisons are a class
+ -- reminder now, POISON! under Class Reminders & Buffs.
+ equal(table.concat(f.pages.class,","),"floatingComboPoints,comboPointRed,energyBar,rageBar,manaBar,druidResourceBar,swingTimer,rangedSwingTimer,hunterFeed,mageSupplies,mageAutoTrade,roguePoisons,classReminders,classTools","the class tab, without Poison Reminders")
+ equal(f.checks.poisonReminders,nil,"no Poison Reminders card")
  -- Section labels in EraUI's small capitals: Bags & Vendors has two, each
  -- above its cards.
  Open(f,"bags")
@@ -1493,6 +1640,13 @@ do
  -- Search still finds a folded option.
  f.searchBox:SetText("trail opacity");Flush()
  equal(f.checks.cursorTrailOpacity:IsShown(),true,"search finds a folded option")
+ -- Its tab name opens Screen & Cursor at its switch, where it stays folded.
+ f.searchTags[f.checks.cursorTrailOpacity]:Fire("OnClick");Flush()
+ equal(f.selectedCategory,Tab(f,"screen"),"a folded option's tab name opens its tab")
+ equal(f.searchBox:GetText()..f.sectionTitle:GetText(),"Screen & Cursor","and leaves search")
+ equal(f.checks.cursorTrailOpacity:IsShown(),false,"the option stays folded there")
+ local trail=f.checks.cursorTrail
+ equal(f.settingsScroll:GetVerticalScroll()>0 and trail:GetTop()<=f.settingsScroll:GetTop()+.01 and trail:GetBottom()>=f.settingsScroll:GetBottom()-.01,true,"scrolled to its switch, Cursor Trail")
  f.searchBox:SetText("");Flush()
 
  -- Search: colour and color, grey and gray, the tab of every result, the
@@ -1509,10 +1663,17 @@ do
  equal(table.concat(Results("class color"),","),colours,"and so does class color")
  equal(table.concat(Results("Class Colored"),","),colours,"and class colored")
  equal(f.searchResultsText:GetText(),"8 found  |  1 / 1","on one page")
+ local about=f.sectionAbout:GetText()
+ equal(about,"Each result shows its tab. Click the tab name to go there.","search says the tab names are links")
+ equal(#about*6<=560 and about:find("\226\128\148",1,true)==nil,true,"on one line, no em dash")
  for _,key in ipairs(Results("class colour"))do
   local card=f.checks[key];local tag=f.searchTags[card]
   equal(tag~=nil and tag:IsShown()and tag:GetText(),string.upper(f.tabs[card.category].text:GetText()),key.." result shows its tab")
   equal(tag:GetBottom()>=card:GetTop()-.01 and tag:GetTop()<=card:GetTop()+16.01,true,key.." tab name just above the card")
+  equal(tag.mouse,true,key.." tab name is a link")
+  equal(table.concat(tag.label.colour,",")~="0.58,0.62,0.68",true,key.." in the class colour, not plain grey")
+  equal(tag.label:GetText()==tag:GetText()and tag.label:GetLeft()>=tag:GetLeft()-.01
+   and tag.label:GetLeft()+tag.label:GetStringWidth()<=tag:GetRight()+.01,true,key.." the link covers its name")
   for other,shown in pairs(f.checks)do
    if shown~=card and shown:IsShown()and shown:GetLeft()<=tag:GetLeft()and shown:GetRight()>=tag:GetLeft()then
     equal(shown:GetBottom()>=tag:GetTop()-.01 or shown:GetTop()<=tag:GetBottom()+.01,true,key.." tab name clear of "..other)
@@ -1542,6 +1703,10 @@ do
  equal(update:find("updateCheck",1,true)~=nil,true,"search finds the Update notice")
  local notice=f.checks.updateCheck
  equal(f.searchTags[notice]:GetText(),"TOP RIGHT, UNDER PRESETS","and says where its tick is")
+ equal(f.searchTags[notice].mouse,false,"a place, not a tab: its name is not a link")
+ equal(table.concat(f.searchTags[notice].label.colour,","),"0.58,0.62,0.68","so it is plain grey, not a link's class colour")
+ f.searchTags[notice]:Fire("OnClick")
+ equal(f.sectionTitle:GetText().." / "..tostring(notice:IsShown()),"Search results / true","and a click there changes nothing")
  equal(notice.text:GetText().." / "..f.updateNotice.text:GetText(),"Update Notice / Update Notice","named like the tick")
  local say,status=E.Status
  E.Status=function(_,m)status=m end
@@ -1576,11 +1741,11 @@ do
   local pages=tonumber(f.searchResultsText:GetText():match("/ (%d+)$"))
   local listed=0
   for page=1,pages do
-   -- A class card opens its options panel under it; that page may scroll.
-   local panel=false
-   for _,card in ipairs(f.settingsEntries)do if card.inlinePanel and card.inlinePanel:IsShown()then panel=true end end
-   if panel then Fits(f,label.." page "..page)
-   else equal(f.settingsContent:GetHeight()<=f.settingsScroll:GetHeight()+.01,true,label.." page "..page.." fits without scrolling")end
+   -- Class cards list without their options boxes, so every page fits.
+   for _,card in ipairs(f.settingsEntries)do
+    equal(card.inlinePanel==nil or not card.inlinePanel:IsShown(),true,label.." page "..page.." "..tostring(card.settingKey).." shows no options box")
+   end
+   equal(f.settingsContent:GetHeight()<=f.settingsScroll:GetHeight()+.01,true,label.." page "..page.." fits without scrolling")
    equal(Rows()<=4,true,label.." page "..page.." has at most four rows")
    NoCardOverlaps(f,label.." page "..page)
    InsideContent(f,label.." page "..page)
@@ -2029,5 +2194,120 @@ do
   equal(f.navigation:GetRight(),divider,c.." the dark list backing ends at the divider")
  end
  UnitClass=oldClass
+end
+
+-- Poisons live in Class Reminders & Buffs now: its card says so, and a
+-- search for "poison" (or the old "poison reminders") finds it.
+for _,c in ipairs({"ROGUE","PRIEST"})do
+ local E,f=Session(c)
+ local card=f.checks.classReminders
+ equal(card.description:GetText(),"Big on-screen alerts when a class buff, pet, poison or supply is missing.",c.." Class Reminders & Buffs mentions poisons")
+ local function Results(query)
+  f.searchBox:SetText(query);Flush()
+  local out={}
+  for i,e in ipairs(Reading(f))do out[i]=e.key end
+  return table.concat(out,",")
+ end
+ equal(Results("poison"),c=="ROGUE"and "roguePoisons,classReminders,classTools"or "classReminders",c.." poison finds Class Reminders & Buffs")
+ equal(Results("poison reminders"),"classReminders",c.." and so does the old Poison Reminders name")
+ f.searchBox:SetText("");Flush()
+end
+
+-- Search lists class cards alone: no options box under any result, so a
+-- rogue's "pois" is three compact cards, two to a row with no gap. Their
+-- switches still work there, the boxes come back on the class tab, and each
+-- result's tab name goes there. Hunter and Mage tools words are their own.
+for _,c in ipairs({"ROGUE","HUNTER","MAGE","PRIEST"})do
+ local E,f=Session(c)
+ local reminders,tools=f.checks.classReminders,f.checks.classTools
+ local inline=c=="HUNTER"or c=="MAGE"
+ local open=inline and "classReminders,classTools"or "classReminders"
+ local function Boxes()
+  local out={}
+  for key,card in pairs(f.checks)do if card.inlinePanel and card.inlinePanel:IsShown()then out[#out+1]=key end end
+  table.sort(out);return table.concat(out,",")
+ end
+ local function Results(query)
+  f.searchBox:SetText(query);Flush()
+  local out={}
+  for i,e in ipairs(Reading(f))do out[i]=e.key end
+  return table.concat(out,",")
+ end
+ -- Even rows: each pair side by side, each row 4 under the last plus 16 for
+ -- the tab names.
+ local function EvenRows(label)
+  local list=f.settingsEntries
+  for i,card in ipairs(list)do
+   if i%2==0 then
+    equal(card:GetTop(),list[i-1]:GetTop(),label..": "..card.settingKey.." beside "..list[i-1].settingKey)
+   elseif i>2 then
+    local above=math.min(list[i-2]:GetBottom(),list[i-1]:GetBottom())
+    equal(math.abs(card:GetTop()-(above-4-16))<.01,true,label..": "..card.settingKey.." right under the row above")
+   end
+  end
+  equal(f.settingsContent:GetHeight()<=f.settingsScroll:GetHeight()+.01,true,label.." fits without scrolling")
+  NoCardOverlaps(f,label)
+ end
+ Open(f,"class")
+ equal(Boxes(),open,c.." the class tab opens its options boxes")
+ -- Typed with the class tab open: the cards stay shown, their boxes close.
+ local query=c=="ROGUE"and "pois"or string.lower(c)
+ local found=Results(query)
+ if c=="ROGUE"then
+  equal(found,"roguePoisons,classReminders,classTools","rogue pois: Poison Supplies, Class Reminders & Buffs, Configure Rogue Tools")
+  equal(f.searchResultsText:GetText(),"3 found  |  1 / 1","three results")
+  local supplies=f.checks.roguePoisons
+  equal(reminders:GetTop()==supplies:GetTop()and reminders:GetLeft()>supplies:GetRight(),true,"Class Reminders & Buffs beside Poison Supplies")
+  equal(tools:GetLeft()==supplies:GetLeft()and tools:GetTop()==supplies:GetBottom()-4-16,true,"Configure Rogue Tools right under Poison Supplies, no gap")
+ else
+  equal(found:find("classReminders",1,true)~=nil and found:find("classTools",1,true)~=nil==inline,true,c.." "..query.." lists the whole class tab")
+ end
+ equal(Boxes(),"",c.." no options box under any result")
+ EvenRows(c.." "..query)
+ -- A card shown again in search still opens nothing.
+ reminders:Fire("OnShow");tools:Fire("OnShow");Flush()
+ equal(Boxes(),"",c.." a result shown again opens no box")
+ -- Switches still work from search, and the results stay put.
+ E.settings.classReminders=nil
+ reminders:SetChecked(true);reminders:Fire("OnClick");Flush()
+ equal(E.settings.classReminders,true,c.." Class Reminders & Buffs switches on in search")
+ equal(Results(query)..Boxes(),found,c.." the same results, still no box")
+ reminders:SetChecked(false);reminders:Fire("OnClick");Flush()
+ equal(E.settings.classReminders,false,c.." and off")
+ -- Clearing search: the cards never hid, their boxes come back.
+ f.searchBox:SetText("");Flush()
+ equal(f.selectedCategory..Boxes(),Tab(f,"class")..open,c.." clearing search opens the class tab's boxes again")
+ Fits(f,c.." class tab after search")
+ -- Searched from another tab: no box either.
+ Open(f,"frames");equal(Boxes(),"",c.." no box off the class tab")
+ Results(query)
+ equal(Boxes(),"",c.." search from another tab opens no box")
+ EvenRows(c.." "..query.." from another tab")
+ -- A result's tab name goes to its tab, at the card, with its box.
+ for _,card in ipairs(inline and {reminders,tools}or {reminders})do
+  Results(query)
+  local tag=f.searchTags[card]
+  equal(tag:IsShown()and tag:GetText(),string.upper(f.tabs[Tab(f,"class")].text:GetText()),c.." "..card.settingKey.." shows its tab")
+  equal(tag.mouse,true,c.." "..card.settingKey.." tab name is a link")
+  local colour=table.concat(tag.label.colour,",")
+  tag:Fire("OnEnter");equal(table.concat(tag.label.colour,","),"1,1,1",c.." hover brightens the name")
+  tag:Fire("OnLeave");equal(table.concat(tag.label.colour,","),colour,c.." and leaving puts the class colour back")
+  equal(colour~="1,1,1",true,c.." which is not the hover colour")
+  tag:Fire("OnClick");Flush()
+  equal(f.selectedCategory,Tab(f,"class"),c.." "..card.settingKey.." tab name opens the class tab")
+  equal(f.searchBox:GetText()..tostring(f.searching)..f.sectionTitle:GetText(),"false"..f.tabs[Tab(f,"class")].text:GetText(),c.." and leaves search")
+  equal(Boxes(),open,c.." with the boxes open")
+  equal(card:GetTop()<=f.settingsScroll:GetTop()+.01 and card:GetBottom()>=f.settingsScroll:GetBottom()-.01,true,c.." "..card.settingKey.." in view")
+  local range=f.settingsContent:GetHeight()-f.settingsScroll:GetHeight()
+  equal(math.abs(card:GetTop()-f.settingsScroll:GetTop())<.01 or math.abs(f.settingsScroll:GetVerticalScroll()-range)<.01,true,c.." "..card.settingKey.." scrolled to the top, or as far as it goes")
+  Fits(f,c.." "..card.settingKey.." after its tab name")
+ end
+ -- Tools words are each class's own.
+ local rogueOnly,hunterOnly,mageOnly=Results("flash powder"),Results("pet feeding"),Results("conjure")
+ equal(rogueOnly:find("classTools",1,true)~=nil,c=="ROGUE",c.." flash powder finds the class tools only for a rogue")
+ equal(hunterOnly:find("classTools",1,true)~=nil,c=="HUNTER",c.." pet feeding finds them only for a hunter")
+ equal(mageOnly:find("classTools",1,true)~=nil,c=="MAGE",c.." conjure finds them only for a mage")
+ equal(Results("poison"):find("classTools",1,true)~=nil,c=="ROGUE",c.." poison finds them only for a rogue")
+ f.searchBox:SetText("");Flush()
 end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

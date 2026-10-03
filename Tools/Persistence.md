@@ -36,9 +36,11 @@ SavedVariables and reports the failure without overwriting the backup.
 
 ## Reset lifecycle
 
-`/era reset` is accepted outside combat and verifies a durable
-`EraUIRecovery1Reset=1` request, then automatically calls `ReloadUI()` only after
-that request succeeds. Combat or a failed request does not trigger a reload.
+`/era reset` only opens a prompt (outside combat; in combat it just says to
+finish first). The prompt's Reset button verifies a durable
+`EraUIRecovery1Reset=1` request, then calls `ReloadUI()` from that click only
+after the request succeeds; Cancel, its X and Escape change nothing. Combat or
+a failed request does not trigger a reload.
 The current session keeps its live tables and
 aliases until reload. Account recovery, Classic, swing and onboarding mirrors
 stop saving while this request is pending, including queued/logout saves.
