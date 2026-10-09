@@ -27,6 +27,16 @@ end
 local active = false
 local skinned = setmetatable({}, { __mode = "k" })
 
+-- Forever Enhanced Nameplates takes the plates over while it is loaded
+-- (EraUI:NamePlatesHandedOver, Core/Utils.lua), the way the boss cast bars go
+-- to Forever Enhanced Cooldown Manager. Every module in this file then steps
+-- aside: no look, no class colours, no plate settings written or put back,
+-- nothing read or called on the plates. Saved choices are kept for when it's
+-- gone. Asked on every pass; without it nothing here changes.
+function ns.PlatesHandedOver()
+    return EraUI.NamePlatesHandedOver ~= nil and EraUI:NamePlatesHandedOver() == true
+end
+
 local function Forbidden(frame)
     return not frame or (frame.IsForbidden and frame:IsForbidden())
 end
@@ -258,7 +268,15 @@ local function RestoreStyleChoice()
     ns.SetCVar(CVAR, saved)
 end
 
+-- Our own driver stops; plates already dressed keep the look until a reload.
+local function StepAside()
+    if active then ns.needsReload = true end
+    active = false
+    if driver then driver:Hide() end
+end
+
 local function Apply()
+    if ns.PlatesHandedOver() then StepAside() return end
     active = true
     RestoreStyleChoice()
     if not NamePlateDriverFrame then ns.MissingPiece("NamePlateDriverFrame") return end
@@ -301,10 +319,12 @@ local function Apply()
             end)
         end)
     end
+    driver:Show()
     EachPlate(SkinPlate)
 end
 
 local function Restore()
+    if ns.PlatesHandedOver() then StepAside() return end
     active = false
     RestoreStyleChoice()
     for unitFrame in pairs(skinned) do
@@ -327,6 +347,7 @@ end
 ns.RegisterModule("namePlates", { apply = Apply, restore = Restore })
 
 local function ColorApply()
+    if ns.PlatesHandedOver() then return end
     if C_NamePlate and C_NamePlate.GetNamePlates then
         for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
             if plate.UnitFrame then ClassColor(plate.UnitFrame) end
@@ -335,6 +356,7 @@ local function ColorApply()
 end
 
 local function ColorRestore()
+    if ns.PlatesHandedOver() then return end
     if not (C_NamePlate and C_NamePlate.GetNamePlates) then return end
     for _, plate in ipairs(C_NamePlate.GetNamePlates()) do
         local unitFrame = plate.UnitFrame
@@ -349,6 +371,7 @@ ns.RegisterModule("classColorPlates", { apply = ColorApply, restore = ColorResto
 local SIMPLIFIED_CVAR = "nameplateSimplifiedTypes"
 
 local function FullPlatesApply()
+    if ns.PlatesHandedOver() then return end
     if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
     local current = C_CVar.GetCVar(SIMPLIFIED_CVAR)
     local value = tonumber(current)
@@ -358,6 +381,7 @@ local function FullPlatesApply()
 end
 
 local function FullPlatesRestore()
+    if ns.PlatesHandedOver() then return end
     local saved = ns.db.savedSimplifiedTypes
     ns.db.savedSimplifiedTypes = nil
     if tonumber(saved) then ns.SetCVar(SIMPLIFIED_CVAR, saved) end

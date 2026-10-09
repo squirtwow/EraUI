@@ -16,6 +16,10 @@ local PANEL_BUTTON = "Interface\\Buttons\\UI-Panel-Button-"
 
 local window
 
+-- Greyed while Forever Enhanced Nameplates has the plates (ns.PlatesHandedOver).
+local PLATE_KEYS = { namePlates = true, fullPlates = true, classColorPlates = true }
+local HANDED_OVER_NOTE = "Forever Enhanced Nameplates is on and handles nameplates, so EraUI leaves them alone."
+
 function ns.PanelButton(parent, text, width)
     local button = CreateFrame("Button", nil, parent)
     button:SetSize(width or 96, 22)
@@ -49,6 +53,7 @@ local function ShowTooltip(self)
     if not self.tooltip then return end
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:SetText(self.label, 1, 1, 1)
+    if self.note then GameTooltip:AddLine(self.note, 1, 0.82, 0, true) end
     GameTooltip:AddLine(self.tooltip, nil, nil, nil, true)
     GameTooltip:Show()
 end
@@ -357,6 +362,9 @@ local function Build(canvas)
         for _, box in ipairs(self.boxes) do
             box:SetChecked(ns.db[box.key] ~= false)
             local on = not box.parent or ns.db[box.parent] ~= false
+            local over = PLATE_KEYS[box.key] and ns.PlatesHandedOver and ns.PlatesHandedOver() or false
+            box.note = over and HANDED_OVER_NOTE or nil
+            if over then on = false end
             box:SetEnabled(on)
             box.text:SetFontObject(on and "GameFontHighlight" or "GameFontDisable")
         end

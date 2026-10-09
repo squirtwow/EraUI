@@ -61,6 +61,7 @@ local function Session(drag)
     function methods:IsProtected() return self.protected == true end
     function methods:SetParent(parent) Lock(self); self.parent = parent end
     function methods:GetParent() return self.parent end
+    function methods:GetName() return self.name end
     function methods:GetFrameLevel() return self.level end
     function methods:GetFrameStrata() return "MEDIUM" end
     function methods:GetWidth() return self.width end
@@ -223,6 +224,7 @@ local function Session(drag)
     env.CreateFrame = function(kind, name, parent, template)
         assert(not (combat and template and template:find("Secure", 1, true)), "secure frame created during combat")
         local f = Frame(kind, parent, template)
+        f.name = name
         if name then env[name] = f end
         return f
     end
@@ -236,6 +238,21 @@ local function Session(drag)
     end
     env.ClearOverrideBindings = function(owner)
         for key, b in pairs(bindings) do if b.owner == owner then bindings[key] = nil end end
+    end
+    -- The game's Escape for the windows on its list (UIParentPanelManager.lua
+    -- CloseSpecialWindows). The list holds the addon's entries, so the game's
+    -- loop runs as addon code: hiding a protected frame in combat fails.
+    env.UISpecialFrames = {}
+    env.CloseSpecialWindows = function()
+        local found
+        for _, name in pairs(env.UISpecialFrames) do
+            local frame = env[name]
+            if frame and frame:IsShown() then
+                frame:Hide()
+                found = 1
+            end
+        end
+        return found
     end
     env.IsLoggedIn = function() return true end
     env.GetTime = function() return 0 end
@@ -313,13 +330,14 @@ local function Session(drag)
         Text = function(parent, text) local fs = Frame("FontString", parent); fs.text = text; return fs end,
         Spell = function() return nil end,
     }
+    assert(loadfile("Classic/Widgets.lua", "t", env))("EraUI", E) -- ns.CloseOnEscape
     assert(loadfile("Modules/TrainingGuide.lua", "t", env))("EraUI", E)
     assert(loadfile("Classic/SpellBook.lua", "t", env))("EraUI", E)
     E.modules.TrainingGuide:Initialize()
     for _, mod in ipairs(ns.modules) do if mod.key == "spellBook" then mod.init(); mod.apply() end end
     Tick()
 
-    local s = { env = env, client = client, casts = casts, settings = settings, frames = frames }
+    local s = { env = env, client = client, casts = casts, settings = settings, frames = frames, bindings = bindings }
     function s.Book() return env.EraUIClassicSpellBook end
     function s.Layer() return env.EraUIClassicSpellBookClicks end
     function s.Guide() return env.EraUITrainingGuide end
@@ -371,6 +389,12 @@ local function Session(drag)
         combat = false
         FireEvent("PLAYER_REGEN_ENABLED")
         Tick()
+    end
+    -- Escape, as the game handles it for the windows on its list.
+    function s.Escape()
+        local found = env.CloseSpecialWindows()
+        Tick()
+        return found
     end
     s.Tick = Tick
     return s
@@ -499,6 +523,77 @@ for _, drag in ipairs({ true, false }) do
     s.LeaveCombat()
     s.Press("P")
     Equal(s.Open(), false, "P closes the spell pages at the end" .. how)
+
+    -- Escape: the game's own list closes the book (through a stand-in, as
+    -- the book closes its own way), and Escape is never bound.
+    Equal(s.Escape(), nil, "closed, Escape goes on to the game's menu" .. how)
+    s.Press("P")
+    Equal(s.Escape(), 1, "open, Escape is the book's" .. how)
+    Equal(tostring(s.Open()) .. " " .. layer.attrs.unit .. " " .. tostring(layer:IsShown()), "false none false",
+        "Escape closes the book and lowers its click layer" .. how)
+    Equal(s.Escape(), nil, "then goes on to the game's menu" .. how)
+    -- In a fight the secure layer holds the book open, which Escape can't
+    -- change: the book steps off the list for the fight, so the very first
+    -- Escape goes on to the game (clear the target, open the menu), as
+    -- before. Escape touches no protected frame.
+    s.Press("P")
+    s.EnterCombat()
+    Equal(tostring(s.Escape()) .. " " .. tostring(s.Open()), "nil true",
+        "in a fight the first Escape goes straight on to the game's menu, the book held open" .. how)
+    s.Press("P")
+    Equal(s.Open(), false, "P still closes it in the fight" .. how)
+    Equal(s.Escape(), nil, "closed, Escape goes on to the game's menu" .. how)
+    s.Press("P")
+    Equal(s.Open(), true, "and opens it" .. how)
+    Equal(s.Escape(), nil, "held open again: Escape still goes on to the game's menu" .. how)
+    s.LeaveCombat()
+    Equal(s.Escape(), 1, "after the fight, Escape is the book's again" .. how)
+    Equal(tostring(s.Open()) .. " " .. layer.attrs.unit, "false none", "and closes it" .. how)
+    -- On the guide the layer is down as the fight starts, so Escape closes
+    -- the book; once P raises the layer in the fight, the book is held and
+    -- Escape goes on to the game again.
+    s.Press("P")
+    s.Click(book.TrainTab)
+    s.EnterCombat()
+    Equal(tostring(s.Escape()) .. " " .. tostring(s.Open()), "1 false", "in a fight, Escape closes the book on the guide" .. how)
+    Equal(s.Escape(), nil, "then goes on to the game's menu" .. how)
+    s.LeaveCombat()
+    s.Press("P")
+    Equal(tostring(s.Open()) .. " " .. tostring(book.trainingShown), "true true", "open on the guide again" .. how)
+    s.EnterCombat()
+    s.Press("P")
+    Equal(tostring(s.Open()) .. " " .. layer.attrs.unit, "true player", "P in a fight raises the layer, the book open" .. how)
+    Equal(tostring(s.Escape()) .. " " .. tostring(s.Open()), "nil true", "held: Escape goes on to the game's menu" .. how)
+    s.Press("P")
+    Equal(tostring(s.Open()) .. " " .. tostring(s.Escape()), "false nil", "P closes it, and Escape still goes on to the game" .. how)
+    s.LeaveCombat()
+    Equal(tostring(s.Open()) .. " " .. tostring(s.Escape()), "false nil", "closed after the fight, nothing for Escape" .. how)
+    s.Press("P")
+    Equal(s.Escape(), 1, "opened after the fight, Escape is the book's" .. how)
+    s.Press("P")
+    s.Click(book.SkillTabs[1])
+    Equal(book.trainingShown, false, "back on the spell pages" .. how)
+    s.Press("P")
+    Equal(s.Open(), false, "closed at the end" .. how)
+    Equal(s.bindings.ESCAPE, nil, "Escape is never bound" .. how)
+end
+
+-- A book the game counts as protected: in a fight P closes it by fading it
+-- out (it stays shown until the fight ends), so Escape then has nothing of
+-- the book's to close and goes on to the game.
+for _, drag in ipairs({ true, false }) do
+    local how = drag and " (spell dragging)" or " (no spell dragging)"
+    local s = Session(drag)
+    local book = s.Book()
+    s.Press("P")
+    book.protected = true
+    s.EnterCombat()
+    Equal(tostring(s.Escape()) .. " " .. tostring(s.Open()), "nil true", "protected and held open: Escape goes on to the game" .. how)
+    s.Press("P")
+    Equal(tostring(book:IsShown()) .. " " .. book:GetAlpha(), "true 0", "P fades the protected book out in the fight" .. how)
+    Equal(s.Escape(), nil, "faded out: Escape goes on to the game's menu" .. how)
+    s.LeaveCombat()
+    Equal(tostring(book:IsShown()) .. " " .. tostring(s.Escape()), "false nil", "closed after the fight, nothing for Escape" .. how)
 end
 
 -- Shift-click a spell to link it in chat. Forever's chat code is ChatFrameUtil;

@@ -6,6 +6,23 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.5.3",
+        sections = {
+            { "Added", {
+                "Darkness slider for Dark Mode, from light grey to near black.",
+                "Darken class colours too: class-coloured unit borders darken with the slider.",
+            } },
+            { "Changed", {
+                "Dark Mode also darkens the minimap ring, zoom buttons, clock, reputation bar frame and latency bar.",
+                "More from Squirt shows Forever Enhanced Cooldown Manager's new logo.",
+            } },
+            { "Fixed", {
+                "Escape closes EraUI's windows without changing your key bindings.",
+                "The Presets window closes when you change tab or close /era.",
+            } },
+        },
+    },
+    {
         version = "1.5.2",
         sections = {
             { "Added", {

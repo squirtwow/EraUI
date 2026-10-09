@@ -228,6 +228,11 @@ local function Build()
     window.close = E:CreateCloseX(window, function() window:Hide() end)
 end
 
+-- Closes the window if it was ever made (/era's tabs close it).
+function P:Hide()
+    if window then window:Hide() end
+end
+
 function P:Show()
     if not window then Build() end
     local r, g, b = ClassColour()

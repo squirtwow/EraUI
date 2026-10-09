@@ -729,93 +729,62 @@ function ns.ColumnHeader(parent, column, previous, onClick)
     return button
 end
 
--- Escape closes a window of ours. The client reads UISpecialFrames in the
--- middle of its Escape handling, so an entry there makes that handling ours;
--- instead the key is taken while a window of ours is up, bound to a button
--- that closes the topmost, and handed back the moment none is. Bindings cannot
--- change in combat, so the key is handed back as a fight begins and taken
--- again after it if a window is still up.
-local escButton
-local escFrames = {}
-
-local function EscWanted()
-    for _, frame in ipairs(escFrames) do
-        if frame:IsShown() then return true end
-    end
-    return false
-end
-
-local function EscOurs()
-    if not GetBindingAction then return false end
-    local ok, action = pcall(GetBindingAction, "ESCAPE", true)
-    return ok and type(action) == "string" and action:find("EraUIClassicEscButton", 1, true) ~= nil
-end
-
-local function EscUpdate()
-    if not escButton or InCombatLockdown() then return end
-    local want = EscWanted()
-    if want == EscOurs() then return end
-    ClearOverrideBindings(escButton)
-    if want then
-        SetOverrideBindingClick(escButton, true, "ESCAPE", "EraUIClassicEscButton")
-    end
-end
-
-local escWatch = CreateFrame("Frame")
-escWatch:RegisterEvent("PLAYER_REGEN_DISABLED")
-escWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
-escWatch:SetScript("OnEvent", function(_, event)
-    if not escButton then return end
-    if event == "PLAYER_REGEN_DISABLED" then
-        ClearOverrideBindings(escButton)
-    else
-        EscUpdate()
-    end
-end)
-escWatch:SetScript("OnUpdate", function(self, elapsed)
-    self.since = (self.since or 0) + elapsed
-    if self.since < 0.3 then return end
-    self.since = 0
-    if escButton then EscUpdate() end
-end)
-
-local escShows = 0
-function ns.CloseOnEscape(frame, closer)
-    if not frame then return end
-    frame.fcuiEscClose = closer
-    if not escButton then
-        escButton = CreateFrame("Button", "EraUIClassicEscButton", UIParent)
-        escButton:SetSize(1, 1)
-        escButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
-        escButton:EnableMouse(false)
-        escButton:Show()
-        -- A key bound to a button clicks it on press or release depending on
-        -- the game's cast-on-key-down setting, so listen for both.
-        escButton:RegisterForClicks("AnyDown", "AnyUp")
-        escButton:SetScript("OnClick", function(_, _, down)
-            if down then return end
-            local top
-            for _, frame in ipairs(escFrames) do
-                if frame:IsShown() and (not top or (frame.fcuiEscAt or 0) >= (top.fcuiEscAt or 0)) then top = frame end
-            end
-            if not top then return end
-            if top.fcuiEscClose then top.fcuiEscClose(top) else top:Hide() end
+-- Escape closes a window of ours through the game's own list of windows
+-- Escape closes (UISpecialFrames), never by changing key bindings: a binding
+-- changed from addon code has the game rebuild your action bars and state
+-- inside the addon's code, which then breaks on your hidden health
+-- (thousands of errors, 2026-10-06). The game reads that list inside a
+-- securecall, so the entries stay out of the rest of its Escape handling.
+-- One Escape closes every listed window that's open. A named window is
+-- listed as it is. One that closes its own way (the quest log, the
+-- spellbook), or has no name, is listed through a stand-in: a tiny frame
+-- shown while the window is. Escape hides the stand-in and the stand-in
+-- closes the window. held(frame), if given, says that in a fight Escape
+-- can't close the window now (the spellbook while its secure layer holds it
+-- open, or already faded out): its stand-in steps aside then, so that
+-- Escape goes straight on to the game, and follows the window again after.
+-- The returned function brings the stand-in up to date when held changes
+-- with no show or hide (a secure click in a fight).
+-- Like the game's own windows on that list, these also close whenever the
+-- game closes all windows: the interface coming back after Alt+Z (the
+-- game's Escape brings it back first), a loading screen, death, losing
+-- control of your character, or a centre or full screen panel of the
+-- game's opening (Edit Mode, Help).
+local escapeListed = {}
+local escapeStandIns = 0
+function ns.CloseOnEscape(frame, closer, held)
+    if not frame or escapeListed[frame] or type(UISpecialFrames) ~= "table" then return end
+    escapeListed[frame] = true
+    local name = frame:GetName()
+    local Follow
+    if closer or not name then
+        escapeStandIns = escapeStandIns + 1
+        name = "EraUIClassicEscape" .. escapeStandIns
+        -- Parented to nothing, so hiding the interface never hides it.
+        local standIn = CreateFrame("Frame", name)
+        local quiet = false
+        -- Shown while the window is open and Escape can close it. Lockdown
+        -- starts just after PLAYER_REGEN_DISABLED, hence fight.
+        Follow = function(fight)
+            local want = frame:IsShown() and not (held and (fight or InCombatLockdown()) and held(frame))
+            if want == standIn:IsShown() then return end
+            quiet = true
+            standIn:SetShown(want)
+            quiet = false
+        end
+        Follow()
+        frame:HookScript("OnShow", function() Follow() end)
+        -- The window's OnHide also runs when only the interface is hidden;
+        -- the window itself is still open then, so its stand-in stays.
+        frame:HookScript("OnHide", function() Follow() end)
+        standIn:SetScript("OnHide", function()
+            if quiet or not frame:IsShown() then return end
+            if closer then closer(frame) else frame:Hide() end
         end)
-        escButton:RegisterEvent("PLAYER_REGEN_DISABLED")
-        escButton:RegisterEvent("PLAYER_REGEN_ENABLED")
-        escButton:SetScript("OnEvent", function(self, event)
-            if event == "PLAYER_REGEN_DISABLED" then
-                ClearOverrideBindings(self)
-            else
-                EscUpdate()
-            end
-        end)
+        standIn:RegisterEvent("PLAYER_REGEN_ENABLED")
+        if held then standIn:RegisterEvent("PLAYER_REGEN_DISABLED") end
+        standIn:SetScript("OnEvent", function(_, event) Follow(event == "PLAYER_REGEN_DISABLED") end)
     end
-    escFrames[#escFrames + 1] = frame
-    frame:HookScript("OnShow", function(self)
-        escShows = escShows + 1
-        self.fcuiEscAt = escShows
-    end)
-    frame:HookScript("OnShow", EscUpdate)
-    frame:HookScript("OnHide", EscUpdate)
+    table.insert(UISpecialFrames, name)
+    return Follow
 end

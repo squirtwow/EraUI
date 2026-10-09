@@ -483,7 +483,13 @@ local function CreateBook()
     f.fcuiSlotWidth = 392
     ns.RegisterClassicWindow(f, true)
     ns.db.spellBookPos = nil
-    if ns.CloseOnEscape then ns.CloseOnEscape(f, function() ns.HideSpellBook() end) end
+    -- In a fight Escape can't close the book while its secure layer holds it
+    -- open, nor needs to once it has faded out: Escape goes on to the game.
+    if ns.CloseOnEscape then
+        f.FollowEscape = ns.CloseOnEscape(f, function() ns.HideSpellBook() end, function()
+            return f:GetAlpha() == 0 or (f.LayerUp ~= nil and f:LayerUp())
+        end)
+    end
     if GameMenuFrame then
         GameMenuFrame:HookScript("OnShow", function()
             if InCombatLockdown() then return end
@@ -1562,6 +1568,8 @@ local function Init()
         else
             Toggle()
         end
+        -- The press may have raised or lowered the secure layer in a fight.
+        if book and book.FollowEscape then book.FollowEscape() end
     end)
     bindButton:RegisterEvent("UPDATE_BINDINGS")
     bindButton:RegisterEvent("PLAYER_REGEN_ENABLED")

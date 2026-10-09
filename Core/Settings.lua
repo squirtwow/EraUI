@@ -39,6 +39,17 @@ local function MissingParent(key, depth)
         if EraUI:GetSavedSetting(parentKey) ~= true then return parentKey end
     end
 end
+-- Cards another of Squirt's addons takes over while it is loaded: greyed,
+-- can't be switched, and the card says which addon handles them now. The
+-- saved choice is kept for when that addon is gone (Core/Utils.lua).
+local HANDED_OVER = {
+    friendlyNameplates = "Forever Enhanced Nameplates handles friendly plates.",
+    enemyNameplates = "Forever Enhanced Nameplates handles enemy plates.",
+}
+local HANDED_OVER_HELP = "Forever Enhanced Nameplates is on and handles nameplates, so EraUI leaves them alone. Your choice here is kept for when it's off."
+local function HandedOver(key)
+    return HANDED_OVER[key] ~= nil and EraUI.NamePlatesHandedOver ~= nil and EraUI:NamePlatesHandedOver() == true
+end
 -- Folded options: hidden, not greyed, until their switch is on, then shown
 -- right after it. The AFK Screen's options stay unfolded: it is on by default.
 local FOLDS = {
@@ -393,6 +404,7 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
     check.text:SetJustifyV("TOP")
     local description = Text(check, summary, 12, true)
     check.description = description
+    check.summary = summary
     description:SetPoint("TOPLEFT", 46, -40)
     description:SetWidth(244)
     description:SetHeight(26)
@@ -419,7 +431,9 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
         if not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(label, ClassColour())
-        if check.dependencyDisabled then
+        if check.handedOver then
+            GameTooltip:AddLine(HANDED_OVER_HELP,1,.82,.3,true)
+        elseif check.dependencyDisabled then
             -- Names the switch, and its tab when that is another one.
             local missing = MissingParent(key) or Parents(key)[1]
             local name = DEPEND_NAMES[missing] or "its parent option"
@@ -442,7 +456,7 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
     check:HookScript("OnEnter", ShowSettingTooltip)
     check:HookScript("OnLeave", HideSettingTooltip)
     check:HookScript("OnHide", HideSettingTooltip)
-    if DEPENDS[key] then
+    if DEPENDS[key] or HANDED_OVER[key] then
         -- Disabled buttons do not reliably receive mouse motion on every client.
         -- A motion-only cover retains the explanation without enabling clicks.
         local cover=CreateFrame("Frame",nil,check)
@@ -462,7 +476,7 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
         check.text:SetTextColor(.58,.62,.68)
     end
     check:SetScript("OnClick", function(self)
-        if unavailable or self.dependencyDisabled then return end
+        if unavailable or self.dependencyDisabled or self.handedOver then return end
         PaintToggle(self)
         local charKey = EraUI.charSettingKeys and EraUI.charSettingKeys[key]
         local previous
@@ -856,6 +870,8 @@ function SettingsModule:Initialize()
     local tabs = {}
     local function SelectCategory(index, keepSearch, entries)
         if ResetSearch and not keepSearch then ResetSearch() end
+        -- A Presets window left open goes with a change of tab.
+        if EraUI.Presets and EraUI.Presets.Hide then EraUI.Presets:Hide() end
         frame.selectedCategory = index
         section:SetText(categories[index].name)
         about:SetText(categories[index].about)
@@ -956,6 +972,71 @@ function SettingsModule:Initialize()
     -- Cards, grouped by the tab they live on. Where each one shows comes from
     -- the page lists after the cards (PAGES), not from here.
     -- Appearance: Dark Mode extras and class colours.
+    -- Darkness: a full-width slider at the foot of Appearance. Dragging re-tints
+    -- the Dark Mode artwork at once (Core/Appearance.lua RefreshDarkness).
+    do
+        local ns=EraUI.Classic or {}
+        local low,high,default=ns.DARKNESS_MIN or 40,ns.DARKNESS_MAX or 90,ns.DARKNESS_DEFAULT or 58
+        local card=CreateFrame("Frame",nil,frame)
+        card.searchText="appearance dark mode darkness darker black grey gray brightness"
+        -- One short line, so the Appearance page still fits without scrolling.
+        card:SetSize(716,30);card.fullWidth=true
+        card.text=Text(card,"Darkness",14);card.text:SetPoint("LEFT",12,0)
+        local slider=CreateFrame("Slider",nil,card,"BackdropTemplate")
+        slider:SetSize(300,12);slider:SetPoint("LEFT",250,0)
+        slider:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+        slider:SetBackdropColor(.06,.065,.075,1);slider:SetBackdropBorderColor(.3,.32,.36,1)
+        slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(low,high);slider:SetValueStep(1);slider:SetObeyStepOnDrag(true)
+        slider:SetThumbTexture("Interface\\Buttons\\WHITE8X8");slider:GetThumbTexture():SetSize(10,20);slider:GetThumbTexture():SetVertexColor(ClassColour())
+        -- A swatch of the grey the artwork gets, beside the slider.
+        local swatch=card:CreateTexture(nil,"ARTWORK")
+        swatch:SetSize(40,16);swatch:SetPoint("LEFT",slider,"RIGHT",16,0)
+        -- Darken class colours too: a small tick at the row's end.
+        local classTick=CreateFrame("Button",nil,card)
+        classTick:SetSize(190,20);classTick:SetPoint("LEFT",swatch,"RIGHT",14,0)
+        local box=classTick:CreateTexture(nil,"ARTWORK")
+        box:SetSize(12,12);box:SetPoint("LEFT");box:SetColorTexture(.06,.065,.075,1)
+        local edge=classTick:CreateTexture(nil,"BORDER")
+        edge:SetPoint("TOPLEFT",box,-1,1);edge:SetPoint("BOTTOMRIGHT",box,1,-1);edge:SetColorTexture(.3,.32,.36,1)
+        local fill=classTick:CreateTexture(nil,"OVERLAY")
+        fill:SetSize(6,6);fill:SetPoint("CENTER",box);fill:SetColorTexture(ClassColour())
+        card.note=Text(card,"Darken class colours too",12,true)
+        card.note:SetPoint("LEFT",box,"RIGHT",6,0)
+        local function ShowTick() fill:SetShown(EraUI:GetSavedSetting("darkenClassColours")==true) end
+        classTick:SetScript("OnClick",function()
+            EraUI:SetSetting("darkenClassColours",not EraUI:GetSavedSetting("darkenClassColours"))
+            ShowTick()
+            if ns.RefreshDarkness then ns.RefreshDarkness() end
+        end)
+        -- Hover help as the other cards give it.
+        classTick:SetScript("OnEnter",function(self)
+            if not GameTooltip then return end
+            GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+            GameTooltip:SetText("Darken class colours too",ClassColour())
+            GameTooltip:AddLine("Class-coloured unit borders get darker with the slider too. Off, they keep their full class colour. Dark Mode only.",1,1,1,true)
+            GameTooltip:Show()
+        end)
+        classTick:SetScript("OnLeave",HideSettingTooltip)
+        card.classTick=classTick
+        swatch:SetTexture("Interface\\Buttons\\WHITE8X8")
+        local function Show(value)
+            card.text:SetText("Darkness "..value)
+            if ns.DarkGrey then swatch:SetVertexColor(ns.DarkGrey()) end
+        end
+        slider:SetScript("OnValueChanged",function(_,value)
+            value=math.max(low,math.min(high,math.floor(value+.5)))
+            if not card.syncing then
+                EraUI:SetSetting("darkModeDarkness",value)
+                if ns.RefreshDarkness then ns.RefreshDarkness() end
+            end
+            Show(value)
+        end)
+        card.SetChecked=function()
+            local value=math.max(low,math.min(high,tonumber(EraUI:GetSavedSetting("darkModeDarkness"))or default))
+            card.syncing=true;slider:SetValue(value);card.syncing=false;Show(value);ShowTick()
+        end
+        card.slider=slider;card:SetChecked();frame.checks.darkModeDarkness=card
+    end
     MakeCheck(frame, "Dark Aura Borders", "darkAuraBorders", "Spell_Holy_WordFortitude", "Thin dark borders around your buff and debuff icons. Dark Mode only.", false)
     MakeCheck(frame, "Aura Shadows (Needs testing)", "darkAuraShadows", "Ability_Stealth", "A soft shadow behind your buff and debuff icons. Needs Dark Aura Borders.", false)
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", "INV_Misc_ArmorKit_17", "Class-coloured unit frame borders. Needs Dark Mode and Unit Frames.", false)
@@ -1451,7 +1532,8 @@ function SettingsModule:Initialize()
         appearance={"appearanceChoice","#darkExtras","#classColours",
             "darkAuraBorders","classColors",
             "darkAuraShadows","tooltipClassColours",
-            "classColourBorders","castBarClassBorder"},
+            "classColourBorders","castBarClassBorder",
+            "darkModeDarkness"},
         class=classOrder,
         actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText"},
         frames={"unitFrames","matchFocusSize","disableAggroHighlight","portraitDebuffs",
@@ -1498,6 +1580,18 @@ function SettingsModule:Initialize()
                 local enabled=MissingParent(key)==nil
                 check.dependencyDisabled=not enabled;check:SetEnabled(enabled);check:SetAlpha(enabled and 1 or .4)
                 check.dependencyHelp:SetShown(not enabled)
+            end
+        end
+        -- Handed over: only a change of state touches the card, so without
+        -- the other addon nothing here runs.
+        for key,note in pairs(HANDED_OVER)do
+            local check=self.checks[key]
+            local over=HandedOver(key)
+            if check and over~=(check.handedOver==true)then
+                check.handedOver=over
+                check:SetEnabled(not over);check:SetAlpha(over and .4 or 1)
+                check.dependencyHelp:SetShown(over)
+                check.description:SetText(over and note or check.summary)
             end
         end
     end
@@ -2204,6 +2298,8 @@ function SettingsModule:Initialize()
         self:RefreshInlineActions()
         -- The new layout note shows once: seen now, it stays away.
         if self.layoutNotice:IsShown() then self:DismissLayoutNotice() end
+        -- A Presets window opened from here goes with it.
+        if EraUI.Presets and EraUI.Presets.Hide then EraUI.Presets:Hide() end
     end)
     frame:RegisterEvent("UI_SCALE_CHANGED")
     frame:RegisterEvent("DISPLAY_SIZE_CHANGED")

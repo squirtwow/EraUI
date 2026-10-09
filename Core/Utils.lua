@@ -42,6 +42,20 @@ function EraUI:IsPlayer(name, guid)
     return name == Joined(UnitName) or name == Joined(UnitNameUnmodified)
 end
 
+-- Forever Enhanced Nameplates, Squirt's nameplate addon, takes the nameplates
+-- over while it is loaded: EraUI's nameplate look, plate class colours,
+-- simplified plate setting and plate cast outlines step aside, and their
+-- options are greyed. Asked each time, never kept. Anything that can't be
+-- read counts as not loaded, so EraUI works as before.
+EraUI.NAMEPLATES_ADDON = "ForeverEnhancedNameplates"
+function EraUI:NamePlatesHandedOver()
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded
+    if type(loaded) ~= "function" then return false end
+    local ok, yes = pcall(loaded, EraUI.NAMEPLATES_ADDON)
+    if not ok or Hidden(yes) then return false end
+    return yes and true or false
+end
+
 function EraUI:SafeHide(frame)
     if not frame then return end
     if InCombatLockdown and InCombatLockdown() and frame.IsProtected and frame:IsProtected() then

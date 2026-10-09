@@ -1433,7 +1433,7 @@ local EXPECTED_TABS={
  {"screen","Screen & Cursor"},{"more","More from Squirt"},
 }
 local EXPECTED_PAGES={
- appearance={"appearanceChoice","darkAuraBorders","classColors","darkAuraShadows","tooltipClassColours","classColourBorders","castBarClassBorder"},
+ appearance={"appearanceChoice","darkAuraBorders","classColors","darkAuraShadows","tooltipClassColours","classColourBorders","castBarClassBorder","darkModeDarkness"},
  actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText"},
  frames={"unitFrames","matchFocusSize","disableAggroHighlight","portraitDebuffs","classIconPortraitMine","classIconPortraitOthers","friendlyNameplates","enemyNameplates"},
  casting={"castBars","advancedCastBar","advancedCastClassFill","advancedCastTicks","advancedCastLatency"},
@@ -2309,5 +2309,60 @@ for _,c in ipairs({"ROGUE","HUNTER","MAGE","PRIEST"})do
  equal(mageOnly:find("classTools",1,true)~=nil,c=="MAGE",c.." conjure finds them only for a mage")
  equal(Results("poison"):find("classTools",1,true)~=nil,c=="ROGUE",c.." poison finds them only for a rogue")
  f.searchBox:SetText("");Flush()
+end
+-- Forever Enhanced Nameplates handles nameplates while it is loaded (the real
+-- EraUI:NamePlatesHandedOver, Core/Utils.lua): the two nameplate cards on
+-- Frames & Nameplates are greyed, can't be switched, say so on the card and on
+-- hover, and keep the saved choice. Without it, or when the answer can't be
+-- read, the cards are exactly as before.
+do
+ local E,f=Session("ROGUE",nil,nil,nil,function(E)assert(loadfile("Core/Utils.lua"))("EraUI",E)end)
+ local friendly,enemy=f.checks.friendlyNameplates,f.checks.enemyNameplates
+ local function Reopen()f:Hide();f:Show();Flush()end
+ local function State(card)
+  return tostring(card.handedOver).." "..tostring(card.enabled).." "..tostring(card.dependencyHelp:IsShown()).." "..card.description:GetText()
+ end
+ E.settings.friendlyNameplates=true;E.settings.enemyNameplates=false
+ Reopen()
+ local before={State(friendly),State(enemy)}
+ equal(before[1].." / "..before[2],"nil nil false Classic look on friendly nameplates. / nil nil false Classic look on enemy and neutral nameplates.",
+  "no Forever Enhanced Nameplates: the nameplate cards as before, never touched")
+ -- (An addon list that errors is checked in TestNamePlateHandover.lua: the
+ -- More from Squirt card asks it unguarded.)
+ for state,api in pairs({none=false,other={IsAddOnLoaded=function(name)return name=="ForeverEnhancedCooldownManager"end},
+  installedOff={IsAddOnLoaded=function()return false end}})do
+  C_AddOns=api or nil;Reopen()
+  equal(State(friendly).." / "..State(enemy),before[1].." / "..before[2],state..": the nameplate cards as before")
+ end
+ C_AddOns={IsAddOnLoaded=function(name)return name=="ForeverEnhancedNameplates"end}
+ Reopen();Open(f,"frames")
+ NoCardOverlaps(f,"handed over Frames & Nameplates")
+ local saved={friendlyNameplates=true,enemyNameplates=false}
+ for key,card in pairs({friendlyNameplates=friendly,enemyNameplates=enemy})do
+  equal(card.handedOver==true and card.enabled==false,true,key.." greyed while Forever Enhanced Nameplates is loaded")
+  equal(card:IsShown()and card.dependencyHelp:IsShown(),true,key.." shown, with its explanation on hover")
+  card:SetChecked(not saved[key]);card:Fire("OnClick");Flush()
+  equal(E.settings[key],saved[key],key.." a click changes nothing")
+  local lines={}
+  GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+   Show=function()end,Hide=function()end,IsOwned=function()return true end}
+  card.dependencyHelp:Fire("OnEnter")
+  GameTooltip=nil
+  equal(lines[2],"Forever Enhanced Nameplates is on and handles nameplates, so EraUI leaves them alone. Your choice here is kept for when it's off.",
+   key.." hover says who handles nameplates now")
+  local text=table.concat(lines,"\n")
+  equal(text:find("Enable ",1,true)==nil and text:find("\226\128\148",1,true)==nil,true,key.." no parent option named, no em dash")
+  local summary=card.description:GetText()
+  equal(#summary<=80 and summary:find("\226\128\148",1,true)==nil,true,key.." note fits the card's two lines: "..summary)
+ end
+ equal(friendly.description:GetText(),"Forever Enhanced Nameplates handles friendly plates.","the friendly card says who handles it")
+ equal(enemy.description:GetText(),"Forever Enhanced Nameplates handles enemy plates.","and the enemy card")
+ equal(f.checks.unitFrames.handedOver==nil and f.checks.portraitDebuffs.handedOver==nil,true,"the other Frames & Nameplates cards are left alone")
+ -- Without it again (a reload with it off): the cards work as before.
+ C_AddOns=nil;Reopen()
+ equal(State(friendly),"false true false Classic look on friendly nameplates.","handed back: the friendly card as before")
+ equal(State(enemy),"false true false Classic look on enemy and neutral nameplates.","and the enemy card")
+ friendly:SetChecked(false);friendly:Fire("OnClick");Flush()
+ equal(E.settings.friendlyNameplates,false,"handed back: the card switches again")
 end
 print("Settings layout/combat checks passed: "..checks.." assertions.")

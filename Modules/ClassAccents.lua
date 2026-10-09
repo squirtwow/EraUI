@@ -73,7 +73,9 @@ function M:Refresh()
  Accent(PlayerCastingBarFrame or CastingBarFrame,"player")
  Accent(TargetFrame and TargetFrame.spellbar,"target")
  Accent(FocusFrame and FocusFrame.spellbar,"focus")
- if C_NamePlate and C_NamePlate.GetNamePlates then
+ -- Nameplate casts are left to Forever Enhanced Nameplates while it is loaded.
+ local handedOver=EraUI.NamePlatesHandedOver and EraUI:NamePlatesHandedOver()
+ if C_NamePlate and C_NamePlate.GetNamePlates and not handedOver then
   for _,plate in ipairs(C_NamePlate.GetNamePlates()) do
    local frame=plate.UnitFrame
    local unit=plate.namePlateUnitToken
