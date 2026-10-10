@@ -6,6 +6,18 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.5.4",
+        sections = {
+            { "Added", {
+                "Dark Menu Bar: in Dark Mode the menu bar buttons' frames darken with the Darkness slider (Action Bars page).",
+            } },
+            { "Changed", {
+                "Dark Aura Borders: the grey line darkens with the Darkness slider, and icons are trimmed so their bright rim doesn't show.",
+                "Tooltip borders darken with the Darkness slider in Dark Mode. Class-coloured borders keep their colour.",
+            } },
+        },
+    },
+    {
         version = "1.5.3",
         sections = {
             { "Added", {
