@@ -5,7 +5,9 @@ for key in ("questLogTopLeft questLogTopRight questLogBotLeft questLogBotRight q
     -- Added with the Darkness slider: the minimap's ring, zoom buttons and
     -- clock, the reputation bar's frame and the latency bar. Frame art only;
     -- icons (bags, micro menu) keep their colours.
-    .." compassRing zoomInUp zoomInDown zoomInDisabled zoomOutUp zoomOutDown zoomOutDisabled clockBackground repBar performanceBar"):gmatch("%S+") do decorative[key]=true end
+    .." compassRing zoomInUp zoomInDown zoomInDisabled zoomOutUp zoomOutDown zoomOutDisabled clockBackground repBar performanceBar"
+    -- And the gold ring of Forever's day/night button (its moon and sun keep their colours).
+    .." dielBorder"):gmatch("%S+") do decorative[key]=true end
 
 -- Darkness: 40 (light grey) to 90 (near black); 58 is the original Dark Mode
 -- grey (.42, .44, .48). The slight blue of that grey is kept at every step.

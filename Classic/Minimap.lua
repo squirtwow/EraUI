@@ -101,6 +101,43 @@ local function PlaceEye()
     ns.SetPointOnce(eye, "CENTER", backdrop, "TOPLEFT", 38.5 * k, -116.5 * k)
 end
 
+-- In Dark Mode the zoom buttons' art goes dark with the rest, and their + and
+-- - with it (they're painted into the art), so EraUI draws its own light ones
+-- where the art has them: 10 across, bars 3 thick, 1.5 above the button's
+-- middle. Dimmed while the map can't zoom any further.
+local GLYPH = { .85, .85, .87 }
+local glyphs = {}
+local function ZoomGlyph(button, plus)
+    if glyphs[button] or not EraUI:GetSetting("darkMode") then return end
+    local bars = { button:CreateTexture(nil, "OVERLAY", nil, 7) }
+    bars[1]:SetSize(10, 3)
+    if plus then
+        bars[2] = button:CreateTexture(nil, "OVERLAY", nil, 7)
+        bars[2]:SetSize(3, 10)
+    end
+    for _, bar in ipairs(bars) do
+        bar:SetColorTexture(GLYPH[1], GLYPH[2], GLYPH[3], 1)
+        bar:SetPoint("CENTER", button, "CENTER", -0.5, 1.5)
+    end
+    glyphs[button] = bars
+    local function Dim(self)
+        for _, bar in ipairs(bars) do bar:SetAlpha(self:IsEnabled() and 1 or .4) end
+    end
+    button:HookScript("OnEnable", Dim)
+    button:HookScript("OnDisable", Dim)
+    Dim(button)
+end
+
+-- The day/night button: Forever's gold ring round the moon or sun takes Dark
+-- Mode's grey like the stone ring; the moon and sun keep their colours. The
+-- ring is the one texture on it that isn't its Background.
+local function DarkDiel(diel)
+    if not EraUI:GetSetting("darkMode") or not ns.ThemeTexture then return end
+    for _, region in ipairs({ diel:GetRegions() }) do
+        if region:IsObjectType("Texture") and region ~= diel.Background then ns.ThemeTexture(region, "dielBorder") end
+    end
+end
+
 local function Layout()
     local cluster = MinimapCluster
     local backdrop = MinimapBackdrop
@@ -179,6 +216,7 @@ local function Layout()
             button:GetHighlightTexture():SetBlendMode("ADD")
             button:SetHitRectInsets(4, 4, 2, 6)
             ns.SetPointOnce(button, "CENTER", backdrop, "CENTER", x, y)
+            ZoomGlyph(button, key == "zoomIn")
             button:Show()
         end
     end
@@ -267,6 +305,7 @@ local function Layout()
 
     if cluster.DielFrame then
         ns.SetPointOnce(cluster.DielFrame, "TOPRIGHT", map, "TOPRIGHT", 20, -2)
+        DarkDiel(cluster.DielFrame)
     end
     if GameTimeFrame then
         GameTimeFrame:SetParent(map)
