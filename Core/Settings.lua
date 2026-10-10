@@ -1617,7 +1617,8 @@ function SettingsModule:Initialize()
     hint:SetWidth(560)
     frame.reloadHint = hint
 
-    local signature = Text(frame, "Made with |TInterface\\AddOns\\EraUI\\Media\\Heart:10:10:0:0|t by Squirt", 10, true)
+    local signature = Text(frame, EraUI.Signature and EraUI:Signature()
+        or "Made with |TInterface\\AddOns\\EraUI\\Media\\Heart:10:10:0:0|t by Squirt", 10, true)
     signature:SetPoint("BOTTOMRIGHT", -24, 5)
     signature:SetJustifyH("RIGHT")
     signature:SetTextColor(0.48, 0.49, 0.52, 1)

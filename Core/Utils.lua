@@ -42,6 +42,22 @@ function EraUI:IsPlayer(name, guid)
     return name == Joined(UnitName) or name == Joined(UnitNameUnmodified)
 end
 
+-- "Made with <heart> by Squirt" for the window footers, the heart and the
+-- name in your class colour (a rogue's yellow, a druid's orange); grey when
+-- the game doesn't say your class.
+local HEART = "Interface\\AddOns\\EraUI\\Media\\Heart"
+function EraUI:Signature()
+    local r, g, b = .7, .7, .7
+    local ok, _, class = pcall(UnitClass, "player")
+    if ok and not Hidden(class) and type(class) == "string" then
+        local colour = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class]) or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
+        if colour then r, g, b = colour.r, colour.g, colour.b end
+    end
+    local function Byte(v) return math.max(0, math.min(255, math.floor(v * 255 + .5))) end
+    return ("Made with |T%s:10:10:0:0:32:32:0:32:0:32:%d:%d:%d|t by |cff%02x%02x%02xSquirt|r"):format(HEART,
+        Byte(r), Byte(g), Byte(b), Byte(r), Byte(g), Byte(b))
+end
+
 -- Forever Enhanced Nameplates, Squirt's nameplate addon, takes the nameplates
 -- over while it is loaded: EraUI's nameplate look, plate class colours,
 -- simplified plate setting and plate cast outlines step aside, and their
