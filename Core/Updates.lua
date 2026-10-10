@@ -6,6 +6,21 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.5.5",
+        sections = {
+            { "Added", {
+                "In Dark Mode, light + and - on the minimap zoom buttons, and a dark ring on the day/night button.",
+                "The heart and name in the \"Made with love by Squirt\" footer show in your class colour.",
+            } },
+            { "Changed", {
+                "Dark Aura Borders give Boosted Rest the dark border instead of a red debuff ring.",
+            } },
+            { "Fixed", {
+                "Hide Aggro Highlight keeps the aggro flash and your status glow hidden.",
+            } },
+        },
+    },
+    {
         version = "1.5.4",
         sections = {
             { "Added", {
