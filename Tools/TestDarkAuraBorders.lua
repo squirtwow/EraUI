@@ -89,7 +89,10 @@ end
 local hooks=0
 hooksecurefunc=function(t,key,fn)
  if type(t)=="string"then fn=key;key=t;t=_G end
- local old=t[key];hooks=hooks+1;t[key]=function(...)old(...);fn(...)end
+ -- A hook on a Blizzard button lives in the client, not as a key the addon
+ -- writes: here it goes on the button's hidden table.
+ local target=backOf[t]or t
+ local old=target[key];hooks=hooks+1;target[key]=function(...)old(...);fn(...)end
 end
 local events
 CreateFrame=function(kind,_,parent)
@@ -218,7 +221,7 @@ end
 equal(ringReads.auraType or ringReads.buttonInfo or ringReads.unit or ringReads.timeLeft or ringReads.Duration or ringReads.DebuffBorder,nil,"no aura type, data, timer or native border read")
 -- The debuff row: the ring's anchors, plus the Boosted Rest check's type, info and border.
 for key in pairs(DebuffRowReads())do
- equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="auraType"or key=="buttonInfo"or key=="DebuffBorder",true,"debuff row reads only the ring's anchors and what the Boosted Rest check needs: "..key)
+ equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="auraType"or key=="buttonInfo"or key=="DebuffBorder"or key=="Update",true,"debuff row reads only the ring's anchors and what the Boosted Rest check needs: "..key)
 end
 equal(reads.unit or reads.timeLeft or reads.Duration,nil,"no unit, timer or duration read anywhere")
 equal(iconCalls,0,"icon geometry never read (anchors and the trim's texture coords only)")
@@ -526,10 +529,30 @@ equal(bonusBack.DebuffBorder.alpha,0,"on again: hidden again (refresh)")
 bonusBack.buttonInfo={debuffType="Curse",texture=136139}
 DebuffFrame:UpdateAuraButtons()
 equal(bonusBack.DebuffBorder.alpha,1,"button reused for a real debuff: its border shows again")
--- A hidden (secret) icon leaves the border as the game set it.
+-- A hidden (secret) icon with nothing else to go on leaves the border as the game set it.
 bonusBack.buttonInfo={texture=SECRET};bonusBack.DebuffBorder.alpha=nil
 DebuffFrame:UpdateAuraButtons()
-equal(bonusBack.DebuffBorder.alpha,nil,"secret icon: border untouched")
+equal(bonusBack.DebuffBorder.alpha,nil,"secret icon, no aura ID: border untouched")
+-- In a fight the icon can be secret: Boosted Rest is known by the aura it was seen as.
+bonusBack.buttonInfo={texture=1001982,auraInstanceID=30};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,0,"seen once with its icon")
+bonusBack.buttonInfo={texture=SECRET,auraInstanceID=30};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,0,"icon secret in a fight: still known by its aura, still dark")
+bonusBack.buttonInfo={texture=SECRET,auraInstanceID=31};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,1,"icon secret, another aura on the button: its own border back")
+-- The game updating one button on its own: checked again straight after.
+local solo,soloBack=Button("Debuff")
+function soloBack.Update(_,info)soloBack.buttonInfo=info end
+soloBack.buttonInfo={debuffType="Poison",texture=136064,auraInstanceID=40}
+DebuffFrame.auraFrames[5],DebuffFrame.backs[5]=solo,soloBack
+DebuffFrame:UpdateAuraButtons()
+equal(soloBack.DebuffBorder.alpha,nil,"a poison keeps its border")
+solo:Update({texture=1001982,auraInstanceID=41})
+equal(soloBack.DebuffBorder.alpha,0,"the game moving Boosted Rest onto it: dark straight away")
+solo:Update({debuffType="Poison",texture=136064,auraInstanceID=40})
+equal(soloBack.DebuffBorder.alpha,1,"and the poison back on it: its border shows again")
+local hookCount=hooks;DebuffFrame:UpdateAuraButtons()
+equal(hooks,hookCount,"each debuff button watched once")
 -- Only the debuff row is looked at: a buff with that icon is never touched.
 local buffBonus,buffBonusBack=Button("Buff")
 buffBonusBack.buttonInfo={texture=1001982}

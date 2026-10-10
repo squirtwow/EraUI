@@ -357,25 +357,47 @@ end
 -- it wears a typeless debuff's red ring. While Dark Aura Borders show, that
 -- ring goes and the dark border shows, as on your buffs. Known by the Bonus
 -- XP icon it shows: the only aura data EraUI reads, and only on the debuff
--- row (the dark ring itself reads none). Hidden (secret) data leaves it be.
+-- row (the dark ring itself reads none). In a fight the game can keep the
+-- icon secret, so each aura seen as Boosted Rest is remembered by its
+-- instance ID; when neither can be read, the border is left as it is.
 local BONUS_XP_ICON=1001982 -- Interface\Icons\xpbonus_icon
 local friendly=setmetatable({}, {__mode="k"})
+local bonusAuras={} -- auraInstanceID -> true, learnt while the icon could be read
+-- Whether a debuff button shows Boosted Rest; nil when it can't be told.
+local function IsBonus(button)
+ local kind,info=button.auraType,button.buttonInfo
+ if not Public(kind)then return nil end
+ if kind~="Debuff"or type(info)~="table"then return false end
+ local icon,id=info.texture,info.auraInstanceID
+ local known=Public(id)and id~=nil
+ if Public(icon)then
+  local bonus=icon==BONUS_XP_ICON
+  if known then bonusAuras[id]=bonus or nil end
+  return bonus
+ end
+ if known then return bonusAuras[id]==true end
+ return nil
+end
 local function Friendly(button,on)
  if not button or button.isAuraAnchor then return end
  local border=button.DebuffBorder
  if not border then return end
  local bonus=false
- if on then
-  local kind,info=button.auraType,button.buttonInfo
-  local icon=type(info)=="table"and info.texture
-  bonus=Public(kind)and kind=="Debuff"and Public(icon)and icon==BONUS_XP_ICON
- end
- if not(bonus or friendly[button])or Locked(button)then return end
+ if on then bonus=IsBonus(button)end
+ if bonus==nil or not(bonus or friendly[button])or Locked(button)then return end
  if bonus then
   friendly[button]=true;border:SetAlpha(0)
  elseif friendly[button]then
   friendly[button]=nil;border:SetAlpha(1)
  end
+end
+-- Each debuff button is checked again straight after the game updates it, so
+-- the dark border stays on the right icon however the row is refreshed.
+local watched=setmetatable({}, {__mode="k"})
+local function WatchDebuff(button)
+ if not button or watched[button]or button.isAuraAnchor or type(button.Update)~="function"then return end
+ watched[button]=true
+ hooksecurefunc(button,"Update",function(self)Friendly(self,DarkBorders())end)
 end
 -- The player's aura rows: buffs, debuffs, external defensives and the
 -- consolidated-buff popout, plus the consolidated button itself.
@@ -393,7 +415,7 @@ local function StyleFrame(frame)
  local debuffs=frame==DebuffFrame
  for _,button in ipairs(frame.auraFrames or{})do
   Ring(button,on,shade,dim);StyleButton(button)
-  if debuffs then Friendly(button,on)end
+  if debuffs then WatchDebuff(button);Friendly(button,on)end
  end
 end
 function M:RefreshBorders()
