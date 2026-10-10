@@ -37,6 +37,33 @@ local function Busy()
     combatPending = true
     return true
 end
+
+-- Hide Aggro Highlight: the threat flash and your status glow (red in a
+-- fight, gold while resting) stay hidden on the player, target, focus and pet
+-- frames whatever the game does with them later: it shows them again and
+-- pulses their alpha, so each one's alpha is put back to 0 right after.
+-- Only alpha is touched, and only while the frames are styled with the
+-- option on.
+local aggroHeld = setmetatable({}, { __mode = "k" })
+local function AggroHidden()
+    return active and EraUI:GetSetting("disableAggroHighlight") and true or false
+end
+local function HoldAggro(region)
+    if not region or not region.SetAlpha then return end
+    if not aggroHeld[region] then
+        aggroHeld[region] = true
+        local writing = false
+        local function Zero(self)
+            if writing or not AggroHidden() then return end
+            writing = true
+            self:SetAlpha(0)
+            writing = false
+        end
+        hooksecurefunc(region, "SetAlpha", Zero)
+        hooksecurefunc(region, "Show", Zero)
+    end
+    if AggroHidden() then region:SetAlpha(0) end
+end
 local RestorePlayer, RestoreTargetLike, RestoreParty
 local driver
 
@@ -240,6 +267,7 @@ PlayerArt = function()
         flash:SetSize(242, 93)
         ns.SetPointOnce(flash, "TOPLEFT", frame, "TOPLEFT", -6, -4)
         flash:SetDrawLayer("BACKGROUND")
+        HoldAggro(flash)
     end
     local main = ns.Path(frame, "PlayerFrameContent", "PlayerFrameContentMain")
     local status = main and main.StatusTexture
@@ -249,6 +277,7 @@ PlayerArt = function()
         status:SetSize(190, 66)
         ns.SetPointOnce(status, "TOPLEFT", frame, "TOPLEFT", 16, -12)
         status:SetBlendMode("ADD")
+        HoldAggro(status)
     end
     local contextual = ns.Path(frame, "PlayerFrameContent", "PlayerFrameContentContextual")
     if contextual then
@@ -427,6 +456,7 @@ local function SkinPlayer()
         status:SetSize(190, 66)
         ns.SetPointOnce(status, "TOPLEFT", frame, "TOPLEFT", 16, -12)
         status:SetBlendMode("ADD")
+        HoldAggro(status)
     end
     local rest = ns.OwnTexture(contextual, "rest", "OVERLAY")
     ns.SetTex(rest, "stateIcon")
@@ -550,6 +580,7 @@ local function ApplyClassification(frame)
         container.Flash:SetTexCoord(unpack(art.flashCoords))
         container.Flash:SetSize(unpack(art.flashSize))
         ns.SetPointOnce(container.Flash, "TOPLEFT", frame, "TOPLEFT", art.flashPoint[1], art.flashPoint[2])
+        HoldAggro(container.Flash)
     end
     if container.BossPortraitFrameTexture then ns.Fade(container.BossPortraitFrameTexture) end
     local contextual = ns.Path(frame, "TargetFrameContent", "TargetFrameContentContextual")
@@ -881,6 +912,7 @@ local function SkinPet()
         PetFrameFlash:SetSize(128, 64)
         ns.SetPointOnce(PetFrameFlash, "TOPLEFT", frame, "TOPLEFT", -4, 11)
         PetFrameFlash:SetDrawLayer("BACKGROUND")
+        HoldAggro(PetFrameFlash)
     end
     local bars = { { PetFrameHealthBar, -22, PetFrameHealthBarMask, { PetFrameHealthBarText, PetFrameHealthBarTextLeft, PetFrameHealthBarTextRight } },
         { PetFrameManaBar, -29, PetFrameManaBarMask, { PetFrameManaBarText, PetFrameManaBarTextLeft, PetFrameManaBarTextRight } } }

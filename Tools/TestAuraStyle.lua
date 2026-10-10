@@ -235,4 +235,30 @@ equal(PlayerLevelText.colour[2],.82,"gold persists on subsequent level-up")
 before=hooks;install();equal(hooks,before,"player-level hook installed once")
 ns.db.unitFramePlayer=false;PlayerFrame_UpdateLevel(11)
 equal(PlayerLevelText.colour[2],1,"disabled player skin leaves native colour")
+
+-- Hide Aggro Highlight keeps the threat flash and status glow at alpha 0
+-- whatever the game does later (it shows them again and pulses their alpha).
+local hold=assert(Find(modules.unitFrames.apply,"HoldAggro"),"HoldAggro reachable from the unit frames' apply")
+local function Glow()
+ local g={alpha=1,sets=0}
+ function g:SetAlpha(a)self.alpha=a;self.sets=self.sets+1 end
+ function g:Show()self.shown=true end
+ return g
+end
+E.settings.disableAggroHighlight=true
+local glow=Glow();hold(glow)
+equal(glow.alpha,0,"option on: hidden as it's styled")
+glow:SetAlpha(.7)
+equal(glow.alpha,0,"the game pulsing its alpha: back to 0 at once")
+glow.alpha=1;glow:Show()
+equal(glow.alpha,0,"the game showing it again: back to 0")
+local hookCount=hooks;hold(glow)
+equal(hooks,hookCount,"hooked once however often it's styled")
+E.settings.disableAggroHighlight=false
+glow:SetAlpha(.7)
+equal(glow.alpha,.7,"option off: the game's alpha left alone")
+E.settings.disableAggroHighlight=true
+for i=1,100 do local name=debug.getupvalue(keep,i);if name=="active"then debug.setupvalue(keep,i,false);break end end
+glow:SetAlpha(.5)
+equal(glow.alpha,.5,"unit frames not styled: left alone")
 print("Aura/level styling checks passed: "..checks.." assertions.")
