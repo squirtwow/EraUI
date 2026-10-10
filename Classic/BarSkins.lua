@@ -104,6 +104,41 @@ local function HookMicro(button)
     end
 end
 
+-- Dark Menu Bar (on with Dark Mode, its own tick): the bronze frame behind
+-- each modern micro button (its Background and PushedBackground) in Dark
+-- Mode's grey, following the Darkness slider. The icons keep their colours,
+-- and a button wearing the classic art above is left alone (its frame art is
+-- hidden). Only colours are set, so it's the same wherever the buttons sit.
+-- Each button keeps the grey it was last given, so a pass with nothing new
+-- sets nothing; force paints it again after the game reloads its art.
+local darkened = {}
+
+local function DarkMenu()
+    return (EraUI:GetSetting("enabled") and EraUI:GetSetting("darkMode") and EraUI:GetSetting("darkMenuBar")
+        and ns.DarkGrey ~= nil) and true or false
+end
+
+local function DarkenMicro(button, force)
+    if not button then return end
+    local state = micro[button]
+    local on = DarkMenu() and not (state and state.active)
+    local r, g, b = 1, 1, 1
+    if on then r, g, b = ns.DarkGrey() end
+    local last = darkened[button]
+    if not on and not last then return end
+    if not force and last and last[1] == r and last[2] == g and last[3] == b then return end
+    for _, key in ipairs({ "Background", "PushedBackground" }) do
+        local texture = button[key]
+        if texture and texture.SetVertexColor then texture:SetVertexColor(r, g, b) end
+    end
+    darkened[button] = on and { r, g, b } or nil
+end
+
+-- Every micro button, after the tick, Dark Mode or the Darkness slider changes.
+function ns.RefreshDarkMenuBar()
+    for name in pairs(MICRO_ART) do DarkenMicro(_G[name]) end
+end
+
 function ns.SkinMicroButton(button)
     local state = micro[button]
     if not state then
@@ -113,6 +148,7 @@ function ns.SkinMicroButton(button)
     end
     state.active = true
     ApplyMicroArt(button)
+    DarkenMicro(button)
 end
 
 function ns.UnskinMicroButton(button)
@@ -141,11 +177,20 @@ function ns.UnskinMicroButton(button)
     elseif button.SetNormal then
         button:SetNormal()
     end
+    DarkenMicro(button)
 end
 
 if type(LoadMicroButtonTextures) == "function" then
-    hooksecurefunc("LoadMicroButtonTextures", function(button) ApplyMicroArt(button) end)
+    hooksecurefunc("LoadMicroButtonTextures", function(button)
+        ApplyMicroArt(button)
+        DarkenMicro(button, true)
+    end)
 end
+-- The buttons are there once you're in the world (EraUI's world map button
+-- too); Dark Mode only changes with a reload.
+local menuWatch = CreateFrame("Frame")
+menuWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
+menuWatch:SetScript("OnEvent", function() ns.RefreshDarkMenuBar() end)
 
 -- A micro button is down while its window is up, and up when it is not. Kept
 -- by looking (a few times a second) rather than by asking the client to go

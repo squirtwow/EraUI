@@ -80,4 +80,9 @@ function ns.RefreshDarkness()
     local r, g, b = ns.DarkGrey()
     for texture in pairs(tinted) do texture:SetVertexColor(r, g, b) end
     for texture, c in pairs(classTinted) do PaintClass(texture, c[1], c[2], c[3]) end
+    -- Dark Aura Borders' grey line and the tooltips' bevel darken with the
+    -- slider too, and so do the menu bar's frames (Dark Menu Bar).
+    local auras = EraUI.modules.AuraStyle
+    if auras and auras.RefreshDarkness then auras:RefreshDarkness() end
+    if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
 end

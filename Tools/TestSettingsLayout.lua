@@ -1434,7 +1434,9 @@ local EXPECTED_TABS={
 }
 local EXPECTED_PAGES={
  appearance={"appearanceChoice","darkAuraBorders","classColors","darkAuraShadows","tooltipClassColours","classColourBorders","castBarClassBorder","darkModeDarkness"},
- actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText"},
+ -- Dark Menu Bar (2026-10-10) fills the free slot after Hide Macro Names:
+ -- Appearance has no room without scrolling.
+ actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText","darkMenuBar"},
  frames={"unitFrames","matchFocusSize","disableAggroHighlight","portraitDebuffs","classIconPortraitMine","classIconPortraitOthers","friendlyNameplates","enemyNameplates"},
  casting={"castBars","advancedCastBar","advancedCastClassFill","advancedCastTicks","advancedCastLatency"},
  map={"minimap","cleanMinimap","coordinates","mapQuestObjectives","movableMap","revealMap"},

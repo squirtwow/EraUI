@@ -352,4 +352,29 @@ Hover(other,"rogue")
 equal(otherBack.nine.sets,0,"an unwatched tooltip is left alone")
 equal(table.concat(otherBack.backs[1].colour,","),"0.25,0.5,1","an unwatched tooltip's name is left alone")
 
+-- Dark Mode: the Classic bevel's grey follows the Darkness slider (the
+-- grey Core/Appearance.lua gives: .42 at 58, .10 at 90), as drawn at 58 and
+-- lighter. A class-coloured border keeps its colour.
+local grey=.42
+E.Classic={DarkGrey=function()return grey,grey*44/42,grey*48/42 end}
+E.settings.darkMode=true;E.settings.tooltipSkin=true
+local function Shade()return backdrops[tip].border[1]end
+local function Near(a,b)return math.abs(a-b)<1e-6 end
+M:RefreshDarkness()
+equal(Classic(),"1,1,1,1","Dark Mode at 58: the bevel as drawn")
+grey=.10;M:RefreshDarkness()
+equal(Near(Shade(),.10/.42)and backdrops[tip].border[2]==Shade()and backdrops[tip].border[3]==Shade()and backdrops[tip].border[4],1,"Darkness 90: the bevel near black, still neutral grey")
+Hover(tip,"mage")
+equal(Classic(),"0.25,0.78,0.92,1","a player's class colour wins over the darkness")
+M:RefreshDarkness()
+equal(Classic(),"0.25,0.78,0.92,1","moving the slider leaves a class-coloured border alone")
+Hover(tip,"wolf")
+equal(Near(Shade(),.10/.42),true,"clearing the class colour puts the dark bevel back, not white")
+tip:Hide()
+equal(Near(Shade(),.10/.42),true,"and so does hiding")
+grey=.60;M:RefreshDarkness()
+equal(Classic(),"1,1,1,1","lighter than 58: the bevel as drawn, never brighter")
+E.settings.darkMode=false;grey=.10;M:RefreshDarkness()
+equal(Classic(),"1,1,1,1","Dark Mode off: the bevel as drawn")
+
 print("Class-coloured tooltip checks passed: "..checks.." assertions.")

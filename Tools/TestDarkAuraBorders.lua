@@ -3,7 +3,9 @@
 -- the checks prove the rings never read aura data or geometry and never write
 -- on Blizzard's buttons. Ring strips are placed from their icon anchors and
 -- sampled. Shadow frames are strict mocks: any call beyond the few the shadow
--- needs (mouse, scripts, sizes) fails the run.
+-- needs (mouse, scripts, sizes) fails the run. The native icon allows one
+-- call only, the rim trim's SetTexCoord; the grey line is checked against
+-- the real Darkness slider maths (Core/Appearance.lua).
 local checks=0
 local function equal(got,want,label)
  checks=checks+1;assert(got==want,label..": expected "..tostring(want)..", got "..tostring(got))
@@ -23,8 +25,8 @@ local function Region(layer,sub)
 end
 local function Texture(layer,sub)
  created=created+1
- local t={layer=layer,sub=sub or 0,points={},shown=true}
- function t:SetColorTexture(r,g,b,a)self.colour={r,g,b,a}end
+ local t={layer=layer,sub=sub or 0,points={},shown=true,sets=0}
+ function t:SetColorTexture(r,g,b,a)self.colour={r,g,b,a};self.sets=self.sets+1 end
  function t:SetPoint(point,relative,relativePoint,x,y)self.points[point]={relative,relativePoint,x,y}end
  function t:SetShown(v)self.shown=v and true or false end
  return Strict(t,"ring strip")
@@ -33,8 +35,12 @@ end
 -- every button of a row on the same frame level (5 here).
 local backOf={}
 local function Button(kind,extra)
- local back={textures={},scripts={},holders={},level=5}
- back.icon=setmetatable({},{__index=function()iconCalls=iconCalls+1;error("icon touched")end,__newindex=function()error("icon written")end})
+ local back={textures={},scripts={},holders={},level=5,coordSets=0}
+ -- The only call allowed on the icon: its texture coords, for the rim trim.
+ back.icon=setmetatable({},{__index=function(_,key)
+  if key=="SetTexCoord"then return function(_,...)back.coords={...};back.coordSets=back.coordSets+1 end end
+  iconCalls=iconCalls+1;error("icon touched: "..tostring(key))
+ end,__newindex=function()error("icon written")end})
  back.Icon=back.icon
  back.DebuffBorder=Region("OVERLAY");back.TempEnchantBorder=Region("OVERLAY")
  back.Symbol=Region("OVERLAY");back.Count=Region("OVERLAY");back.Duration=Region("BACKGROUND")
@@ -114,11 +120,12 @@ end)
 BuffFrame.ConsolidatedBuffs=consolidated
 local deadly,deadlyBack=Button("DeadlyDebuff");DeadlyDebuffFrame={Debuff=deadly}
 
-local E={modules={},settings={enabled=true,unitFrames=false,tooltipSkin=false,darkMode=true}}
+local E={modules={},Classic={},settings={enabled=true,unitFrames=false,tooltipSkin=false,darkMode=true}}
 function E:RegisterModule(name,m)self.modules[name]=m end
 function E:GetSetting(key)return self.settings[key]end
+assert(loadfile("Core/Appearance.lua"))("EraUI",E)
 assert(loadfile("Modules/AuraStyle.lua"))("EraUI",E)
-local M=E.modules.AuraStyle
+local M,ns=E.modules.AuraStyle,E.Classic
 
 local function AllBacks()
  local list={}
@@ -136,10 +143,28 @@ end
 local function AllShown(want,label)
  for i,back in ipairs(AllBacks())do equal(Shown(back),want,label.." (button "..i..")")end
 end
+-- An icon's texture coords as last set ("" when never set), and how many
+-- times any icon's coords have been set.
+local TRIMMED,FULL="0.07,0.93,0.07,0.93","0,1,0,1"
+local function Coords(b)return b.coords and table.concat(b.coords,",")or""end
+local function Touched()
+ local n=anchorBack.coordSets
+ for _,b in ipairs(AllBacks())do n=n+b.coordSets end
+ return n
+end
+-- The consolidated buffs icon is a crop of a sheet with the game's own
+-- coords (ConsolidatedBuffsMixin:OnLoad), so it is never trimmed or reset.
+local function AllCoords(want,label)
+ for i,b in ipairs(AllBacks())do
+  if b~=consolidatedBack then equal(Coords(b),want,label.." (button "..i..")")end
+ end
+ equal(consolidatedBack.coordSets,0,label..": consolidated buffs icon keeps the game's coords")
+end
 
 -- Option not on (the default is on; see TestPersistence): Dark Mode on, nothing made.
 M:Initialize()
 equal(created,0,"option not on: no textures made on any aura button")
+equal(Touched(),0,"option not on: no icon trimmed")
 equal(events.events.PLAYER_REGEN_ENABLED,true,"waits for combat to end when it has to")
 local before=hooks
 
@@ -148,6 +173,7 @@ E.settings.darkAuraBorders=true;E.settings.darkMode=false;M:RefreshBorders()
 equal(created,0,"Dark Mode off: no borders even with the option on")
 E.settings.darkMode=true;E.settings.enabled=false;M:RefreshBorders()
 equal(created,0,"EraUI turned off: no borders")
+equal(Touched(),0,"Dark Mode or EraUI off: no icon trimmed")
 E.settings.enabled=true
 
 -- Switched on in combat: aura buttons are not protected, so it applies at once.
@@ -164,7 +190,9 @@ for key in pairs(reads)do
  equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="Tooltip",true,"ring reads only its own anchors, never aura data: "..key)
 end
 equal(reads.auraType or reads.buttonInfo or reads.unit or reads.timeLeft or reads.Duration or reads.DebuffBorder,nil,"no aura type, data, timer or native border read")
-equal(iconCalls,0,"icon geometry never read or changed (anchors only)")
+equal(iconCalls,0,"icon geometry never read (anchors and the trim's texture coords only)")
+AllCoords(TRIMMED,"on in combat: every ringed icon's bright rim trimmed (.07 a side)")
+equal(anchorBack.coordSets,0,"private aura anchor's icon never trimmed")
 equal(hooks,before,"no new hooks for the borders")
 
 -- Geometry: anchors to the icon only; sample the drawn strips.
@@ -199,6 +227,7 @@ end
 equal(wrong,0,"dark edge fills exactly two units outside the icon, grey line one unit inside")
 equal(dark.colour[1]==dark.colour[2]and dark.colour[4],1,"dark edge is a solid neutral dark")
 equal(grey.colour[1]<.42 and grey.colour[3]>=grey.colour[1],true,"grey line is in Dark Mode's cool grey family, darker than the art tint")
+equal(grey.colour[1]==.30 and grey.colour[2]==.31 and grey.colour[3]==.34 and grey.colour[4]==1,true,"at the default Darkness (58) the grey line is exactly .30, .31, .34 as before")
 equal(LAYERS[dark.layer]==LAYERS.BACKGROUND and dark.sub<0,true,"dark edge under the icon and its timer text")
 equal(LAYERS[grey.layer]<LAYERS.OVERLAY and LAYERS[grey.layer]>LAYERS.BACKGROUND,true,"grey line over the icon rim, under the native overlays")
 equal(LAYERS[BuffFrame.backs[1].DebuffBorder.layer]>LAYERS[grey.layer],true,"native debuff/enchant borders, symbol and count stay on top")
@@ -223,19 +252,29 @@ equal(created,count,"updates and refreshes never make a second ring")
 -- Live toggling: hidden, shown again, never recreated.
 E.settings.darkAuraBorders=false;M:RefreshBorders()
 AllShown(false,"switched off: rings hidden at once")
+AllCoords(FULL,"switched off: every icon back to full texture coords")
+local coordSets=Touched()
 BuffFrame:UpdateAuraButtons()
 equal(Shown(BuffFrame.backs[1]),false,"native updates keep them hidden while off")
+M:RefreshBorders()
+equal(Touched(),coordSets,"while off, native updates and refreshes leave the icons alone")
 E.settings.darkAuraBorders=true;M:RefreshBorders()
 AllShown(true,"switched on again: rings back")
+AllCoords(TRIMMED,"switched on again: icons trimmed again")
 equal(created,count,"toggling reuses the same strips")
+-- The game may reset a reused button's coords: the next native update trims it again.
+BuffFrame.backs[1].coords={0,1,0,1};BuffFrame:UpdateAuraButtons()
+equal(Coords(BuffFrame.backs[1]),TRIMMED,"a native update re-applies the trim")
 
 -- A protected button (not how Forever builds them) waits until combat ends.
 local guarded,guardedBack=Button("Buff",{protected=true})
 ExternalDefensivesFrame.auraFrames[2],ExternalDefensivesFrame.backs[2]=guarded,guardedBack
 combat=true;ExternalDefensivesFrame:UpdateAuraButtons()
 equal(#guardedBack.textures,0,"never adds to a protected button in combat")
+equal(guardedBack.coordSets,0,"nor trims its icon in combat")
 combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
 equal(#guardedBack.textures,8,"ringed once combat ends")
+equal(Coords(guardedBack),TRIMMED,"and trimmed once combat ends")
 
 -- With the Classic unit frames on, the Classic debuff border still applies on top.
 E.settings.unitFrames=true
@@ -335,10 +374,13 @@ BuffFrame:UpdateAuraButtons()
 equal(Shaded(back),false,"native updates keep it hidden")
 E.settings.darkAuraBorders=true;E.settings.darkMode=false;M:RefreshBorders()
 equal(Shaded(back),false,"Dark Mode off: no shadow")
+AllCoords(FULL,"Dark Mode off: icons back to full coords")
 E.settings.darkMode=true;E.settings.enabled=false;M:RefreshBorders()
 equal(Shaded(back),false,"EraUI turned off: no shadow")
+AllCoords(FULL,"EraUI turned off: icons back to full coords")
 E.settings.enabled=true;M:RefreshBorders()
 equal(Shaded(back)and Shown(back),true,"back with Dark Mode and borders")
+AllCoords(TRIMMED,"back with Dark Mode and borders: icons trimmed")
 equal(created,count,"toggling never makes a second shadow")
 equal(holderCount,#AllBacks(),"toggling never makes a second shadow frame")
 -- A late button gets its shadow from the update hook, in combat.
@@ -360,4 +402,71 @@ equal(Shaded(back),false,"plain buttons switch at once in combat")
 combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
 equal(g2Back.holders[1].shown,false,"and it follows once combat ends")
 E.settings.darkAuraShadows=true;M:RefreshBorders()
+-- Its icon keeps the trim through combat too, then gets full coords back.
+combat=true;E.settings.darkAuraBorders=false;M:RefreshBorders()
+equal(Coords(g2Back),TRIMMED,"protected button's icon untouched in combat")
+equal(Coords(back),FULL,"plain icons get full coords at once in combat")
+combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
+equal(Coords(g2Back),FULL,"and it gets full coords once combat ends")
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+AllCoords(TRIMMED,"borders on again: every icon trimmed")
+
+-- Darkness slider: the grey line follows it, through the real
+-- RefreshDarkness, whether or not class colours darken too; the dark edge
+-- stays. Every line strip of every ring is checked.
+local function Sets()
+ local n=0
+ for _,b in ipairs(AllBacks())do for _,t in ipairs(b.textures)do n=n+t.sets end end
+ return n
+end
+local function Tones(r,g,b,label)
+ local bad=0
+ for _,bk in ipairs(AllBacks())do
+  for _,t in ipairs(bk.textures)do
+   local c,w=t.colour,t.layer=="ARTWORK"and{r,g,b}or{.05,.05,.06}
+   if not(c[1]==w[1]and c[2]==w[2]and c[3]==w[3]and c[4]==1)then bad=bad+1 end
+  end
+ end
+ equal(bad,0,label)
+end
+local function Step(darkness)return math.min(1,(1-darkness/100)/.42)end
+equal(E.settings.darkModeDarkness,nil,"slider at its default")
+Tones(.30,.31,.34,"Darkness 58 (default): every line exactly .30, .31, .34, every dark edge .05, .05, .06")
+local sets=Sets()
+ns.RefreshDarkness();M:RefreshBorders();BuffFrame:UpdateAuraButtons();DebuffFrame:UpdateAuraButtons()
+equal(Sets(),sets,"nothing changed: the slider, refreshes and native updates set no colour again")
+E.settings.darkModeDarkness=58;ns.RefreshDarkness()
+equal(Sets(),sets,"58 set explicitly: nothing set")
+E.settings.darkModeDarkness=40;ns.RefreshDarkness()
+equal(Sets(),sets,"lighter than 58: the line keeps today's grey, nothing set")
+E.settings.darkModeDarkness=90;ns.RefreshDarkness()
+local f=Step(90)
+equal(f>.2 and f<.3,true,"at 90 the line is about a quarter of today's grey")
+Tones(.30*f,.31*f,.34*f,"slider to 90: every existing ring's line darkened at once, dark edge unchanged")
+equal(Sets()-sets,4*#AllBacks(),"one colour set per line strip, none on the dark edge")
+sets=Sets();ns.RefreshDarkness();M:RefreshBorders();BuffFrame:UpdateAuraButtons()
+equal(Sets(),sets,"held at 90: nothing set again")
+-- A ring made now is dark straight away, each strip coloured once.
+local late3,late3Back=Button("Buff");BuffFrame.auraFrames[8],BuffFrame.backs[8]=late3,late3Back
+BuffFrame:UpdateAuraButtons()
+local once=0
+for _,t in ipairs(late3Back.textures)do if t.sets==1 then once=once+1 end end
+equal(#late3Back.textures..":"..once,"8:8","a ring made at 90 has the dark line from the start, each strip coloured once")
+Tones(.30*f,.31*f,.34*f,"new ring matches the others at 90")
+-- Rings hidden while the slider moves take the shade when shown again; a
+-- refresh alone also picks up a new Darkness.
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+E.settings.darkModeDarkness=75;ns.RefreshDarkness()
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+f=Step(75);Tones(.30*f,.31*f,.34*f,"hidden while the slider moved: shown again at 75's shade")
+E.settings.darkModeDarkness=82;M:RefreshBorders()
+f=Step(82);Tones(.30*f,.31*f,.34*f,"a refresh picks up a new Darkness")
+-- Darken class colours on gives the same line.
+E.settings.darkenClassColours=true;sets=Sets();ns.RefreshDarkness()
+equal(Sets(),sets,"the class colour tick does not change the line")
+E.settings.darkenClassColours=nil
+-- Back at the default: exactly today's grey again.
+E.settings.darkModeDarkness=58;ns.RefreshDarkness()
+Tones(.30,.31,.34,"back at 58: exactly .30, .31, .34 again")
+equal(iconCalls,0,"icon never read through all of it")
 print("Dark aura border checks passed: "..checks.." assertions.")

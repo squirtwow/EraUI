@@ -15,7 +15,7 @@ local DEPENDS = {
     classColourBorders = {"darkMode", "unitFrames"}, gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
-    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders",
+    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode",
 }
 -- The names on the cards, so a hover points at a switch the player can find.
 local DEPEND_NAMES = {
@@ -219,8 +219,9 @@ local settingHelp = {
     tooltipClassColours = "A player's tooltip shows their class colour on its border, their name and their class, for example a rogue's name and \"Rogue\" in rogue yellow. Works with EraUI's Classic tooltips or the game's own. NPCs and pets keep their usual colours, and if the game hides a player's class the tooltip stays as it is. Only colours change: the tooltip's lines are the game's. Applies the next time you hover a player. Off by default.",
     bagItemLevels = "Shows the item level of every piece of gear in your bags as a big number at the bottom right, in the item's quality colour: grey, white, green, blue or purple. Armour, rings, necks, cloaks, trinkets, relics and weapons get one (not bags, quivers, ammo, shirts or tabards). A small green arrow at the top right means it has a higher item level than what you wear in that slot, a red arrow a lower one. Rings, trinkets and, when you dual wield, one-hand weapons are compared with the weaker of the two you wear. Upgrade means item level only for now: stats, armour type and set bonuses are not compared. Gear you can't equip right now has its icon tinted red, using the game's own check, so it follows your level and the armour and weapon skills you learn, such as plate or mail at level 40. Works with Blizzard's bags, EraUI's Classic bags and One bag, not the bank yet. Applies immediately. Off by default.",
     characterItemLevels = "Shows the item level of each piece of gear you wear as a big number at the bottom right of its slot in the character window, in the item's quality colour: grey, white, green, blue or purple. Every slot gets one except the shirt, tabard and ammo slots. A stack of throwing weapons keeps the game's count in that corner instead, and an empty slot shows nothing. The same numbers and look as Bag Item Levels, so your bags and your character window agree. Works with EraUI's Classic character window and Blizzard's own. Applies immediately. Needs testing. Off by default.",
-    darkAuraBorders = "A thin dark border around your own buff and debuff icons at the top right, including weapon enchants, to match Dark Mode. Debuffs keep their coloured border on top. Target and focus auras are drawn by the game's protected aura frames and keep their own look. Only EraUI's border is added: timers, tooltips and right-click cancelling are unchanged, in and out of combat. Requires Dark Mode. On by default, so choosing Dark Mode adds them; switch this off to keep plain icons. Applies immediately once Dark Mode is active.",
+    darkAuraBorders = "A thin dark border around your own buff and debuff icons at the top right, including weapon enchants, to match Dark Mode. Debuffs keep their coloured border on top. Target and focus auras are drawn by the game's protected aura frames and keep their own look. The border's grey line darkens with the Darkness slider, and each icon is trimmed slightly so its bright built-in rim doesn't show. Timers, tooltips and right-click cancelling are unchanged, in and out of combat. Requires Dark Mode. On by default, so choosing Dark Mode adds them; switch this off to keep plain icons. Applies immediately once Dark Mode is active.",
     darkAuraShadows = "A soft shadow round your own buff and debuff icons, just outside the dark border. It fades out in the gap between icons, so it never covers the next icon, and it sits under every timer and debuff border. Requires Dark Mode and Dark Aura Borders. Needs testing. On by default. Applies immediately once Dark Mode is active.",
+    darkMenuBar = "Darkens the bronze frame behind each menu bar button (character, spellbook, quests, game menu and the rest) to match Dark Mode, following the Darkness slider. The icons keep their colours. Works wherever the buttons sit, your own bar addon included; with the Classic action bars on, the buttons wear their 1.x art instead. Requires Dark Mode. On by default. Applies immediately once Dark Mode is active.",
     -- Fuller help for cards whose one-line summary is short.
     advancedCastBar = "Your own cast bar with the spell icon, cast time and latency. A preview appears while settings are open; hover + to move or resize it.",
     advancedCastClassFill = "Use a muted class colour instead of gold. Priests use dark silver so the text stays readable.",
@@ -234,7 +235,7 @@ local settingHelp = {
     rewardUpgradeHighlight = "Suggest a usable reward using your chosen stat profile. You choose the reward.",
     trainingGuide = "Adds a training tab inside the Classic spellbook, filled at once with unlearned spells, required levels, availability groups and search. Reference cost totals mark unverified prices with ?. Requires Spellbook.",
     classicChatDragging = "Right-click General or a docked chat tab to unlock, drag and lock the chat window. Remembers your position and lock state.",
-    tooltipSkin = "Classic dark backgrounds and grey borders for item, spell, unit and map-control tooltips, including item comparisons.",
+    tooltipSkin = "Classic dark backgrounds and grey borders for item, spell, unit and map-control tooltips, including item comparisons. In Dark Mode the grey border darkens with the Darkness slider.",
     hideZoneText = "Hide the large zone and subzone announcements. Minimap names remain.",
     maxCameraZoom = "Raise the camera distance limit to 2.6. Scroll out as normal; switching it off restores your earlier limit.",
     cursorRing = "A ring follows your mouse pointer. Its colour, diameter and thickness options appear under it while it is on. Applies immediately.",
@@ -489,6 +490,12 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if EraUI.modules.AFKScreen then EraUI.modules.AFKScreen:Refresh() end
             if key=="afkScreen" then EraUI:Status(value and "AFK Screen enabled. Type /era afk to preview it." or "AFK Screen disabled.")
             else EraUI:Status(label:gsub(" %(Needs testing%)$","")..(value and " enabled." or " disabled.")) end
+            return
+        end
+        if key=="darkMenuBar" then
+            if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
+            EraUI:Status("Dark Menu Bar "..(value and "enabled." or "disabled.")
+                ..(value and not EraUI:GetSetting("darkMode") and " It shows once Dark Mode is applied." or ""))
             return
         end
         if key=="darkAuraBorders" or key=="darkAuraShadows" then
@@ -1049,6 +1056,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Hide Empty Action Slots", "hideEmptyActionSlots", "INV_Misc_Book_09", "Reveal empty slots when arranging spells.", false)
     MakeCheck(frame, "Hide Keybind Text", "hideKeybindText", "INV_Misc_StoneTablet_01", "Hide action-button key labels; bindings still work. Combat changes wait.", false)
     MakeCheck(frame, "Hide Macro Names", "hideMacroText", "INV_Misc_Note_01", "Hide action-button macro names. Combat changes wait.", false)
+    MakeCheck(frame, "Dark Menu Bar", "darkMenuBar", "INV_Misc_Gear_01", "Dark frames behind the menu bar buttons. Dark Mode only.", false)
     -- Frames & Nameplates.
     MakeCheck(frame, "Unit Frames", "unitFrames", "INV_Misc_Book_09", "Player, target and focus styling.", false)
     MakeCheck(frame, "Match Focus Size", "matchFocusSize", "INV_Misc_Book_09", "Use target size for focus. Reload to apply; off uses your native layout.", false)
@@ -1535,7 +1543,7 @@ function SettingsModule:Initialize()
             "classColourBorders","castBarClassBorder",
             "darkModeDarkness"},
         class=classOrder,
-        actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText"},
+        actionBars={"actionBars","gryphons","hideEmptyActionSlots","hideKeybindText","hideMacroText","darkMenuBar"},
         frames={"unitFrames","matchFocusSize","disableAggroHighlight","portraitDebuffs",
             "classIconPortraitMine","classIconPortraitOthers","friendlyNameplates","enemyNameplates"},
         casting={"castBars","advancedCastBar","advancedCastClassFill","advancedCastTicks","advancedCastLatency"},

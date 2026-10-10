@@ -11,6 +11,18 @@ local function Enabled()return E:GetSetting("enabled")and E:GetSetting("unitFram
 local function GeneralTooltips()return E:GetSetting("enabled")and E:GetSetting("tooltipSkin")end
 
 local BORDER="Interface\\AddOns\\EraUI\\Media\\TooltipBorder.tga"
+-- In Dark Mode the bevel's grey follows the Darkness slider, as Dark Aura
+-- Borders' line does: as drawn at 58 or lighter, near black at 90. A
+-- class-coloured border keeps its colour.
+local function BevelShade()
+ local grey=E.Classic and E.Classic.DarkGrey
+ if not(grey and E:GetSetting("darkMode"))then return 1 end
+ return math.min(1,(grey())/.42)
+end
+local function PlainBorder(backdrop)
+ local shade=BevelShade()
+ backdrop:SetBackdropBorderColor(shade,shade,shade,1)
+end
 local function RestoreTooltip(tip)
  local state=tips[tip]
  if not state then return end
@@ -99,7 +111,7 @@ local function Untint(tip)
  local saved=tinted[tip]
  if not saved then return end
  tinted[tip]=nil
- if saved.backdrop then saved.backdrop:SetBackdropBorderColor(1,1,1,1)end
+ if saved.backdrop then PlainBorder(saved.backdrop)end
  if saved.glow then saved.glow:Hide()end
  local nine=saved.nine
  if nine then tip.NineSlice:SetBorderColor(nine[1],nine[2],nine[3],nine[4])end
@@ -167,7 +179,7 @@ local function AttachTooltip(tip)
   backdrop:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",
    edgeFile=BORDER,edgeSize=16,
    insets={left=3,right=3,top=3,bottom=3}})
-  backdrop:SetBackdropColor(.016,.016,.02,.9);backdrop:SetBackdropBorderColor(1,1,1,1)
+  backdrop:SetBackdropColor(.016,.016,.02,.9);PlainBorder(backdrop)
  backdrop:Hide();tips[tip]={backdrop=backdrop}
  if tip.NineSlice then
   hooksecurefunc(tip.NineSlice,"SetAlpha",function(slice,value)
@@ -237,8 +249,9 @@ local rings=setmetatable({}, {__mode="k"})
 local pending=false
 -- {outside, inside, r, g, b, layer}: a dark edge outside the icon, drawn
 -- under the icon and its timer text, then a grey line over the icon's own
--- bright rim, in Dark Mode's grey.
-local TONES={{2,0,.05,.05,.06,"BACKGROUND",-8},{0,1,.30,.31,.34,"ARTWORK",1}}
+-- bright rim, in Dark Mode's grey. The line darkens with the Darkness slider.
+local LINE={0,1,.30,.31,.34,"ARTWORK",1}
+local TONES={{2,0,.05,.05,.06,"BACKGROUND",-8},LINE}
 -- Aura Shadows (on by default, needs Dark Aura Borders): a soft shadow past
 -- the dark edge, three one-unit rings of black, each fainter than the last
 -- (the ring technique of Forever Enhanced Cooldown Manager's icon shadow).
@@ -285,12 +298,36 @@ local function Lower(button,holder)
  level=level and math.max(0,level-1)
  if level and holder:GetFrameLevel()~=level then holder:SetFrameLevel(level)end
 end
-local function Ring(button,on,shade)
+-- How far the grey line follows the Darkness slider: 1 (today's grey) at the
+-- default 58 or lighter, down to about a quarter at 90. The same step as
+-- "Darken class colours too".
+local function Dim()
+ local grey=E.Classic and E.Classic.DarkGrey
+ return grey and math.min(1,(grey())/.42)or 1
+end
+-- Colours a ring's grey line; a ring already at that shade is left alone.
+local function Tone(ring,dim)
+ if ring.dim==dim then return end
+ ring.dim=dim
+ for _,strip in ipairs(ring.line)do strip:SetColorTexture(LINE[3]*dim,LINE[4]*dim,LINE[5]*dim,1)end
+end
+-- While its ring shows, the icon's art is zoomed in a little (the .07 trim
+-- EraUI's own icons use) so its bright built-in bevel is cut off and the
+-- border reads dark. Set on every pass, as the game may reset a reused
+-- button's coords; full coords go back once when the ring hides. Constants
+-- only: nothing about the icon is read. The consolidated buffs button is left
+-- out: its icon is a cropped piece of a larger sheet with the game's own coords.
+local function Trim(button,ring,on)
+ if not(on or ring.trimmed)or Locked(button)then return end
+ ring.trimmed=on
+ if on then button.Icon:SetTexCoord(.07,.93,.07,.93)else button.Icon:SetTexCoord(0,1,0,1)end
+end
+local function Ring(button,on,shade,dim,cropped)
  if not button or button.isAuraAnchor or not button.Icon then return end
  local ring=rings[button]
  if not ring then
   if not on or Locked(button)then return end
-  ring={};rings[button]=ring
+  ring={line={}};rings[button]=ring
   local icon=button.Icon
   for _,tone in ipairs(TONES)do
    local o,i=tone[1],tone[2]
@@ -298,17 +335,19 @@ local function Ring(button,on,shade)
    for _,edge in ipairs({{"TOPLEFT",-o,o,"TOPRIGHT",o,-i},{"BOTTOMLEFT",-o,i,"BOTTOMRIGHT",o,-o},
     {"TOPLEFT",-o,o,"BOTTOMLEFT",i,-o},{"TOPRIGHT",-i,o,"BOTTOMRIGHT",o,-o}})do
     local strip=button:CreateTexture(nil,tone[6],nil,tone[7])
-    strip:SetColorTexture(tone[3],tone[4],tone[5],1)
+    if tone==LINE then ring.line[#ring.line+1]=strip else strip:SetColorTexture(tone[3],tone[4],tone[5],1)end
     strip:SetPoint("TOPLEFT",icon,edge[1],edge[2],edge[3])
     strip:SetPoint("BOTTOMRIGHT",icon,edge[4],edge[5],edge[6])
     ring[#ring+1]=strip
    end
   end
  end
+ Tone(ring,dim)
  if ring.on~=on then
   ring.on=on
   for _,strip in ipairs(ring)do strip:SetShown(on)end
  end
+ if not cropped then Trim(button,ring,on)end
  if not(shade or ring.shadow)or Locked(button)then return end
  ring.shadow=ring.shadow or Shadow(button,button.Icon)
  if shade then Lower(button,ring.shadow)end
@@ -326,16 +365,24 @@ local function StyleFrame(frame)
   hooked[frame]=true
   hooksecurefunc(frame,"UpdateAuraButtons",StyleFrame)
  end
- local on,shade=DarkBorders(),DarkShadows()
- for _,button in ipairs(frame.auraFrames or{})do Ring(button,on,shade);StyleButton(button)end
+ local on,shade,dim=DarkBorders(),DarkShadows(),Dim()
+ for _,button in ipairs(frame.auraFrames or{})do Ring(button,on,shade,dim);StyleButton(button)end
 end
 function M:RefreshBorders()
- local on,shade=DarkBorders(),DarkShadows();pending=false
+ local on,shade,dim=DarkBorders(),DarkShadows(),Dim();pending=false
  local rows,consolidated=Rows()
  for index=1,4 do
-  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do Ring(button,on,shade)end
+  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do Ring(button,on,shade,dim)end
  end
- Ring(consolidated,on,shade);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade)
+ Ring(consolidated,on,shade,dim,true);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade,dim)
+end
+-- The Darkness slider (Core/Appearance.lua RefreshDarkness): every ring's
+-- grey line takes the new shade at once.
+function M:RefreshDarkness()
+ local dim=Dim()
+ for _,ring in pairs(rings)do Tone(ring,dim)end
+ -- And every tooltip's bevel that isn't wearing a class colour.
+ for tip,state in pairs(tips)do if not tinted[tip]then PlainBorder(state.backdrop)end end
 end
 function M:Refresh()
  for _,name in ipairs({"GameTooltip","BuffFrameTooltip","ItemRefTooltip","ShoppingTooltip1","ShoppingTooltip2",

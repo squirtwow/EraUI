@@ -30,6 +30,7 @@ local defaults = {
     darkenClassColours = false, -- Darkness row tick: class-coloured unit borders darken with the slider too
     darkAuraBorders = true, -- Dark Aura Borders: shows only in Dark Mode, so choosing Dark Mode gives them
     darkAuraShadows = true, -- Aura Shadows (Needs testing): shows only with Dark Mode and Dark Aura Borders
+    darkMenuBar = true, -- Dark Menu Bar: shows only in Dark Mode, so choosing Dark Mode gives it
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
