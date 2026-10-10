@@ -216,6 +216,19 @@ end
 local viewLive = true
 local Button_OnEnter
 
+-- The frame round a slot: black behind a passive spell, else as drawn. With
+-- Dark Windows on (Core/Appearance.lua) it keeps Dark Mode's grey, which
+-- each refresh here used to turn light again; off, as before.
+local function SlotFrame(btn, passive)
+    if passive then
+        btn.normal:SetVertexColor(0, 0, 0)
+    elseif ns.DarkWindowsOn and ns.DarkWindowsOn() then
+        btn.normal:SetVertexColor(ns.DarkGrey())
+    else
+        btn.normal:SetVertexColor(1, 1, 1)
+    end
+end
+
 local function UpdateButton(btn)
     local page = CurrentPage()
     local slot = state.slots[(page - 1) * SPELLS_PER_PAGE + btn:GetID()]
@@ -229,7 +242,7 @@ local function UpdateButton(btn)
         btn.SpellSubName:Hide()
         btn.cooldown:Clear()
         btn.checkedTex:Hide()
-        btn.normal:SetVertexColor(1, 1, 1)
+        SlotFrame(btn, false)
         DimButton(btn, false)
         return
     end
@@ -245,11 +258,10 @@ local function UpdateButton(btn)
     btn.SpellName:SetPoint("LEFT", btn, "RIGHT", 5, sub == "" and 1 or 3)
     btn.SpellName:Show()
     btn.SpellSubName:Show()
+    SlotFrame(btn, info.isPassive)
     if info.isPassive then
-        btn.normal:SetVertexColor(0, 0, 0)
         btn.SpellName:SetTextColor(PASSIVE_SPELL_FONT_COLOR:GetRGB())
     else
-        btn.normal:SetVertexColor(1, 1, 1)
         btn.SpellName:SetTextColor(NORMAL_FONT_COLOR:GetRGB())
     end
     btn.checkedTex:Hide()
@@ -293,6 +305,7 @@ local function CreateSpellButton(parent, id, clicks)
     ns.SetTex(empty, "sbEmptySlot")
     empty:SetSize(64, 64)
     empty:SetPoint("TOPLEFT", slot, "TOPLEFT", -3, 3)
+    if ns.DarkWindowArt then ns.DarkWindowArt(empty, "page") end
 
     local icon = slot:CreateTexture(nil, "BORDER")
     icon:SetAllPoints(slot)
@@ -319,6 +332,8 @@ local function CreateSpellButton(parent, id, clicks)
     sub:SetSize(79, 18)
     sub:SetJustifyH("LEFT")
     sub:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -2)
+    -- "Passive", "Racial" and ranks are dark brown; light on Dark Windows' page.
+    if ns.DarkWindowText then ns.DarkWindowText(sub) end
 
     local cooldown = CreateFrame("Cooldown", nil, slot, "CooldownFrameTemplate")
     cooldown:SetAllPoints(slot)
@@ -510,6 +525,8 @@ local function CreateBook()
         ns.SetTex(tex, piece[1])
         tex:SetSize(piece[2], piece[3])
         tex:SetPoint(piece[4], f, piece[4], 0, 0)
+        -- Dark Windows: a darker brown-grey page in Dark Mode (Core/Appearance.lua).
+        if ns.DarkWindowArt then ns.DarkWindowArt(tex, "page") end
     end
 
     local icon = f:CreateTexture(nil, "ARTWORK")
@@ -526,6 +543,7 @@ local function CreateBook()
     f.PageText:SetWidth(102)
     f.PageText:SetJustifyH("RIGHT")
     f.PageText:SetPoint("CENTER", f, "BOTTOMLEFT", 182, 105)
+    if ns.DarkWindowText then ns.DarkWindowText(f.PageText) end
 
     f.PrevPage = CreatePageButton(f, "sbPrev", -1, 50)
     f.NextPage = CreatePageButton(f, "sbNext", 1, 314)

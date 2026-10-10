@@ -3,6 +3,8 @@
 -- and the compact red buttons with yellow labels, 144 wide and 21 tall.
 -- Blizzard's menu keeps its buttons, callbacks and vertical layout; its
 -- bronze border, header and button art are faded and ours drawn in place.
+-- In Dark Mode, with Dark Windows on, the box, its header plate and the
+-- buttons take Dark Mode's colours (Core/Appearance.lua); labels stay gold.
 local _, EraUI = ...
 local ns = EraUI.Classic
 
@@ -46,6 +48,7 @@ local function SkinButton(button)
             end
             local hl = button:GetHighlightTexture()
             if hl then hl:SetBlendMode("ADD") end
+            if ns.DarkRedButton then ns.DarkRedButton(button) end
         end
         button:SetNormalFontObject("GameFontHighlight")
         button:SetHighlightFontObject("GameFontHighlight")
@@ -91,6 +94,7 @@ local function SkinMenu()
     })
     backing:SetAllPoints(menu)
     backing:SetFrameLevel(menu:GetFrameLevel())
+    if ns.DarkBackdrop then ns.DarkBackdrop(backing) end
     local header = menu.Header
     if header then
         for _, key in ipairs({ "LeftBG", "RightBG", "CenterBG" }) do
@@ -102,6 +106,7 @@ local function SkinMenu()
         plate:ClearAllPoints()
         plate:SetPoint("TOP", menu, "TOP", 0, 12)
         plate:Show()
+        if ns.DarkWindowArt then ns.DarkWindowArt(plate, "frame") end
         if header.Text then
             header.Text:SetFontObject(ns.FONT_GOLD)
             if MAIN_MENU then header.Text:SetText(MAIN_MENU) end

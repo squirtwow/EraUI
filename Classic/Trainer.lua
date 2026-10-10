@@ -397,6 +397,9 @@ local function Build()
     highlight:SetBlendMode("ADD")
     highlight:Hide()
     panel.trainHighlight = highlight
+    -- Train's glow is this copy, not the button's own: Dark Windows takes its
+    -- colour as it does Exit's (Core/Appearance.lua).
+    if ns.DarkWindowArt then ns.DarkWindowArt(highlight, "glow") end
     panel.train:SetScript("OnUpdate", function(self, elapsed)
         self.hoverElapsed = (self.hoverElapsed or 0)+elapsed
         if self.hoverElapsed<.05 then return end

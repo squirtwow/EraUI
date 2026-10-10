@@ -41,6 +41,9 @@ function EraUI:SkinClassicRedButton(button, owner)
     end
     button:SetNormalFontObject(GameFontNormal)
     button:SetHighlightFontObject(GameFontHighlight)
+    -- Dark Windows darkens it in Dark Mode (Core/Appearance.lua).
+    local classic = self.Classic
+    if classic and classic.DarkRedButton then classic.DarkRedButton(button) end
     result.ok = true
     return true
 end

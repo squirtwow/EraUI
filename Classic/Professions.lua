@@ -2,7 +2,8 @@
 -- The professions overview as the old professions book: two parchment pages,
 -- each primary profession with its round emblem, its name, its rank and the
 -- small green bar, its two spells on their plates down the right; the
--- secondary professions as three short rows under them.
+-- secondary professions as three short rows under them. In Dark Mode, with
+-- Dark Windows on, the pages, rows and window frame darken (DarkBook below).
 local _, EraUI = ...
 local ns = EraUI.Classic
 
@@ -313,6 +314,89 @@ local function ShowOurs(on)
     end
 end
 
+-- Dark Windows (Core/Appearance.lua): in Dark Mode the book's pages and the
+-- rows' art (emblem rings, spell plates, the rank bars' frames) go the
+-- spellbook's darker brown-grey, the window's frame takes Dark Mode's grey,
+-- and the dark "learn a profession" text turns light. Blizzard's own book
+-- (the skin off) gets the same on its profession cards. Colours only: the
+-- bars' green fill, the icons and the gold names keep theirs.
+local BAR_ART = { "BGLeft", "BGMiddle", "BGRight", "capLeft", "capRight" }
+local FRAME_ART = { "titleStrip", "streaks", "backing" }
+
+local function DarkCard(card, force)
+    if not card or not ns.DarkWindowArt then return end
+    if card.Background then ns.DarkWindowArt(card.Background, "page", force) end
+    for n = 1, 4 do
+        local button = card["SpellButton" .. n]
+        if button and button.fcuiPlate then ns.DarkWindowArt(button.fcuiPlate, "page", force) end
+    end
+end
+
+local function DarkBook()
+    local frame = ProfessionsFrame
+    if not frame or not ns.DarkWindowArt or not EraUI:GetSetting("darkMode") then return end
+    for _, tex in ipairs(rows.art or {}) do ns.DarkWindowArt(tex, "page") end
+    for i = 1, 5 do
+        local row = rows[i]
+        if row then
+            if row.ring then ns.DarkWindowArt(row.ring, "page") end
+            for _, key in ipairs(BAR_ART) do
+                local piece = row.bar and row.bar[key]
+                if piece then ns.DarkWindowArt(piece, "page") end
+            end
+            ns.DarkWindowText(row.missingText)
+            if not row.primary then ns.DarkWindowText(row.missingHeader) end
+        end
+    end
+    local content = Content()
+    if content then
+        for i = 1, 2 do DarkCard(content["PrimaryProfession" .. i]) end
+        for i = 1, 3 do DarkCard(content["SecondaryProfession" .. i]) end
+    end
+    local slice = frame.NineSlice
+    if slice and slice.GetRegions then
+        for _, region in ipairs({ slice:GetRegions() }) do
+            if region.IsObjectType and region:IsObjectType("Texture") then ns.DarkWindowArt(region, "frame") end
+        end
+    end
+    local own = frame.fcui
+    if type(own) == "table" then
+        for _, key in ipairs(FRAME_ART) do
+            if own[key] then ns.DarkWindowArt(own[key], "frame") end
+        end
+    end
+end
+
+-- The window loads with its Blizzard addon. Once it is there (and only in
+-- Dark Mode, out of a fight), each opening and each card the window fills
+-- again gets the dark colours; the cards are painted again then, in case
+-- the game's new art came with its own.
+local darkHooked = false
+local function HookDark()
+    local frame = ProfessionsFrame
+    if darkHooked then return true end
+    if not frame or not ns.DarkWindowArt or not EraUI:GetSetting("darkMode") or InCombatLockdown() then return false end
+    darkHooked = true
+    frame:HookScript("OnShow", function() DarkBook() end)
+    local page = Page()
+    if page and type(page.FormatProfession) == "function" then
+        hooksecurefunc(page, "FormatProfession", function(_, card) DarkCard(card, true) end)
+    end
+    DarkBook()
+    return true
+end
+local darkWatch = CreateFrame("Frame")
+darkWatch:RegisterEvent("ADDON_LOADED")
+darkWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
+darkWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+darkWatch:SetScript("OnEvent", function(self, event)
+    -- Settings are read by then; without Dark Mode nothing is ever needed
+    -- (it needs a reload).
+    if HookDark() or (event == "PLAYER_ENTERING_WORLD" and not EraUI:GetSetting("darkMode")) then
+        self:UnregisterAllEvents()
+    end
+end)
+
 local function TellManager(frame, width, height)
     if not sizeWas.attrs then
         sizeWas.attrs = { frame:GetAttribute("UIPanelLayout-width"), frame:GetAttribute("UIPanelLayout-height") }
@@ -621,6 +705,7 @@ local function StartWatch()
                 placed = PlaceCards() or placed
                 if placed ~= was then ns.Persist("professions: cards placed, combat " .. tostring(InCombatLockdown())) end
                 FillRows()
+                DarkBook()
                 self.dirty = false
             end
             self.placedNow = placed

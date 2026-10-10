@@ -46,6 +46,7 @@ function ns.PanelButton(parent, text, width)
     button:SetNormalFontObject(ns.FONT_GOLD or "GameFontNormal")
     button:SetDisabledFontObject("GameFontDisable")
     button:SetHighlightFontObject("GameFontHighlight")
+    if ns.DarkRedButton then ns.DarkRedButton(button) end
     return button
 end
 

@@ -15,7 +15,7 @@ local DEPENDS = {
     classColourBorders = {"darkMode", "unitFrames"}, gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
-    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode",
+    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode", darkWindows="darkMode",
 }
 -- The names on the cards, so a hover points at a switch the player can find.
 local DEPEND_NAMES = {
@@ -222,6 +222,7 @@ local settingHelp = {
     darkAuraBorders = "A thin dark border around your own buff and debuff icons at the top right, including weapon enchants, to match Dark Mode. Debuffs keep their coloured border on top. Target and focus auras are drawn by the game's protected aura frames and keep their own look. The border's grey line darkens with the Darkness slider, and each icon is trimmed slightly so its bright built-in rim doesn't show. Timers, tooltips and right-click cancelling are unchanged, in and out of combat. Requires Dark Mode. On by default, so choosing Dark Mode adds them; switch this off to keep plain icons. Applies immediately once Dark Mode is active.",
     darkAuraShadows = "A soft shadow round your own buff and debuff icons, just outside the dark border. It fades out in the gap between icons, so it never covers the next icon, and it sits under every timer and debuff border. Requires Dark Mode and Dark Aura Borders. Needs testing. On by default. Applies immediately once Dark Mode is active.",
     darkMenuBar = "Darkens the bronze frame behind each menu bar button (character, spellbook, quests, game menu and the rest) to match Dark Mode, following the Darkness slider. The icons keep their colours. Works wherever the buttons sit, your own bar addon included; with the Classic action bars on, the buttons wear their 1.x art instead. Requires Dark Mode. On by default. Applies immediately once Dark Mode is active.",
+    darkWindows = "Darkens what Dark Mode left light in EraUI's Classic windows, following the Darkness slider. The red buttons (the game menu, quest log, trainer, bank and the rest) go dark grey, near black at full Darkness, and keep their gold labels. The game menu's border and header plate take Dark Mode's grey. The spellbook's pages and the Professions window go a darker brown-grey, held light enough to read, and their small dark text, like Passive and Racial, turns a light grey-gold. The frames round the spellbook's slots keep Dark Mode's grey. Spell names keep their gold, and icons and the profession bars keep their colours. Requires Dark Mode. On by default. Applies immediately once Dark Mode is active. Needs testing.",
     -- Fuller help for cards whose one-line summary is short.
     advancedCastBar = "Your own cast bar with the spell icon, cast time and latency. A preview appears while settings are open; hover + to move or resize it.",
     advancedCastClassFill = "Use a muted class colour instead of gold. Priests use dark silver so the text stays readable.",
@@ -492,10 +493,15 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             else EraUI:Status(label:gsub(" %(Needs testing%)$","")..(value and " enabled." or " disabled.")) end
             return
         end
-        if key=="darkMenuBar" then
-            if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
-            EraUI:Status("Dark Menu Bar "..(value and "enabled." or "disabled.")
-                ..(value and not EraUI:GetSetting("darkMode") and " It shows once Dark Mode is applied." or ""))
+        -- Dark Menu Bar and Dark Windows repaint at once (Classic/BarSkins.lua,
+        -- Core/Appearance.lua), through EraUI.Classic: this file has no ns.
+        if key=="darkMenuBar" or key=="darkWindows" then
+            local classic=EraUI.Classic or {}
+            local refresh=classic[key=="darkMenuBar" and "RefreshDarkMenuBar" or "RefreshDarkWindows"]
+            if refresh then refresh() end
+            local name=key=="darkMenuBar" and "Dark Menu Bar " or "Dark Windows "
+            local later=key=="darkMenuBar" and " It shows once Dark Mode is applied." or " They show once Dark Mode is applied."
+            EraUI:Status(name..(value and "enabled." or "disabled.")..(value and not EraUI:GetSetting("darkMode") and later or ""))
             return
         end
         if key=="darkAuraBorders" or key=="darkAuraShadows" then
@@ -1091,6 +1097,7 @@ function SettingsModule:Initialize()
     MakeCheck(frame, "Character Window", "characterPanel", "INV_Misc_Book_09", "Classic panels, rows and bottom tabs.", false)
     MakeCheck(frame, "Character Item Levels", "characterItemLevels", "INV_Helmet_08", "Item levels on the gear you wear, in quality colours. Needs testing.", false)
     MakeCheck(frame, "Talents", "talentWindow", "INV_Misc_Book_09", "Classic talent trees and native talent actions.", false)
+    MakeCheck(frame, "Dark Windows", "darkWindows", "INV_Misc_Book_09", "Darker buttons, game menu and book pages. Dark Mode only. Needs testing.", false)
     MakeCheck(frame, "Spellbook", "spellbook", "INV_Misc_Book_09", "Classic book and native spell actions.", false)
     MakeCheck(frame, "Combat Spell Dragging", "spellbookCombatDrag", "Spell_Holy_MagicalSentry", "Use native spell buttons to drag spells during combat. Reload to apply.", false)
     MakeCheck(frame, "Training Guide", "trainingGuide", "INV_Misc_Book_09", "A training tab in the spellbook: spells to learn, levels and costs.", false)
@@ -1550,7 +1557,10 @@ function SettingsModule:Initialize()
         map={"minimap","cleanMinimap","coordinates","mapQuestObjectives","movableMap","revealMap"},
         quests={"questLog","questDialogs","questTracker","questLevels","autoQuests","autoGossip",
             "rewardUpgradeHighlight","rewardProfile"},
-        character={"characterPanel","characterItemLevels","talentWindow","spellbook","spellbookCombatDrag","trainingGuide",
+        -- Dark Windows fills the free slot beside Talents (Spellbook starts
+        -- the next row with its options): Windows & Tooltips has no room
+        -- without scrolling.
+        character={"characterPanel","characterItemLevels","talentWindow","darkWindows","spellbook","spellbookCombatDrag","trainingGuide",
             "showAllSpellRanks","trainer","professions"},
         bags={"#bagsLoot","bagsBank","bagSpace","bagItemLevels","lootWindow","fastAutoLoot","discardCheapestJunk",
             "#vendors","merchantSkin","autoSellJunk","autoRepair","vendorPrice","junkValueSummary","durabilityWarning"},

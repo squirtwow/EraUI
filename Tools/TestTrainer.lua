@@ -182,9 +182,11 @@ function BuyTrainerService() error("addon purchase call") end
 function SelectTrainerService() error("addon selection call") end
 function HideUIPanel(frame) frame:Hide() end
 local module
+local darkRoles = {} -- texture: the role given to Dark Windows (Core/Appearance.lua)
 local ns = {
     TexPath = function() return "classic-rock", "fallback-rock" end,
     ThemeTexture = function() end,
+    DarkWindowArt = function(texture, role) darkRoles[texture] = role end,
     RegisterModule = function(_, value) module = value end,
     PanelButton = function(parent)
         local button = Frame("Button", nil, parent)
@@ -323,6 +325,7 @@ cursorX, cursorY = 10, 10
 panel.train.scripts.OnUpdate(panel.train, .05)
 Equal(panel.trainHighlight:IsShown(), true, "cursor geometry shows highlight without native events")
 Equal(panel.trainHighlight:GetTexture(), panel.train:GetHighlightTexture():GetTexture(), "Train uses the original Classic highlight artwork")
+Equal(darkRoles[panel.trainHighlight], "glow", "Dark Windows takes the colour of Train's own glow copy, as of Exit's")
 cursorX = -10
 panel.train.scripts.OnUpdate(panel.train, .05)
 Equal(panel.trainHighlight:IsShown(), false, "cursor leaving clears highlight")

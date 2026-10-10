@@ -26,6 +26,7 @@ function ns.FadeRegions(frame)
 end
 
 -- The red button of the old panels on a modern three-slice or panel button.
+-- Dark Windows darkens it in Dark Mode (Core/Appearance.lua).
 function ns.SkinRedButton(button)
     if not button or button.fcuiRed then return end
     button.fcuiRed = true
@@ -50,6 +51,7 @@ function ns.SkinRedButton(button)
     button:SetNormalFontObject("GameFontNormal")
     button:SetHighlightFontObject("GameFontHighlight")
     button:SetDisabledFontObject("GameFontDisable")
+    if ns.DarkRedButton then ns.DarkRedButton(button) end
 end
 
 -- The old check box: the box, the check, the glow.

@@ -177,6 +177,7 @@ local function Session(c,ready,soon,char,setup)
   if soon then E.modules.BagItemLevels.comingSoon=true end
   E.settingDefaults.darkAuraBorders=true -- as Core/Init.lua; TestPersistence checks the real default
   E.settingDefaults.darkAuraShadows=true -- as Core/Init.lua; TestPersistence checks the real default
+  E.settingDefaults.darkWindows=true -- as Core/Init.lua; TestPersistence checks the real default
   E.settingDefaults.afkScreen=true -- as Core/Init.lua; TestAFKScreen and TestPersistence check the real default
   E.settingDefaults.afkShowQuote=true -- as Core/Init.lua; TestAFKScreen checks the real default
   E.cvarSettings={classIconPortraitMine="ReplaceMyPlayerPortrait",classIconPortraitOthers="ReplaceOtherPlayerPortraits"} -- as Core/Init.lua; TestPersistence checks the real mapping
@@ -520,6 +521,76 @@ for _,c in ipairs({"HUNTER","MAGE","ROGUE","WARRIOR","PALADIN","SHAMAN","PRIEST"
     E.settings.characterItemLevels=nil;f:Hide();f:Show();Flush()
     E.modules.CharacterItemLevels=real;E.Status=say
    end
+  end
+  -- Dark Windows (2026-10-10): its own card on Character & Spells, in the
+  -- free slot beside Talents (Windows & Tooltips has no room), greyed until
+  -- Dark Mode is chosen, on by default, labelled Needs testing, applied live
+  -- through EraUI.Classic. Dark Menu Bar's tick applies live the same way
+  -- (it used to look for a global ns, which the game doesn't have).
+  do
+   local card,talents=f.checks.darkWindows,f.checks.talentWindow
+   equal(card and card.category,Tab(f,"character"),c.." Dark Windows card on Character & Spells")
+   equal(card.text:GetText(),"Dark Windows",c.." Dark Windows label")
+   equal(card.description:GetText(),"Darker buttons, game menu and book pages. Dark Mode only. Needs testing.",c.." its card says what it darkens, Dark Mode only, Needs testing")
+   Open(f,"character")
+   NoCardOverlaps(f,c.." Character & Spells with Dark Windows")
+   equal(card:IsShown(),true,c.." Dark Windows shown on Character & Spells")
+   equal(card:GetTop()==talents:GetTop()and card:GetLeft()>talents:GetLeft(),true,c.." Dark Windows beside Talents")
+   equal(f.checks.spellbook:GetLeft()==talents:GetLeft()and f.checks.spellbook:GetTop()<card:GetBottom(),true,c.." Spellbook still starts the next row")
+   E.settings.darkMode=nil;f:RefreshDependencies()
+   equal(card.dependencyDisabled,true,c.." Dark Windows greyed while Dark Mode is off")
+   equal(card.dependencyHelp:IsShown(),true,c.." with its explanation on hover")
+   card:SetChecked(true);card:Fire("OnClick")
+   equal(E.settings.darkWindows,nil,c.." Dark Windows cannot be switched on without Dark Mode")
+   E.settings.darkMode=true;f:RefreshDependencies()
+   equal(card.dependencyDisabled==false and card.enabled~=false,true,c.." Dark Windows available with Dark Mode")
+   if c=="DRUID"then
+    local lines={}
+    GameTooltip={SetOwner=function()end,SetText=function(_,t)lines={t}end,AddLine=function(_,t)lines[#lines+1]=t end,
+     Show=function()end,Hide=function()end,IsOwned=function()return true end}
+    card:Fire("OnEnter")
+    local text=table.concat(lines,"\n")
+    equal(lines[1],"Dark Windows","Dark Windows tooltip title")
+    equal(text:find("red buttons (the game menu, quest log, trainer, bank and the rest) go dark grey, near black at full Darkness, and keep their gold labels",1,true)~=nil,true,"hover says the red buttons go dark and keep gold labels")
+    equal(text:find("The game menu's border and header plate take Dark Mode's grey",1,true)~=nil,true,"hover names the game menu's box")
+    equal(text:find("spellbook's pages and the Professions window go a darker brown-grey, held light enough to read",1,true)~=nil,true,"hover names the spellbook and Professions window")
+    equal(text:find("like Passive and Racial, turns a light grey-gold",1,true)~=nil,true,"hover says the small text turns light")
+    equal(text:find("Requires Dark Mode.",1,true)~=nil and text:find("Needs testing.",1,true)~=nil,true,"hover: requires Dark Mode, Needs testing")
+    equal(text:find("Default: On",1,true)~=nil,true,"Dark Windows default shown as On")
+    equal(text:find("Requires /reload",1,true)==nil and text:find("\226\128\148",1,true)==nil,true,"applies without a reload, no em dash")
+    GameTooltip=nil
+    local refreshed,menus,status=0,0
+    local classic=E.Classic
+    classic.RefreshDarkWindows=function()refreshed=refreshed+1 end
+    classic.RefreshDarkMenuBar=function()menus=menus+1 end
+    local say=E.Status;E.Status=function(_,m)status=m end
+    card:SetChecked(false);card:Fire("OnClick")
+    equal(E.settings.darkWindows,false,"Dark Windows switched off")
+    equal(refreshed,1,"applies live through EraUI.Classic, no reload")
+    equal(status,"Dark Windows disabled.","says so in chat")
+    card:SetChecked(true);card:Fire("OnClick")
+    equal(E.settings.darkWindows==true and refreshed,2,"switching on applies live too")
+    equal(status,"Dark Windows enabled.","says it is on")
+    equal(menus,0,"Dark Windows leaves the menu bar alone")
+    local get=E.GetSetting
+    E.GetSetting=function(self,key)if key=="darkMode"then return false end;return get(self,key)end
+    card:SetChecked(false);card:Fire("OnClick");card:SetChecked(true);card:Fire("OnClick")
+    equal(status,"Dark Windows enabled. They show once Dark Mode is applied.","Dark Windows waits for Dark Mode to be applied")
+    E.GetSetting=get
+    local bar=f.checks.darkMenuBar
+    Open(f,"actionBars");f:RefreshDependencies()
+    bar:SetChecked(false);bar:Fire("OnClick")
+    equal(E.settings.darkMenuBar==false and menus,1,"Dark Menu Bar's tick applies live through EraUI.Classic")
+    equal(status,"Dark Menu Bar disabled.","Dark Menu Bar says so in chat")
+    bar:SetChecked(true);bar:Fire("OnClick")
+    equal(E.settings.darkMenuBar==true and menus,2,"Dark Menu Bar back on, live")
+    equal(refreshed,4,"Dark Menu Bar leaves the windows alone")
+    classic.RefreshDarkWindows,classic.RefreshDarkMenuBar=nil,nil
+    card:SetChecked(false);card:Fire("OnClick")
+    equal(E.settings.darkWindows,false,"without Classic loaded, the tick still saves")
+    E.Status=say;E.settings.darkMenuBar=nil
+   end
+   E.settings.darkMode=nil;E.settings.darkWindows=nil;f:RefreshDependencies()
   end
   for _,id in ipairs({"bags","screen"})do
    Open(f,id)
@@ -1442,9 +1513,11 @@ local EXPECTED_PAGES={
  map={"minimap","cleanMinimap","coordinates","mapQuestObjectives","movableMap","revealMap"},
  quests={"questLog","questDialogs","questTracker","questLevels","autoQuests","autoGossip","rewardUpgradeHighlight","rewardProfile"},
  -- Character Item Levels (2026-10-02) right after Character Window, as asked:
- -- the only change to this page, so Talents now ends its row on its own,
- -- since Spellbook starts the next row with its two options.
- character={"characterPanel","characterItemLevels","talentWindow","spellbook","spellbookCombatDrag","trainingGuide","showAllSpellRanks","trainer","professions"},
+ -- the only change to this page, so Talents ended its row on its own, since
+ -- Spellbook starts the next row with its two options. Dark Windows
+ -- (2026-10-10) fills that free slot beside Talents: Windows & Tooltips has
+ -- no room without scrolling (five rows), and Appearance can't grow.
+ character={"characterPanel","characterItemLevels","talentWindow","darkWindows","spellbook","spellbookCombatDrag","trainingGuide","showAllSpellRanks","trainer","professions"},
  bags={"bagsBank","bagSpace","bagItemLevels","lootWindow","fastAutoLoot","discardCheapestJunk",
   "merchantSkin","autoSellJunk","autoRepair","vendorPrice","junkValueSummary","durabilityWarning"},
  chat={"hideSecondaryNames","classicChatDragging","linkToggle","hideStatusMessages","showWelcomeOnLogin"},
