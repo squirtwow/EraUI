@@ -353,6 +353,30 @@ local function Ring(button,on,shade,dim,cropped)
  if shade then Lower(button,ring.shadow)end
  if ring.shaded~=shade then ring.shaded=shade;ring.shadow:SetShown(shade)end
 end
+-- Boosted Rest is good for you, but the game lists it with your debuffs, so
+-- it wears a typeless debuff's red ring. While Dark Aura Borders show, that
+-- ring goes and the dark border shows, as on your buffs. Known by the Bonus
+-- XP icon it shows: the only aura data EraUI reads, and only on the debuff
+-- row (the dark ring itself reads none). Hidden (secret) data leaves it be.
+local BONUS_XP_ICON=1001982 -- Interface\Icons\xpbonus_icon
+local friendly=setmetatable({}, {__mode="k"})
+local function Friendly(button,on)
+ if not button or button.isAuraAnchor then return end
+ local border=button.DebuffBorder
+ if not border then return end
+ local bonus=false
+ if on then
+  local kind,info=button.auraType,button.buttonInfo
+  local icon=type(info)=="table"and info.texture
+  bonus=Public(kind)and kind=="Debuff"and Public(icon)and icon==BONUS_XP_ICON
+ end
+ if not(bonus or friendly[button])or Locked(button)then return end
+ if bonus then
+  friendly[button]=true;border:SetAlpha(0)
+ elseif friendly[button]then
+  friendly[button]=nil;border:SetAlpha(1)
+ end
+end
 -- The player's aura rows: buffs, debuffs, external defensives and the
 -- consolidated-buff popout, plus the consolidated button itself.
 local function Rows()
@@ -366,13 +390,20 @@ local function StyleFrame(frame)
   hooksecurefunc(frame,"UpdateAuraButtons",StyleFrame)
  end
  local on,shade,dim=DarkBorders(),DarkShadows(),Dim()
- for _,button in ipairs(frame.auraFrames or{})do Ring(button,on,shade,dim);StyleButton(button)end
+ local debuffs=frame==DebuffFrame
+ for _,button in ipairs(frame.auraFrames or{})do
+  Ring(button,on,shade,dim);StyleButton(button)
+  if debuffs then Friendly(button,on)end
+ end
 end
 function M:RefreshBorders()
  local on,shade,dim=DarkBorders(),DarkShadows(),Dim();pending=false
  local rows,consolidated=Rows()
  for index=1,4 do
-  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do Ring(button,on,shade,dim)end
+  for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do
+   Ring(button,on,shade,dim)
+   if index==2 then Friendly(button,on)end
+  end
  end
  Ring(consolidated,on,shade,dim,true);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade,dim)
 end
