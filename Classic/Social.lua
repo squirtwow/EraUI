@@ -618,6 +618,207 @@ function ns.OpenWhoList()
     return true
 end
 
+-- The friends key on Forever. With the game's newer social window switched on
+-- (C_SocialUI), every way into the friends list opens that window instead:
+-- the friends key, /friends, /ignore, the chat friends button, a friend
+-- request toast, the guild key's /friends. While this option is on those show
+-- this classic window on its Friends list, and the same key closes it again.
+-- Raid, Quick Join and Recruit A Friend only exist in the newer window while
+-- it is on, so those requests are left to it.
+-- Post-hooks only: by the time they run the game has opened its window, and it
+-- is closed again before the next frame is drawn. Windows change only through
+-- ns.ShowPanel and ns.HidePanel (the game's panel manager runs those as its
+-- own); none of the game's openers, tabs or clicks are run from here. The game
+-- refuses an addon's window changes in a fight, so a request made there keeps
+-- the game's window and it turns into the classic one when the fight ends.
+local socialHooked = {}
+local friendsHiddenAt, ignoreHiddenAt, closedAt
+local waiting, waitingTab = false, nil
+
+local function SocialSystemOn()
+    local api = C_SocialUI
+    if not (api and api.IsSystemEnabled) then return false end
+    local ok, on = pcall(api.IsSystemEnabled)
+    return ok and on == true
+end
+
+local function Redirecting()
+    if not active or not FriendsFrame or not SocialUIFrame then return false end
+    if EraUI.GetSetting and EraUI:GetSetting("enabled") == false then return false end
+    return SocialSystemOn()
+end
+
+-- One reading from one of the game's frames, nil when it can't answer.
+local function Ask(frame, method)
+    local fn = frame and frame[method]
+    if type(fn) ~= "function" then return nil end
+    local ok, value = pcall(fn, frame)
+    if ok then return value end
+end
+
+-- The newer window's pages this window shows: friends, and friend requests
+-- (they head the classic friends list).
+local function FriendsPage(tabType)
+    local types = SocialUITabType
+    return tabType ~= nil and types ~= nil and (tabType == types.Friends or tabType == types.FriendRequests)
+end
+
+local function WantsIgnoreList(social)
+    local sides = SocialUISideWindowType
+    local side = Ask(social, "GetActiveSideWindowType")
+    return sides ~= nil and side ~= nil and side == sides.IgnoreListFrame
+end
+
+local function GuildPageShown()
+    local guild = _G["EraUIClassicGuildPanel"]
+    return guild and guild:IsShown() and true or false
+end
+
+-- Open already on the Who or Guild page: back to Friends, as its tab does.
+-- Our own pages step aside; the game's tab is never clicked from here, since
+-- its click would run the game's tab code as EraUI's.
+local function ShowFriendsPage()
+    local whoUp, guildUp = panel and panel:IsShown(), GuildPageShown()
+    if not (whoUp or guildUp) then return end
+    if whoUp then HideWho() end
+    if guildUp and ns.HideGuildRoster then ns.HideGuildRoster() end
+    local first = _G["FriendsFrameTab1"]
+    if first and PanelTemplates_SelectTab then PanelTemplates_SelectTab(first) end
+    if first and ns.FitBottomTab then ns.FitBottomTab(first) end
+end
+
+local function ShowClassicFriends(ignore)
+    if FriendsFrame:IsShown() then
+        if not ignore then ShowFriendsPage() end
+    elseif not ns.ShowPanel(FriendsFrame) then
+        return
+    end
+    -- The ignore list is a plain child of this window (display only).
+    local list = ignore and FriendsFrame.IgnoreListWindow
+    if list and not list:IsShown() then list:Show() end
+end
+
+-- mode "toggle": asked again while this window is open, it closes; "open":
+-- it stays. anyTab: the request was for the friends list whichever page the
+-- newer window remembered; otherwise only its friends pages come over here.
+local function Redirect(mode, anyTab)
+    if not Redirecting() then return end
+    local social = SocialUIFrame
+    if not social:IsShown() then
+        -- A hook further in has dealt with it. If that was a toggle closing
+        -- this window and the request is an open, it opens again.
+        if mode == "open" and closedAt and closedAt == GetTime() and not InCombatLockdown() then
+            closedAt = nil
+            ShowClassicFriends(false)
+        end
+        return
+    end
+    local tabType = Ask(social, "GetSelectedTab")
+    if not anyTab and not FriendsPage(tabType) then return end
+    if InCombatLockdown() then
+        waiting, waitingTab = true, tabType
+        return
+    end
+    waiting, waitingTab = false, nil
+    local ignore = WantsIgnoreList(social)
+    -- The game's window can take this one's place as it opens: hidden in this
+    -- same frame still counts as open.
+    local wasOpen = FriendsFrame:IsShown() or friendsHiddenAt == GetTime()
+    ns.HidePanel(social)
+    if mode == "toggle" and wasOpen then
+        local list = FriendsFrame.IgnoreListWindow
+        local listWasUp = list and (list:IsShown() or (not FriendsFrame:IsShown() and ignoreHiddenAt == GetTime()))
+        if ignore and list and not listWasUp then
+            -- /ignore with the friends list open shows its ignore list, as before.
+            ShowClassicFriends(true)
+            return
+        end
+        ns.HidePanel(FriendsFrame)
+        closedAt = GetTime()
+        return
+    end
+    ShowClassicFriends(ignore)
+end
+
+-- The game hides this window's Friends tab while the newer window is on; it
+-- stays, so the Who and Guild pages lead back to it. The Recent Allies and
+-- Recruit A Friend tabs at the top stay as the game has them (an empty page
+-- while the newer window is on): opening the newer window from here would run
+-- the game's opener as EraUI, taint the page it remembers, and the game would
+-- then refuse its own Raid and Quick Join opens in a fight.
+local function KeepFriendsTab()
+    if not Redirecting() then return end
+    local first = _G["FriendsFrameTab1"]
+    if first and not first:IsShown() then first:Show() end
+end
+
+local function HookSocialEntries()
+    if not socialHooked.friendsFrame and FriendsFrame then
+        socialHooked.friendsFrame = true
+        FriendsFrame:HookScript("OnHide", function() friendsHiddenAt = GetTime() end)
+        local list = FriendsFrame.IgnoreListWindow
+        if list and list.HookScript then list:HookScript("OnHide", function() ignoreHiddenAt = GetTime() end) end
+        if type(FriendsFrame_Update) == "function" then hooksecurefunc("FriendsFrame_Update", KeepFriendsTab) end
+    end
+    local function Global(name, hook)
+        if socialHooked[name] or type(_G[name]) ~= "function" then return end
+        socialHooked[name] = true
+        hooksecurefunc(name, hook)
+    end
+    local friendsTab = FRIEND_TAB_FRIENDS or 1
+    Global("ToggleFriendsFrame", function(tab)
+        if tab == nil or tab == friendsTab then Redirect("toggle", true) end
+    end)
+    Global("ToggleFriendsPanel", function() Redirect("toggle", true) end)
+    Global("ToggleIgnorePanel", function() Redirect("toggle", true) end)
+    Global("OpenFriendsFrame", function(tab)
+        if tab == nil or tab == friendsTab then Redirect("open", true) end
+    end)
+    -- Every way the game opens its window runs SocialUIControl.Toggle, whatever
+    -- asked; a request for one of its pages has picked that page by then.
+    local control = SocialUIControl
+    if type(control) == "table" then
+        if not socialHooked.toggle and type(control.Toggle) == "function" then
+            socialHooked.toggle = true
+            hooksecurefunc(control, "Toggle", function() Redirect("toggle", false) end)
+        end
+        if not socialHooked.openToTab and type(control.OpenToTab) == "function" then
+            socialHooked.openToTab = true
+            hooksecurefunc(control, "OpenToTab", function() Redirect("open", false) end)
+        end
+    end
+    -- Anything else that opens it on a friends page: a frame later.
+    local social = SocialUIFrame
+    if not socialHooked.socialFrame and social and social.HookScript then
+        socialHooked.socialFrame = true
+        social:HookScript("OnShow", function()
+            if Redirecting() and C_Timer and C_Timer.After then
+                C_Timer.After(0, function() Redirect("open", false) end)
+            end
+        end)
+    end
+end
+
+local socialWatch = CreateFrame("Frame")
+socialWatch:RegisterEvent("ADDON_LOADED")
+socialWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+socialWatch:SetScript("OnEvent", function(_, event)
+    if event == "ADDON_LOADED" then
+        if active then HookSocialEntries() end
+        return
+    end
+    -- After a fight: a friends request made in it, if the game's window still
+    -- shows the page it opened on.
+    local social = SocialUIFrame
+    if waiting then
+        local tabType = waitingTab
+        waiting, waitingTab = false, nil
+        if Redirecting() and social and social:IsShown() and Ask(social, "GetSelectedTab") == tabType then
+            Redirect("open", true)
+        end
+    end
+end)
+
 local tabGap
 local SOCIAL_TAB_PAD = 38
 local function PlaceRow()
@@ -717,6 +918,7 @@ local function Apply()
     if not panel then Build() end
     BuildTab()
     RenameFirstTab()
+    HookSocialEntries()
     if tab then tab:Show() end
     PlaceRow()
 end
