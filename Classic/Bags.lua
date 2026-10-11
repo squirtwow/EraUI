@@ -431,14 +431,21 @@ local function Skin(frame)
             end
         end
     end
+    -- The game moves its search box and sort button onto whichever bag holds
+    -- the backpack, keeping their own low frame level (2). The combined bag
+    -- sits higher than that, so its art covered them and the sort button
+    -- looked gone (user report 2026-10-11, "true false
+    -- ContainerFrameCombinedBags 2"); lifted above the bag they show again.
     if BagItemSearchBox and BagItemSearchBox:GetParent() == frame then
         BagItemSearchBox:ClearAllPoints()
         BagItemSearchBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 52, -31)
         BagItemSearchBox:SetSize(104, 16)
+        BagItemSearchBox:SetFrameLevel(frame:GetFrameLevel() + 10)
     end
     if BagItemAutoSortButton and BagItemAutoSortButton:GetParent() == frame then
         BagItemAutoSortButton:ClearAllPoints()
         BagItemAutoSortButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -28)
+        BagItemAutoSortButton:SetFrameLevel(frame:GetFrameLevel() + 10)
     end
 end
 
