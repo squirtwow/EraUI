@@ -28,6 +28,10 @@ end
 local function SuppressNative()
     if not running then return end
     MuteNative(ComboFrame);MuteNative(ComboPointPlayerFrame);MuteNative(DruidComboPointBarFrame)
+    -- Forever's ComboFrame fades itself back in (UIFrameFadeIn) when you gain
+    -- a point, undoing the alpha above, so its points are muted one by one
+    -- too: the game never changes a point's own alpha.
+    for _,point in ipairs(ComboFrame and ComboFrame.ComboPoints or {}) do MuteNative(point) end
 end
 local function Layout()
     local p=Options()

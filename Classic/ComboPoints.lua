@@ -34,6 +34,15 @@ end
 local function LayoutBlizzard()
     local cf = ComboFrame
     if not cf or not active or EraUI:GetSetting("floatingComboPoints") then return end
+    -- Forever's own ComboFrame (Blizzard_UnitFrame/Camelot/ComboFrame.lua)
+    -- numbers its five points from 1 and lays them round the portrait itself,
+    -- in the 1.x arc, on every update. Only an older frame that numbers them
+    -- from startComboPointIndex is re-laid below; here every point just has to
+    -- be visible (floating combo points may have hidden them).
+    if cf.LayoutPointsCircle and cf.startComboPointIndex == nil then
+        for _, point in ipairs(cf.ComboPoints or {}) do point:SetAlpha(1) end
+        return
+    end
     if InCombatLockdown() then return end
     cf:ClearAllPoints()
     cf:SetPoint("CENTER", Ring(), "CENTER", 0, 0)
