@@ -6,8 +6,8 @@
 -- fill, exactly (texture source "bundled" too). On: the client's solid white
 -- square on every one of them, the colours unchanged. Switched live both
 -- ways, the switch changes the fill and nothing else (only texture and
--- colour calls, no key written on the game's frames); a pass writes the same
--- keys on the game's frames either way. The pet's kept bars stay solid
+-- colour calls, no key written on the game's frames); a pass writes no key on
+-- the game's frames either way. The pet's kept bars stay solid
 -- through their 0.25 s repaint after the game changes them. A protected bar
 -- in a fight waits for the pass after it (booked), the rest change at once.
 -- With the unit frames switched off, the game's pieces are left alone.
@@ -215,8 +215,10 @@ local function Game(flat, source)
     assert(loadfile("Classic/UnitFrames.lua"))("EraUI", E)
     modules.unitFrames.apply()
 
+    -- EraUI's own pieces are kept beside the game's frames (ns.UnitFrameOwn),
+    -- never on them.
     local function Own(frame, label)
-        local host = frame.fcui and frame.fcui.host
+        local host = ns.UnitFrameOwn(frame, "host")
         return { { label .. " health", host.fcui.health, true }, { label .. " power", host.fcui.power, true } }
     end
     bars = {}
@@ -224,9 +226,9 @@ local function Game(flat, source)
         for _, entry in ipairs(list) do bars[#bars + 1] = entry end
     end
     for _, frame in ipairs({ TargetFrame, FocusFrame }) do
-        local own = frame.totFrame.fcui
-        bars[#bars + 1] = { S[frame].name .. " target of target health", own.totHealth, true }
-        bars[#bars + 1] = { S[frame].name .. " target of target power", own.totPower, true }
+        local tot = frame.totFrame
+        bars[#bars + 1] = { S[frame].name .. " target of target health", ns.UnitFrameOwn(tot, "totHealth"), true }
+        bars[#bars + 1] = { S[frame].name .. " target of target power", ns.UnitFrameOwn(tot, "totPower"), true }
     end
     bars[#bars + 1] = { "player health loss", loss }
     bars[#bars + 1] = { "pet health", PetFrameHealthBar }
@@ -310,6 +312,10 @@ equal(offColours:find("player health:0,1,0", 1, true) ~= nil and offColours:find
     and offColours:find("player health loss:1,0,0,1", 1, true) ~= nil and offColours:find("pet health:0,1,0", 1, true) ~= nil,
     true, "the bars' own colours: green health, red rage, the game's red loss bar")
 local offWrites = Unique(writes)
+-- No key on any of the game's frames (player, target, focus, their targets of
+-- target, pet, party member, or a piece of one): a value EraUI writes there
+-- carries its taint into Blizzard's own code that reads it in a fight.
+equal(offWrites, "", "a pass writes no key on the game's frames")
 Game(false, "bundled")
 equal(All(BUNDLED_SHADED), "all", "off with the bundled art chosen: the bundled shaded copy, as before")
 

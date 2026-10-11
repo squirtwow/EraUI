@@ -87,6 +87,60 @@ test('every classic dialog box and header plate is handed to Dark Windows', () =
     'Classic/SettingsPanel.lua', 'Classic/Status.lua', 'Classic/Welcome.lua'], 'the files drawing a dialog header plate');
 });
 
+// The game's red panel button (UIPanelButtonTemplate) is darkened by Dark
+// Windows in the game's own windows (Core/Appearance.lua); each one EraUI
+// makes is darkened too, as it is made: handed to ns.DarkNativeButton, or
+// given the classic red art (EraUI:SkinClassicRedButton), which Dark Windows
+// darkens. A new one made without either shows up here.
+test("EraUI's own red panel buttons are handed to Dark Windows", () => {
+  const makers = new Set(), missing = [];
+  for (const file of files) {
+    const text = code[file];
+    const make = /([\w.]+)\s*=\s*CreateFrame\(\s*"Button"[^)]*"UIPanelButtonTemplate"\s*\)/g;
+    let match;
+    while ((match = make.exec(text))) {
+      makers.add(file);
+      const soon = text.slice(make.lastIndex, make.lastIndex + 400);
+      if (!new RegExp(`(DarkNativeButton|SkinClassicRedButton)\\(${name(match[1])}[,)]`).test(soon)) missing.push(`${file}: ${match[1]}`);
+    }
+  }
+  assert.deepEqual(missing, [], 'red panel buttons Dark Windows never sees');
+  assert.deepEqual([...makers].sort(), ['Classic/ClassicBar.lua', 'Classic/Controls.lua', 'Classic/Minimap.lua',
+    'Classic/OptionsWindow.lua', 'Core/Commands.lua'], 'the files making a red panel button');
+});
+
+// The red X close buttons (and the minimise and maximise pair) go dark with
+// Dark Windows too: the game's in its windows (Core/Appearance.lua), EraUI's
+// as they are made or skinned. Both copies of ns.SkinCloseButton (the later
+// one, Classic/Panels.lua, is the one in use) and the minimise/maximise skin
+// hand the button to ns.DarkCloseButton; each close button EraUI makes from
+// the game's template is skinned (so handed over) or handed over itself. A
+// new one made without either shows up here.
+test("EraUI's own red X close buttons are handed to Dark Windows", () => {
+  for (const file of ['Classic/Controls.lua', 'Classic/Panels.lua']) {
+    const skin = code[file].match(/function ns\.SkinCloseButton\(button, keepPosition\)([\s\S]*?)\r?\nend\r?\n/);
+    assert.ok(skin, `${file}: ns.SkinCloseButton`);
+    assert.match(skin[1], /if ns\.DarkCloseButton then ns\.DarkCloseButton\(button\) end/, `${file}: its close button handed over`);
+  }
+  const maxMin = code['Classic/Panels.lua'].match(/local function SkinMaxMin\(button\)([\s\S]*?)\r?\nend\r?\n/);
+  assert.ok(maxMin, 'Classic/Panels.lua: SkinMaxMin');
+  assert.match(maxMin[1], /if ns\.DarkCloseButton then ns\.DarkCloseButton\(b\) end/, 'the minimise and maximise buttons handed over');
+  const makers = new Set(), missing = [];
+  for (const file of files) {
+    const text = code[file];
+    const make = /([\w.]+)\s*=\s*CreateFrame\(\s*"Button"[^)]*"UIPanelCloseButton\w*"\s*\)/g;
+    let match;
+    while ((match = make.exec(text))) {
+      makers.add(file);
+      const soon = text.slice(make.lastIndex, make.lastIndex + 400);
+      if (!new RegExp(`(DarkCloseButton|SkinCloseButton)\\(${name(match[1])}[,)]`).test(soon)) missing.push(`${file}: ${match[1]}`);
+    }
+  }
+  assert.deepEqual(missing, [], 'red X close buttons Dark Windows never sees');
+  assert.deepEqual([...makers].sort(), ['Classic/ClassicBar.lua', 'Classic/EquipmentPane.lua', 'Classic/Guild.lua',
+    'Classic/OptionsWindow.lua', 'Classic/QuestLog.lua', 'Core/Commands.lua'], 'the files making a red X close button');
+});
+
 // EraUI.version (Core/Init.lua) is what What's New, the Update Notice and
 // the settings window's "just added" words compare against. It was a string
 // left at 1.5.2 through 1.5.3 to 1.5.5; it is now read from the .toc's
@@ -119,4 +173,38 @@ test('Edit Mode frames are only moved through their plain ...Base methods', () =
   const chat = code['Modules/ChatDragging.lua'];
   assert.match(chat, /ChatFrame1\.SetPointBase or ChatFrame1\.SetPoint/, 'the chat window is placed with SetPointBase');
   assert.match(chat, /ChatFrame1\.ClearAllPointsBase or ChatFrame1\.ClearAllPoints/, 'and cleared with ClearAllPointsBase');
+});
+
+// The same report again after 1.6.0 (2026-10-11, at a level-up in a fight):
+// Match Focus Size ran the game's own FocusFrame:SetSmallSize from EraUI's
+// code, which moves the frame through Edit Mode's overrides, so the snap
+// record (FocusFrame.snappedToFrame) and a dozen of the frame's keys carried
+// EraUI's taint; Edit Mode re-applying the layout in the fight read the record
+// and its FocusFrame:SetPointBase was blocked. So EraUI writes no key on the
+// player, target, focus or pet frames or the targets of target, runs none of
+// the game's methods that write their records, and keeps its own pieces for
+// them in Classic/UnitFrames.lua's weak table (ns.UnitFrameOwn). Its own moves
+// of these frames never run in a fight. Tools/TestFocusTaint.lua runs the
+// taint on a mock game (and fails on the 1.6.0 code).
+test("EraUI writes no key on the unit frames and runs none of the game's methods that write them", () => {
+  const FRAMES = '(?:PlayerFrame|TargetFrame|FocusFrame|PetFrame|TargetFrameToT|FocusFrameToT)';
+  const write = new RegExp(`\\b${FRAMES}(?:\\.\\w+|\\[[^\\]]+\\])+\\s*=(?!=)`);
+  assert.deepEqual(where(write), [], 'files writing a key on them');
+  const writers = /[.:](?:SetSmallSize|SetSnappedToFrame|ClearFrameSnap|BreakFrameSnap|BreakSnappedFrames|AddSnappedFrame|RemoveSnappedFrame|OnEditModeSystemAnchorChanged|SetScaleOverride|SetPointOverride|ClearAllPointsOverride|ApplySystemAnchor|UpdateSystemSettingUseLargerFrame)\s*\(/;
+  assert.deepEqual(where(writers), [], "files running the game's record-writing methods");
+  const units = code['Classic/UnitFrames.lua'];
+  // Only EraUI's own frames (the holders and hosts it makes) carry an fcui
+  // table; the game's frames' pieces go in the weak table.
+  const fcuiOwners = new Set([...units.matchAll(/([\w.]+)\.fcui\b/g)].map(m => m[1]));
+  assert.deepEqual([...fcuiOwners].sort(), ['holder'], 'only the text holder (an EraUI frame) is read for its fcui');
+  assert.equal(/\.fcui\s*=/.test(units), false, 'no fcui table written');
+  const makers = [...units.matchAll(/ns\.(?:OwnTexture|OwnFontString|CreateBar)\((\w+)/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(makers)].sort(), ['barHost', 'holder', 'host'], "ns.OwnTexture and ns.CreateBar only on EraUI's own frames");
+  const kept = [...units.matchAll(/(\w+)\.(?:lastClassification|haveElite)\b/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(kept)], ['mine'], 'the classification and elite flag kept in the weak table');
+  assert.match(units, /local own = setmetatable\(\{\}, \{ __mode = "k" \}\)/, 'the weak table');
+  assert.match(units, /function ns\.UnitFrameOwn\(frame, key\) return Mine\(frame, key\) end/, 'read through ns.UnitFrameOwn');
+  assert.equal(/parent\.haveElite/.test(code['Classic/CastBars.lua']), false, 'the cast bars read the elite flag from the weak table');
+  assert.match(units, /local function Place\(frame, \.\.\.\)\s+if InCombatLockdown\(\) then return end/, 'Place never runs in a fight');
+  assert.match(units, /local function Rescale\(frame, newScale\)\s+if InCombatLockdown\(\) then return end/, 'nor Rescale');
 });

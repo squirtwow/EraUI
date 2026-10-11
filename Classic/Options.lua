@@ -760,7 +760,7 @@ local function Debug()
     ns.Print("zoomIn " .. Level(Minimap and Minimap.ZoomIn) .. " mail " .. Level(MinimapCluster and MinimapCluster.IndicatorFrame))
     local art = EraUIClassicBar
     ns.Print("art " .. Level(art) .. " pn " .. Level(bar and bar.ActionBarPageNumber) .. " up " .. Level(bar and bar.ActionBarPageNumber and bar.ActionBarPageNumber.UpButton))
-    local host = PlayerFrame and PlayerFrame.fcui and PlayerFrame.fcui.host
+    local host = ns.UnitFrameOwn and ns.UnitFrameOwn(PlayerFrame, "host")
     local power = host and host.fcui and host.fcui.power
     if power then
         local r, g, b = power:GetStatusBarColor()

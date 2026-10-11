@@ -367,7 +367,9 @@ Position = function(bar)
     local y = 3
     if parent.haveToT then
         y = -25
-    elseif parent.haveElite then
+    elseif ns.UnitFrameOwn and ns.UnitFrameOwn(parent, "haveElite") then
+        -- The elite art flag EraUI's unit frames keep for the frame
+        -- (Classic/UnitFrames.lua), never a key on the game's frame.
         y = -9
     end
     bar:SetPoint("TOPLEFT", parent, "BOTTOMLEFT", 43, y)

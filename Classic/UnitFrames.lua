@@ -83,6 +83,38 @@ local function KeepFrames()
     for _, fn in pairs(keepers) do ns.SafeCall(fn) end
 end
 
+-- What EraUI keeps for a game frame (its own holders and bars, the last
+-- classification seen, the elite art flag) lives here, keyed by the frame,
+-- never as a key on the game's frame: a value EraUI writes there carries
+-- EraUI's taint, and any of Blizzard's code that later reads it in a fight
+-- is blocked and blamed on EraUI. Weak, so no frame is kept alive by it.
+local own = setmetatable({}, { __mode = "k" })
+local function Own(frame)
+    local mine = own[frame]
+    if not mine then
+        mine = {}
+        own[frame] = mine
+    end
+    return mine
+end
+local function Mine(frame, key)
+    local mine = frame and own[frame]
+    return mine and mine[key]
+end
+-- ns.OwnTexture keeps its textures on the frame; this keeps them here.
+local function OwnTex(frame, key, layer, sublevel)
+    local mine = Own(frame)
+    local tex = mine[key]
+    if not tex then
+        tex = frame:CreateTexture(nil, layer or "ARTWORK", nil, sublevel or 0)
+        mine[key] = tex
+    end
+    return tex
+end
+-- Read only, for the cast bars (Classic/CastBars.lua: "haveElite") and the
+-- debug report ("host").
+function ns.UnitFrameOwn(frame, key) return Mine(frame, key) end
+
 local keptBars = setmetatable({}, { __mode = "k" })
 -- The game's own fills the unit frames dress (the heal prediction and absorb
 -- fills, the player's health-loss bar), for Flat Bars. Weak tables, never a
@@ -112,13 +144,13 @@ local function KeepBar(bar, kind)
 end
 
 local function TextHolder(frame, above)
-    frame.fcui = frame.fcui or {}
-    local holder = frame.fcui.texts
+    local mine = Own(frame)
+    local holder = mine.texts
     if not holder then
         holder = CreateFrame("Frame", nil, frame)
         holder:SetAllPoints(frame)
         holder:EnableMouse(false)
-        frame.fcui.texts = holder
+        mine.texts = holder
     end
     local level = (above or frame):GetFrameLevel() + 3
     if holder:GetFrameLevel() ~= level then holder:SetFrameLevel(level) end
@@ -377,7 +409,7 @@ local function OwnPvpIcon(frame, holder, unit, clientIcon, point, x, y)
 end
 
 local function HideOwnPvp(frame)
-    local holder = frame and frame.fcui and frame.fcui.texts
+    local holder = Mine(frame, "texts")
     local icon = holder and holder.fcui and holder.fcui.pvpIcon
     if icon then icon:Hide() end
 end
@@ -404,12 +436,11 @@ local function SkinPlayer()
         ns.SetPointOnce(container.PlayerPortraitMask, "TOPLEFT", frame, "TOPLEFT", 23, -16)
     end
 
-    local host = frame.fcui and frame.fcui.host
+    local host = Mine(frame, "host")
     if not host then
         host = CreateFrame("Frame", nil, frame)
         host:EnableMouse(false)
-        frame.fcui = frame.fcui or {}
-        frame.fcui.host = host
+        Own(frame).host = host
     end
     host:SetAllPoints(frame)
     host:Show()
@@ -490,12 +521,12 @@ local function SkinPlayer()
         status:SetBlendMode("ADD")
         HoldAggro(status)
     end
-    local rest = ns.OwnTexture(contextual, "rest", "OVERLAY")
+    local rest = OwnTex(contextual, "rest", "OVERLAY")
     ns.SetTex(rest, "stateIcon")
     rest:SetTexCoord(0, 0.5, 0, 0.421875)
     rest:SetSize(31, 31)
     ns.SetPointOnce(rest, "TOPLEFT", frame, "TOPLEFT", 20, -54)
-    local attack = ns.OwnTexture(contextual, "attack", "OVERLAY")
+    local attack = OwnTex(contextual, "attack", "OVERLAY")
     ns.SetTex(attack, "stateIcon")
     attack:SetTexCoord(0.5, 1, 0, 0.484375)
     attack:SetSize(32, 31)
@@ -534,7 +565,7 @@ local function SkinPlayer()
         ns.Fade(contextual.PrestigeBadge)
         FadePvpCircle(frame)
         ns.FadeCircles(main)
-        local holder = frame.fcui and frame.fcui.texts
+        local holder = Mine(frame, "texts")
         local icon = OwnPvpIcon(frame, holder, "player", contextual.PVPIcon, "TOPLEFT", -1, -22)
         if icon and PlayerPVPTimerText then
             if holder and PlayerPVPTimerText:GetParent() ~= holder then PlayerPVPTimerText:SetParent(holder) end
@@ -553,7 +584,7 @@ end
 
 KeepPlayerAnchors = function()
     if not active or not On("player") then return end
-    local host = PlayerFrame and PlayerFrame.fcui and PlayerFrame.fcui.host
+    local host = Mine(PlayerFrame, "host")
     if not host then return end
     if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
     if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
@@ -589,16 +620,17 @@ local function ApplyClassification(frame)
     local entry = frames[frame]
     if not entry or not active then return end
     local container = frame.TargetFrameContainer
+    local mine = Own(frame)
     local classification = UnitClassification(entry.unit)
     if issecretvalue and issecretvalue(classification) then
         -- Combat can hide the classification; keep the last known one rather
         -- than downgrading an elite or boss frame to a normal one.
-        classification = frame.lastClassification
+        classification = mine.lastClassification
     elseif classification == nil then
-        classification = UnitExists(entry.unit) and frame.lastClassification or nil
+        classification = UnitExists(entry.unit) and mine.lastClassification or nil
     end
     if classification == nil then classification = "normal" end
-    frame.lastClassification = classification
+    mine.lastClassification = classification
     local art = CLASSIFICATION_ART[classification] or CLASSIFICATION_ART.normal
     if container.FrameTexture then
         ns.SetTex(container.FrameTexture, art.key)
@@ -624,7 +656,7 @@ local function ApplyClassification(frame)
         entry.bg:SetSize(BAR_W, minus and 12 or 25)
     end
     if main and main.ReputationColor then main.ReputationColor:SetShown(not minus) end
-    frame.haveElite = (classification == "elite" or classification == "worldboss" or classification == "rare" or classification == "rareelite") or nil
+    mine.haveElite = (classification == "elite" or classification == "worldboss" or classification == "rare" or classification == "rareelite") or nil
 end
 
 local TOT_X, TOT_Y = 20 + 232 - 35 - 93, -4 - 100 - 10 + 45
@@ -645,20 +677,20 @@ local function PlaceTot(frame)
 end
 
 local function FillTot(tot, fallbackUnit)
-    local own = tot.fcui
-    if not own or not own.totHealth then return end
+    local mine = own[tot]
+    if not mine or not mine.totHealth then return end
     local unit = tot.unit or fallbackUnit
     if not unit or not UnitExists(unit) then
         -- Clear the bars so the previous target-of-target's health cannot
         -- linger into the next one.
-        own.totHealth:SetMinMaxValues(0, 1)
-        own.totHealth:SetValue(0)
-        own.totPower:SetMinMaxValues(0, 1)
-        own.totPower:SetValue(0)
+        mine.totHealth:SetMinMaxValues(0, 1)
+        mine.totHealth:SetValue(0)
+        mine.totPower:SetMinMaxValues(0, 1)
+        mine.totPower:SetValue(0)
         return
     end
-    ns.SetHealth(own.totHealth, unit)
-    ns.SetPower(own.totPower, unit)
+    ns.SetHealth(mine.totHealth, unit)
+    ns.SetPower(mine.totPower, unit)
 end
 
 local function SkinTarget(frame, unit)
@@ -682,12 +714,11 @@ local function SkinTarget(frame, unit)
         ns.SetPointOnce(container.PortraitMask, "TOPRIGHT", frame, "TOPRIGHT", -22, -16)
     end
 
-    local host = frame.fcui and frame.fcui.host
+    local host = Mine(frame, "host")
     if not host then
         host = CreateFrame("Frame", nil, frame)
         host:EnableMouse(false)
-        frame.fcui = frame.fcui or {}
-        frame.fcui.host = host
+        Own(frame).host = host
     end
     host:SetAllPoints(frame)
     host:Show()
@@ -772,7 +803,7 @@ local function SkinTarget(frame, unit)
         FadePvpCircle(frame)
         ns.FadeCircles(contextual)
         ns.FadeCircles(main)
-        OwnPvpIcon(frame, frame.fcui and frame.fcui.texts, (self and self.unit) or unit, contextual.PvpIcon, "TOPRIGHT", 25, -22)
+        OwnPvpIcon(frame, Mine(frame, "texts"), (self and self.unit) or unit, contextual.PvpIcon, "TOPRIGHT", 25, -22)
     end
     frames[frame] = { unit = unit, frame = frame, health = health, power = power, bg = bg }
     Update(frames[frame])
@@ -783,7 +814,7 @@ local function SkinTarget(frame, unit)
         ApplyClassification(frame)
         local main = ns.Path(frame, "TargetFrameContent", "TargetFrameContentMain")
         local contextual = ns.Path(frame, "TargetFrameContent", "TargetFrameContentContextual")
-        local host = frame.fcui and frame.fcui.host
+        local host = Mine(frame, "host")
         -- The client re-colours the target name when you target yourself but
         -- never re-writes the text, so the previous target's name lingers in
         -- your class colour. Re-assert the name on every target change.
@@ -823,7 +854,7 @@ local function SkinTarget(frame, unit)
             ns.Fade(tot.ManaBar)
             -- Re-assert the target-of-target art and name: the client can
             -- rewrite them, and unlike player/target they had no keeper.
-            local holder = tot.fcui and tot.fcui.artHolder
+            local holder = Mine(tot, "artHolder")
             local totArt = holder and ns.OwnTexture(holder, "art", "ARTWORK")
             if totArt then
                 ns.SetTex(totArt, "targetOfTarget")
@@ -840,13 +871,13 @@ local function SkinTarget(frame, unit)
     local tot = frame.totFrame
     PlaceTot(frame)
     if tot then
-        tot.fcui = tot.fcui or {}
-        local holder = tot.fcui.artHolder
+        local totOwn = Own(tot)
+        local holder = totOwn.artHolder
         if not holder then
             holder = CreateFrame("Frame", nil, tot)
             holder:EnableMouse(false)
             holder:SetAllPoints(tot)
-            tot.fcui.artHolder = holder
+            totOwn.artHolder = holder
         end
         local top = math.max(tot.HealthBar and tot.HealthBar:GetFrameLevel() or 0,
             tot.ManaBar and tot.ManaBar:GetFrameLevel() or 0, tot:GetFrameLevel()) + 1
@@ -868,25 +899,25 @@ local function SkinTarget(frame, unit)
             tot.Name:SetWidth(100)
             ns.SetPointOnce(tot.Name, "BOTTOMLEFT", totArt, "BOTTOMLEFT", 42, 3)
         end
-        local totBg = ns.OwnTexture(tot, "barBg", "BACKGROUND")
+        local totBg = OwnTex(tot, "barBg", "BACKGROUND")
         totBg:SetColorTexture(0, 0, 0, 0.5)
         totBg:SetSize(46, 15)
         ns.SetPointOnce(totBg, "TOPLEFT", tot, "TOPLEFT", 45, -15)
         ns.Fade(tot.HealthBar)
         ns.Fade(tot.ManaBar)
-        local barHost = tot.fcui.barHost
+        local barHost = totOwn.barHost
         if not barHost then
             barHost = CreateFrame("Frame", nil, tot)
             barHost:EnableMouse(false)
             barHost:SetAllPoints(tot)
-            tot.fcui.barHost = barHost
+            totOwn.barHost = barHost
         end
         barHost:Show()
         local totHealth = ns.CreateBar(barHost, "health", 46, 7)
         ns.SetPointOnce(totHealth, "TOPLEFT", tot, "TOPLEFT", 45, -15)
         local totPower = ns.CreateBar(barHost, "power", 46, 7)
         ns.SetPointOnce(totPower, "TOPLEFT", tot, "TOPLEFT", 45, -23)
-        tot.fcui.totHealth, tot.fcui.totPower = totHealth, totPower
+        totOwn.totHealth, totOwn.totPower = totHealth, totPower
         local over = math.max(totHealth:GetFrameLevel(), totPower:GetFrameLevel(), holder:GetFrameLevel() - 2) + 2
         if holder:GetFrameLevel() ~= over then holder:SetFrameLevel(over) end
         local fallbackUnit = (frame.unit or unit) .. "target"
@@ -1003,16 +1034,15 @@ local function SkinPartyMember(frame)
         frame.Name:SetWidth(0)
         ns.SetPointOnce(frame.Name, "TOPLEFT", frame, "TOPLEFT", 49, -7)
     end
-    local bg = ns.OwnTexture(frame, "barBg", "BACKGROUND", -7)
+    local bg = OwnTex(frame, "barBg", "BACKGROUND", -7)
     bg:SetColorTexture(0, 0, 0, 0.5)
     bg:SetSize(72, 20)
     ns.SetPointOnce(bg, "TOPLEFT", frame, "TOPLEFT", 45, -19)
-    local host = frame.fcui and frame.fcui.host
+    local host = Mine(frame, "host")
     if not host then
         host = CreateFrame("Frame", nil, frame)
         host:EnableMouse(false)
-        frame.fcui = frame.fcui or {}
-        frame.fcui.host = host
+        Own(frame).host = host
     end
     host:SetAllPoints(frame)
     host:Show()
@@ -1131,10 +1161,11 @@ local function ClientTabArt(button, on)
 end
 
 local function MirrorTab(button)
-    if button.fcuiTab then
+    local tab = Mine(button, "tab")
+    if tab then
         ClientTabArt(button, false)
-        button.fcuiTab.back:Show()
-        button.fcuiTab.arrow:Show()
+        tab.back:Show()
+        tab.arrow:Show()
         return
     end
     if not C_Texture or not C_Texture.GetAtlasInfo then return end
@@ -1154,16 +1185,18 @@ local function MirrorTab(button)
     local glow = button:CreateTexture(nil, "HIGHLIGHT")
     glow:SetAllPoints(button)
     glow:SetColorTexture(1, 1, 1, 0.12)
-    button.fcuiTab = { back = back, arrow = arrow, glow = glow }
+    tab = { back = back, arrow = arrow, glow = glow }
+    Own(button).tab = tab
     ClientTabArt(button, false)
-    button:HookScript("OnEnter", function(self) if self.fcuiTab and self.fcuiTab.back:IsShown() then ClientTabArt(self, false) end end)
-    button:HookScript("OnLeave", function(self) if self.fcuiTab and self.fcuiTab.back:IsShown() then ClientTabArt(self, false) end end)
+    button:HookScript("OnEnter", function(self) if tab.back:IsShown() then ClientTabArt(self, false) end end)
+    button:HookScript("OnLeave", function(self) if tab.back:IsShown() then ClientTabArt(self, false) end end)
 end
 
 local function PlainTab(button)
-    if not button.fcuiTab then return end
-    button.fcuiTab.back:Hide()
-    button.fcuiTab.arrow:Hide()
+    local tab = Mine(button, "tab")
+    if not tab then return end
+    tab.back:Hide()
+    tab.arrow:Hide()
     ClientTabArt(button, true)
 end
 
@@ -1204,7 +1237,8 @@ local function SkinRaidManager()
 end
 
 local function HideHost(frame)
-    if frame and frame.fcui and frame.fcui.host then frame.fcui.host:Hide() end
+    local host = Mine(frame, "host")
+    if host then host:Hide() end
 end
 
 RestorePlayer = function()
@@ -1233,9 +1267,10 @@ RestoreTargetLike = function(frame)
         ns.Unfade(main.ManaBar)
     end
     local tot = frame.totFrame
-    if tot and tot.fcui then
-        if tot.fcui.artHolder then tot.fcui.artHolder:Hide() end
-        if tot.fcui.barHost then tot.fcui.barHost:Hide() end
+    local totOwn = tot and own[tot]
+    if totOwn then
+        if totOwn.artHolder then totOwn.artHolder:Hide() end
+        if totOwn.barHost then totOwn.barHost:Hide() end
         ns.Unfade(tot.FrameTexture)
         ns.Unfade(tot.HealthBar)
         ns.Unfade(tot.ManaBar)
@@ -1262,13 +1297,15 @@ end
 -- fight the move is blocked and blamed on EraUI (status report 2026-10-11:
 -- "blocked FocusFrame:SetPointBase() (in combat)"). Edit Mode keeps the plain
 -- methods as SetPointBase and SetScaleBase: EraUI uses those, so only the
--- frame itself changes, and only out of combat as before.
+-- frame itself changes, and never in a fight.
 local function Place(frame, ...)
+    if InCombatLockdown() then return end
     local set = frame.SetPointBase or frame.SetPoint
     set(frame, ...)
 end
 
 local function Rescale(frame, newScale)
+    if InCombatLockdown() then return end
     local base = frame.SetScaleBase
     if not base then frame:SetScale(newScale) return end
     local oldScale = frame:GetScale()
@@ -1293,6 +1330,30 @@ local function SnapToPixels(frame)
     local nx, ny = math.floor(sx + 0.5), math.floor(sy + 0.5)
     if math.abs(sx - nx) < 0.01 and math.abs(sy - ny) < 0.01 then return end
     Place(frame, point, rel, relPoint, nx / scale, ny / scale)
+end
+
+-- Match Focus Size: the focus frame at the target frame's scale, and only
+-- that (Rescale above, out of combat). The game's own FocusFrame:SetSmallSize
+-- is never run from here: run from EraUI's code it re-scales and re-anchors
+-- the frame through Edit Mode's overrides, so Edit Mode's snap record
+-- (FocusFrame.snappedToFrame) and a dozen of the frame's keys carried
+-- EraUI's taint; Edit Mode re-applying the layout in a fight (a level-up)
+-- read that record, and its FocusFrame:SetPointBase was blocked and blamed
+-- on EraUI (status report 2026-10-11, after 1.6.0). With Edit Mode's small
+-- focus (Use Larger Frame off) the frame now keeps the game's small mode at
+-- the larger scale: its target of target and cast bar go back to scale 1 as
+-- before (PlaceTot; Classic/CastBars.lua Position), and its health text
+-- takes the target frame's font (the larger one was made for the small
+-- scale). The game's small mode shows no buffs on the focus and at most
+-- eight debuffs; Edit Mode's Use Larger Frame (the game's own switch) brings
+-- them back.
+local function MatchFocusSize()
+    local scale = TargetFrame:GetScale()
+    if FocusFrame:GetScale() ~= scale then Rescale(FocusFrame, scale) end
+    if FocusFrame.smallSize and TextStatusBarText then
+        local text = ns.Path(FocusFrame, "TargetFrameContent", "TargetFrameContentMain", "HealthBarsContainer", "HealthBar", "TextString")
+        if text and text.SetFontObject then text:SetFontObject(TextStatusBarText) end
+    end
 end
 
 local function Apply()
@@ -1344,11 +1405,7 @@ local function Apply()
     if On("player") then SkinPlayer() else RestorePlayer() end
     if On("target") then SkinTarget(TargetFrame, "target") else RestoreTargetLike(TargetFrame) end
     if On("focus") then
-        if EraUI:GetSetting("matchFocusSize") and FocusFrame and TargetFrame and not Busy() then
-            if FocusFrame.smallSize and FocusFrame.SetSmallSize then FocusFrame:SetSmallSize(false) end
-            local scale = TargetFrame:GetScale()
-            if FocusFrame:GetScale() ~= scale then Rescale(FocusFrame, scale) end
-        end
+        if EraUI:GetSetting("matchFocusSize") and FocusFrame and TargetFrame and not Busy() then MatchFocusSize() end
         SkinTarget(FocusFrame, "focus")
     else RestoreTargetLike(FocusFrame) end
     if On("pet") then SkinPet() end
