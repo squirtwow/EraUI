@@ -16,7 +16,8 @@ P.LOOK = {
 -- Optional looks: Quality of Life only switches them off too; the Classic
 -- look leaves them as chosen. Dark Aura Borders is not one: it only shows in
 -- Dark Mode, so presets leave it alone and choosing Dark Mode later gives it.
-P.LOOK_EXTRAS = { "damageMeterSkin", "classColourBorders", "darkMode" }
+-- Flat Bars is one: it shows in Classic or Dark Mode.
+P.LOOK_EXTRAS = { "damageMeterSkin", "classColourBorders", "darkMode", "flatBars" }
 
 P.NAMES = { classic = "Classic look", qol = "Quality of Life only", custom = "Custom" }
 

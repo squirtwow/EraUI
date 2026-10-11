@@ -70,11 +70,22 @@ local function Lock()
     if editing then Save() end
     editing=false;resizePanel:Hide();bar:SetFrameStrata("MEDIUM");Hover()
 end
+-- Flat Bars (/era: Appearance > Style > Frame Style): the plain solid square
+-- (Classic/Textures.lua's statusBarSolid) instead of the Classic shaded
+-- fill. The colours stay; the spark follows the new fill.
+local FILL,SOLID="Interface\\TargetingFrame\\UI-StatusBar","Interface\\Buttons\\WHITE8X8"
+local fillShown
+local function Fill()
+    local want=EraUI:GetSetting("flatBars") and SOLID or FILL
+    if want==fillShown then return end
+    bar:SetStatusBarTexture(want);fillShown=want
+    if spark then spark:ClearAllPoints();spark:SetPoint("CENTER",bar:GetStatusBarTexture(),"RIGHT",0,0) end
+end
 local function Build()
     if bar then return end
     bar=CreateFrame("StatusBar","EraUIAdvancedCastBar",UIParent)
     bar:SetFrameStrata("MEDIUM");bar:SetMovable(true);bar:SetClampedToScreen(true)
-    bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    Fill()
     bar:SetStatusBarColor(1,.82,.08)
     local bg=bar:CreateTexture(nil,"BACKGROUND");bg:SetAllPoints();bg:SetColorTexture(.035,.035,.04,.95)
     edge=CreateFrame("Frame",nil,bar,"BackdropTemplate")
@@ -174,6 +185,7 @@ local function ClearExtras()
     for _,mark in ipairs(markers)do mark:Hide()end
 end
 local function Colours()
+    Fill()
     local _,class=UnitClass("player")
     local c=(CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class]) or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
     local r,g,b=.7,.7,.7

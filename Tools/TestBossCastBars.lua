@@ -100,11 +100,18 @@ Setter("SetAlpha", function(self, a) S[self].alpha = a end)
 Setter("Show", function(self) S[self].shown = true end)
 Setter("Hide", function(self) S[self].shown = false end)
 Setter("SetShown", function(self, v) S[self].shown = v and true or false end)
+-- forgetful: a new fill drops the bar's colour, so Flat Bars' switch can't
+-- count on the game keeping it.
+local forgetful = false
 Setter("SetStatusBarTexture", function(self, texture)
     local fill = S[self].fill
     S[fill].texture, S[fill].atlas = texture, nil
+    if forgetful then S[self].fillColour, S[self].rgb = "1,1,1", nil end
 end)
-Setter("SetStatusBarColor", function(self, r, g, b) S[self].fillColour = string.format("%g,%g,%g", r, g, b) end)
+Setter("SetStatusBarColor", function(self, r, g, b, a)
+    S[self].fillColour = string.format("%g,%g,%g", r, g, b)
+    S[self].rgb = { r, g, b, a }
+end)
 Setter("SetScale", function(self, scale) S[self].scale = scale end)
 Setter("SetMinMaxValues", function() end)
 Setter("SetValue", function() end)
@@ -135,6 +142,10 @@ function Proto:IsShown() return S[self].shown end
 function Proto:GetParent() return S[self].parent end
 function Proto:GetName() return S[self].name end
 function Proto:GetStatusBarTexture() return S[self].fill end
+function Proto:GetStatusBarColor()
+    local c = S[self].rgb or { 1, 1, 1, 1 }
+    return c[1], c[2], c[3], c[4]
+end
 function Proto:GetScale() return S[self].scale or 1 end
 function Proto:IsProtected() return S[self].protected == true end
 function Proto:CreateTexture() return New("Texture", self) end
@@ -267,8 +278,11 @@ issecretvalue = function(v) return v == SECRET or v == SECRET_SIZE end
 GetTime = function() return 0 end
 UnitChannelInfo = function() end
 CreateColor = function(r, g, b) return { GetRGB = function() return r, g, b end } end
+CreateFont = function() return { SetFontObject = function() end, SetTextColor = function() end } end
 
 local bars, target, modules
+-- Flat Bars' setting, the namespace and the passes booked for a fight's end.
+local castSettings, castNs, booked = {}, nil, 0
 local function Game(api)
     _G.ForeverEnhancedCooldownManagerAPI = api
     watchers, combat = {}, false
@@ -291,22 +305,28 @@ local function Game(api)
     end)
     rawset(targetFrame, "spellbar", target)
     TargetFrame = targetFrame
-    modules = {}
-    local ns = {
-        RegisterModule = function(key, mod) modules[key] = mod end,
-        -- With Dark Mode, as ThemeTexture does: the border darkened.
-        SetTex = function(texture, key)
-            local ok = texture:SetTexture("Classic\\" .. key)
-            if key == "castBorderSmall" then texture:SetVertexColor(.42, .44, .48) end
-            return ok
-        end,
-        HookMethod = function(frame, method, fn)
-            if type(frame[method]) ~= "function" then return false end
-            hooksecurefunc(frame, method, fn)
-            return true
-        end,
-    }
-    local E = { Classic = ns, GetSetting = function() return false end }
+    modules, booked = {}, 0
+    local ns = {}
+    castNs = ns
+    local E = { Classic = ns, GetSetting = function(_, key) return castSettings[key] == true end }
+    -- The real fill choice (Classic/Textures.lua) and Flat Bars' switch
+    -- (Classic/Skin.lua), with the mock's own skin helpers over them.
+    assert(loadfile("Classic/Textures.lua"))("EraUI", E)
+    assert(loadfile("Classic/Skin.lua"))("EraUI", E)
+    ns.RegisterModule = function(key, mod) modules[key] = mod end
+    -- With Dark Mode, as ThemeTexture does: the border darkened.
+    ns.SetTex = function(texture, key)
+        local ok = texture:SetTexture("Classic\\" .. key)
+        if key == "castBorderSmall" then texture:SetVertexColor(.42, .44, .48) end
+        return ok
+    end
+    ns.HookMethod = function(frame, method, fn)
+        if type(frame[method]) ~= "function" then return false end
+        hooksecurefunc(frame, method, fn)
+        return true
+    end
+    -- A pass asked for in a fight runs at its end (Classic/Core.lua).
+    ns.ApplyAll = function() booked = booked + 1 end
     assert(loadfile("Classic/CastBars.lua"))("EraUI", E)
 end
 
@@ -633,5 +653,91 @@ Game(nil)
 modules.castBars.init()
 modules.castBars.apply()
 equal(All(Looks(), eraLook), true, "no other addon at login: EraUI's look, as today")
+
+-- 12. Flat Bars (Appearance > Style > Frame Style) ---------------------------------------------
+-- Off (the default): the Classic shaded fill, as in every check above, now
+-- through ns.TexPath. On: the client's solid white square on every bar in
+-- EraUI's look, in the cast's own colour. Switched live both ways: only the
+-- fill changes (the bars are sealed, so no key is written), each bar keeps
+-- its colour even if the game dropped it, and boss bars the other addon
+-- styles are left alone. A protected bar in a fight waits for the pass after it.
+local SHADED, SOLID = "Interface\\TargetingFrame\\UI-StatusBar", "Interface\\Buttons\\WHITE8X8"
+local function Fills()
+    local out = { tostring(S[S[target].fill].texture) }
+    for _, bar in ipairs(bars) do out[#out + 1] = tostring(S[S[bar].fill].texture) end
+    return table.concat(out, " ")
+end
+local function Same(file, n)
+    local out = {}
+    for i = 1, n do out[i] = file end
+    return table.concat(out, " ")
+end
+local function Colours()
+    local out = { S[target].fillColour }
+    for _, bar in ipairs(bars) do out[#out + 1] = S[bar].fillColour end
+    return table.concat(out, " ")
+end
+Game(API())
+modules.castBars.apply()
+local function CastAll()
+    Filled(target, "ui-castingbar-filling-channel")
+    for i, bar in ipairs(bars) do Filled(bar, i == 2 and "ui-castingbar-uninterruptable" or "ui-castingbar-filling-standard") end
+end
+CastAll()
+equal(Fills(), Same(SHADED, 6), "Flat Bars off: every cast's fill the Classic shaded one, as before")
+equal(Colours(), "0,1,0 1,0.7,0 0.5,0.5,0.5 1,0.7,0 1,0.7,0 1,0.7,0", "in the Classic colours")
+equal(castNs.TexPath("statusBar") .. " " .. castNs.BarFill("statusBar"), SHADED .. " " .. SHADED, "through the statusBar key")
+castNs.db = { textureSource = "bundled" }
+Filled(target, "ui-castingbar-filling-channel")
+equal(S[S[target].fill].texture, "Interface\\AddOns\\EraUI\\Media\\Classic\\UI-StatusBar", "the fill follows ns.TexPath (the bundled art when chosen)")
+castNs.db = nil
+Filled(target, "ui-castingbar-filling-channel")
+-- Ticked: solid at once, in the colours they had, nothing else changed.
+local colours, writesBefore = Colours(), AllWrites()
+castSettings.flatBars = true
+forgetful = true
+local done = castNs.RefreshFlatBars()
+forgetful = false
+equal(tostring(done) .. " " .. Fills(), "true " .. Same(SOLID, 6), "ticked: the solid fill at once on the target's and the boss bars")
+equal(Colours(), colours, "each in the colour it had, even though the game dropped it")
+equal((AllWrites() - writesBefore) .. " " .. tostring(All(Looks(), eraLook)) .. " " .. booked, "10 true 0",
+    "only each boss bar's fill and colour written, its look otherwise the same, nothing waits")
+Filled(bars[1], "ui-castingbar-interrupted")
+equal(S[S[bars[1]].fill].texture .. " " .. S[bars[1]].fillColour, SOLID .. " 1,0,0", "the next cast: solid, in its own colour")
+Cast(bars[1], "ui-castingbar-filling-channel")
+equal(S[S[bars[1]].fill].texture .. " " .. tostring(Look(bars[1]) == eraLook), SOLID .. " true", "and solid through a whole cast, its look EraUI's")
+-- The other addon takes the boss bars: Flat Bars leaves them alone.
+Switch(true)
+local held = AllWrites()
+castSettings.flatBars = false
+castNs.RefreshFlatBars()
+equal((AllWrites() - held) .. " " .. S[S[bars[1]].fill].texture .. " " .. S[S[target].fill].texture, "0 FECM flat " .. SHADED,
+    "unticked with the boss bars handed over: they're left as they are, the target's bar shaded again")
+Switch(false)
+CastAll()
+equal(Fills(), Same(SHADED, 6), "handed back: the Classic shaded fill again")
+-- A protected bar in a fight: left for the pass after it.
+Game(nil)
+modules.castBars.apply()
+CastAll()
+S[bars[3]].protected = true
+combat = true
+castSettings.flatBars = true
+done = castNs.RefreshFlatBars()
+equal(tostring(done) .. " " .. booked .. " " .. Fills(), "false 1 " .. SOLID .. " " .. SOLID .. " " .. SOLID .. " " .. SHADED .. " " .. SOLID .. " " .. SOLID,
+    "in a fight: the protected boss bar waits, one pass booked, the rest solid")
+combat = false
+modules.castBars.apply()
+equal(Fills(), Same(SOLID, 6), "after the fight: its pass gives it the solid fill too")
+castSettings.flatBars = false
+castNs.RefreshFlatBars()
+equal(Fills(), Same(SHADED, 6), "unticked: shaded again everywhere")
+-- Cast Bars switched off: Flat Bars leaves the game's bars alone.
+modules.castBars.restore()
+local before = AllWrites()
+castSettings.flatBars = true
+castNs.RefreshFlatBars()
+equal((AllWrites() - before) .. " " .. Fills(), "0 " .. Same(SHADED, 6), "Cast Bars off: no bar touched")
+castSettings.flatBars = false
 
 print("Boss cast bar checks passed: " .. checks .. " assertions.")

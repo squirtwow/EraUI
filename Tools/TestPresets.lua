@@ -117,9 +117,19 @@ Equal(P:Changes("classic").darkAuraShadows, nil, "the Classic look leaves Aura S
 inExtras = false
 for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkAuraShadows" then inExtras = true end end
 Equal(inExtras, false, "Aura Shadows is not an optional look")
+-- Flat Bars is one: it shows in Classic or Dark Mode. The Classic look
+-- leaves it as chosen, Quality of Life only switches it off, and it never
+-- changes which preset you're on.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "flatBars" then inExtras = true end end
+Equal(inExtras, true, "Flat Bars is an optional look")
+saved.flatBars = true
+Equal(P:Changes("classic").flatBars, nil, "the Classic look leaves Flat Bars alone")
+Equal(P:Changes("qol").flatBars, false, "Quality of Life only switches Flat Bars off")
 local _, count = P:Changes("qol")
-Equal(count, #P.LOOK + 3, "Quality of Life only switches every Classic skin and optional look off")
+Equal(count, #P.LOOK + 4, "Quality of Life only switches every Classic skin and optional look off")
 P:Apply("qol")
+Equal(saved.flatBars, false, "Flat Bars off after Quality of Life only")
 Equal(saved.unitFrames, false, "Classic unit frames off")
 Equal(saved.darkMode, false, "Dark Mode art off")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept, so Dark Mode brings it back")
@@ -134,6 +144,12 @@ Equal(count, #P.LOOK, "the Classic look switches every Classic skin back on")
 P:Apply("classic")
 Equal(P:Current(), "classic", "Classic look restored")
 Equal(saved.damageMeterSkin, false, "optional looks stay as chosen")
+Equal(saved.flatBars, false, "Flat Bars stays as chosen after the Classic look")
+saved.flatBars = true
+Equal(P:Current(), "classic", "Flat Bars on is still the Classic look")
+P:Apply("classic")
+Equal(saved.flatBars, true, "the Classic look keeps a switched-on Flat Bars")
+saved.flatBars = nil
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")

@@ -13,7 +13,9 @@ local FX = { "Flakes01", "Flakes02", "Flakes03", "BaseGlow", "WispGlow", "Sparkl
     "EnergyGlow", "InterruptGlow", "ChargeGlow", "ChargeFlash", "StandardGlow", "CraftGlow", "ChannelShadow", "DropShadow", "TextBorder" }
 local FINISH_ANIMS = { "StandardFinish", "ChannelFinish", "CraftingFinish" }
 
-local FILL_TEXTURE = "Interface\\TargetingFrame\\UI-StatusBar"
+-- The fill's art, through Classic/Textures.lua ns.BarFill: the Classic shaded
+-- UI-StatusBar, or the solid square with Flat Bars on.
+local FILL_KEY = "statusBar"
 local COLORS = {
     yellow = CASTBAR_CLASSIC_YELLOW or CreateColor(1, 0.7, 0),
     green = CASTBAR_CLASSIC_GREEN or CreateColor(0, 1, 0),
@@ -336,8 +338,12 @@ local function Fill(bar)
     local tex = bar:GetStatusBarTexture()
     local atlas = tex and tex.GetAtlas and tex:GetAtlas()
     local color = FillColor(atlas)
-    bar:SetStatusBarTexture(FILL_TEXTURE)
+    bar:SetStatusBarTexture(ns.BarFill(FILL_KEY))
     bar:SetStatusBarColor(color:GetRGB())
+end
+
+local function CastFill(bar)
+    bar:SetStatusBarTexture(ns.BarFill(FILL_KEY))
 end
 
 local Position
@@ -456,6 +462,22 @@ local function Handover()
     for bar in pairs(bossBars) do
         if Yielded(bar) then pcall(GiveBack, bar) else pcall(Dress, bar) end
     end
+end
+
+-- Flat Bars switched in /era (Classic/Skin.lua ns.RefreshFlatBars): the new
+-- fill on every bar in EraUI's look now, in the colour it has (Fill would
+-- read the colour from the game's own fill, which EraUI's has replaced).
+-- Boss bars the other addon styles are left alone. Returns false when a
+-- protected bar waits for the end of a fight.
+function ns.RefreshCastFills()
+    if not active then return true end
+    local done = true
+    for bar in pairs(skinned) do
+        if not bossBars[bar] or (dressed[bar] and not Yielded(bar)) then
+            if ns.HeldInFight(bar) then done = false else ns.Refill(bar, CastFill) end
+        end
+    end
+    return done
 end
 
 -- Tells Forever Enhanced Cooldown Manager, once, that EraUI steps back from the

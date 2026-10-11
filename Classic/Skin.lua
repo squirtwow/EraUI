@@ -293,6 +293,17 @@ local function IsSecret(v)
     return issecretvalue and issecretvalue(v)
 end
 
+-- Every bar ns.CreateBar has made (the unit frames' own), so Flat Bars can
+-- change their fill at once. Weak, so a bar is never kept alive by it.
+local ownBars = setmetatable({}, { __mode = "k" })
+
+-- The fill of a bar we own: the Classic shaded fill, or the solid square
+-- with Flat Bars on (Classic/Textures.lua ns.BarFill).
+local function OwnFill(bar)
+    bar:SetStatusBarTexture(ns.BarFill("statusBar"))
+    bar:GetStatusBarTexture():SetTexCoord(0, 1, 0, 1)
+end
+
 -- A StatusBar we own with the 1.x fill, under no mouse.
 function ns.CreateBar(parent, key, width, height)
     parent.fcui = parent.fcui or {}
@@ -301,12 +312,43 @@ function ns.CreateBar(parent, key, width, height)
         bar = CreateFrame("StatusBar", nil, parent)
         bar:EnableMouse(false)
         parent.fcui[key] = bar
+        ownBars[bar] = true
     end
     bar:SetSize(width, height)
-    bar:SetStatusBarTexture((ns.TexPath("statusBar")))
-    bar:GetStatusBarTexture():SetTexCoord(0, 1, 0, 1)
+    OwnFill(bar)
     bar:Show()
     return bar
+end
+
+-- Flat Bars switched on or off: a bar's fill changed by fill(bar), in the
+-- colour it already has (read first, so the colour never rests on the game
+-- keeping it through the change). Only the art changes.
+function ns.Refill(bar, fill)
+    local r, g, b, a = bar:GetStatusBarColor()
+    fill(bar)
+    if r ~= nil and not (IsSecret(r) or IsSecret(g) or IsSecret(b) or IsSecret(a)) then bar:SetStatusBarColor(r, g, b, a) end
+end
+
+-- A protected bar is left alone in a fight; the pass after it (ns.ApplyAll
+-- books one when asked in a fight) gives it the new fill.
+function ns.HeldInFight(bar)
+    return InCombatLockdown() and bar.IsProtected ~= nil and bar:IsProtected() == true
+end
+
+-- Flat Bars switched in /era: every bar EraUI owns or recolours takes its new
+-- fill at once: our own unit-frame bars here, the game's pieces the unit
+-- frames dress (Classic/UnitFrames.lua) and the cast bars
+-- (Classic/CastBars.lua) in their files. A bar held in a fight waits for the
+-- pass after it. Returns whether nothing had to wait.
+function ns.RefreshFlatBars()
+    local done = true
+    for bar in pairs(ownBars) do
+        if ns.HeldInFight(bar) then done = false else ns.Refill(bar, OwnFill) end
+    end
+    if ns.RefreshUnitFrameFills and ns.RefreshUnitFrameFills() == false then done = false end
+    if ns.RefreshCastFills and ns.RefreshCastFills() == false then done = false end
+    if not done and ns.ApplyAll then ns.ApplyAll() end
+    return done
 end
 
 local function FillBar(bar, value, max)

@@ -16,6 +16,11 @@ ns.TEX = {
     -- classic sheet would render as a row of dark/light blocks. Both names
     -- point at the flat copy in Media/.
     statusBarFlat = { builtin = BUNDLED .. "UI-StatusBar-Flat.tga", bundled = BUNDLED .. "UI-StatusBar-Flat.tga" },
+    -- Flat Bars: one even colour along and across the bar (statusBarFlat is
+    -- still shaded top to bottom). The client's own 8x8 white square, tinted
+    -- by each bar's colour: Forever ships it (its file list has it) and /era
+    -- already draws with it, so no bundled copy and no restart are needed.
+    statusBarSolid = { builtin = "Interface\\Buttons\\WHITE8X8", bundled = "Interface\\Buttons\\WHITE8X8" },
     repBar = { builtin = "Interface\\PaperDollInfoFrame\\UI-ReputationWatchBar", bundled = BUNDLED .. "UI-ReputationWatchBar" },
     maxLevel = { builtin = "Interface\\MainMenuBar\\UI-MainMenuBar-MaxLevel", bundled = BUNDLED .. "UI-MainMenuBar-MaxLevel" },
     slotEmpty = { builtin = "Interface\\Buttons\\UI-Quickslot", bundled = BUNDLED .. "UI-Quickslot" },
@@ -245,6 +250,19 @@ function ns.TexPath(key)
         return entry.bundled, entry.builtin
     end
     return entry.builtin, entry.bundled
+end
+
+-- Flat Bars (/era: Appearance > Style > Frame Style), off by default: the
+-- fill of the unit-frame and cast bars. On, the plain solid square; off, the
+-- key's own art (the Classic shaded fill), exactly as before. Each bar keeps
+-- its own colours either way.
+function ns.FlatBars()
+    return EraUI:GetSetting("flatBars") == true
+end
+
+function ns.BarFill(key)
+    if ns.FlatBars() then return (ns.TexPath("statusBarSolid")) end
+    return (ns.TexPath(key))
 end
 
 -- SetTexture returns false when the file does not exist; fall back to the other

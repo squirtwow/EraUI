@@ -58,6 +58,12 @@ for _,method in ipairs({"SetFrameStrata","SetFrameLevel","SetMovable","SetClampe
  "SetShadowColor","SetShadowOffset","SetTexture","SetTexCoord","SetColorTexture","SetBlendMode","SetVertexColor","SetFontObject","SetAtlas","SetTextColor"})do
  methods[method]=function()end
 end
+-- What Flat Bars changes: the fill shown (and how often it is set), its
+-- colour, and where the spark is pinned. A new fill is a new texture here,
+-- so anything pinned to the old one shows up.
+function methods:SetStatusBarTexture(path)self.fillPath=path;self.fillSets=(self.fillSets or 0)+1;self.fill=Frame(self)end
+function methods:SetStatusBarColor(r,g,b)self.colour=table.concat({r,g,b},",")end
+function methods:SetPoint(...)self.point={...}end
 hooksecurefunc=function(t,key,fn)
  if type(t)=="string"then fn=key;key=t;t=_G end
  local old=t[key];t[key]=function(...)old(...);fn(...)end
@@ -104,6 +110,30 @@ start,finish=secret,secret;M:Refresh("UNIT_SPELLCAST_CHANNEL_START")
 equal(timerCalls,1,"restricted timing retains duration fallback")
 equal(bar.shown,true,"duration-backed channel remains visible")
 
+-- Flat Bars on the Advanced Cast Bar: off (the default), the Classic shaded
+-- fill, set once as before; on, the plain solid square (Classic/Textures.lua's
+-- statusBarSolid) at the next refresh (the /era tick refreshes it), the spark
+-- pinned to the new fill; off again, shaded. Its colour stays the same.
+local SHADED,SOLID="Interface\\TargetingFrame\\UI-StatusBar","Interface\\Buttons\\WHITE8X8"
+local function Find(fn,wanted,seen)
+ seen=seen or{};if seen[fn]then return end;seen[fn]=true
+ for i=1,200 do
+  local key,value=debug.getupvalue(fn,i);if not key then break end
+  if key==wanted then return value end
+  if type(value)=="function"then local found=Find(value,wanted,seen);if found then return found end end
+ end
+end
+equal(bar.fillPath.." "..bar.fillSets,SHADED.." 1","Flat Bars off: the shaded fill, set once as before")
+local colour=bar.colour
+M:Refresh();equal(bar.fillSets,1,"a refresh with nothing changed sets no fill")
+settings.flatBars=true;M:Refresh()
+local spark=Find(M.Refresh,"spark")
+equal(bar.fillPath.." "..bar.fillSets.." "..bar.colour,SOLID.." 2 "..colour,"Flat Bars on: the solid fill, its colour the same")
+equal(spark.point[1]..":"..tostring(spark.point[2]==bar:GetStatusBarTexture())..":"..spark.point[3],"CENTER:true:RIGHT","the spark on the new fill's end")
+M:Refresh();equal(bar.fillSets,2,"and set once")
+settings.flatBars=false;M:Refresh()
+equal(bar.fillPath.." "..bar.colour,SHADED.." "..colour,"off again: shaded, same colour")
+
 -- Actual Classic player-bar hooks preserve native events and cosmetic ownership.
 settings.advancedCastBar=false
 name,start,finish,now="Taming Rod",100000,120000,105
@@ -116,11 +146,20 @@ function native:FinishSpell()end
 function native:HandleCastStop()end
 function native:HandleInterruptOrSpellFailed()end
 local modules={}
-local ns={RegisterModule=function(key,value)modules[key]=value end,SetTex=function()end,
- HookMethod=function(frame,method,fn)if frame[method]then hooksecurefunc(frame,method,fn)end end}
+local ns={}
 E.Classic=ns
+-- The real fill choice (Flat Bars), with this test's own skin helpers.
+assert(loadfile("Classic/Textures.lua"))("EraUI",E)
+ns.RegisterModule=function(key,value)modules[key]=value end
+ns.SetTex=function()end
+ns.HookMethod=function(frame,method,fn)if frame[method]then hooksecurefunc(frame,method,fn)end end
+equal(ns.TexPath("statusBarSolid"),SOLID,"the Advanced Cast Bar's solid fill is the Classic bars' one")
 assert(loadfile("Classic/CastBars.lua"))("EraUI",E)
 modules.castBars.apply()
+equal(native.fillPath,SHADED,"Classic player bar: the shaded fill with Flat Bars off")
+settings.flatBars=true;modules.castBars.apply()
+equal(native.fillPath,SOLID,"and the solid one with it on")
+settings.flatBars=nil;modules.castBars.apply()
 native:HandleCastStart("UNIT_SPELLCAST_CHANNEL_START")
 equal(native.high,20,"Classic channel initial scale")
 now=106;finish=117000;native:HandleChannelUpdateDelayed()

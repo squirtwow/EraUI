@@ -21,7 +21,7 @@ local function ParentOf(E) return function(key) return E.SettingsRules.GroupPare
 local EXPECTED = {
  {group = "LOOK", tabs = {
   {"appearance", "Appearance", "How EraUI looks: the style, Dark Mode and class colours.", {
-   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}}},
+   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars"}}}},
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
     {"BARS AND WINDOWS", {"darkMenuBar", "darkWindows", "blackPages"}}}},
@@ -178,8 +178,9 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- Options new since 1.5.5 ("just added" for returning players this version)
 -- and those not seen working in game yet ("experimental", always). Nothing
 -- says it moved any more.
-local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true}
-local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true}
+local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true}
+local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
+ flatBars = true}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -1052,7 +1053,46 @@ do
  end
  -- The Presets row heads Appearance > Style: the active preset, never a warning.
  Open(f, "appearance", "style")
- equal(Keys(f), "appearanceChoice,presets", "Style holds the Look choice and Presets")
+ equal(Keys(f), "appearanceChoice,presets,flatBars", "Style holds the Look choice and Presets, then Frame Style's Flat Bars")
+ -- Flat Bars: a tick under the choice, in its own Frame Style section,
+ -- applying at once (Classic/Skin.lua and the Advanced Cast Bar) with the
+ -- usual chat line.
+ local flat = f.checks.flatBars
+ equal(flat.text:GetText() .. " / " .. tostring(flat:IsVisible()) .. " / " .. tostring(flat:GetChecked()) .. " / " .. tostring(flat.wide),
+  "Flat Bars / true / false / nil", "Flat Bars: a tick row in the left column, off")
+ local headings = {}
+ for _, item in ipairs(f.settingsItems or {}) do if item.heading then headings[#headings + 1] = item.heading end end
+ equal(table.concat(headings, "|"):upper(), "STYLE|FRAME STYLE", "under its own heading, after the style's")
+ local _, flatHelp, flatExtras = M.Hover(f, flat)
+ equal(flatHelp, "Flat Bars  A plain, even fill instead of Classic's shaded one on unit-frame and cast bars. Their colours stay. Works with Classic or Dark Mode.",
+  "Flat Bars: its words")
+ equal(flatExtras, "Default: Off.", "Flat Bars: no reload line, off by default")
+ local refreshes, advanced, flatStatus, waits = 0, 0, nil, false
+ E.Classic.RefreshFlatBars = function() refreshes = refreshes + 1; return not waits end
+ E.modules.AdvancedCastBar = {Refresh = function() advanced = advanced + 1 end}
+ local status = E.Status
+ E.Status = function(_, m) flatStatus = m end
+ flat:Click()
+ equal(tostring(E.settings.flatBars) .. " " .. refreshes .. " " .. advanced .. " " .. flatStatus, "true 1 1 Flat Bars enabled.",
+  "a click switches it on, live: the bars, then the Advanced Cast Bar")
+ flat:Click()
+ equal(tostring(E.settings.flatBars) .. " " .. refreshes .. " " .. advanced .. " " .. flatStatus, "false 2 2 Flat Bars disabled.", "and off, live")
+ waits = true
+ flat:Click()
+ equal(flatStatus, "Flat Bars enabled. Some bars change when combat ends.", "a bar held in a fight: it says the rest follow")
+ E.Classic.RefreshFlatBars, E.modules.AdvancedCastBar = nil, nil
+ flat:Click()
+ equal(tostring(E.settings.flatBars) .. " " .. flatStatus, "false Flat Bars disabled.", "without Classic loaded the tick still saves")
+ E.Status = status
+ -- Search finds it by its words.
+ for _, word in ipairs({"flat", "texture", "solid", "frame style"}) do
+  local found = M.Results(f, word)
+  local hit = false
+  for _, key in ipairs(found) do if key == "flatBars" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds Flat Bars")
+ end
+ f.searchBox:SetText(""); Flush()
+ Open(f, "appearance", "style")
  equal(f.presetButton:IsVisible() and f.presetButton.label:GetText(), "Choose a preset", "Presets button on its row")
  local shown = 0
  local realPresets = E.Presets
@@ -2061,7 +2101,7 @@ do
    looked = looked + 1
   end
  end
- equal(looked == worded and looked >= 6, true, "every row with words checked (" .. looked .. ": the five experimental ones and the coming soon ones)")
+ equal(looked == worded and looked >= 7, true, "every row with words checked (" .. looked .. ": the six experimental ones and the coming soon ones)")
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  equal(table.concat(f.checks.contextMenus.tagIds, ","), "SOON", "Context Menus says coming soon")
  for _, version in ipairs({"1.0.0", "", false}) do
@@ -2081,7 +2121,7 @@ do
  -- "experimental" finds the experimental options.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,characterItemLevels,darkAuraShadows,darkDebuffLines,darkWindows", "searching experimental finds them")
+ equal(table.concat(found, ","), "blackPages,characterItemLevels,darkAuraShadows,darkDebuffLines,darkWindows,flatBars", "searching experimental finds them")
  f.searchBox:SetText(""); Flush()
 end
 

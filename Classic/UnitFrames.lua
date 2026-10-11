@@ -84,11 +84,19 @@ local function KeepFrames()
 end
 
 local keptBars = setmetatable({}, { __mode = "k" })
+-- The game's own fills the unit frames dress (the heal prediction and absorb
+-- fills, the player's health-loss bar), for Flat Bars. Weak tables, never a
+-- key on the game's frames.
+local overlayFills = setmetatable({}, { __mode = "k" })
+local lossBars = setmetatable({}, { __mode = "k" })
 
+-- Each fill is Classic/Textures.lua ns.BarFill: the Classic shaded fill, or
+-- the solid square with Flat Bars on. The pet's kept bars get it again on
+-- every repaint (the 0.25 s check too), so they stay that way.
 local function RecolorKept(bar)
     local kind = keptBars[bar]
     if not kind or not active then return end
-    bar:SetStatusBarTexture((ns.TexPath(UI_STATUSBAR)))
+    bar:SetStatusBarTexture(ns.BarFill(UI_STATUSBAR))
     if kind == "health" then
         bar:SetStatusBarColor(0, 1, 0)
     else
@@ -138,7 +146,10 @@ local function AttachOverlays(source, bar, mask)
             piece:ClearAllPoints()
             piece:SetAllPoints(bar)
             if mask and piece.Fill and piece.Fill.RemoveMaskTexture then pcall(piece.Fill.RemoveMaskTexture, piece.Fill, mask) end
-            if piece.Fill then piece.Fill:SetTexture((ns.TexPath(UI_STATUSBAR))) end
+            if piece.Fill then
+                piece.Fill:SetTexture(ns.BarFill(UI_STATUSBAR))
+                overlayFills[piece.Fill] = true
+            end
         end
     end
     for _, key in ipairs({ "OverAbsorbGlow", "OverHealAbsorbGlow" }) do
@@ -184,6 +195,26 @@ local function RepaintKept(unit)
     if unit ~= "pet" then return end
     RecolorKept(PetFrameHealthBar)
     RecolorKept(PetFrameManaBar)
+end
+
+local function LossFill(bar)
+    bar:SetStatusBarTexture(ns.BarFill(UI_STATUSBAR))
+end
+
+-- Flat Bars switched in /era (Classic/Skin.lua ns.RefreshFlatBars): the
+-- game's pieces the unit frames dress take the new fill at once, nothing
+-- else about them changes. The pet's bars go through their usual repaint,
+-- as its 0.25 s check does in and out of fights. Returns false when a
+-- protected loss bar waits for the end of a fight.
+function ns.RefreshUnitFrameFills()
+    if not active then return true end
+    local done = true
+    for fill in pairs(overlayFills) do fill:SetTexture(ns.BarFill(UI_STATUSBAR)) end
+    for bar in pairs(lossBars) do
+        if ns.HeldInFight(bar) then done = false else ns.Refill(bar, LossFill) end
+    end
+    for bar in pairs(keptBars) do RecolorKept(bar) end
+    return done
 end
 
 local function OnEvent(_, event, unit)
@@ -411,7 +442,8 @@ local function SkinPlayer()
             loss:SetParent(health)
             loss:ClearAllPoints()
             loss:SetAllPoints(health)
-            loss:SetStatusBarTexture((ns.TexPath(UI_STATUSBAR)))
+            loss:SetStatusBarTexture(ns.BarFill(UI_STATUSBAR))
+            lossBars[loss] = true
             local tex = loss:GetStatusBarTexture()
             if tex and healthContainer.HealthBarMask and tex.RemoveMaskTexture then pcall(tex.RemoveMaskTexture, tex, healthContainer.HealthBarMask) end
         end
@@ -919,7 +951,7 @@ local function SkinPet()
     for _, b in ipairs(bars) do
         local bar, y, mask, texts = b[1], b[2], b[3], b[4]
         if bar then
-            bar:SetStatusBarTexture((ns.TexPath(UI_STATUSBAR)))
+            bar:SetStatusBarTexture(ns.BarFill(UI_STATUSBAR))
             bar:SetSize(69, 8)
             ns.SetPointOnce(bar, "TOPLEFT", frame, "TOPLEFT", 47, y)
             if mask then ns.Fade(mask) end

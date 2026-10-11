@@ -52,7 +52,8 @@ local function S(title, rows) return {title = title, rows = rows} end
 local TABS = {
     appearance = {name = "Appearance", icon = "Interface\\Icons\\INV_Misc_Desecrated_ClothShoulder",
         about = "How EraUI looks: the style, Dark Mode and class colours.", subs = {
-            {id = "style", name = "Style", sections = {S("Style", {"appearanceChoice", "presets"})}},
+            {id = "style", name = "Style", sections = {S("Style", {"appearanceChoice", "presets"}),
+                S("Frame style", {"flatBars"})}},
             {id = "dark", name = "Dark Mode", sections = {
                 S("Darkness", {"darkModeDarkness", "darkenClassColours"}),
                 S("Borders", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}),
@@ -134,7 +135,7 @@ Nav.WIDE = {appearanceChoice = true, presets = true, darkModeDarkness = true, cl
 -- "just added" after the name, for players who had the old layout, while
 -- they run the version the new layout came in (EraUIDB.layoutPillsVersion):
 -- the options not released before.
-Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true}
+Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true}
 
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end
