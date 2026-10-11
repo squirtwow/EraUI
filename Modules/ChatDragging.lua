@@ -37,8 +37,15 @@ function M:Restore()
  local p=State();if not p or not p.x or not ChatFrame1 then return end
  restoring=true
  local ratio=UIParent:GetEffectiveScale()/ChatFrame1:GetEffectiveScale()
- ChatFrame1:ClearAllPoints()
- ChatFrame1:SetPoint("CENTER",UIParent,"BOTTOMLEFT",p.x*UIParent:GetWidth()*ratio,p.y*UIParent:GetHeight()*ratio)
+ -- The chat window is an Edit Mode frame: its ClearAllPoints and SetPoint are
+ -- Edit Mode's overrides, which keep snap records and mark anchors changed.
+ -- Done from EraUI's code those records carry EraUI's taint, and the game's
+ -- own moves of protected frames in a fight can then be blocked and blamed on
+ -- EraUI. Edit Mode keeps the plain ones as ...Base: use those.
+ local clear=ChatFrame1.ClearAllPointsBase or ChatFrame1.ClearAllPoints
+ local set=ChatFrame1.SetPointBase or ChatFrame1.SetPoint
+ clear(ChatFrame1)
+ set(ChatFrame1,"CENTER",UIParent,"BOTTOMLEFT",p.x*UIParent:GetWidth()*ratio,p.y*UIParent:GetHeight()*ratio)
  restoring=false
 end
 local function QueueRestore()

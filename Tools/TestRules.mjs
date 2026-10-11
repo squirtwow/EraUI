@@ -100,3 +100,23 @@ test("EraUI.version comes from the .toc, never a number typed in Init.lua", () =
   assert.match(init, /^EraUI\.version\s*=\s*TocVersion\(C_AddOns and C_AddOns\.GetAddOnMetadata\)/m, 'read with C_AddOns.GetAddOnMetadata');
   assert.match(init, /TocVersion\(GetAddOnMetadata\)\s*or\s*"dev"/, 'then the old global, then "dev"');
 });
+
+// The player, target and focus frames and the main chat window are Edit Mode
+// frames on Forever: their SetPoint, SetScale and ClearAllPoints are Edit
+// Mode's overrides, which keep snap records and mark every anchor changed.
+// Called from EraUI's code those records carry EraUI's taint, and the game's
+// own moves of these protected frames in a fight are then blocked and blamed
+// on EraUI ("blocked FocusFrame:SetPointBase() (in combat)", 2026-10-11).
+// EraUI moves them only through Edit Mode's plain ...Base methods.
+test('Edit Mode frames are only moved through their plain ...Base methods', () => {
+  const direct = /\b(?:PlayerFrame|TargetFrame|FocusFrame|ChatFrame1):(?:SetPoint|SetScale|ClearAllPoints)\(/;
+  assert.deepEqual(where(direct), [], 'no direct SetPoint, SetScale or ClearAllPoints on them');
+  const units = code['Classic/UnitFrames.lua'];
+  assert.match(units, /local set = frame\.SetPointBase or frame\.SetPoint/, 'unit frames are placed with SetPointBase');
+  assert.match(units, /local base = frame\.SetScaleBase/, 'and rescaled with SetScaleBase');
+  assert.match(units, /Place\(frame, point, rel, relPoint, nx \/ scale, ny \/ scale\)/, 'pixel snapping goes through Place');
+  assert.match(units, /Rescale\(FocusFrame, scale\)/, 'Match Focus Size goes through Rescale');
+  const chat = code['Modules/ChatDragging.lua'];
+  assert.match(chat, /ChatFrame1\.SetPointBase or ChatFrame1\.SetPoint/, 'the chat window is placed with SetPointBase');
+  assert.match(chat, /ChatFrame1\.ClearAllPointsBase or ChatFrame1\.ClearAllPoints/, 'and cleared with ClearAllPointsBase');
+});

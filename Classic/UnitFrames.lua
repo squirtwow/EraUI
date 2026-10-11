@@ -1223,6 +1223,34 @@ RestoreParty = function()
     ns.needsReload = true
 end
 
+-- Forever's player, target and focus frames are Edit Mode frames: their
+-- SetPoint and SetScale are Edit Mode's overrides, which record the frame each
+-- one snaps to and mark every anchor changed. Done from EraUI's code those
+-- records carry EraUI's taint, and when the game later moves the frame in a
+-- fight the move is blocked and blamed on EraUI (status report 2026-10-11:
+-- "blocked FocusFrame:SetPointBase() (in combat)"). Edit Mode keeps the plain
+-- methods as SetPointBase and SetScaleBase: EraUI uses those, so only the
+-- frame itself changes, and only out of combat as before.
+local function Place(frame, ...)
+    local set = frame.SetPointBase or frame.SetPoint
+    set(frame, ...)
+end
+
+local function Rescale(frame, newScale)
+    local base = frame.SetScaleBase
+    if not base then frame:SetScale(newScale) return end
+    local oldScale = frame:GetScale()
+    if not oldScale or oldScale <= 0 or oldScale == newScale then return end
+    local points = {}
+    for i = 1, frame:GetNumPoints() do points[i] = { frame:GetPoint(i) } end
+    base(frame, newScale)
+    -- What Edit Mode's own SetScale does next, without its records: keep the
+    -- frame where it was as its scale changes.
+    for _, p in ipairs(points) do
+        Place(frame, p[1], p[2], p[3], (p[4] or 0) * oldScale / newScale, (p[5] or 0) * oldScale / newScale)
+    end
+end
+
 local function SnapToPixels(frame)
     if not frame or InCombatLockdown() or not frame.GetPoint then return end
     local point, rel, relPoint, x, y = frame:GetPoint(1)
@@ -1232,7 +1260,7 @@ local function SnapToPixels(frame)
     local sx, sy = x * scale, y * scale
     local nx, ny = math.floor(sx + 0.5), math.floor(sy + 0.5)
     if math.abs(sx - nx) < 0.01 and math.abs(sy - ny) < 0.01 then return end
-    frame:SetPoint(point, rel, relPoint, nx / scale, ny / scale)
+    Place(frame, point, rel, relPoint, nx / scale, ny / scale)
 end
 
 local function Apply()
@@ -1287,7 +1315,7 @@ local function Apply()
         if EraUI:GetSetting("matchFocusSize") and FocusFrame and TargetFrame and not Busy() then
             if FocusFrame.smallSize and FocusFrame.SetSmallSize then FocusFrame:SetSmallSize(false) end
             local scale = TargetFrame:GetScale()
-            if FocusFrame:GetScale() ~= scale then FocusFrame:SetScale(scale) end
+            if FocusFrame:GetScale() ~= scale then Rescale(FocusFrame, scale) end
         end
         SkinTarget(FocusFrame, "focus")
     else RestoreTargetLike(FocusFrame) end
