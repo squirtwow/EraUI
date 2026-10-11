@@ -40,8 +40,20 @@ local function Skin(frame)
     end
     state.art:Show()
     for _, key in ipairs({"NineSlice", "Bg", "BG", "Background", "Border", "TopTileStreaks"}) do Fade(frame[key], state) end
-    for _, button in ipairs(frame.Buttons or {}) do RedButton(button) end
+    -- Forever keeps Button1-4 in ButtonContainer and ExtraButton in
+    -- frame.Buttons (GameDialog.xml), all with the game's own red dialog art:
+    -- that art is darkened in Dark Mode, not replaced, so ExtraButton keeps
+    -- it too and matches the others.
+    local container = frame.ButtonContainer
+    if not container then
+        for _, button in ipairs(frame.Buttons or {}) do RedButton(button) end
+    end
     for i = 1, 4 do RedButton(frame["button" .. i] or frame["Button" .. i]) end
+    local classic = EraUI.Classic
+    if classic and classic.DarkRedButton then
+        for _, button in ipairs(container and container.Buttons or {}) do classic.DarkRedButton(button) end
+        classic.DarkRedButton(frame.ExtraButton)
+    end
     if not observed[frame] then
         observed[frame] = true
         frame:HookScript("OnShow", function() Module:Refresh() end)

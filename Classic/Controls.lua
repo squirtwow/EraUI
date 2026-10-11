@@ -20,6 +20,8 @@ function ns.SkinCloseButton(button, keepPosition)
             if state == "Highlight" then tex:SetBlendMode("ADD") end
         end
     end
+    -- Dark Windows darkens the red X in Dark Mode, its cross kept light.
+    if ns.DarkCloseButton then ns.DarkCloseButton(button) end
     if not keepPosition then
         local parent = button:GetParent()
         local corner = parent and parent.NineSlice and parent.NineSlice.TopRightCorner

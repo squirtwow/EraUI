@@ -51,6 +51,8 @@ local function SizeResetButton()
         sizeReset = CreateFrame("Button", nil, UIParent, "UIPanelButtonTemplate")
         sizeReset:SetFrameStrata("DIALOG")
         sizeReset:SetText("Default Size")
+        -- Dark Windows darkens it in Dark Mode, like the game's own red buttons.
+        if ns.DarkNativeButton then ns.DarkNativeButton(sizeReset) end
         sizeReset:SetScript("OnClick", function()
             local setting = Enum.EditModeGroupFinderSetting and Enum.EditModeGroupFinderSetting.Size
             if not setting or InCombatLockdown() then return end

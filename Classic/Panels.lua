@@ -90,6 +90,8 @@ function ns.SkinCloseButton(button, keepPosition)
             if state == "Highlight" then tex:SetBlendMode("ADD") end
         end
     end
+    -- Dark Windows darkens the red X in Dark Mode, its cross kept light.
+    if ns.DarkCloseButton then ns.DarkCloseButton(button) end
     if not keepPosition then
         local parent = button:GetParent()
         local corner = parent and parent.NineSlice and parent.NineSlice.TopRightCorner
@@ -224,6 +226,7 @@ local function SkinMaxMin(button)
                 local tex = b["Get" .. state .. "Texture"](b)
                 if tex then tex:SetTexCoord(0, 1, 0, 1); tex:ClearAllPoints(); tex:SetAllPoints(b) end
             end
+            if ns.DarkCloseButton then ns.DarkCloseButton(b) end
             b:SetHitRectInsets(5, 5, 5, 5)
         end
     end

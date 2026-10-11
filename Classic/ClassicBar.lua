@@ -908,6 +908,8 @@ local function MicroDialog()
     title:SetText("Micro Menu")
 
     local close = CreateFrame("Button", nil, dialog, "UIPanelCloseButton")
+    -- Dark Windows darkens the game's red X in Dark Mode, its cross kept light.
+    if ns.DarkCloseButton then ns.DarkCloseButton(close) end
     close:SetPoint("TOPRIGHT", dialog, "TOPRIGHT", 0, 0)
     close:SetScript("OnClick", function() dialog:Hide() end)
 
@@ -947,6 +949,8 @@ local function MicroDialog()
     reset:SetSize(330, 28)
     reset:SetPoint("BOTTOM", dialog, "BOTTOM", 0, 22)
     reset:SetText(HUD_EDIT_MODE_RESET_POSITION or "Reset To Default Position")
+    -- Dark Windows darkens it in Dark Mode, like the game's own red buttons.
+    if ns.DarkNativeButton then ns.DarkNativeButton(reset) end
     reset:SetScript("OnClick", function()
         ns.MicroTouched()
         ns.db.microPos, ns.db.microScale = nil, nil
@@ -960,6 +964,7 @@ local function MicroDialog()
     resize:SetSize(330, 28)
     resize:SetPoint("BOTTOM", reset, "TOP", 0, 6)
     resize:SetText("Reset To Default Size")
+    if ns.DarkNativeButton then ns.DarkNativeButton(resize) end
     resize:SetScript("OnClick", function()
         ns.MicroTouched()
         ns.db.microScale = nil
@@ -2465,6 +2470,7 @@ local function StartWatch()
         local resize = CreateFrame("Button", nil, extra, "UIPanelButtonTemplate")
         resize:SetHeight(28)
         resize:SetText("Reset To Default Size")
+        if ns.DarkNativeButton then ns.DarkNativeButton(resize) end
         resize:SetFrameLevel(210)
         resize:SetScript("OnClick", function()
             local setting = Enum and Enum.EditModeBagsSetting and Enum.EditModeBagsSetting.Size

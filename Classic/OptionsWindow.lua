@@ -29,6 +29,7 @@ function ns.PanelButton(parent, text, width)
         button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
         button:SetSize(width or 96, 22)
         button:SetText(text)
+        if ns.DarkNativeButton then ns.DarkNativeButton(button) end
         return button
     end
     button:SetPushedTexture(PANEL_BUTTON .. "Down")

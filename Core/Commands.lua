@@ -22,6 +22,10 @@ local function ShowReport(text)
         local title = EraUI:CreateLabel(frame, "EraUI status report", 20)
         title:SetPoint("TOP", 0, -20)
         local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+        -- Dark Windows darkens the game's red X (and the button below) in
+        -- Dark Mode, like the box around them.
+        local classic = EraUI.Classic
+        if classic and classic.DarkCloseButton then classic.DarkCloseButton(close) end
         close:SetPoint("TOPRIGHT", -3, -3)
         close:SetScript("OnClick", function() frame:Hide() end)
 
@@ -54,6 +58,7 @@ local function ShowReport(text)
         selectButton:SetSize(150, 26)
         selectButton:SetPoint("BOTTOM", 0, 20)
         selectButton:SetText("Select report")
+        if classic and classic.DarkNativeButton then classic.DarkNativeButton(selectButton) end
         selectButton:SetScript("OnClick", function()
             edit:SetFocus()
             edit:HighlightText()

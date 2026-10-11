@@ -110,7 +110,7 @@ local BLACK_PAGE = { .13, .13, .14 }
 -- desaturated) given BLACK_PAGE, so it matches the Professions window's.
 local PARCHMENT = .43
 local BLACK_COVER = { BLACK_PAGE[1] * PARCHMENT, BLACK_PAGE[2] * PARCHMENT, BLACK_PAGE[3] * PARCHMENT }
-local DESATURATED = { button = true, glow = true, page = true }
+local DESATURATED = { button = true, glow = true, page = true, cross = true }
 local WHITE = { 1, 1, 1, 1 }
 local darkArt = setmetatable({}, { __mode = "k" })      -- texture: its role
 local darkText = setmetatable({}, { __mode = "k" })     -- font string: its own colour
@@ -138,6 +138,22 @@ local function Lifted()
 end
 ns.DarkButtonGrey = Lifted
 
+-- The red close and minimise buttons' grey ("cross"): the buttons' lifted
+-- grey, never darker than CROSS_FLOOR (about Darkness 75's), its slight blue
+-- kept. Their cross is drawn in the same art as the red square round it: a
+-- gold cross about 4.6 times as bright as the square once desaturated
+-- (Forever's art; 6.9 in the classic one EraUI's windows wear), so it stays
+-- the lighter part at every Darkness. Without the floor it would fade to
+-- about .16 on .035 at Darkness 90; with it, about .32 on .07.
+local CROSS_FLOOR = .6
+local function CrossGrey()
+    local r, g, b = Lifted()
+    if r >= CROSS_FLOOR then return r, g, b end
+    local f = CROSS_FLOOR / r
+    return CROSS_FLOOR, math.min(1, g * f), math.min(1, b * f)
+end
+ns.DarkCrossGrey = CrossGrey
+
 -- Parchment's shade: darker with the slider, never below the floor; a touch
 -- more blue than red takes the yellow out, for a brown-grey.
 local function PageShade()
@@ -159,6 +175,7 @@ local function Look(role, on, texture)
         return desaturate, 1, 1, 1
     end
     if role == "button" then return true, Lifted() end
+    if role == "cross" then return true, CrossGrey() end
     if role == "glow" then return true, 1, 1, 1 end
     if role == "page" or role == "trim" then
         if not ns.BlackPagesOn() then return desaturate, PageShade() end
@@ -242,7 +259,8 @@ end
 -- so a piece made without it never needs anything.
 -- role: "frame" (the grey), "page" (parchment), "trim" (art drawn on or round
 -- parchment: rings, bar frames, the spellbook's frame), "cover" (EraUI's own
--- black over a page, made hidden), "button" or "glow".
+-- black over a page, made hidden), "button", "cross" (a close or minimise
+-- button's art) or "glow".
 function ns.DarkWindowArt(texture, role, force)
     if not texture or not EraUI:GetSetting("darkMode") then return end
     darkArt[texture] = role or "frame"
@@ -354,6 +372,287 @@ if HelpTip and type(HelpTip.Show) == "function" then
     end)
 end
 if HelpPlateTooltip and HelpPlateTooltip.HookScript then HelpPlateTooltip:HookScript("OnShow", DarkGlowBox) end
+
+-- The game's own red buttons, wherever they show (Dark Windows): the panel
+-- buttons (UIPanelButtonTemplate and every template built on it), the
+-- three-slice ones in the red or gold-red art, and the dialog boxes' buttons
+-- (the pop-ups', the quest session and add friend dialogs') take the lifted
+-- grey like EraUI's own red buttons, their glow loses its colour, and their
+-- labels keep their gold. A fixed list of the game's windows is looked at as
+-- each one opens: its buttons up to RED_DEPTH levels down are told apart by
+-- reads only (a panel button's three pieces and the game's own panel button
+-- handlers on it, a three-slice button's red art name), and only colours are
+-- set on the game's textures. Each window gets one OnShow post-hook, out of a
+-- fight, in Dark Mode, once its Blizzard addon has loaded; nothing is written
+-- on the game's frames (weak tables only), no handler is replaced, and
+-- forbidden frames are never touched. The Dark Windows tick, the Darkness
+-- slider and turning it off reach these pieces like any other.
+-- The red close and minimise buttons in the corners (UIPanelCloseButton and
+-- its kin, the minimise and maximise pair, told apart by their art's name:
+-- the RedButton-Exit, -MiniCondense, -Condense and -Expand atlases, or the
+-- classic UI-Panel-MinimizeButton files) go dark the same way in the same
+-- windows, all their states, in the "cross" grey that keeps their light
+-- cross readable; the bags', the item link tooltip's, the scoreboard's and
+-- the world and flight maps' are listed by themselves, so their many item
+-- buttons, rows and pins (and the tooltip) aren't looked through.
+-- EraUI's own windows hand theirs over as they skin them
+-- (ns.DarkCloseButton). Not covered: forbidden windows (the shop, the
+-- authenticator), and buttons a window makes while it stays open (dark from
+-- its next opening).
+local RED_DEPTH = 7
+-- Off: the colours are expected to outlast the game's redraws (a panel
+-- button's SetTexture as it is pressed, shown, enabled or disabled; a
+-- three-slice button's SetAtlas). On, should the game prove otherwise: each
+-- red button is painted again after each of those, through its own
+-- post-hooks, added out of a fight.
+local REPAINT_AFTER_REDRAW = false
+local REDRAWS = { "OnMouseDown", "OnMouseUp", "OnShow", "OnDisable", "OnEnable" }
+local PANEL_HANDLERS = {} -- script: the game's panel button handler for it
+for _, script in ipairs(REDRAWS) do PANEL_HANDLERS[script] = "UIPanelButton_" .. script end
+local NATIVE_PIECES = { "Left", "Middle", "Right", "Center" }
+local RED_WINDOWS = {
+    -- Always there.
+    "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4", "InstanceAbandonPopup",
+    "QuestFrame", "GossipFrame", "StackSplitFrame", "MailFrame", "OpenMailFrame", "TradeFrame", "GameMenuFrame",
+    "EditModeManagerFrame", "EditModeSystemSettingsDialog", "EditModeLayoutDialog", "EditModeImportLayoutDialog",
+    "EditModeImportLayoutLinkDialog", "EditModeUnsavedChangesDialog",
+    "ReadyCheckFrame", "RolePollPopup", "GuildInviteFrame", "LFGInvitePopup", "PVPReadyDialog", "PVPRoleCheckPopup",
+    "PVPFramePopup", "PVPMatchResults", "PetBattleQueueReadyFrame",
+    "RaidFrame", "RaidInfoFrame", "CompactRaidFrameManager",
+    "FriendsFrame", "FriendsFriendsFrame", "AddFriendFrame", "BattleNetInviteFrame", "QuickJoinRoleSelectionFrame",
+    "RecruitAFriendRewardsFrame", "RecruitAFriendRecruitmentFrame",
+    "QuestMapFrame.QuestsFrame.DetailsFrame", "QuestLogPopupDetailFrame",
+    "BankFrame", "BankCleanUpConfirmationPopup", "CharacterFrame", "GearManagerPopupFrame", "CurrencyTransferMenu",
+    "DressUpFrame", "SideDressUpFrame", "WardrobeCustomSetEditFrame",
+    "AddonList", "AddonDialog", "SettingsPanel", "ChatConfigFrame", "ChannelFrame", "CreateChannelPopup",
+    "ColorPickerFrame", "QuickKeybindFrame",
+    "CoinPickupFrame", "TutorialFrame", "BasicMessageDialog", "RatingMenuFrame", "UIWidgetCenterDisplayFrame",
+    "VoiceChatPromptActivateChannel", "BrowserSettingsTooltip", "EventToastManagerFrame", "ModelPreviewFrame",
+    "TabardFrame", "GuildRegistrarFrame", "PetitionFrame", "GuildRenameFrame", "PetStableFrame",
+    "CommunitiesFrame", "CommunitiesSettingsDialog", "CommunitiesTicketManagerDialog", "CommunitiesGuildTextEditFrame",
+    "CommunitiesGuildLogFrame", "CommunitiesAvatarPickerDialog",
+    "ReportFrame", "ReportCheatingDialog", "ScriptErrorsFrame", "SplashFrame", "CinematicFrame", "MovieFrame",
+    -- Windows seen every session whose only red button is the close one.
+    "MerchantFrame", "LootFrame", "TaxiFrame", "ItemTextFrame", "WorldMapFrame.BorderFrame",
+    "ContainerFrame1.CloseButton", "ContainerFrame2.CloseButton", "ContainerFrame3.CloseButton",
+    "ContainerFrame4.CloseButton", "ContainerFrame5.CloseButton", "ContainerFrame6.CloseButton",
+    "ContainerFrame7.CloseButton", "ContainerFrameCombinedBags.CloseButton",
+    -- The item link tooltip and the battleground scoreboard: their close
+    -- button alone (the tooltip itself is never hooked or looked through).
+    "ItemRefTooltip.CloseButton", "PVPMatchScoreboard.CloseButton",
+    -- With their Blizzard addon, loaded when first needed.
+    "DeathRecapFrame", "AuctionHouseFrame", "MacroFrame", "MacroPopupFrame", "GuildBankFrame", "GuildBankPopupFrame",
+    "GuildControlUI", "CalendarFrame", "CalendarViewEventFrame", "CalendarCreateEventFrame", "CalendarMassInviteFrame",
+    "CalendarEventPickerFrame", "CalendarTexturePickerFrame", "ClassTrainerFrame", "PlayerSpellsFrame",
+    "ClassTalentLoadoutImportDialog", "ClassTalentLoadoutEditDialog", "ClassTalentLoadoutCreateDialog",
+    "ProfessionsFrame", "LFGListingFrame", "LFGBrowseFrame", "InspectFrame", "BarberShopFrame", "BlackMarketFrame",
+    "ItemSocketingFrame", "ItemUpgradeFrame", "TransmogFrame", "CollectionsJournal", "AchievementFrame",
+    "ClickBindingFrame", "PlayerChoiceFrame",
+    "FlightMapFrame.BorderFrame", "ProfessionsBookFrame", "TimeManagerFrame", "StopwatchFrame", "LFGParentFrame",
+}
+-- The dialog boxes' red buttons (UI-DialogBox-Button art, no panel pieces),
+-- by window: true for the pop-ups' ButtonContainer.Buttons and ExtraButton
+-- (GameDialog.xml), or the buttons' own paths.
+local DIALOG_BUTTONS = {
+    StaticPopup1 = true, StaticPopup2 = true, StaticPopup3 = true, StaticPopup4 = true, InstanceAbandonPopup = true,
+    AddFriendFrame = { "AddFriendFrame.InfoFrame.OkayButton", "AddFriendFrame.EntryFrame.EditBoxContainer.AcceptButton",
+        "AddFriendFrame.EntryFrame.EditBoxContainer.CancelButton" },
+    BasicMessageDialog = { "BasicMessageDialogButton" },
+    TutorialFrame = { "TutorialFrameOkayButton" },
+}
+for _, key in ipairs({ "CheckStartDialog", "StartDialog", "CheckStopDialog", "CheckLeavePartyDialog",
+    "CheckConvertToRaidDialog", "ConfirmJoinGroupRequestDialog", "ConfirmInviteToGroupDialog",
+    "ConfirmInviteToGroupReceivedDialog", "ConfirmRequestToJoinGroupDialog", "ConfirmBNJoinGroupRequestDialog",
+    "ConfirmInviteTravelPassConfirmationDialog" }) do
+    local path = "QuestSessionManager." .. key
+    RED_WINDOWS[#RED_WINDOWS + 1] = path
+    DIALOG_BUTTONS[path] = true
+end
+local redWindows = setmetatable({}, { __mode = "k" }) -- window: hooked
+local redrawHooked = setmetatable({}, { __mode = "k" }) -- button: its redraws hooked
+
+-- A frame that may be read and coloured: never a forbidden one.
+local function Usable(frame)
+    return type(frame) == "table" and type(frame.IsForbidden) == "function" and not frame:IsForbidden()
+end
+
+local function IsTexture(region)
+    return type(region) == "table" and type(region.IsObjectType) == "function" and region:IsObjectType("Texture")
+end
+
+-- "QuestMapFrame.QuestsFrame.DetailsFrame": read from the globals, key by key.
+local function Resolve(path)
+    local node = _G
+    for key in path:gmatch("[^.]+") do
+        if node ~= _G and not Usable(node) then return nil end
+        node = node[key]
+        if node == nil then return nil end
+    end
+    if Usable(node) then return node end
+end
+
+-- A panel button: its three pieces, and one of the game's own panel button
+-- handlers on it (bound by name as the button was made, so the same function).
+local function IsPanelRed(button)
+    if not (IsTexture(button.Left) and IsTexture(button.Middle) and IsTexture(button.Right)) then return false end
+    for script, name in pairs(PANEL_HANDLERS) do
+        local native = _G[name]
+        if native ~= nil and button:GetScript(script) == native then return true end
+    end
+    return false
+end
+
+-- A three-slice button in the red or gold-red art (128-RedButton,
+-- 128-GoldRedButton): its three pieces.
+local function IsSliceRed(button)
+    local atlas = button.atlasName
+    return type(atlas) == "string" and atlas:find("RedButton", 1, true) ~= nil
+        and IsTexture(button.Left) and IsTexture(button.Center) and IsTexture(button.Right)
+end
+
+-- The close and minimise buttons' art, by the lower-case name of their
+-- Normal texture's atlas or file ("redbutton-exit-c60" on Forever, or
+-- "...\ui-panel-minimizebutton-up" for the classic one), and the role each
+-- of their states takes.
+local CROSS = {
+    art = { "redbutton-exit", "redbutton-minicondense", "redbutton-condense", "redbutton-expand",
+        "ui-panel-minimizebutton", "ui-panel-hidebutton", "ui-panel-biggerbutton", "ui-panel-smallerbutton" },
+    states = { { "GetNormalTexture", "cross" }, { "GetPushedTexture", "cross" }, { "GetDisabledTexture", "cross" },
+        { "GetHighlightTexture", "glow" } },
+}
+
+-- Reads only: the atlas, else the file path, never a number.
+local function ArtName(texture)
+    if not IsTexture(texture) then return nil end
+    local name = type(texture.GetAtlas) == "function" and texture:GetAtlas() or nil
+    if type(name) ~= "string" or name == "" then
+        name = type(texture.GetTextureFilePath) == "function" and texture:GetTextureFilePath() or nil
+        if type(name) ~= "string" then name = texture:GetTexture() end
+    end
+    if type(name) == "string" then return name:lower() end
+end
+
+local function IsCross(button)
+    local get = button.GetNormalTexture
+    local name = type(get) == "function" and ArtName(get(button)) or nil
+    if not name then return false end
+    for _, art in ipairs(CROSS.art) do
+        if name:find(art, 1, true) then return true end
+    end
+    return false
+end
+
+-- Normal, pushed and disabled in the cross grey, the glow without its colour.
+local function PaintCross(button)
+    for _, state in ipairs(CROSS.states) do
+        local get = button[state[1]]
+        local texture = type(get) == "function" and get(button) or nil
+        if IsTexture(texture) then ns.DarkWindowArt(texture, state[2]) end
+    end
+end
+
+local function PaintNative(button, force)
+    for _, key in ipairs(NATIVE_PIECES) do
+        local piece = button[key]
+        if IsTexture(piece) then ns.DarkWindowArt(piece, "button", force) end
+    end
+    local glow = button:GetHighlightTexture()
+    if glow then ns.DarkWindowArt(glow, "glow", force) end
+end
+
+local function Repaint(button)
+    if ns.DarkWindowsOn() then PaintNative(button, true) end
+end
+
+-- A close or minimise button's states are separate textures the game only
+-- swaps art on (SetAtlas, SetNormalTexture), never through the redraws
+-- above, so it needs no repaint hooks.
+local function DarkButton(button)
+    if IsCross(button) then
+        PaintCross(button)
+        return true
+    end
+    if not (IsPanelRed(button) or IsSliceRed(button)) then return false end
+    PaintNative(button)
+    if REPAINT_AFTER_REDRAW and not redrawHooked[button] and not InCombatLockdown() then
+        redrawHooked[button] = true
+        for _, script in ipairs(REDRAWS) do button:HookScript(script, Repaint) end
+    end
+    return true
+end
+
+-- One of the game's red panel, three-slice or close buttons, darkened like
+-- EraUI's (EraUI's own UIPanelButtonTemplate buttons call it as they are
+-- made). False when it isn't one.
+function ns.DarkNativeButton(button)
+    if not Usable(button) or not EraUI:GetSetting("darkMode") then return false end
+    return DarkButton(button)
+end
+
+-- A close, minimise or maximise button EraUI makes or skins (its classic X
+-- art, or the game's own): all its states in the cross grey, its glow
+-- without its colour, in Dark Mode. Colours only.
+function ns.DarkCloseButton(button)
+    if not Usable(button) or not EraUI:GetSetting("darkMode") then return end
+    PaintCross(button)
+end
+
+local function DarkRedIn(frame, depth)
+    if not Usable(frame) then return end
+    if frame:IsObjectType("Button") then DarkButton(frame) end
+    if depth <= 0 then return end
+    for _, child in ipairs({ frame:GetChildren() }) do DarkRedIn(child, depth - 1) end
+end
+
+-- Its pieces join Dark Windows even while the tick is off (nothing is set
+-- then), so ticking it on darkens a window that is already open.
+local function DarkWindow(frame, dialog)
+    if not Usable(frame) then return end
+    DarkRedIn(frame, RED_DEPTH)
+    if dialog == true then
+        local container = frame.ButtonContainer
+        if Usable(container) and type(container.Buttons) == "table" then
+            for _, button in ipairs(container.Buttons) do
+                if Usable(button) then ns.DarkRedButton(button) end
+            end
+        end
+        if Usable(frame.ExtraButton) then ns.DarkRedButton(frame.ExtraButton) end
+    elseif dialog then
+        for _, path in ipairs(dialog) do ns.DarkRedButton(Resolve(path)) end
+    end
+end
+
+-- Hooked once, out of a fight; painted at once if it is already open.
+local function HookRed(path, dialog)
+    local frame = Resolve(path)
+    if not frame then return false end
+    if redWindows[frame] then return true end
+    if InCombatLockdown() then return false end
+    redWindows[frame] = true
+    frame:HookScript("OnShow", function(self) DarkWindow(self, dialog) end)
+    if frame:IsShown() then DarkWindow(frame, dialog) end
+    return true
+end
+
+-- Each window as soon as it is there (its addon loaded, out of a fight).
+-- Without Dark Mode nothing is ever hooked: it needs a reload to come on.
+if CreateFrame then
+    local pending = {} -- path: its dialog buttons, or false
+    for _, path in ipairs(RED_WINDOWS) do pending[path] = DIALOG_BUTTONS[path] or false end
+    local redWatch = CreateFrame("Frame")
+    redWatch:RegisterEvent("ADDON_LOADED")
+    redWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
+    redWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+    redWatch:SetScript("OnEvent", function(self, event)
+        if not EraUI:GetSetting("darkMode") then
+            if event == "PLAYER_ENTERING_WORLD" then self:UnregisterAllEvents() end
+            return
+        end
+        for path, dialog in pairs(pending) do
+            if HookRed(path, dialog) then pending[path] = nil end
+        end
+    end)
+end
 
 -- Every piece, after the tick, Dark Mode or the Darkness slider changes.
 function ns.RefreshDarkWindows()

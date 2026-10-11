@@ -29,7 +29,18 @@
 -- gives today's exact brown-grey; both ways live. The class trainer, built
 -- on the real skill shell: every edge and border piece of its window and
 -- boxes, the money box's gold-edged border included, in Dark Mode's grey,
--- and its greeting's room between the title strip and the list.
+-- and its greeting's room between the title strip and the list. The game's
+-- own red buttons in its windows (quest NPC, trade, pop-ups with Forever's
+-- buttons, the game menu, the auction house...): hooked once per window,
+-- out of a fight, only in Dark Mode; their pieces darkened as each window
+-- opens, their labels, tabs, icon buttons and forbidden frames left alone,
+-- no key written and no handler replaced; and the repaint fallback, off as
+-- shipped, against a game whose redraws reset the colours. The red X close
+-- buttons and the minimise and maximise pair, the game's in its windows and
+-- EraUI's own: every state in the cross grey (never below .6, so the light
+-- cross drawn in the same art still reads), the glow without its colour,
+-- nothing else touched, the bags' item buttons and the maps' pins never
+-- looked through, live with the slider and the tick.
 local checks = 0
 local function equal(got, want, label)
     checks = checks + 1
@@ -132,7 +143,8 @@ function Methods:GetEffectiveScale() return 1 end
 function Methods:GetFontString() return self.fontString end
 function Methods:SetFontString(text) self.fontString = text end
 function Methods:GetRegions() return table.unpack(self.regions or {}) end
-function Methods:GetChildren() return end
+function Methods:GetChildren() return table.unpack(self.children or {}) end
+function Methods:IsForbidden() return self.forbidden == true end
 function Methods:CreateTexture(_, layer, _, sublevel)
     local t = Texture(self)
     t.layer, t.sublevel = layer, sublevel
@@ -281,7 +293,11 @@ local function Load(path) assert(loadfile(path, "t", env))("EraUI", E) end
 Load("Core/ClassicAssets.lua")
 Load("Core/ClassicWidgets.lua")
 Load("Classic/Textures.lua")
+local appearanceFrames = #frames
 Load("Core/Appearance.lua")
+-- The one frame Core/Appearance.lua makes: its watch for the game's windows.
+local redWatch = frames[appearanceFrames + 1]
+equal(#frames - appearanceFrames, 1, "setup: Core/Appearance.lua makes one frame, its watch for the game's red buttons")
 Load("Classic/Widgets.lua")
 Load("Classic/OptionsWindow.lua")
 
@@ -737,6 +753,34 @@ for _, f in ipairs(frames) do if f.parent == popup and f.backdrop then popupArt 
 equal(popupArt ~= nil and popupArt.backdrop.edgeFile:find("UI%-DialogBox%-Border") ~= nil, true, "the pop-up's box is the dialog art")
 equal(DarkBox(popupArt), true, "the pop-up's box: border in Dark Mode's grey, fill in the buttons' grey")
 equal(IsButton(popup.Buttons[1].stateTex.Normal), true, "and its buttons dark, as before")
+-- Forever's pop-ups keep their buttons in ButtonContainer, plus ExtraButton,
+-- with the game's own red dialog art (Release Spirit, Recap).
+local function DialogButton()
+    local button = NewButton()
+    button:SetNormalTexture("Interface\\Buttons\\UI-DialogBox-Button-Up")
+    button:SetPushedTexture("Interface\\Buttons\\UI-DialogBox-Button-Down")
+    button:SetDisabledTexture("Interface\\Buttons\\UI-DialogBox-Button-Disabled")
+    button:SetHighlightTexture("Interface\\Buttons\\UI-DialogBox-Button-Highlight", "ADD")
+    return button
+end
+local foreverPopup = env.CreateFrame("Frame", "StaticPopup2", env.UIParent)
+foreverPopup.ButtonContainer = { Buttons = { DialogButton(), DialogButton() } }
+foreverPopup.ExtraButton = DialogButton()
+-- ExtraButton lands in the pop-up's own Buttons (StaticPopupButtonTemplate's
+-- parentArray), Button1-4 in the container's.
+foreverPopup.Buttons = { foreverPopup.ExtraButton }
+E.modules.ClassicPanels:Refresh()
+local fb = foreverPopup.ButtonContainer.Buttons
+equal(IsButton(fb[1].stateTex.Normal) and IsButton(fb[2].stateTex.Normal) and IsButton(foreverPopup.ExtraButton.stateTex.Normal),
+    true, "Forever's pop-up buttons darkened too")
+equal(IsButton(fb[1].stateTex.Pushed) and IsButton(fb[1].stateTex.Disabled), true, "pushed and disabled art as well")
+equal(fb[1].stateTex.Normal.file:find("UI%-DialogBox%-Button%-Up") ~= nil, true, "the game's own dialog art kept, only darkened")
+local extraArt = foreverPopup.ExtraButton.stateTex
+equal(extraArt.Normal.file:find("UI%-DialogBox%-Button%-Up") ~= nil and extraArt.Pushed.file:find("UI%-DialogBox%-Button%-Down") ~= nil
+    and E.classicButtonResults[foreverPopup.ExtraButton] == nil, true,
+    "Forever's ExtraButton keeps the game's dialog art like Button1-4, not the classic panel art")
+equal(IsButton(extraArt.Pushed) and IsButton(extraArt.Disabled) and extraArt.Highlight.desaturated == true, true,
+    "and is darkened the same way")
 -- The status report and the welcome: box and header plate.
 Load("Classic/Status.lua")
 ns.StatusText = function() return "" end
@@ -792,7 +836,7 @@ end
 for _, t in ipairs(textures) do
     if type(t.file) == "string" and t.file:find("UI%-DialogBox%-Header") then headers[#headers + 1] = t end
 end
-equal(#dialogBoxes, 8, "the game menu, pop-up, status, welcome, drop down, report and two inset boxes")
+equal(#dialogBoxes, 9, "the game menu, two pop-ups, status, welcome, drop down, report and two inset boxes")
 equal(#headers, 3, "the game menu's, the status report's and the welcome's header plates")
 for i, box in ipairs(dialogBoxes) do equal(BorderIs(box, Grey()), true, "dialog box " .. i .. ": its border in Dark Mode's grey") end
 for i, t in ipairs(headers) do equal(IsGrey(t), true, "header plate " .. i .. " in Dark Mode's grey") end
@@ -1284,5 +1328,925 @@ local touched = 0
 for _, t in ipairs(TipPieces(fresh)) do touched = touched + t.sets end
 equal(touched, 0, "without Dark Mode: a help tip is left exactly as the game drew it")
 E.settings.darkMode, E.settings.darkModeDarkness = true, 90
+
+---------------------------------------------------------------------------
+-- The game's own red buttons in its windows (Core/Appearance.lua): each
+-- listed window hooked once (OnShow, out of a fight, in Dark Mode, once its
+-- addon has loaded); as it opens, its panel buttons (any one of the game's
+-- own panel button handlers on them) and red or gold-red three-slice buttons
+-- up to seven levels down, and the dialog boxes' buttons, take the lifted
+-- grey and their glow loses its colour; tabs, icon buttons, labels, other art
+-- and forbidden frames (a child, a listed window, a frame on a listed
+-- window's path) are left alone; no key is written on the game's frames
+-- and no handler replaced. The tick, the slider and the off-restore reach
+-- them; without Dark Mode nothing is hooked. Then the repaint fallback
+-- (REPAINT_AFTER_REDRAW, off as shipped) on, against a game whose redraws
+-- reset a texture's colours. (A function of its own: the file's main chunk
+-- is near Lua's 200 locals.)
+---------------------------------------------------------------------------
+;(function()
+    E.settings.darkMode, E.settings.darkWindows, E.settings.enabled, E.settings.blackPages = true, true, true, nil
+    E.settings.darkModeDarkness, E.settings.popups, E.settings.gameMenu = 90, false, false
+    ns.RefreshDarkWindows()
+    equal(redWatch.events.ADDON_LOADED and redWatch.events.PLAYER_ENTERING_WORLD and redWatch.events.PLAYER_REGEN_ENABLED,
+        true, "the game's windows: hooked as they load, once in the world, and after a fight")
+    -- The game's panel button handlers, each drawing the three pieces again;
+    -- a three-slice button's own UpdateButton sets their atlases again.
+    local PANEL = "Interface\\Buttons\\UI-Panel-Button-"
+    local function Redraw(file)
+        return function(self) for _, key in ipairs({ "Left", "Middle", "Right" }) do self[key]:SetTexture(PANEL .. file) end end
+    end
+    env.UIPanelButton_OnMouseDown, env.UIPanelButton_OnMouseUp = Redraw("Down"), Redraw("Up")
+    env.UIPanelButton_OnShow, env.UIPanelButton_OnEnable, env.UIPanelButton_OnDisable = Redraw("Up"), Redraw("Up"), Redraw("Disabled")
+    function Methods:SetAtlas(atlas) self.atlas = atlas end
+    local REDRAWS = { "OnMouseDown", "OnMouseUp", "OnShow", "OnDisable", "OnEnable" }
+
+    -- The game's frames this section builds, and every piece of art on them.
+    local blizzard, art = {}, {}
+    local function Child(parent, kind, name)
+        local f = env.CreateFrame(kind or "Frame", name, parent)
+        parent.children = parent.children or {}
+        table.insert(parent.children, f)
+        blizzard[#blizzard + 1] = f
+        return f
+    end
+    local function Window(name)
+        local w = env.CreateFrame("Frame", name, env.UIParent)
+        w.shown = false
+        blizzard[#blizzard + 1] = w
+        return w
+    end
+    local function Art(owner)
+        local t = Texture(owner)
+        art[#art + 1] = t
+        return t
+    end
+    local function StateArt(button, state, file)
+        button["Set" .. state .. "Texture"](button, file)
+        art[#art + 1] = button.stateTex[state]
+    end
+    local function PanelButton(parent, label)
+        local b = Child(parent, "Button")
+        for _, key in ipairs({ "Left", "Middle", "Right" }) do b[key] = Art(b); b[key].file = PANEL .. "Up" end
+        for _, script in ipairs(REDRAWS) do b.scripts[script] = env["UIPanelButton_" .. script] end
+        b.scripts.OnClick = function() end
+        StateArt(b, "Highlight", PANEL .. "Highlight")
+        b.fontString = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b.fontString.text = label
+        return b
+    end
+    local function SliceButton(parent, atlas)
+        local b = Child(parent, "Button")
+        b.atlasName = atlas
+        for _, key in ipairs({ "Left", "Center", "Right" }) do b[key] = Art(b) end
+        -- ThreeSliceButtonMixin.UpdateButton, copied onto each button.
+        function b:UpdateButton(state)
+            local postfix = (state == "PUSHED" and "-Pressed") or (state == "DISABLED" and "-Disabled") or ""
+            self.Left:SetAtlas(self.atlasName .. "-Left" .. postfix)
+            self.Center:SetAtlas("_" .. self.atlasName .. "-Center" .. postfix)
+            self.Right:SetAtlas(self.atlasName .. "-Right" .. postfix)
+        end
+        b.scripts.OnMouseDown = function(self) self:UpdateButton("PUSHED") end
+        b.scripts.OnMouseUp = function(self) self:UpdateButton("NORMAL") end
+        b.scripts.OnDisable = function(self) self:UpdateButton("DISABLED") end
+        b.scripts.OnShow = function(self) self:UpdateButton() end
+        b.scripts.OnEnable = b.scripts.OnShow
+        StateArt(b, "Highlight", atlas .. "-Highlight")
+        b.fontString = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        b:UpdateButton()
+        return b
+    end
+    -- A tab: three pieces too, but its own handlers.
+    local function TabLike(parent)
+        local b = Child(parent, "Button")
+        for _, key in ipairs({ "Left", "Middle", "Right" }) do b[key] = Art(b) end
+        b.scripts.OnShow, b.scripts.OnClick = function() end, function() end
+        StateArt(b, "Highlight", "Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight")
+        return b
+    end
+    local function IconButton(parent)
+        local b = Child(parent, "Button")
+        StateArt(b, "Normal", "Interface\\Icons\\INV_Misc_QuestionMark")
+        StateArt(b, "Highlight", "Interface\\Buttons\\ButtonHilight-Square")
+        return b
+    end
+    -- The dialog boxes' buttons: the game's UI-DialogBox-Button art.
+    local function DialogArtButton(parent)
+        local b = Child(parent, "Button")
+        StateArt(b, "Normal", "Interface\\Buttons\\UI-DialogBox-Button-Up")
+        StateArt(b, "Pushed", "Interface\\Buttons\\UI-DialogBox-Button-Down")
+        StateArt(b, "Disabled", "Interface\\Buttons\\UI-DialogBox-Button-Disabled")
+        StateArt(b, "Highlight", "Interface\\Buttons\\UI-DialogBox-Button-Highlight")
+        return b
+    end
+    -- A forbidden frame: anything but IsForbidden fails the test.
+    local function Forbidden()
+        return setmetatable({}, { __index = function(_, key)
+            if key == "IsForbidden" then return function() return true end end
+            error("touched a forbidden frame (" .. tostring(key) .. ")")
+        end })
+    end
+    local function ForbiddenChild(parent)
+        local f = Forbidden()
+        parent.children = parent.children or {}
+        table.insert(parent.children, f)
+        return f
+    end
+    local function Pieces(b)
+        local list = {}
+        for _, key in ipairs({ "Left", "Middle", "Right", "Center" }) do if b[key] then list[#list + 1] = b[key] end end
+        return list
+    end
+    local function IsGlow(t) return t.desaturated == true and IsWhite(t) end
+    local function DarkNative(b, label)
+        for i, t in ipairs(Pieces(b)) do equal(IsButton(t), true, label .. ": piece " .. i .. " in the lifted grey, desaturated") end
+        equal(IsGlow(b.stateTex.Highlight), true, label .. ": its glow without its colour")
+    end
+    local function DarkDialogButton(b, label)
+        for _, state in ipairs({ "Normal", "Pushed", "Disabled" }) do equal(IsButton(b.stateTex[state]), true, label .. ": " .. state) end
+        equal(IsGlow(b.stateTex.Highlight), true, label .. ": its glow without its colour")
+    end
+    local function Untouched(b, label)
+        local n = 0
+        for _, t in ipairs(Pieces(b)) do n = n + t.sets end
+        for _, t in pairs(b.stateTex or {}) do n = n + t.sets end
+        if b.fontString then n = n + b.fontString.sets end
+        equal(n, 0, label .. ": nothing set")
+    end
+    local function ArtSets(list)
+        local n = 0
+        for _, b in ipairs(list) do
+            for _, t in ipairs(Pieces(b)) do n = n + t.sets end
+            for _, t in pairs(b.stateTex or {}) do n = n + t.sets end
+        end
+        return n
+    end
+    -- Keys on the game's frames and their art, and their handlers, as built;
+    -- the art may only take the colour setters' own state.
+    local snaps = {}
+    local COLOUR_STATE = { desaturated = true }
+    local function Snap()
+        for _, list in ipairs({ blizzard, art }) do
+            for _, f in ipairs(list) do
+                if not snaps[f] then
+                    local keys, scripts = {}, {}
+                    for key in pairs(f) do keys[key] = true end
+                    for key, fn in pairs(f.scripts) do scripts[key] = fn end
+                    snaps[f] = { keys = keys, scripts = scripts }
+                end
+            end
+        end
+    end
+    local function NothingWritten(label)
+        local wrote = {}
+        for f, snap in pairs(snaps) do
+            for key in pairs(f) do
+                if not snap.keys[key] and not (f.objectType == "Texture" and COLOUR_STATE[key]) then
+                    wrote[#wrote + 1] = tostring(f.name or f.objectType) .. "." .. tostring(key)
+                end
+            end
+            for key, fn in pairs(f.scripts) do if snap.scripts[key] ~= fn then wrote[#wrote + 1] = "a handler: " .. key end end
+            for key in pairs(snap.scripts) do if f.scripts[key] == nil then wrote[#wrote + 1] = "a handler gone: " .. key end end
+        end
+        equal(#wrote, 0, label .. (#wrote > 0 and (": " .. table.concat(wrote, ", ")) or ""))
+    end
+
+    -- The quest NPC window: Accept and Decline, a button four levels down
+    -- and one seven down; one eight down is past the walk. A tab, an icon
+    -- button and a forbidden frame beside them.
+    local quest = Window("QuestFrame")
+    local accept, decline = PanelButton(quest, "Accept"), PanelButton(quest, "Decline")
+    local deep = Child(Child(Child(quest)))
+    local complete = PanelButton(deep, "Complete Quest")
+    for _ = 1, 3 do deep = Child(deep) end
+    local seventh = PanelButton(deep, "Seven down")
+    local eighth = PanelButton(Child(deep), "Eight down")
+    local tab, icon = TabLike(quest), IconButton(quest)
+    ForbiddenChild(quest)
+    -- Trade (shown in a fight below), the game menu built by its pool with
+    -- the skin off, a pop-up with Forever's buttons and the pop-up skin off,
+    -- a quest session dialog, the add friend dialog and the message box.
+    local trade = Window("TradeFrame")
+    local tradeButton = PanelButton(trade, "Trade")
+    local letter = Window("OpenMailFrame") -- first opened with the tick off
+    local reply = PanelButton(letter, "Reply")
+    local gameMenu = Window("GameMenuFrame")
+    local menuSlices = { SliceButton(gameMenu, "128-RedButton"), SliceButton(gameMenu, "128-RedButton") }
+    local popup3 = Window("StaticPopup3")
+    popup3.ButtonContainer = Child(popup3)
+    local popupButtons = { DialogArtButton(popup3.ButtonContainer), DialogArtButton(popup3.ButtonContainer) }
+    popup3.ButtonContainer.Buttons = { popupButtons[1], popupButtons[2] }
+    popup3.ExtraButton = DialogArtButton(popup3)
+    popup3.Buttons = { popup3.ExtraButton }
+    local sessions = Window("QuestSessionManager")
+    sessions.shown = true
+    local invite = Child(sessions)
+    invite.shown = false
+    sessions.ConfirmInviteToGroupReceivedDialog = invite
+    invite.ButtonContainer = Child(invite)
+    invite.ButtonContainer.Buttons = { DialogArtButton(invite.ButtonContainer), DialogArtButton(invite.ButtonContainer) }
+    local addFriend = Window("AddFriendFrame")
+    addFriend.InfoFrame = Child(addFriend)
+    addFriend.InfoFrame.OkayButton = DialogArtButton(addFriend.InfoFrame)
+    addFriend.EntryFrame = Child(addFriend)
+    addFriend.EntryFrame.EditBoxContainer = Child(addFriend.EntryFrame)
+    local box = addFriend.EntryFrame.EditBoxContainer
+    box.AcceptButton, box.CancelButton = DialogArtButton(box), DialogArtButton(box)
+    local friendButtons = { addFriend.InfoFrame.OkayButton, box.AcceptButton, box.CancelButton }
+    local message = Window("BasicMessageDialog")
+    local messageButton = DialogArtButton(message)
+    env.BasicMessageDialogButton = messageButton
+    -- A listed window that is forbidden, and a forbidden frame on the way to
+    -- a listed one (QuestMapFrame.QuestsFrame.DetailsFrame): nothing but
+    -- IsForbidden is ever asked of them (anything else fails the test).
+    env.RatingMenuFrame, env.QuestMapFrame = Forbidden(), Forbidden()
+    -- The Darkness at 90, the window list's other windows already hooked.
+    Snap()
+    equal(quest.hooks.OnShow, nil, "setup: nothing hooked before entering the world")
+
+    FireTo(redWatch, "PLAYER_ENTERING_WORLD")
+    for _, w in ipairs({ quest, trade, letter, gameMenu, popup3, invite, addFriend, message }) do
+        equal(w.hooks.OnShow and #w.hooks.OnShow, 1, (w.name or "the quest session dialog") .. ": one OnShow post-hook")
+    end
+    equal(sessions.hooks.OnShow, nil, "the quest session manager itself isn't listed, only its dialogs")
+    equal(accept.Left.sets + accept.stateTex.Highlight.sets, 0, "a closed window is painted only as it opens")
+
+    -- 1. Opening the window: its red buttons dark, the rest left alone.
+    quest:Show()
+    DarkNative(accept, "Accept")
+    DarkNative(decline, "Decline")
+    DarkNative(complete, "a red button four levels down")
+    DarkNative(seventh, "a red button seven levels down")
+    Untouched(eighth, "a red button eight levels down (past the walk)")
+    equal(accept.fontString.sets, 0, "its label keeps its gold")
+    Untouched(tab, "a tab (three pieces, its own handlers)")
+    Untouched(icon, "an icon button")
+    equal(ns.DarkNativeButton(tab), false, "a tab isn't taken for a red button")
+    -- 2. The game drawing a button again (pressed, released, disabled,
+    -- enabled, shown): the colours outlast it (to be confirmed in game; the
+    -- repaint fallback is below), and nothing is set again.
+    local before = ArtSets({ accept, decline })
+    for _, script in ipairs(REDRAWS) do accept:Fire(script) end
+    equal(accept.Left.file, PANEL .. "Up", "setup: the game drew the pieces again")
+    DarkNative(accept, "Accept after the game draws it again")
+    equal(ArtSets({ accept, decline }), before, "and nothing set again")
+    equal(accept.hooks.OnMouseDown, nil, "no hooks of its own on the button (the repaint fallback is off)")
+    -- 5. A pop-up with the pop-up skin off: Forever's buttons still dark,
+    -- the game's dialog art kept.
+    popup3:Show()
+    DarkDialogButton(popupButtons[1], "pop-up Button1, pop-up skin off")
+    DarkDialogButton(popupButtons[2], "pop-up Button2, pop-up skin off")
+    DarkDialogButton(popup3.ExtraButton, "pop-up ExtraButton, pop-up skin off")
+    equal(popup3.ExtraButton.stateTex.Normal.file:find("UI%-DialogBox%-Button%-Up") ~= nil, true, "the game's dialog art kept")
+    invite:Show()
+    for i, b in ipairs(invite.ButtonContainer.Buttons) do DarkDialogButton(b, "quest session dialog button " .. i) end
+    addFriend:Show()
+    for i, b in ipairs(friendButtons) do DarkDialogButton(b, "add friend button " .. i) end
+    message:Show()
+    DarkDialogButton(messageButton, "the message box's button")
+    -- 6. The game menu with its skin off: its pool's three-slice buttons.
+    gameMenu:Show()
+    for i, b in ipairs(menuSlices) do DarkNative(b, "game menu button " .. i .. ", skin off") end
+    for _ = 1, 2 do
+        for _, b in ipairs(menuSlices) do for _, script in ipairs(REDRAWS) do b:Fire(script) end end
+    end
+    equal(menuSlices[1].Left.atlas, "128-RedButton-Left", "setup: the game set the atlases again")
+    DarkNative(menuSlices[1], "a game menu button after the game draws it again")
+    -- 4. In a fight: a window that is already hooked is painted as it opens.
+    combat = true
+    trade:Show()
+    DarkNative(tradeButton, "Trade, opened in a fight")
+    combat = false
+
+    -- 3. A window that comes with its addon: hooked as it loads. Red and
+    -- gold-red three-slice buttons and a panel button inside go dark; other
+    -- three-slice art is left alone.
+    local auction = Window("AuctionHouseFrame")
+    local red, goldRed, plain = SliceButton(auction, "128-RedButton"), SliceButton(auction, "128-GoldRedButton"),
+        SliceButton(auction, "common-button-square-gray")
+    local bid = PanelButton(Child(Child(auction)), "Bid")
+    -- Templates built on the panel button replace some of its handlers (the
+    -- auction house's search button its OnShow, the friends list's bottom
+    -- buttons their mouse down and up): any one of the five is enough. One
+    -- button keeping each handler alone.
+    local single = {}
+    for _, kept in ipairs(REDRAWS) do
+        local b = PanelButton(auction, kept .. " only")
+        for _, script in ipairs(REDRAWS) do
+            if script ~= kept then b.scripts[script] = function() end end
+        end
+        single[#single + 1] = b
+    end
+    Snap()
+    equal(auction.hooks.OnShow, nil, "setup: the auction house came after entering the world")
+    FireTo(redWatch, "ADDON_LOADED", "Blizzard_AuctionHouseUI")
+    equal(#auction.hooks.OnShow, 1, "hooked as its addon loads")
+    auction:Show()
+    DarkNative(red, "a 128-RedButton three-slice button")
+    DarkNative(goldRed, "a 128-GoldRedButton one (its gold goes grey too)")
+    DarkNative(bid, "a panel button two levels down")
+    for i, b in ipairs(single) do DarkNative(b, "a panel button keeping only the game's " .. REDRAWS[i]) end
+    Untouched(plain, "a three-slice button in other art")
+    -- 4. Loaded in a fight: hooked when it ends, and painted at once if open.
+    combat = true
+    local macro = Window("MacroFrame")
+    macro.shown = true
+    local save = PanelButton(macro, "Save")
+    Snap()
+    FireTo(redWatch, "ADDON_LOADED", "Blizzard_MacroUI")
+    equal(macro.hooks.OnShow, nil, "not hooked in a fight")
+    equal(save.Left.sets, 0, "nor painted")
+    combat = false
+    FireTo(redWatch, "PLAYER_REGEN_ENABLED")
+    equal(#macro.hooks.OnShow, 1, "hooked once the fight is over")
+    DarkNative(save, "an open window, painted as it is hooked")
+    -- Hooked once, whatever comes later.
+    for _ = 1, 3 do FireTo(redWatch, "ADDON_LOADED", "Blizzard_MacroUI"); FireTo(redWatch, "PLAYER_REGEN_ENABLED") end
+    FireTo(redWatch, "PLAYER_ENTERING_WORLD")
+    for _, w in ipairs({ quest, trade, gameMenu, popup3, invite, addFriend, message, auction, macro }) do
+        equal(#w.hooks.OnShow, 1, (w.name or "the quest session dialog") .. ": still one OnShow post-hook")
+    end
+
+    -- 7. Opening again sets nothing; the tick off gives the red back once,
+    -- then leaves it; on, dark again; the slider follows.
+    local mine = { accept, decline, complete, seventh, tradeButton, red, goldRed, bid, save, menuSlices[1], menuSlices[2],
+        popupButtons[1], popupButtons[2], popup3.ExtraButton, messageButton }
+    for _, b in ipairs(invite.ButtonContainer.Buttons) do mine[#mine + 1] = b end
+    for _, b in ipairs(friendButtons) do mine[#mine + 1] = b end
+    local function AllRed(check, label)
+        for i, b in ipairs(mine) do
+            if b.Left then
+                for _, t in ipairs(Pieces(b)) do equal(check(t), true, label .. ": button " .. i) end
+            else
+                for _, state in ipairs({ "Normal", "Pushed", "Disabled" }) do equal(check(b.stateTex[state]), true, label .. ": button " .. i .. " " .. state) end
+            end
+        end
+    end
+    local windows = { quest, trade, gameMenu, popup3, invite, addFriend, message, auction, macro }
+    local function Reopen() for _, w in ipairs(windows) do w:Hide(); w:Show() end end
+    before = ArtSets(mine)
+    Reopen()
+    ns.RefreshDarkWindows(); ns.RefreshDarkness()
+    equal(ArtSets(mine), before, "opening the windows again sets nothing")
+    E.settings.darkWindows = false; ns.RefreshDarkWindows()
+    AllRed(function(t) return t.desaturated == false and IsWhite(t) end, "tick off: the game's red art as it was")
+    for i, b in ipairs(mine) do equal(b.stateTex.Highlight.desaturated == false and IsWhite(b.stateTex.Highlight), true, "tick off: glow " .. i) end
+    before = ArtSets(mine)
+    Reopen()
+    ns.RefreshDarkWindows(); ns.RefreshDarkness()
+    for _, script in ipairs(REDRAWS) do accept:Fire(script) end
+    equal(ArtSets(mine), before, "tick off: left alone after, opened again or drawn again")
+    letter:Show()
+    Untouched(reply, "tick off: a window first opened now")
+    E.settings.darkWindows = true; ns.RefreshDarkWindows()
+    AllRed(IsButton, "tick back on")
+    DarkNative(reply, "tick back on: the window opened with the tick off, still open, dark at once")
+    E.settings.darkModeDarkness = 58; ns.RefreshDarkness()
+    AllRed(IsButton, "Darkness 58")
+    equal(Near(accept.Left.colour[1], .94), true, "Darkness 58: the lifted grey of 58")
+    E.settings.darkModeDarkness = 90; ns.RefreshDarkness()
+    AllRed(IsButton, "Darkness 90 again")
+    -- EraUI's own UIPanelButtonTemplate buttons (the micro menu and bags
+    -- boxes, the eye's size button, the report window) as they are made.
+    local own = PanelButton(Window(nil), "Reset To Default Size")
+    equal(ns.DarkNativeButton(own), true, "EraUI's own panel button is taken for a red button")
+    DarkNative(own, "EraUI's own panel button")
+
+    -- 9. Nothing written on the game's frames, no handler replaced.
+    NothingWritten("no key written on the game's frames or their art, no handler replaced")
+
+    -- 8. Without Dark Mode (after a reload): a new window is never hooked.
+    E.settings.darkMode = false
+    local channels = Window("ChannelFrame")
+    local newChannel = PanelButton(channels, "New")
+    FireTo(redWatch, "PLAYER_ENTERING_WORLD")
+    equal(next(redWatch.events), nil, "without Dark Mode: the watch stops listening once in the world")
+    redWatch.scripts.OnEvent(redWatch, "ADDON_LOADED", "Blizzard_Channels")
+    redWatch.scripts.OnEvent(redWatch, "PLAYER_REGEN_ENABLED")
+    equal(channels.hooks.OnShow, nil, "without Dark Mode: a window is never hooked")
+    channels:Show()
+    Untouched(newChannel, "without Dark Mode: its red button")
+    equal(ns.DarkNativeButton(newChannel), false, "without Dark Mode: EraUI's own buttons left as they are")
+    Untouched(newChannel, "without Dark Mode: still")
+    E.settings.darkMode = true
+
+    -- The repaint fallback: a fresh load with REPAINT_AFTER_REDRAW switched
+    -- on, against a game whose redraws reset a texture's colour and
+    -- desaturation (what the in-game check would show if it fails).
+    local function Upvalue(fn, name)
+        for i = 1, 255 do
+            local key, value = debug.getupvalue(fn, i)
+            if key == nil then return end
+            if key == name then return value, i end
+        end
+    end
+    local shipped = select(1, Upvalue(Upvalue(ns.DarkNativeButton, "DarkButton"), "REPAINT_AFTER_REDRAW"))
+    equal(shipped, false, "the repaint fallback ships off")
+    local loaded = #frames
+    Load("Core/Appearance.lua")
+    local watch2 = frames[loaded + 1]
+    local darkButton = Upvalue(ns.DarkNativeButton, "DarkButton")
+    local _, switch = Upvalue(darkButton, "REPAINT_AFTER_REDRAW")
+    equal(switch ~= nil and watch2 ~= nil and watch2.events.PLAYER_ENTERING_WORLD, true, "setup: a fresh load and its switch")
+    debug.setupvalue(darkButton, switch, true)
+    local keepTexture, keepAtlas = Methods.SetTexture, Methods.SetAtlas
+    function Methods:SetTexture(file) self.file = file; self.colour = { 1, 1, 1 }; self.desaturated = false; return true end
+    function Methods:SetAtlas(atlas) self.atlas = atlas; self.colour = { 1, 1, 1 }; self.desaturated = false end
+    -- Such a game, without the fallback: a press brings the red back.
+    accept:Fire("OnMouseDown")
+    equal(IsWhite(accept.Left) and accept.Left.desaturated == false, true, "without the fallback such a redraw brings the red back")
+    local mail = Window("MailFrame")
+    local send, slice = PanelButton(mail, "Send"), SliceButton(mail, "128-RedButton")
+    local mailTab, mailIcon = TabLike(mail), IconButton(mail)
+    Snap()
+    combat = true
+    FireTo(watch2, "PLAYER_ENTERING_WORLD")
+    equal(mail.hooks.OnShow, nil, "fallback on: not hooked in a fight")
+    combat = false
+    FireTo(watch2, "PLAYER_REGEN_ENABLED")
+    equal(#mail.hooks.OnShow, 1, "fallback on: hooked once the fight is over")
+    -- Opened in a fight: painted, its buttons' own hooks wait for the fight's end.
+    combat = true
+    mail:Show()
+    DarkNative(send, "fallback on: Send, opened in a fight")
+    DarkNative(slice, "fallback on: a three-slice button, opened in a fight")
+    equal(send.hooks.OnMouseDown == nil and slice.hooks.OnMouseDown == nil, true, "fallback on: no hooks on the buttons in a fight")
+    combat = false
+    mail:Hide(); mail:Show()
+    for _, b in ipairs({ send, slice }) do
+        for _, script in ipairs(REDRAWS) do
+            equal(b.hooks[script] and #b.hooks[script], 1, "fallback on: one " .. script .. " post-hook on a red button")
+        end
+    end
+    for _, b in ipairs({ mailTab, mailIcon }) do
+        for _, script in ipairs(REDRAWS) do equal(b.hooks[script], nil, "fallback on: none on a tab or an icon button") end
+    end
+    for _, script in ipairs(REDRAWS) do
+        send:Fire(script); slice:Fire(script)
+        DarkNative(send, "fallback on: Send after " .. script)
+        DarkNative(slice, "fallback on: the three-slice button after " .. script)
+    end
+    mail:Hide(); mail:Show()
+    FireTo(watch2, "ADDON_LOADED", "Blizzard_MailFrame")
+    equal(#send.hooks.OnMouseDown == 1 and #mail.hooks.OnShow == 1, true, "fallback on: hooked only once")
+    -- Off: the red back once, then the game's redraws are left alone.
+    E.settings.darkWindows = false; ns.RefreshDarkWindows()
+    equal(IsWhite(send.Left) and send.Left.desaturated == false, true, "fallback on, tick off: the red back")
+    before = ArtSets({ send, slice })
+    for _, script in ipairs(REDRAWS) do send:Fire(script); slice:Fire(script) end
+    equal(ArtSets({ send, slice }), before, "fallback on, tick off: nothing set after the game's redraws")
+    E.settings.darkWindows = true; ns.RefreshDarkWindows()
+    DarkNative(send, "fallback on, tick back on")
+    NothingWritten("fallback on: no key written on the game's frames or their art, no handler replaced")
+    Methods.SetTexture, Methods.SetAtlas = keepTexture, keepAtlas
+    env.RatingMenuFrame, env.QuestMapFrame = nil, nil
+end)()
+
+---------------------------------------------------------------------------
+-- The red X close buttons and the minimise and maximise pair (Core/
+-- Appearance.lua), on a fresh load of the shipped file: in the listed
+-- windows, told apart by their art's name only (Forever's RedButton-Exit,
+-- -MiniCondense, -Condense and -Expand atlases, the c60 ones too, or the
+-- classic UI-Panel-MinimizeButton and -HideButton files), every state takes
+-- the cross grey (the buttons' lifted grey, never below .6, so the cross
+-- drawn in the same art stays readable) and the glow loses its colour; the
+-- bags', the item link tooltip's and the scoreboard's close buttons and the
+-- world and flight maps' borders are listed by themselves, so their item
+-- buttons, rows and pins (and the tooltip itself) are never looked through;
+-- labels, icon buttons, other red art, art that isn't a button and
+-- forbidden frames are left alone; no key is written and no handler
+-- replaced. EraUI's own (both copies of ns.SkinCloseButton, the minimise and
+-- maximise skin, the game-art ones handed to ns.DarkCloseButton) too. The
+-- slider, the tick and the off-restore reach them all; without Dark Mode
+-- nothing is touched.
+---------------------------------------------------------------------------
+;(function()
+    E.settings.darkMode, E.settings.darkWindows, E.settings.enabled, E.settings.blackPages = true, true, true, nil
+    E.settings.darkModeDarkness = 90
+    -- The shipped file again (the section above switched its repaint fallback on).
+    local loaded = #frames
+    Load("Core/Appearance.lua")
+    local watch = frames[loaded + 1]
+    equal(watch ~= nil and watch.events.PLAYER_ENTERING_WORLD and watch.events.ADDON_LOADED, true,
+        "setup: a fresh load of the shipped file and its watch")
+    -- The game's textures name their atlas, or their file. The game never
+    -- answers nil for the atlas (SimpleTextureBaseAPIDocumentation: not
+    -- nilable): art drawn from a file has an empty atlas name.
+    function Methods:GetAtlas() return self.atlas or "" end
+    function Methods:GetTextureFilePath() return self.file end
+
+    -- The cross grey: the buttons' lifted grey, raised to .6 when darker, its
+    -- slight blue kept.
+    local function Cross()
+        local r, g, b = Grey()
+        r, g, b = Lift(r), Lift(g), Lift(b)
+        if r < .6 then
+            local f = .6 / r
+            return .6, math.min(1, g * f), math.min(1, b * f)
+        end
+        return r, g, b
+    end
+    local function IsCross(t) return t.desaturated == true and Is(t, Cross()) end
+    local function IsGlow(t) return t.desaturated == true and IsWhite(t) end
+    local function IsOwn(t) return t.desaturated == false and IsWhite(t) end
+
+    -- The art, measured from Forever's (atlas file 8107307, redbutton-exit-c60)
+    -- and the classic close art EraUI's windows wear: the median brightness of
+    -- the cross and of the red square round it once desaturated.
+    local ART = { { "Forever's", .53, .115 }, { "the classic", .68, .098 } }
+    for darkness = 40, 90 do
+        E.settings.darkModeDarkness = darkness
+        local grey = (ns.DarkCrossGrey())
+        equal(Near(grey, (Cross())), true, "Darkness " .. darkness .. ": the cross grey")
+        equal(grey >= ns.DarkButtonGrey() and grey >= .6 - 1e-9, true,
+            "Darkness " .. darkness .. ": never darker than the buttons' grey, nor than .6")
+        local _, g, b = ns.DarkCrossGrey()
+        equal(b >= grey and g >= grey, true, "Darkness " .. darkness .. ": its slight blue kept")
+        for _, art in ipairs(ART) do
+            local cross, square = art[2] * grey, art[3] * grey
+            equal(cross >= .3 and cross / square > 4 and square <= art[3], true,
+                "Darkness " .. darkness .. ": " .. art[1] .. " cross reads light on a square no lighter than its own")
+        end
+        if darkness > 40 then
+            E.settings.darkModeDarkness = darkness - 1
+            equal((ns.DarkCrossGrey()) >= grey, true, "Darkness " .. darkness .. ": never lighter than one step lighter")
+        end
+    end
+    E.settings.darkModeDarkness = 58
+    equal(Near((ns.DarkCrossGrey()), ns.DarkButtonGrey()), true, "Darkness 58: the same grey as every red button")
+    E.settings.darkModeDarkness = 90
+    equal(.53 * ns.DarkButtonGrey() < .2, true, "Darkness 90: the buttons' own grey would leave Forever's cross dim (why the floor)")
+    equal(Near((ns.DarkCrossGrey()), .6), true, "Darkness 90: the cross grey at its floor")
+
+    -- The game's frames this section builds, and every piece of art on them.
+    local blizzard, art = {}, {}
+    local function Child(parent, kind, name)
+        local f = env.CreateFrame(kind or "Frame", name, parent)
+        parent.children = parent.children or {}
+        table.insert(parent.children, f)
+        blizzard[#blizzard + 1] = f
+        return f
+    end
+    local function Window(name)
+        local w = env.CreateFrame("Frame", name, env.UIParent)
+        w.shown = false
+        blizzard[#blizzard + 1] = w
+        return w
+    end
+    -- A button state's art: the game's SetNormalTexture and kin take an atlas
+    -- name as well as a file.
+    local function StateArt(button, state, name, isAtlas)
+        button["Set" .. state .. "Texture"](button, name)
+        local t = button.stateTex[state]
+        if isAtlas then t.file, t.atlas = nil, name end
+        art[#art + 1] = t
+        return t
+    end
+    local CROSS_ATLAS = {
+        Exit = { "RedButton-Exit", "RedButton-exit-pressed", "RedButton-Exit-Disabled" },
+        MiniCondense = { "RedButton-MiniCondense", "RedButton-MiniCondense-pressed", "RedButton-MiniCondense-disabled" },
+        Condense = { "RedButton-Condense", "RedButton-Condense-Pressed", "RedButton-Condense-disabled" },
+        Expand = { "RedButton-Expand", "RedButton-Expand-Pressed", "RedButton-Expand-Disabled" },
+        C60 = { "redbutton-exit-c60", "redbutton-exit-pressed-c60", "redbutton-exit-disabled-c60" },
+    }
+    -- UIPanelCloseButton and its kin (the pop-ups' minimise, the
+    -- MaximizeMinimizeButtonFrameTemplate pair).
+    local function CloseButton(parent, kind, key)
+        local b = Child(parent, "Button")
+        local names = CROSS_ATLAS[kind or "Exit"]
+        StateArt(b, "Normal", names[1], true)
+        StateArt(b, "Pushed", names[2], true)
+        StateArt(b, "Disabled", names[3], true)
+        StateArt(b, "Highlight", "RedButton-Highlight", true)
+        b.scripts.OnClick = function() end
+        if key then parent[key] = b end
+        return b
+    end
+    -- The classic files (PVPFramePopup's minimise button).
+    local function FileCloseButton(parent)
+        local b = Child(parent, "Button")
+        StateArt(b, "Normal", "Interface\\Buttons\\UI-Panel-HideButton-Up")
+        StateArt(b, "Pushed", "Interface\\Buttons\\UI-Panel-HideButton-Down")
+        StateArt(b, "Highlight", "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+        return b
+    end
+    local function IconButton(parent, normal, isAtlas)
+        local b = Child(parent, "Button")
+        StateArt(b, "Normal", normal, isAtlas)
+        StateArt(b, "Highlight", "Interface\\Buttons\\ButtonHilight-Square")
+        return b
+    end
+    local function Forbidden()
+        return setmetatable({}, { __index = function(_, key)
+            if key == "IsForbidden" then return function() return true end end
+            error("touched a forbidden frame (" .. tostring(key) .. ")")
+        end })
+    end
+    -- A frame the walk must never reach (a bag's item button, a map pin):
+    -- any read at all fails the test.
+    local function Unreached(parent, label)
+        local f = setmetatable({}, { __index = function(_, key)
+            error("looked through " .. label .. " (" .. tostring(key) .. ")")
+        end })
+        parent.children = parent.children or {}
+        table.insert(parent.children, f)
+        return f
+    end
+    local function States(b)
+        local list = {}
+        for _, state in ipairs({ "Normal", "Pushed", "Disabled" }) do
+            if b.stateTex[state] then list[#list + 1] = b.stateTex[state] end
+        end
+        return list
+    end
+    local function DarkCross(b, label)
+        for _, t in ipairs(States(b)) do equal(IsCross(t), true, label .. ": " .. tostring(t.atlas or t.file) .. " in the cross grey") end
+        equal(IsGlow(b.stateTex.Highlight), true, label .. ": its glow without its colour")
+    end
+    local function OwnCross(b, label)
+        for _, t in ipairs(States(b)) do equal(IsOwn(t), true, label .. ": " .. tostring(t.atlas or t.file) .. " as the game drew it") end
+        equal(IsOwn(b.stateTex.Highlight), true, label .. ": its glow as the game drew it")
+    end
+    local function Untouched(b, label)
+        local n = 0
+        for _, t in pairs(b.stateTex or {}) do n = n + t.sets end
+        equal(n, 0, label .. ": nothing set")
+    end
+    local function ArtSets(list)
+        local n = 0
+        for _, b in ipairs(list) do for _, t in pairs(b.stateTex) do n = n + t.sets end end
+        return n
+    end
+    local snaps = {}
+    local function Snap()
+        for _, list in ipairs({ blizzard, art }) do
+            for _, f in ipairs(list) do
+                if not snaps[f] then
+                    local keys, scripts = {}, {}
+                    for key in pairs(f) do keys[key] = true end
+                    for key, fn in pairs(f.scripts) do scripts[key] = fn end
+                    snaps[f] = { keys = keys, scripts = scripts }
+                end
+            end
+        end
+    end
+    local function NothingWritten(label)
+        local wrote = {}
+        for f, snap in pairs(snaps) do
+            for key in pairs(f) do
+                if not snap.keys[key] and not (f.objectType == "Texture" and key == "desaturated") then
+                    wrote[#wrote + 1] = tostring(f.name or f.objectType) .. "." .. tostring(key)
+                end
+            end
+            for key, fn in pairs(f.scripts) do if snap.scripts[key] ~= fn then wrote[#wrote + 1] = "a handler: " .. key end end
+            for key in pairs(snap.scripts) do if f.scripts[key] == nil then wrote[#wrote + 1] = "a handler gone: " .. key end end
+        end
+        equal(#wrote, 0, label .. (#wrote > 0 and (": " .. table.concat(wrote, ", ")) or ""))
+    end
+
+    -- A vendor (newly listed): its close button, beside an item button, an
+    -- icon button in another red art, a label, art that isn't a button and a
+    -- forbidden frame.
+    local merchant = Window("MerchantFrame")
+    local merchantClose = CloseButton(merchant, "Exit", "CloseButton")
+    local item = IconButton(Child(merchant), "Interface\\Buttons\\UI-Quickslot2")
+    local cart = IconButton(merchant, "RedButton-ShoppingCart", true)
+    local title = merchant:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local loose = Texture(merchant)
+    loose.atlas = "RedButton-Exit"
+    merchant.regions = { loose }
+    art[#art + 1] = loose
+    table.insert(merchant.children, Forbidden())
+    -- The character window (listed already): Forever's c60 art two levels down.
+    local character = Window("CharacterFrame")
+    local characterClose = CloseButton(Child(character), "C60")
+    -- The classic X, maximise and minimise files (EraUI's skins' art, the
+    -- game's path or EraUI's own copy), met by the walk in a listed window.
+    local classicCloses = {}
+    for _, file in ipairs({ "Interface\\Buttons\\UI-Panel-MinimizeButton-Up",
+        "Interface\\AddOns\\EraUI\\Media\\Classic\\UI-Panel-BiggerButton-Up",
+        "Interface\\AddOns\\EraUI\\Media\\Classic\\UI-Panel-SmallerButton-Up" }) do
+        local b = Child(character, "Button")
+        StateArt(b, "Normal", file)
+        StateArt(b, "Pushed", (file:gsub("%-Up$", "-Down")))
+        StateArt(b, "Highlight", "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+        classicCloses[#classicCloses + 1] = b
+    end
+    -- A pop-up's close button, hidden and set to minimise (GameDialog.lua).
+    local popup = Window("StaticPopup4")
+    local popupClose = CloseButton(popup, "MiniCondense", "CloseButton")
+    popupClose.shown = false
+    -- The PvP pop-up's minimise button, in the classic files.
+    local pvp = Window("PVPFramePopup")
+    local pvpMinimise = FileCloseButton(pvp)
+    -- The world map: its border's close, maximise and minimise buttons; its
+    -- pins are never looked through.
+    local map = Window("WorldMapFrame")
+    map.BorderFrame = Child(map)
+    local mapClose = CloseButton(map.BorderFrame, "Exit", "CloseButton")
+    local sizer = Child(map.BorderFrame)
+    map.BorderFrame.MaximizeMinimizeFrame = sizer
+    local maximise, minimise = CloseButton(sizer, "Expand", "MaximizeButton"), CloseButton(sizer, "Condense", "MinimizeButton")
+    map.ScrollContainer = Child(map)
+    for i = 1, 3 do Unreached(map.ScrollContainer, "the world map's pin " .. i) end
+    -- The bags: their close buttons alone.
+    local bags, bagCloses = {}, {}
+    for _, name in ipairs({ "ContainerFrame1", "ContainerFrame7", "ContainerFrameCombinedBags" }) do
+        local bag = Window(name)
+        bagCloses[#bagCloses + 1] = CloseButton(bag, "Exit", "CloseButton")
+        for i = 1, 3 do Unreached(bag, name .. "'s item button " .. i) end
+        bags[#bags + 1] = bag
+    end
+    -- The item link tooltip (a GameTooltip): only whether it is forbidden and
+    -- which is its close button are ever read; any other read, or a write,
+    -- fails the test, so it is never hooked, walked or coloured itself.
+    local tipClose = CloseButton(Window(nil), "Exit")
+    env.ItemRefTooltip = setmetatable({}, {
+        __index = function(_, key)
+            if key == "IsForbidden" then return function() return false end end
+            if key == "CloseButton" then return tipClose end
+            error("touched the item link tooltip (" .. tostring(key) .. ")")
+        end,
+        __newindex = function(_, key) error("wrote on the item link tooltip (" .. tostring(key) .. ")") end,
+    })
+    -- The battleground scoreboard: its close button alone, its rows never
+    -- looked through.
+    local scoreboard = Window("PVPMatchScoreboard")
+    local scoreClose = CloseButton(scoreboard, "Exit", "CloseButton")
+    scoreboard.Content = Child(scoreboard)
+    for i = 1, 3 do Unreached(scoreboard.Content, "the scoreboard's row " .. i) end
+    -- A listed window that is forbidden: only IsForbidden is asked.
+    env.LootFrame = Forbidden()
+    Snap()
+
+    FireTo(watch, "PLAYER_ENTERING_WORLD")
+    equal(tipClose.hooks.OnShow and #tipClose.hooks.OnShow, 1, "the item link tooltip's close button: one OnShow post-hook")
+    DarkCross(tipClose, "the item link tooltip's close button, dark from the start")
+    equal(scoreClose.hooks.OnShow and #scoreClose.hooks.OnShow, 1, "the scoreboard's close button: one OnShow post-hook")
+    equal(scoreboard.hooks.OnShow, nil, "the scoreboard itself isn't hooked")
+    DarkCross(scoreClose, "the scoreboard's close button, dark from the start")
+    scoreboard:Show() -- its rows never looked through (they fail the test if read)
+    for _, w in ipairs({ merchant, character, popup, pvp, map.BorderFrame }) do
+        equal(w.hooks.OnShow and #w.hooks.OnShow, 1, (w.name or "the world map's border") .. ": one OnShow post-hook")
+    end
+    equal(map.hooks.OnShow, nil, "the world map itself isn't hooked, only its border")
+    for i, b in ipairs(bagCloses) do
+        equal(b.hooks.OnShow and #b.hooks.OnShow, 1, "bag " .. i .. "'s close button: one OnShow post-hook")
+        equal(bags[i].hooks.OnShow, nil, "bag " .. i .. " itself isn't hooked")
+        DarkCross(b, "bag " .. i .. "'s close button, dark from the start")
+        bags[i]:Show() -- its item buttons never looked through (they fail the test if read)
+    end
+    DarkCross(mapClose, "the world map's close button (its border is open with it)")
+    Untouched(merchantClose, "a closed window's close button, until it opens")
+
+    -- Opening the windows: every state of every close and minimise button.
+    merchant:Show(); character:Show(); popup:Show(); pvp:Show(); map:Show()
+    DarkCross(merchantClose, "the vendor's close button")
+    DarkCross(characterClose, "the character window's close button (c60 art)")
+    for i, b in ipairs(classicCloses) do DarkCross(b, "the classic close, maximise or minimise files " .. i) end
+    DarkCross(popupClose, "a pop-up's hidden close button set to minimise")
+    DarkCross(pvpMinimise, "the PvP pop-up's minimise button (classic files)")
+    DarkCross(maximise, "the world map's maximise button")
+    DarkCross(minimise, "the world map's minimise button")
+    equal(merchantClose.stateTex.Normal.atlas, "RedButton-Exit", "the game's own art kept, only coloured")
+    -- Nothing else.
+    Untouched(item, "an item button")
+    Untouched(cart, "an icon button in other red art")
+    equal(title.sets, 0, "a label keeps its colour")
+    equal(loose.sets, 0, "the cross art on a texture that isn't a button")
+    equal(ns.DarkNativeButton(item), false, "an item button isn't taken for a red button")
+    equal(ns.DarkNativeButton(merchantClose), true, "a close button is")
+    -- Opened again, or a pass with nothing new: nothing set.
+    local closes = { merchantClose, characterClose, popupClose, pvpMinimise, mapClose, maximise, minimise, tipClose, scoreClose }
+    for _, b in ipairs(bagCloses) do closes[#closes + 1] = b end
+    for _, b in ipairs(classicCloses) do closes[#closes + 1] = b end
+    local before = ArtSets(closes)
+    merchant:Hide(); merchant:Show(); map:Hide(); map:Show()
+    for _, b in ipairs(bagCloses) do b:Fire("OnShow") end
+    tipClose:Fire("OnShow"); scoreClose:Fire("OnShow")
+    ns.RefreshDarkWindows(); ns.RefreshDarkness()
+    equal(ArtSets(closes), before, "opening again sets nothing")
+    -- In a fight: a hooked window is painted as it opens.
+    local late = CloseButton(merchant, "Exit")
+    combat = true
+    merchant:Hide(); merchant:Show()
+    DarkCross(late, "a close button made since, the window opened in a fight")
+    combat = false
+    closes[#closes + 1] = late
+
+    -- Windows that come with their addon: the flight map's border and the
+    -- professions book, hooked as they load, not in a fight.
+    local flight = Window("FlightMapFrame")
+    flight.BorderFrame = Child(flight)
+    local flightClose = CloseButton(flight.BorderFrame, "Exit", "CloseButton")
+    for i = 1, 3 do Unreached(flight, "the flight map's pin " .. i) end
+    local book = Window("ProfessionsBookFrame")
+    local bookClose = CloseButton(book, "Exit", "CloseButton")
+    Snap()
+    combat = true
+    FireTo(watch, "ADDON_LOADED", "Blizzard_FlightMap")
+    equal(flight.BorderFrame.hooks.OnShow, nil, "not hooked in a fight")
+    combat = false
+    FireTo(watch, "PLAYER_REGEN_ENABLED")
+    equal(flight.BorderFrame.hooks.OnShow and #flight.BorderFrame.hooks.OnShow, 1,
+        "the flight map's border hooked once the fight is over")
+    DarkCross(flightClose, "the flight map's close button")
+    flight:Show() -- its pins never looked through
+    equal(book.hooks.OnShow and #book.hooks.OnShow, 1, "the professions book hooked")
+    book:Show()
+    DarkCross(bookClose, "the professions book's close button")
+    closes[#closes + 1] = flightClose
+    closes[#closes + 1] = bookClose
+
+    -- EraUI's own: both copies of ns.SkinCloseButton (Classic/Panels.lua's,
+    -- the one in use, and Classic/Controls.lua's), the minimise and maximise
+    -- skin, and the game-art close buttons handed straight over (the micro
+    -- menu box, the report window).
+    local panels = LoadBeside("Classic/Panels.lua", function() return { ns.SkinWindow, ns.SkinCloseButton } end)
+    local controlsSkin = LoadBeside("Classic/Controls.lua", function() return ns.SkinCloseButton end)
+    local function Upvalue(fn, wanted)
+        for i = 1, 255 do
+            local key, value = debug.getupvalue(fn, i)
+            if key == nil then return end
+            if key == wanted then return value end
+        end
+    end
+    local skinMaxMin = Upvalue(panels[1], "SkinMaxMin")
+    equal(type(panels[2]) == "function" and type(controlsSkin) == "function" and type(skinMaxMin) == "function", true,
+        "setup: EraUI's close and minimise skins")
+    local mine = {}
+    for i, skin in ipairs({ panels[2], controlsSkin }) do
+        local own = env.CreateFrame("Button", nil, env.UIParent, "UIPanelCloseButton")
+        skin(own, true)
+        equal(own.stateTex.Normal.file:find("UI%-Panel%-MinimizeButton%-Up") ~= nil, true, "setup: EraUI's classic X art " .. i)
+        DarkCross(own, "EraUI's own close button, skin " .. i)
+        mine[#mine + 1] = own
+    end
+    local ownSizer = env.CreateFrame("Frame", nil, env.UIParent)
+    ownSizer.MaximizeButton = env.CreateFrame("Button", nil, ownSizer)
+    ownSizer.MinimizeButton = env.CreateFrame("Button", nil, ownSizer)
+    skinMaxMin(ownSizer)
+    DarkCross(ownSizer.MaximizeButton, "EraUI's maximise button")
+    DarkCross(ownSizer.MinimizeButton, "EraUI's minimise button")
+    mine[#mine + 1] = ownSizer.MaximizeButton
+    mine[#mine + 1] = ownSizer.MinimizeButton
+    local gameArt = CloseButton(Window(nil), "Exit")
+    ns.DarkCloseButton(gameArt)
+    DarkCross(gameArt, "a game-art close button EraUI makes")
+    -- A forbidden button handed over: only IsForbidden is asked (the proxy
+    -- fails the test on any other read).
+    ns.DarkCloseButton(Forbidden())
+    equal(ns.DarkNativeButton(Forbidden()), false, "a forbidden button is never taken for a red one")
+    mine[#mine + 1] = gameArt
+    -- Skinned again (a window skinned again): nothing set again.
+    before = ArtSets(mine)
+    panels[2](mine[1], true)
+    equal(ArtSets(mine), before, "skinned again: nothing set again")
+    for _, b in ipairs(mine) do closes[#closes + 1] = b end
+
+    -- The slider: every one follows at once.
+    E.settings.darkModeDarkness = 58; ns.RefreshDarkness()
+    for i, b in ipairs(closes) do DarkCross(b, "Darkness 58: close button " .. i) end
+    equal(Near(merchantClose.stateTex.Normal.colour[1], .94), true, "Darkness 58: the lifted grey of 58, like every red button")
+    E.settings.darkModeDarkness = 75; ns.RefreshDarkness()
+    for i, b in ipairs(closes) do DarkCross(b, "Darkness 75: close button " .. i) end
+    E.settings.darkModeDarkness = 90; ns.RefreshDarkness()
+    for i, b in ipairs(closes) do DarkCross(b, "Darkness 90: close button " .. i) end
+    equal(Near(merchantClose.stateTex.Normal.colour[1], .6), true, "Darkness 90: held at .6")
+    -- The tick off: the red back once, then left alone; on, dark again.
+    E.settings.darkWindows = false; ns.RefreshDarkWindows()
+    for i, b in ipairs(closes) do OwnCross(b, "tick off: close button " .. i) end
+    before = ArtSets(closes)
+    merchant:Hide(); merchant:Show(); map:Hide(); map:Show(); book:Hide(); book:Show()
+    tipClose:Fire("OnShow")
+    panels[2](mine[1], true)
+    ns.RefreshDarkWindows(); ns.RefreshDarkness()
+    equal(ArtSets(closes), before, "tick off: left alone after, opened, skinned or refreshed again")
+    E.settings.darkWindows = true; ns.RefreshDarkWindows()
+    for i, b in ipairs(closes) do DarkCross(b, "tick back on: close button " .. i) end
+    -- Nothing written on the game's frames, no handler replaced.
+    NothingWritten("no key written on the game's frames or their art, no handler replaced")
+
+    -- Without Dark Mode (after a reload): EraUI's skins and the watch leave
+    -- every close button as the game drew it.
+    E.settings.darkMode = false
+    local plainOwn = env.CreateFrame("Button", nil, env.UIParent, "UIPanelCloseButton")
+    panels[2](plainOwn, true)
+    local plainGame = CloseButton(Window(nil), "Exit")
+    ns.DarkCloseButton(plainGame)
+    Untouched(plainOwn, "without Dark Mode: EraUI's own close button")
+    Untouched(plainGame, "without Dark Mode: a game-art close button EraUI makes")
+    FireTo(watch, "PLAYER_ENTERING_WORLD")
+    equal(next(watch.events), nil, "without Dark Mode: the watch stops listening once in the world")
+    local clock = Window("TimeManagerFrame")
+    local clockClose = CloseButton(clock, "Exit", "CloseButton")
+    watch.scripts.OnEvent(watch, "ADDON_LOADED", "Blizzard_TimeManager")
+    equal(clock.hooks.OnShow, nil, "without Dark Mode: a window is never hooked")
+    clock:Show()
+    Untouched(clockClose, "without Dark Mode: its close button")
+    E.settings.darkMode = true
+    Methods.GetAtlas, Methods.GetTextureFilePath = nil, nil
+    env.LootFrame, env.ItemRefTooltip = nil, nil
+end)()
 
 print("Dark windows checks passed: " .. checks .. " assertions.")
