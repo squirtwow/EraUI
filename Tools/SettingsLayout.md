@@ -16,7 +16,8 @@ Colours), Frames & Nameplates (Unit Frames, Nameplates), Bags & Vendors (Bags
 & Loot, Vendors) and Screen & Cursor (Screen, Cursor, AFK Screen). A tab
 remembers its last sub-tab for the session. Appearance > Style has the Style
 section (the Classic / Dark Mode choice, Presets) and, under it, Frame Style
-(Flat Bars for now; the other frame style options come later).
+(Flat Bars and Thick Aura Borders for now; the other frame style options come
+later).
 
 `TABS` in `Core/SettingsNav.lua` is the map: every page's sections (titles
 drawn in gold small capitals) and rows, in reading order. Every option is on
@@ -48,12 +49,14 @@ no box, no border, no capitals; 5 apart, 6 after the name, on the name's
 line): "just added" in the game's gold (1, .82, 0), "experimental" in a
 muted warm grey (.66, .61, .53) for options not seen working in game yet
 (`EXPERIMENTAL` in Core/Settings.lua: Aura Shadows, Thin Debuff Colours,
-Dark Windows, Black Pages, Character Item Levels, Flat Bars), "coming soon" and "log
+Dark Windows, Black Pages, Character Item Levels, Flat Bars, Thick Aura
+Borders), "coming soon" and "log
 out to apply" (a new damage font, after the font button) in the muted grey.
 "just added" shows only to players who had the old layout and only while
 they run the version the new layout arrived in (`EraUIDB.layoutPillsVersion`,
 the name kept so saved values stay), never in the setup walkthrough: Thin
-Debuff Colours, Black Pages, Dark Windows, Flat Bars (new since 1.5.5). Nothing says an
+Debuff Colours, Black Pages, Dark Windows, Flat Bars, Thick Aura Borders (new
+since 1.5.5). Nothing says an
 option moved any more (the user, 2026-10-11: the boxed capital labels
 "looked too AI generated"). Search results carry the same words, and
 searching "experimental" finds those options. The class box's Click to apply

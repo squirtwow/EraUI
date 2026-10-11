@@ -236,6 +236,7 @@ local settingHelp = {
     darkWindows = "Darkens the red buttons, pop-ups, window edges and book pages Dark Mode left light, with the Darkness slider. Gold text stays gold.",
     blackPages = "Near black spellbook and Professions pages instead of Dark Windows' brown-grey. Names keep their gold and text stays readable.",
     flatBars = "A plain, even fill instead of Classic's shaded one on unit-frame and cast bars. Their colours stay. Works with Classic or Dark Mode.",
+    thickAuraBorders = "Thick dark borders round your own buffs and debuffs, debuffs lined in their colour. Works with Classic or Dark Mode. Wins over the other aura borders.",
     advancedCastBar = "Your own cast bar with the spell icon, cast time and latency. A preview shows while /era is open; hover + on it to move or resize.",
     advancedCastClassFill = "A muted class colour instead of gold. Priests get dark silver so the text stays readable.",
     advancedCastTicks = "Marks each tick on channelled spells whose description gives the ticks. Not every channel does.",
@@ -319,7 +320,7 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- Not seen working in game yet: the row says "experimental" after its name
 -- (Core/SettingsRows.lua), so its description doesn't have to.
 local EXPERIMENTAL = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true,
-    characterItemLevels = true, flatBars = true}
+    characterItemLevels = true, flatBars = true, thickAuraBorders = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -463,6 +464,12 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if classic.RefreshFlatBars then done=classic.RefreshFlatBars()~=false end
             if EraUI.modules.AdvancedCastBar then EraUI.modules.AdvancedCastBar:Refresh() end
             EraUI:Status("Flat Bars "..(value and "enabled." or "disabled.")..(done and "" or " Some bars change when combat ends."))
+            return
+        end
+        -- Thick Aura Borders: its own switch, Classic or Dark Mode, at once.
+        if key=="thickAuraBorders" then
+            if EraUI.modules.AuraStyle then EraUI.modules.AuraStyle:RefreshBorders() end
+            EraUI:Status("Thick Aura Borders "..(value and "enabled." or "disabled."))
             return
         end
         if key=="darkAuraBorders" or key=="darkAuraShadows" or key=="darkDebuffLines" then
@@ -699,9 +706,11 @@ local function BuildLookRows(frame)
     presets.summary = "Choose a ready-made set of options."
     presets.SetChecked = function() UpdatePresetLabel(frame) end
     frame.presetButton, frame.presetLabel = presets.button, presets.text
-    -- Frame Style, under the choice: Flat Bars for now.
+    -- Frame Style, under the choice: Flat Bars and Thick Aura Borders.
     local flat = MakeCheck(frame, "Flat Bars", "flatBars", nil, "Plain, even fill on unit-frame and cast bars. Works with Classic or Dark Mode.", false)
     flat.searchText = flat.searchText .. " flat bar texture solid plain fill frame style"
+    local thick = MakeCheck(frame, "Thick Aura Borders", "thickAuraBorders", nil, "Thick dark borders round your own buffs and debuffs. Works with Classic or Dark Mode.", false)
+    thick.searchText = thick.searchText .. " thick border outline edge frame aura buff debuff icon frame style"
     -- Darkness: dragging re-tints the Dark Mode artwork at once
     -- (Core/Appearance.lua). Its value shows once, in "Darkness: 58"; the
     -- grey swatch that sat after the slider read as an empty box, so it went.

@@ -150,6 +150,23 @@ Equal(P:Current(), "classic", "Flat Bars on is still the Classic look")
 P:Apply("classic")
 Equal(saved.flatBars, true, "the Classic look keeps a switched-on Flat Bars")
 saved.flatBars = nil
+-- Thick Aura Borders is one too: Classic or Dark Mode, the same as Flat Bars.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "thickAuraBorders" then inExtras = true end end
+Equal(inExtras, true, "Thick Aura Borders is an optional look")
+saved.thickAuraBorders = true
+Equal(P:Changes("classic").thickAuraBorders, nil, "the Classic look leaves Thick Aura Borders alone")
+Equal(P:Changes("qol").thickAuraBorders, false, "Quality of Life only switches Thick Aura Borders off")
+P:Apply("qol")
+Equal(saved.thickAuraBorders, false, "Thick Aura Borders off after Quality of Life only")
+P:Apply("classic")
+Equal(saved.thickAuraBorders, false, "Thick Aura Borders stays as chosen after the Classic look")
+saved.thickAuraBorders = true
+Equal(P:Current(), "classic", "Thick Aura Borders on is still the Classic look")
+P:Apply("classic")
+Equal(saved.thickAuraBorders, true, "the Classic look keeps a switched-on Thick Aura Borders")
+saved.thickAuraBorders = nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")

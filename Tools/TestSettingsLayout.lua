@@ -21,7 +21,7 @@ local function ParentOf(E) return function(key) return E.SettingsRules.GroupPare
 local EXPECTED = {
  {group = "LOOK", tabs = {
   {"appearance", "Appearance", "How EraUI looks: the style, Dark Mode and class colours.", {
-   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars"}}}},
+   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars", "thickAuraBorders"}}}},
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
     {"BARS AND WINDOWS", {"darkMenuBar", "darkWindows", "blackPages"}}}},
@@ -178,9 +178,9 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- Options new since 1.5.5 ("just added" for returning players this version)
 -- and those not seen working in game yet ("experimental", always). Nothing
 -- says it moved any more.
-local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true}
+local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true}
 local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
- flatBars = true}
+ flatBars = true, thickAuraBorders = true}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -1053,7 +1053,7 @@ do
  end
  -- The Presets row heads Appearance > Style: the active preset, never a warning.
  Open(f, "appearance", "style")
- equal(Keys(f), "appearanceChoice,presets,flatBars", "Style holds the Look choice and Presets, then Frame Style's Flat Bars")
+ equal(Keys(f), "appearanceChoice,presets,flatBars,thickAuraBorders", "Style holds the Look choice and Presets, then Frame Style's Flat Bars and Thick Aura Borders")
  -- Flat Bars: a tick under the choice, in its own Frame Style section,
  -- applying at once (Classic/Skin.lua and the Advanced Cast Bar) with the
  -- usual chat line.
@@ -1090,6 +1090,51 @@ do
   local hit = false
   for _, key in ipairs(found) do if key == "flatBars" then hit = true end end
   equal(hit, true, "searching " .. word .. " finds Flat Bars")
+ end
+ f.searchBox:SetText(""); Flush()
+ -- Thick Aura Borders: the next tick in Frame Style, its own switch (never
+ -- greyed, in Classic or Dark Mode), applying at once through the aura
+ -- module with its own chat line, and saying in its help that it wins over
+ -- the other aura borders.
+ Open(f, "appearance", "style")
+ M.NoOverlaps(f, "DRUID Appearance > Style")
+ local thick = f.checks.thickAuraBorders
+ equal(thick.text:GetText() .. " / " .. tostring(thick:IsVisible()) .. " / " .. tostring(thick:GetChecked()) .. " / " .. tostring(thick.wide)
+  .. " / " .. tostring(thick.dependencyDisabled), "Thick Aura Borders / true / false / nil / nil", "Thick Aura Borders: a tick row, off, never greyed")
+ equal(f.rowHome.thickAuraBorders.tab == f.rowHome.flatBars.tab and f.rowHome.thickAuraBorders.sub == f.rowHome.flatBars.sub, true,
+  "Thick Aura Borders on Flat Bars' page")
+ local _, thickHelp, thickExtras = M.Hover(f, thick)
+ equal(thickHelp, "Thick Aura Borders  Thick dark borders round your own buffs and debuffs, debuffs lined in their colour. Works with Classic or Dark Mode. Wins over the other aura borders.",
+  "Thick Aura Borders: its words, the rule for several ticked in one short line")
+ equal(thickExtras, "Default: Off.", "Thick Aura Borders: no reload line, no switch needed first, off by default")
+ equal(thick.summary, "Thick dark borders round your own buffs and debuffs. Works with Classic or Dark Mode.", "Thick Aura Borders: its summary")
+ local auraRefreshes, thickStatus = 0, nil
+ local realAuras = E.modules.AuraStyle
+ E.modules.AuraStyle = {RefreshBorders = function() auraRefreshes = auraRefreshes + 1 end}
+ local status2 = E.Status
+ E.Status = function(_, m) thickStatus = m end
+ local get = E.GetSetting
+ for _, dark in ipairs({false, true}) do
+  E.GetSetting = function(self, key) if key == "darkMode" then return dark end; return get(self, key) end
+  f:RefreshDependencies()
+  equal(thick.dependencyDisabled, nil, "Thick Aura Borders never greyed (Dark Mode " .. tostring(dark) .. ")")
+  thick:Click()
+  equal(tostring(E.settings.thickAuraBorders) .. " " .. thickStatus, "true Thick Aura Borders enabled.", "a click switches it on, live, no Dark Mode note (Dark Mode " .. tostring(dark) .. ")")
+  thick:Click()
+  equal(tostring(E.settings.thickAuraBorders) .. " " .. thickStatus, "false Thick Aura Borders disabled.", "and off, live (Dark Mode " .. tostring(dark) .. ")")
+ end
+ E.GetSetting = get
+ equal(auraRefreshes, 4, "each click refreshes the aura borders at once")
+ E.modules.AuraStyle = nil
+ thick:Click()
+ equal(tostring(E.settings.thickAuraBorders) .. " " .. thickStatus, "true Thick Aura Borders enabled.", "without the aura module the tick still saves")
+ thick:Click()
+ E.modules.AuraStyle, E.Status = realAuras, status2
+ for _, word in ipairs({"thick", "border", "buff", "debuff", "aura", "frame style"}) do
+  local found = M.Results(f, word)
+  local hit = false
+  for _, key in ipairs(found) do if key == "thickAuraBorders" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds Thick Aura Borders")
  end
  f.searchBox:SetText(""); Flush()
  Open(f, "appearance", "style")
@@ -2101,7 +2146,7 @@ do
    looked = looked + 1
   end
  end
- equal(looked == worded and looked >= 7, true, "every row with words checked (" .. looked .. ": the six experimental ones and the coming soon ones)")
+ equal(looked == worded and looked >= 7, true, "every row with words checked (" .. looked .. ": the seven experimental ones and the coming soon ones)")
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  equal(table.concat(f.checks.contextMenus.tagIds, ","), "SOON", "Context Menus says coming soon")
  for _, version in ipairs({"1.0.0", "", false}) do
@@ -2121,7 +2166,7 @@ do
  -- "experimental" finds the experimental options.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,characterItemLevels,darkAuraShadows,darkDebuffLines,darkWindows,flatBars", "searching experimental finds them")
+ equal(table.concat(found, ","), "blackPages,characterItemLevels,darkAuraShadows,darkDebuffLines,darkWindows,flatBars,thickAuraBorders", "searching experimental finds them")
  f.searchBox:SetText(""); Flush()
 end
 

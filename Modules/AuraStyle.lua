@@ -245,13 +245,45 @@ end
 -- and count overlays. Nothing about the aura is read (type, data, geometry),
 -- so styling a button is the same in and out of combat. Target and focus
 -- auras are secure, forbidden buttons and are left alone.
+-- Each aura button's borders: {dab = Dark Aura Borders' ring, thick = Thick
+-- Aura Borders' ring, trimmed, shadow, steps, shaded, soft}. A ring is its
+-- strips in order plus {line = its line strips, on, r, g, b, dim, typed};
+-- the thick ring also {thick, wide, bronze}.
 local rings=setmetatable({}, {__mode="k"})
 local pending=false
--- {outside, inside, r, g, b, layer}: a dark edge outside the icon, drawn
--- under the icon and its timer text, then a grey line over the icon's own
--- bright rim, in Dark Mode's grey. The line darkens with the Darkness slider.
+-- {outside, inside, r, g, b, layer, sublevel}: a band from `outside` units
+-- past the icon's edge (negative: inside it) to `inside` units in. Dark Aura
+-- Borders: a dark edge outside the icon, drawn under the icon and its timer
+-- text, then a grey line over the icon's own bright rim, in Dark Mode's
+-- grey. The line darkens with the Darkness slider.
 local LINE={0,1,.30,.31,.34,"ARTWORK",1}
 local TONES={{2,0,.05,.05,.06,"BACKGROUND",-8},LINE}
+-- Thick Aura Borders (off unless ticked; Classic or Dark Mode, its own
+-- switch): a thick near-black edge with a fine line inside it. Forever's
+-- aura icons are 30 units square (AuraButtonArtTemplate) and Edit Mode puts
+-- them at least 5 apart (Icon Padding 5 to 15, in the icon's own scale, so
+-- it holds at every Icon Size); rows of the usual layout sit 15 apart (the
+-- timer is under each icon). So the edge reaches only 2 units past the icon,
+-- like Dark Aura Borders' edge, and two neighbours' edges keep a unit apart;
+-- the other 2 units lie over the icon's outer rim: 4 in all, about 13% of
+-- the icon. The part outside sits under the timer text, the part inside
+-- over the icon. Then a 1-unit line, 2 to 3 units in: Dark Mode's grey
+-- (with the Darkness slider), or in Classic a muted bronze. A debuff whose
+-- type is known gets a 2-unit line (2 to 4 in) in the type's colour.
+local BRONZE={.55,.46,.27}
+local THICK_LINE={-2,3,0,0,0,"ARTWORK",2}
+local THICK={{2,0,.05,.05,.06,"BACKGROUND",-8},{0,2,.05,.05,.06,"ARTWORK",1},THICK_LINE}
+local TYPED_LINE=4 -- a debuff's type line ends 4 units in, not 3
+-- The four strips of a band: top, bottom, left and right, each pinned by two
+-- icon corners. Corners are covered twice; every strip is opaque.
+local function Band(o,i)
+ return{{"TOPLEFT",-o,o,"TOPRIGHT",o,-i},{"BOTTOMLEFT",-o,i,"BOTTOMRIGHT",o,-o},
+  {"TOPLEFT",-o,o,"BOTTOMLEFT",i,-o},{"TOPRIGHT",-i,o,"BOTTOMRIGHT",o,-o}}
+end
+local function Pin(strip,icon,edge)
+ strip:SetPoint("TOPLEFT",icon,edge[1],edge[2],edge[3])
+ strip:SetPoint("BOTTOMRIGHT",icon,edge[4],edge[5],edge[6])
+end
 -- Aura Shadows (on by default, needs Dark Aura Borders): a soft shadow past
 -- the dark edge, three one-unit rings of black, each fainter than the last
 -- (the ring technique of Forever Enhanced Cooldown Manager's icon shadow).
@@ -260,12 +292,20 @@ local TONES={{2,0,.05,.05,.06,"BACKGROUND",-8},LINE}
 -- below the aura button, so every aura's icon, timer and debuff border draws
 -- over every shadow: its own and its neighbours'.
 local SHADOW={.45,.25,.1}
-local EDGE=2 -- the dark edge's width outside the icon
+-- With Thick Aura Borders the shadow drops to a softer two-step one, 2 to 4
+-- units out (35%, then 15%): edge and shadow end a unit short of the next
+-- icon at Edit Mode's smallest gap (5). Between close neighbours its outer
+-- step lies under the neighbour's own edge, which draws over every shadow.
+local SOFT={.35,.15}
+local EDGE=2 -- the dark edge's width outside the icon (both looks)
 local function DarkBorders()
  return(E:GetSetting("enabled")and E:GetSetting("darkMode")and E:GetSetting("darkAuraBorders"))and true or false
 end
 local function DarkShadows()
  return(DarkBorders()and E:GetSetting("darkAuraShadows"))and true or false
+end
+local function ThickBorders()
+ return(E:GetSetting("enabled")and E:GetSetting("thickAuraBorders"))and true or false
 end
 -- A protected button (not how Forever builds aura buttons) waits for combat to end.
 local function Locked(button)
@@ -273,23 +313,40 @@ local function Locked(button)
  return false
 end
 -- The shadow's own frame, sized by two icon corners and never mouse-enabled.
--- Top and bottom rings take the corners, so no spot is shaded twice.
+-- Top and bottom rings take the corners, so no spot is shaded twice. Each
+-- ring's strips are kept (steps) for the softer shadow.
 local function Shadow(button,icon)
  local reach=EDGE+#SHADOW
  local holder=CreateFrame("Frame",nil,button)
  holder:SetPoint("TOPLEFT",icon,"TOPLEFT",-reach,reach)
  holder:SetPoint("BOTTOMRIGHT",icon,"BOTTOMRIGHT",reach,-reach)
+ local steps={}
  for step,alpha in ipairs(SHADOW)do
   local d=EDGE+step-1
+  steps[step]={}
   for _,edge in ipairs({{"TOPLEFT",-d-1,d+1,"TOPRIGHT",d+1,d},{"BOTTOMLEFT",-d-1,-d,"BOTTOMRIGHT",d+1,-d-1},
    {"TOPLEFT",-d-1,d,"BOTTOMLEFT",-d,-d},{"TOPRIGHT",d,d,"BOTTOMRIGHT",d+1,-d}})do
    local strip=holder:CreateTexture(nil,"BACKGROUND",nil,-8)
    strip:SetColorTexture(0,0,0,alpha)
-   strip:SetPoint("TOPLEFT",icon,edge[1],edge[2],edge[3])
-   strip:SetPoint("BOTTOMRIGHT",icon,edge[4],edge[5],edge[6])
+   Pin(strip,icon,edge)
+   table.insert(steps[step],strip)
   end
  end
- return holder
+ return holder,steps
+end
+-- The full shadow (three rings) or, under Thick Aura Borders, the softer
+-- two-step one: the first two rings fainter, the third hidden. Set only when
+-- it changes.
+local function Soften(state,soft)
+ if state.soft==soft then return end
+ state.soft=soft
+ for step,strips in ipairs(state.steps)do
+  local alpha=(soft and SOFT or SHADOW)[step]
+  for _,strip in ipairs(strips)do
+   if alpha then strip:SetColorTexture(0,0,0,alpha)end
+   strip:SetShown(alpha~=nil)
+  end
+ end
 end
 -- One level under the button, checked on every update in case it moved. The
 -- level is checked as a plain number before any arithmetic.
@@ -311,16 +368,31 @@ local function Paint(ring,r,g,b)
  ring.r,ring.g,ring.b=r,g,b
  for _,strip in ipairs(ring.line)do strip:SetColorTexture(r,g,b,1)end
 end
--- The grey line at the slider's shade. A line wearing a debuff's type
--- colour (Thin Debuff Colours, below) keeps it: the slider leaves it alone.
+-- The grey line at the slider's shade (a Thick Aura Borders line in
+-- Classic: bronze, which the slider leaves alone). A line wearing a debuff's
+-- type colour (Thin Debuff Colours, below) keeps it: the slider leaves it alone.
 local function Tone(ring,dim)
  ring.dim=dim
- if not ring.typed then Paint(ring,LINE[3]*dim,LINE[4]*dim,LINE[5]*dim)end
+ if ring.typed then return end
+ if ring.bronze then Paint(ring,BRONZE[1],BRONZE[2],BRONZE[3])else Paint(ring,LINE[3]*dim,LINE[4]*dim,LINE[5]*dim)end
+end
+-- A thick ring's line: 1 unit wide, or 2 in a debuff's type colour. Our own
+-- strips are pinned again only when the width changes, which only follows
+-- the native border's own change (Debuff, below): a protected button (not
+-- how Forever builds them) has already waited for combat to end by then.
+local function Widen(ring,wide,button)
+ if ring.wide==wide then return end
+ ring.wide=wide
+ for side,edge in ipairs(Band(THICK_LINE[1],wide and TYPED_LINE or THICK_LINE[2]))do
+  local strip=ring.line[side]
+  strip:ClearAllPoints();Pin(strip,button.Icon,edge)
+ end
 end
 -- A debuff's type colour on its ring's line, or (no colour) the grey again.
-local function TypeLine(ring,r,g,b)
+local function TypeLine(ring,r,g,b,button)
  ring.typed=r~=nil or nil
  if r then Paint(ring,r,g,b)else Tone(ring,ring.dim)end
+ if ring.thick then Widen(ring,r~=nil,button)end
 end
 -- While its ring shows, the icon's art is zoomed in a little (the .07 trim
 -- EraUI's own icons use) so its bright built-in bevel is cut off and the
@@ -328,50 +400,66 @@ end
 -- button's coords; full coords go back once when the ring hides. Constants
 -- only: nothing about the icon is read. The consolidated buffs button is left
 -- out: its icon is a cropped piece of a larger sheet with the game's own coords.
-local function Trim(button,ring,on)
- if not(on or ring.trimmed)or Locked(button)then return end
- ring.trimmed=on
+local function Trim(button,state,on)
+ if not(on or state.trimmed)or Locked(button)then return end
+ state.trimmed=on
  if on then button.Icon:SetTexCoord(.07,.93,.07,.93)else button.Icon:SetTexCoord(0,1,0,1)end
 end
-local function Ring(button,on,shade,dim,cropped)
- if not button or button.isAuraAnchor or not button.Icon then return end
- local ring=rings[button]
+-- One of a button's two rings: made (EraUI's own textures on the button)
+-- the first time it shows, then only shown, hidden and toned.
+local function Show(button,state,key,on,dim)
+ local ring=state[key]
  if not ring then
   if not on or Locked(button)then return end
-  ring={line={}};rings[button]=ring
-  local icon=button.Icon
-  for _,tone in ipairs(TONES)do
-   local o,i=tone[1],tone[2]
-   -- Top, bottom, left and right strips, each pinned by two icon corners.
-   for _,edge in ipairs({{"TOPLEFT",-o,o,"TOPRIGHT",o,-i},{"BOTTOMLEFT",-o,i,"BOTTOMRIGHT",o,-o},
-    {"TOPLEFT",-o,o,"BOTTOMLEFT",i,-o},{"TOPRIGHT",-i,o,"BOTTOMRIGHT",o,-o}})do
+  local tones,line=TONES,LINE
+  ring={line={}};state[key]=ring
+  if key=="thick"then tones,line,ring.thick,ring.wide=THICK,THICK_LINE,true,false end
+  for _,tone in ipairs(tones)do
+   for _,edge in ipairs(Band(tone[1],tone[2]))do
     local strip=button:CreateTexture(nil,tone[6],nil,tone[7])
-    if tone==LINE then ring.line[#ring.line+1]=strip else strip:SetColorTexture(tone[3],tone[4],tone[5],1)end
-    strip:SetPoint("TOPLEFT",icon,edge[1],edge[2],edge[3])
-    strip:SetPoint("BOTTOMRIGHT",icon,edge[4],edge[5],edge[6])
+    if tone==line then ring.line[#ring.line+1]=strip else strip:SetColorTexture(tone[3],tone[4],tone[5],1)end
+    Pin(strip,button.Icon,edge)
     ring[#ring+1]=strip
    end
   end
  end
+ -- Thick Aura Borders' line is bronze in the Classic look.
+ if key=="thick"then ring.bronze=not E:GetSetting("darkMode")or nil end
  Tone(ring,dim)
  if ring.on~=on then
   ring.on=on
   for _,strip in ipairs(ring)do strip:SetShown(on)end
  end
- if not cropped then Trim(button,ring,on)end
- if not(shade or ring.shadow)or Locked(button)then return end
- ring.shadow=ring.shadow or Shadow(button,button.Icon)
- if shade then Lower(button,ring.shadow)end
- if ring.shaded~=shade then ring.shaded=shade;ring.shadow:SetShown(shade)end
+end
+-- One pass over an aura button. on: Dark Aura Borders; thick: Thick Aura
+-- Borders, which wins (Dark Aura Borders' ring hides while it shows); shade:
+-- Aura Shadows, softer under the thick edge.
+local function Ring(button,on,shade,dim,cropped,thick)
+ if not button or button.isAuraAnchor or not button.Icon then return end
+ local state=rings[button]
+ if not state then
+  if not(on or thick)or Locked(button)then return end
+  state={};rings[button]=state
+ end
+ thick=thick and true or false
+ on=on and not thick
+ Show(button,state,"dab",on,dim)
+ Show(button,state,"thick",thick,dim)
+ if not cropped then Trim(button,state,on or thick)end
+ if not(shade or state.shadow)or Locked(button)then return end
+ if not state.shadow then state.shadow,state.steps=Shadow(button,button.Icon);state.soft=false end
+ if shade then Lower(button,state.shadow);Soften(state,thick)end
+ if state.shaded~=shade then state.shaded=shade;state.shadow:SetShown(shade)end
 end
 -- Boosted Rest is good for you, but the game lists it with your debuffs, so
--- it wears a typeless debuff's red ring. While Dark Aura Borders show, that
--- ring goes and the dark border shows, as on your buffs. Known by the Bonus
--- XP icon it shows: with the debuff's type (Thin Debuff Colours, below) the
--- only aura data EraUI reads, and only on the debuff row (the dark ring
--- itself reads none). In a fight the game can keep the
--- icon secret, so each aura seen as Boosted Rest is remembered by its
--- instance ID; when neither can be read, the border is left as it is.
+-- it wears a typeless debuff's red ring. While Dark Aura Borders (or Thick
+-- Aura Borders) show, that ring goes and the dark border shows, as on your
+-- buffs, its line plain. Known by the Bonus XP icon it shows: with the
+-- debuff's type (Thin Debuff Colours, below) the only aura data EraUI reads,
+-- and only on the debuff row (the dark ring itself reads none). In a fight
+-- the game can keep the icon secret, so each aura seen as Boosted Rest is
+-- remembered by its instance ID; when neither can be read, the border is
+-- left as it is.
 local BONUS_XP_ICON=1001982 -- Interface\Icons\xpbonus_icon
 local friendly=setmetatable({}, {__mode="k"})
 local bonusAuras={} -- auraInstanceID -> true, learnt while the icon could be read
@@ -399,6 +487,11 @@ end
 -- be told keeps the game's border as the game set it. Boosted Rest keeps
 -- its plain dark border. Remembered types are kept for the last hundred or
 -- so auras seen (two lists: the newer one is moved back when full).
+-- Thick Aura Borders does the same on its own (no tick needed), in Classic
+-- too: a known type colours the thick ring's line, 2 units wide; an unknown
+-- one keeps the game's coloured border, as the game set it, which still
+-- shows the right colour. The ring that shows takes the colour; the other
+-- (hidden) keeps its plain line.
 local typed=setmetatable({}, {__mode="k"}) -- debuff button: its border hidden for a type line
 local TYPES_KEPT=100
 local types,oldTypes,typeCount={},{},0 -- auraInstanceID -> dispel type (false: none)
@@ -433,11 +526,17 @@ local function HideBorder(border)
 end
 -- A debuff button's border and line, checked on every pass of the debuff
 -- row: Boosted Rest's dark border, a type line, or the game's own border.
-local function Debuff(button,on)
+local function Debuff(button,on,thick)
  if not button or button.isAuraAnchor then return end
  local border=button.DebuffBorder
  if not border then return end
- local ring=rings[button]
+ local state=rings[button]
+ local dab,wide=state and state.dab,state and state.thick
+ -- The ring that shows (Thick Aura Borders wins) and whether it takes a
+ -- type colour: always under Thick Aura Borders, else with Thin Debuff Colours.
+ local ring,lines=dab,E:GetSetting("darkDebuffLines")
+ if thick then ring,lines=wide,true end
+ on=on or thick
  local bonus=false
  if on then bonus=IsBonus(button)end
  if bonus==nil then
@@ -445,12 +544,13 @@ local function Debuff(button,on)
   -- line gives way to the game's own border.
   if typed[button]and not Locked(button)then
    typed[button]=nil;border:SetAlpha(1)
-   if ring then TypeLine(ring)end
+   if dab then TypeLine(dab,nil,nil,nil,button)end
+   if wide then TypeLine(wide,nil,nil,nil,button)end
   end
   return
  end
  local r,g,b
- if not bonus and on and ring and ring.on and E:GetSetting("darkDebuffLines")then
+ if not bonus and on and ring and ring.on and lines then
   local kind=button.auraType
   if Public(kind)and kind=="Debuff"then
    local known,dispel=DebuffType(button.buttonInfo)
@@ -465,7 +565,8 @@ local function Debuff(button,on)
   if Locked(button)then return end
   friendly[button],typed[button]=nil,nil;border:SetAlpha(1)
  end
- if ring then TypeLine(ring,r,g,b)end
+ if dab then TypeLine(dab,ring==dab and r or nil,g,b,button)end
+ if wide then TypeLine(wide,ring==wide and r or nil,g,b,button)end
 end
 -- Each debuff button is checked again straight after the game updates it, so
 -- the dark border stays on the right icon however the row is refreshed.
@@ -473,7 +574,7 @@ local watched=setmetatable({}, {__mode="k"})
 local function WatchDebuff(button)
  if not button or watched[button]or button.isAuraAnchor or type(button.Update)~="function"then return end
  watched[button]=true
- hooksecurefunc(button,"Update",function(self)Debuff(self,DarkBorders())end)
+ hooksecurefunc(button,"Update",function(self)Debuff(self,DarkBorders(),ThickBorders())end)
 end
 -- The player's aura rows: buffs, debuffs, external defensives and the
 -- consolidated-buff popout, plus the consolidated button itself.
@@ -487,29 +588,33 @@ local function StyleFrame(frame)
   hooked[frame]=true
   hooksecurefunc(frame,"UpdateAuraButtons",StyleFrame)
  end
- local on,shade,dim=DarkBorders(),DarkShadows(),Dim()
+ local on,shade,dim,thick=DarkBorders(),DarkShadows(),Dim(),ThickBorders()
  local debuffs=frame==DebuffFrame
  for _,button in ipairs(frame.auraFrames or{})do
-  Ring(button,on,shade,dim);StyleButton(button)
-  if debuffs then WatchDebuff(button);Debuff(button,on)end
+  Ring(button,on,shade,dim,nil,thick);StyleButton(button)
+  if debuffs then WatchDebuff(button);Debuff(button,on,thick)end
  end
 end
 function M:RefreshBorders()
- local on,shade,dim=DarkBorders(),DarkShadows(),Dim();pending=false
+ local on,shade,dim,thick=DarkBorders(),DarkShadows(),Dim(),ThickBorders();pending=false
  local rows,consolidated=Rows()
  for index=1,4 do
   for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do
-   Ring(button,on,shade,dim)
-   if index==2 then Debuff(button,on)end
+   Ring(button,on,shade,dim,nil,thick)
+   if index==2 then Debuff(button,on,thick)end
   end
  end
- Ring(consolidated,on,shade,dim,true);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade,dim)
+ Ring(consolidated,on,shade,dim,true,thick);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade,dim,nil,thick)
 end
 -- The Darkness slider (Core/Appearance.lua RefreshDarkness): every ring's
--- grey line takes the new shade at once.
+-- grey line takes the new shade at once (Dark Aura Borders' and, in Dark
+-- Mode, Thick Aura Borders').
 function M:RefreshDarkness()
  local dim=Dim()
- for _,ring in pairs(rings)do Tone(ring,dim)end
+ for _,state in pairs(rings)do
+  if state.dab then Tone(state.dab,dim)end
+  if state.thick then Tone(state.thick,dim)end
+ end
  -- And every tooltip's bevel that isn't wearing a class colour.
  for tip,state in pairs(tips)do if not tinted[tip]then PlainBorder(state.backdrop)end end
 end

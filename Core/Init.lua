@@ -48,6 +48,7 @@ local defaults = {
     darkWindows = true, -- Dark Windows (Needs testing): shows only in Dark Mode, so choosing Dark Mode gives it
     blackPages = false, -- Black Pages (Needs testing): near-black spellbook and professions pages under Dark Windows; off by default
     flatBars = false, -- Flat Bars (experimental): a plain, solid fill on unit-frame and cast bars, Classic or Dark Mode; off by default, applies live
+    thickAuraBorders = false, -- Thick Aura Borders (experimental): thick dark borders round your own buff and debuff icons, Classic or Dark Mode; wins over Dark Aura Borders; off by default, applies live
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
