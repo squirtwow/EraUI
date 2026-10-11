@@ -12,6 +12,12 @@ local MINUS = "Interface\\Buttons\\UI-MinusButton-Up"
 local COLORS = { available = { .1, 1, .1 }, unavailable = { 1, .1, .1 }, used = { .5, .5, .5 } }
 local Refresh, UpdateRows
 local history, phase, lastRefresh = {}, "not refreshed", {}
+-- The greeting's room: below the title strip (to -20), above the list's tab
+-- (from -53) and Filter (from -57). Two lines of the window's font fit; a
+-- longer greeting takes the small font, and past two lines of that it ends
+-- with "..." (the game's own truncation).
+local GREETING_TOP, GREETING_BOTTOM, GREETING_LINES = -21, -52, 2
+local GREETING_FONTS = { "GameFontHighlight", "GameFontHighlightSmall" }
 
 -- Cosmetic texture only: even a motion-only frame above Train consumes clicks
 -- on Forever. Read cursor geometry without adding anything to mouse hit testing.
@@ -296,6 +302,17 @@ local function UpdateDetail()
     detail.text:SetText(GetTrainerServiceDescription(selected) or "")
 end
 
+-- The greeting in the window's font, or the small one when it would need
+-- more than two lines; set again each refresh, so a new trainer starts over.
+local function ShowGreeting(text)
+    local greeting = panel.greeting
+    greeting:SetFontObject(GREETING_FONTS[1])
+    greeting:SetText(text)
+    if text ~= "" and greeting.IsTruncated and greeting:IsTruncated() then
+        greeting:SetFontObject(GREETING_FONTS[2])
+    end
+end
+
 local function Build()
     if panel then return end
     local host = ClassTrainerFrame
@@ -314,12 +331,6 @@ local function Build()
     panel.empty:SetJustifyH("CENTER")
     panel.empty:SetWordWrap(true)
     panel.empty:Hide()
-    panel.greeting = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    panel.greeting:SetPoint("TOPLEFT", panel, "TOPLEFT", 72, -30)
-    panel.greeting:SetPoint("RIGHT", panel, "RIGHT", -14, 0)
-    panel.greeting:SetHeight(36)
-    panel.greeting:SetJustifyH("LEFT")
-    panel.greeting:SetJustifyV("TOP")
     local gap = CreateFrame("Frame", nil, panel)
     gap:SetFrameLevel(panel:GetFrameLevel() + 1)
     gap:SetPoint("TOPLEFT", panel, "TOPLEFT", 4, -50)
@@ -331,6 +342,21 @@ local function Build()
     stone:SetHorizTile(true)
     stone:SetVertTile(true)
     ns.ThemeTexture(stone, "rockBg")
+    -- The greeting (a profession trainer's says what the profession is) has
+    -- the room between the title strip and the list's tab and Filter: two
+    -- lines, centred, on a frame just above the stone so the list's backing
+    -- never cuts it. Mouse stays off: it sits nowhere near Train.
+    local greetingBox = CreateFrame("Frame", nil, panel)
+    greetingBox:SetFrameLevel(gap:GetFrameLevel() + 1)
+    greetingBox:SetPoint("TOPLEFT", panel, "TOPLEFT", 72, GREETING_TOP)
+    greetingBox:SetPoint("BOTTOMRIGHT", panel, "TOPRIGHT", -14, GREETING_BOTTOM)
+    panel.greetingBox = greetingBox
+    panel.greeting = greetingBox:CreateFontString(nil, "ARTWORK", GREETING_FONTS[1])
+    panel.greeting:SetAllPoints(greetingBox)
+    panel.greeting:SetJustifyH("LEFT")
+    panel.greeting:SetJustifyV("MIDDLE")
+    panel.greeting:SetWordWrap(true)
+    if panel.greeting.SetMaxLines then panel.greeting:SetMaxLines(GREETING_LINES) end
     panel.collapseAll:SetScript("OnClick", function()
         if InCombatLockdown() then return end
         local fold = not AllCollapsed()
@@ -440,6 +466,10 @@ local function Build()
     panel.oval:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 4, -3)
     panel.oval:SetPoint("RIGHT", panel.train, "LEFT", -5, 0)
     panel.oval:SetHeight(34)
+    -- Dark Windows: the money box's gold-edged border takes Dark Mode's grey
+    -- like the window's other edges (Core/Appearance.lua); the coins keep
+    -- their colours.
+    if ns.DarkWindowArt then ns.DarkWindowArt(panel.oval, "frame") end
     panel.detailBox:ClearAllPoints()
     panel.detailBox:SetPoint("TOPLEFT", panel.listBox, "BOTTOMLEFT", 0, 12)
     panel.detailBox:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 25)
@@ -505,7 +535,7 @@ Refresh = function()
     lastRefresh.afterLayout = ReadServiceCount()
     Collect()
     phase = "rows"
-    panel.greeting:SetText(GetTrainerGreetingText() or "")
+    ShowGreeting(GetTrainerGreetingText() or "")
     panel.bar:SetRange(math.max(0, #lines - LIST_ROWS))
     UpdateRows()
     phase = "detail"

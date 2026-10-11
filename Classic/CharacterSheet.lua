@@ -1341,6 +1341,9 @@ local function BuildRepDetail()
                 tile = true, tileSize = 32, edgeSize = 32, insets = { left = 8, right = 8, top = 8, bottom = 8 },
             })
             part:SetBackdropColor(0, 0, 0, 1)
+            -- Dark Windows: the border takes Dark Mode's grey; the black fill
+            -- stays black (Core/Appearance.lua).
+            if ns.DarkBackdrop then ns.DarkBackdrop(part, { 0, 0, 0, 1 }) end
         end
         return part
     end

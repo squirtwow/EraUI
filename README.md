@@ -57,7 +57,7 @@ or off in the settings.
   live sample. A new font shows after you log out and back in
 - Click an item or spell link in chat again to close its tooltip
 - Update notice: tells you in chat when someone in your guild or group has a
-  newer EraUI (the tick under Presets in `/era`)
+  newer EraUI (`/era` > Chat & Names)
 - AFK Screen (on by default): your class-coloured EraUI banner, your character,
   your details and a famous Classic line for your class while you're away
 - Bag Item Levels (optional): item levels in quality colours, upgrade arrows and

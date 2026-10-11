@@ -79,28 +79,55 @@ end
 -- in EraUI's classic windows follows the Darkness slider too. The red panel
 -- buttons lose their red and take a lifted grey: a dark grey at Darkness 58,
 -- near black with faint lighter edges at 90. Their glow only loses its
--- colour. Frame art (the game menu's border and header plate, the
--- Professions window's frame) takes the grey itself. Parchment (the
--- spellbook's and professions book's pages) goes a darker brown-grey, held
--- at PAGE_FLOOR from about Darkness 80 on so the text on it stays readable,
--- and the small dark text on it ("Passive", the page number) turns a light
--- warm grey-gold. Labels and spell names keep their gold. Only colours are
--- set, Blizzard's own pieces included; each piece keeps the look it was last
--- given, so a pass with nothing new sets nothing, and force paints it again
--- after the game redraws it. Off, a piece gets its own colours back once and
--- is then left alone; one Dark Mode tints by itself keeps that grey.
+-- colour. Frame art (the dialog boxes' borders and header plates, the
+-- skinned windows' metal edges, stone and title strip) takes the grey
+-- itself, and a dialog box's fill darkens with the buttons' grey. Parchment
+-- (the spellbook's and professions book's pages) goes a darker brown-grey,
+-- held at PAGE_FLOOR from about Darkness 80 on so the text on it stays
+-- readable, and the small dark text on it ("Passive", the page number) turns
+-- a light warm grey-gold. Labels and spell names keep their gold. Only
+-- colours are set, Blizzard's own pieces included; each piece keeps the look
+-- it was last given, so a pass with nothing new sets nothing, and force
+-- paints it again after the game redraws it. Off, a piece gets its own
+-- colours back once and is then left alone; one Dark Mode tints by itself
+-- keeps that grey.
+-- Black Pages (its own tick under Dark Windows, off unless ticked): the
+-- parchment loses its colour and goes near black, a dark neutral like the
+-- game menu's fill, the same at every Darkness; the rings and bar frames
+-- drawn on it ("trim") take Dark Mode's grey instead, so they still show and
+-- follow the slider. The spellbook draws its frame, title strip and icon
+-- ring into the same four pieces as its parchment, so those pieces are trim
+-- too, and EraUI's own flat near black ("cover") goes over the parchment
+-- alone, shown only with Black Pages. The light text and the gold names stay
+-- as they are; the Professions window's dark small text on its spell plates
+-- and cards (a spell's rank under its name), readable on the brown-grey,
+-- turns light too while the pages are black.
 local BUTTON_LIFT, BUTTON_GAIN = .1, 2
 local PAGE_LIFT, PAGE_GAIN, PAGE_FLOOR = .36, .43, .45
 local PAGE_TEXT = { .87, .81, .66 }
-local DESATURATED = { button = true, glow = true }
+local BLACK_PAGE = { .13, .13, .14 }
+-- The cover's colour: the spellbook's parchment (about .43 bright once
+-- desaturated) given BLACK_PAGE, so it matches the Professions window's.
+local PARCHMENT = .43
+local BLACK_COVER = { BLACK_PAGE[1] * PARCHMENT, BLACK_PAGE[2] * PARCHMENT, BLACK_PAGE[3] * PARCHMENT }
+local DESATURATED = { button = true, glow = true, page = true }
+local WHITE = { 1, 1, 1, 1 }
 local darkArt = setmetatable({}, { __mode = "k" })      -- texture: its role
 local darkText = setmetatable({}, { __mode = "k" })     -- font string: its own colour
-local darkBackdrop = setmetatable({}, { __mode = "k" }) -- backdrop frame: true
+local darkBackdrop = setmetatable({}, { __mode = "k" }) -- backdrop frame: its own colours
 local darkLast = setmetatable({}, { __mode = "k" })     -- piece: the look it was last given
+local blackText = setmetatable({}, { __mode = "k" })    -- font string: light only with Black Pages
+-- Text counts as dark under this brightness: the small brown and black
+-- fonts (about .22 and 0); gold names (.78), greys (.5) and white are not.
+local DARK_TEXT = .35
 
 function ns.DarkWindowsOn()
     return (EraUI:GetSetting("enabled") and EraUI:GetSetting("darkMode") and EraUI:GetSetting("darkWindows"))
         and true or false
+end
+
+function ns.BlackPagesOn()
+    return (ns.DarkWindowsOn() and EraUI:GetSetting("blackPages")) and true or false
 end
 
 -- The buttons' grey: Dark Mode's, lifted so the art's own shading still shows.
@@ -118,20 +145,25 @@ local function PageShade()
     return v, v, math.min(1, v * 1.06)
 end
 ns.DarkPageShade = PageShade
-ns.DARK_PAGE_FLOOR, ns.DARK_PAGE_TEXT = PAGE_FLOOR, PAGE_TEXT
+ns.DARK_PAGE_FLOOR, ns.DARK_PAGE_TEXT, ns.DARK_BLACK_PAGE = PAGE_FLOOR, PAGE_TEXT, BLACK_PAGE
+ns.DARK_BLACK_COVER = BLACK_COVER
 
 -- A piece's look for its role: desaturated or not (nil: left as it is), and
--- its colour.
+-- its colour. A page is desaturated only while it is black; a trim is
+-- coloured like the page, or with Black Pages like the frame.
 local function Look(role, on, texture)
     local desaturate
-    if DESATURATED[role] then desaturate = on end
+    if DESATURATED[role] then desaturate = false end
     if not on then
         if tinted[texture] then return desaturate, ns.DarkGrey() end
         return desaturate, 1, 1, 1
     end
     if role == "button" then return true, Lifted() end
     if role == "glow" then return true, 1, 1, 1 end
-    if role == "page" then return nil, PageShade() end
+    if role == "page" or role == "trim" then
+        if not ns.BlackPagesOn() then return desaturate, PageShade() end
+        if role == "page" then return true, BLACK_PAGE[1], BLACK_PAGE[2], BLACK_PAGE[3] end
+    end
     return nil, ns.DarkGrey()
 end
 
@@ -147,9 +179,21 @@ local function Remember(piece, on, d, r, g, b)
     darkLast[piece] = last
 end
 
+-- A cover (EraUI's own texture over parchment drawn together with its frame,
+-- the spellbook's): shown, in its flat near black, only with Black Pages;
+-- hidden otherwise, Dark Windows off included.
+local function PaintCover(texture, on, force)
+    local show = ns.BlackPagesOn()
+    if on and not force and Unchanged(texture, show) then return end
+    if show then texture:SetColorTexture(BLACK_COVER[1], BLACK_COVER[2], BLACK_COVER[3], 1) end
+    texture:SetShown(show)
+    Remember(texture, on, show)
+end
+
 local function PaintArt(texture, force)
     local on = ns.DarkWindowsOn()
     if not on and not darkLast[texture] then return end
+    if darkArt[texture] == "cover" then return PaintCover(texture, on, force) end
     local d, r, g, b = Look(darkArt[texture], on, texture)
     if on and not force and Unchanged(texture, d, r, g, b) then return end
     if d ~= nil then texture:SetDesaturated(d) end
@@ -159,6 +203,7 @@ end
 
 local function PaintText(text, force)
     local on = ns.DarkWindowsOn()
+    if blackText[text] then on = ns.BlackPagesOn() end
     if not on and not darkLast[text] then return end
     local own = darkText[text]
     local r, g, b, a = own[1], own[2], own[3], own[4]
@@ -168,20 +213,36 @@ local function PaintText(text, force)
     Remember(text, on, nil, r, g, b)
 end
 
+-- A dialog box: its border times Dark Mode's grey, its fill times the
+-- buttons' grey (so a black fill stays black); off, its own colours again.
 local function PaintBackdrop(frame, force)
     local on = ns.DarkWindowsOn()
     if not on and not darkLast[frame] then return end
-    local r, g, b = 1, 1, 1
-    if on then r, g, b = ns.DarkGrey() end
+    local own = darkBackdrop[frame]
+    local border, fill = own.border, own.fill
+    local r, g, b = border[1], border[2], border[3]
+    if on then
+        local gr, gg, gb = ns.DarkGrey()
+        r, g, b = r * gr, g * gg, b * gb
+    end
     if on and not force and Unchanged(frame, nil, r, g, b) then return end
-    frame:SetBackdropBorderColor(r, g, b)
-    if on then frame:SetBackdropColor(Lifted()) else frame:SetBackdropColor(1, 1, 1) end
+    frame:SetBackdropBorderColor(r, g, b, border[4])
+    if fill then
+        local fr, fg, fb = fill[1], fill[2], fill[3]
+        if on then
+            local lr, lg, lb = Lifted()
+            fr, fg, fb = fr * lr, fg * lg, fb * lb
+        end
+        frame:SetBackdropColor(fr, fg, fb, fill[4])
+    end
     Remember(frame, on, nil, r, g, b)
 end
 
 -- Registered only while Dark Mode is loaded: it needs a reload to come on,
 -- so a piece made without it never needs anything.
--- role: "frame" (the grey), "page" (parchment), "button" or "glow".
+-- role: "frame" (the grey), "page" (parchment), "trim" (art drawn on or round
+-- parchment: rings, bar frames, the spellbook's frame), "cover" (EraUI's own
+-- black over a page, made hidden), "button" or "glow".
 function ns.DarkWindowArt(texture, role, force)
     if not texture or not EraUI:GetSetting("darkMode") then return end
     darkArt[texture] = role or "frame"
@@ -201,24 +262,105 @@ function ns.DarkRedButton(button)
 end
 
 -- Dark text on parchment; its own colour is kept for when Dark Windows is off.
-function ns.DarkWindowText(text)
+-- force: painted again after the game has set the text up again.
+function ns.DarkWindowText(text, force)
     if not text or not EraUI:GetSetting("darkMode") then return end
     if not darkText[text] then darkText[text] = { text:GetTextColor() } end
-    PaintText(text)
+    PaintText(text, force)
 end
 
--- A dialog box's backdrop: its border takes the grey, its fill the buttons'.
-function ns.DarkBackdrop(frame)
+-- Dark text that Dark Windows' brown-grey page leaves readable but Black
+-- Pages' near black doesn't (the Professions window's spell plates and
+-- cards): light only while Black Pages is on, its own colour otherwise.
+-- Taken only when it is dark the first time it is seen, so gold names and
+-- light text are left alone; text already handed to ns.DarkWindowText
+-- keeps that. Only colours are read and set.
+local function Readable(v) return not (issecretvalue and issecretvalue(v)) and type(v) == "number" end
+function ns.DarkBlackPageText(text, force)
+    if not text or not EraUI:GetSetting("darkMode") then return end
+    if not darkText[text] then
+        local r, g, b, a = text:GetTextColor()
+        if not (Readable(r) and Readable(g) and Readable(b) and Readable(a)) then return end
+        if .3 * r + .59 * g + .11 * b >= DARK_TEXT then return end
+        darkText[text] = { r, g, b, a }
+        blackText[text] = true
+    elseif not blackText[text] then
+        return
+    end
+    PaintText(text, force)
+end
+
+-- A dialog box's backdrop (the classic dialog border, with or without its
+-- fill): its border takes the grey, its fill the buttons'. fill and border
+-- are the colours the box was given ({ r, g, b, a }; white when nil), kept
+-- for when Dark Windows is off; fill false: a border with no fill. The first
+-- registration's colours are kept.
+function ns.DarkBackdrop(frame, fill, border)
     if not frame or not frame.SetBackdropBorderColor or not EraUI:GetSetting("darkMode") then return end
-    darkBackdrop[frame] = true
+    if not darkBackdrop[frame] then
+        if fill == nil then fill = WHITE end
+        darkBackdrop[frame] = { fill = fill, border = border or WHITE }
+    end
     PaintBackdrop(frame)
 end
+
+-- The game's help tips (the gold glow box with an arrow, as "You have unspent
+-- talent points" over the menu bar) and the help plates' tooltip, which is the
+-- same box: its fill takes the frame grey, still fading to black at the top as
+-- its gold-brown did, and its glow edges and arrow lose their gold for the
+-- buttons' lifted grey, so the box still stands out. The white text and the
+-- yellow close cross keep their colours. Off, the fill gets its gold-brown
+-- back. Only colours are set.
+local TIP_FOOT, TIP_TOP = { .23, .19, 0 }, { 0, 0, 0 }
+local TIP_EDGES = { "GlowTopLeft", "GlowTopRight", "GlowBottomLeft", "GlowBottomRight", "GlowTop",
+    "GlowBottom", "GlowLeft", "GlowRight", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+    "ArrowGlowUp", "ArrowGlowDown", "ArrowGlowLeft", "ArrowGlowRight" }
+local tipFill = setmetatable({}, { __mode = "k" }) -- a glow box's fill texture: true
+
+local function PaintTipFill(texture, force)
+    local on = ns.DarkWindowsOn()
+    if not on and not darkLast[texture] then return end
+    local r, g, b = TIP_FOOT[1], TIP_FOOT[2], TIP_FOOT[3]
+    if on then r, g, b = ns.DarkGrey() end
+    if on and not force and Unchanged(texture, nil, r, g, b) then return end
+    if CreateColor and texture.SetGradient then
+        pcall(texture.SetGradient, texture, "VERTICAL", CreateColor(r, g, b, 1),
+            CreateColor(TIP_TOP[1], TIP_TOP[2], TIP_TOP[3], 1))
+    end
+    Remember(texture, on, nil, r, g, b)
+end
+
+local function DarkGlowBox(frame)
+    if not frame or (frame.IsForbidden and frame:IsForbidden()) or not EraUI:GetSetting("darkMode") then return end
+    if frame.BG then
+        tipFill[frame.BG] = true
+        PaintTipFill(frame.BG)
+    end
+    for _, key in ipairs(TIP_EDGES) do ns.DarkWindowArt(frame[key], "button") end
+    local arrow = frame.Arrow
+    if type(arrow) == "table" and arrow.Arrow then
+        ns.DarkWindowArt(arrow.Arrow, "button")
+        ns.DarkWindowArt(arrow.Glow, "button")
+    end
+end
+ns.DarkGlowBox = DarkGlowBox
+
+-- Help tips all come from one pool; each is painted as it shows.
+if HelpTip and type(HelpTip.Show) == "function" then
+    hooksecurefunc(HelpTip, "Show", function(self)
+        local pool = self.framePool
+        if not pool or type(pool.EnumerateActive) ~= "function" then return end
+        for frame in pool:EnumerateActive() do DarkGlowBox(frame) end
+    end)
+end
+if HelpPlateTooltip and HelpPlateTooltip.HookScript then HelpPlateTooltip:HookScript("OnShow", DarkGlowBox) end
 
 -- Every piece, after the tick, Dark Mode or the Darkness slider changes.
 function ns.RefreshDarkWindows()
     for texture in pairs(darkArt) do PaintArt(texture) end
     for text in pairs(darkText) do PaintText(text) end
     for frame in pairs(darkBackdrop) do PaintBackdrop(frame) end
+    for texture in pairs(tipFill) do PaintTipFill(texture) end
 end
 
 -- The Darkness slider and its class colour tick: re-tint what Dark Mode has

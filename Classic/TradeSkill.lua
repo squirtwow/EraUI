@@ -424,6 +424,9 @@ local function InsetBox(parent, edge, bare)
             edgeSize = edge,
             insets = { left = inset, right = inset, top = inset, bottom = inset },
         })
+        -- Dark Windows: the iron border takes Dark Mode's grey, as the list's
+        -- tab already does (Core/Appearance.lua; no fill).
+        if ns.DarkBackdrop then ns.DarkBackdrop(box, false) end
     end
     return box
 end

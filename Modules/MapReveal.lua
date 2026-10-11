@@ -5,8 +5,14 @@ local TEMPLATE="MapExplorationPinTemplate"
 local data=E.MapRevealData
 local UNEXPLORED_SHADE=.65
 
+-- Another addon revealing the map has it instead (Core/Utils.lua); the choice
+-- is kept for when that addon is gone or its reveal is off.
+local function HandedOver()
+ return E.MapRevealHandedOver~=nil and E:MapRevealHandedOver()==true
+end
+
 local function Enabled()
- return E:GetSetting("enabled")==true and E:GetSetting("revealMap")==true
+ return E:GetSetting("enabled")==true and E:GetSetting("revealMap")==true and not HandedOver()
 end
 
 local function Clear(state,reason)
@@ -32,7 +38,7 @@ end
 
 local function Render(pin,state,fullUpdate)
  state.mapID,state.artID,state.layer=nil,nil,nil
- if not Enabled()then state.status="disabled";return end
+ if not Enabled()then state.status=HandedOver()and"another addon reveals the map"or"disabled";return end
  local map=pin:GetMap()
  if map~=M.map then state.status="pin belongs to another map";return end
  if not map:IsShown()then state.status="map hidden";return end

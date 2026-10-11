@@ -965,24 +965,12 @@ local function Build()
  panel:HookScript("OnHide",DisarmAll)
 end
 
+-- A switch in the box under Class Reminders & Buffs: the rows' square tick
+-- box and its name (Modules/ClassTools.lua T.TickToggle).
 local function ToggleRow(parent,label,get,set,width)
- local b=CreateFrame("CheckButton",nil,parent)
- b:SetSize(width or 328,24)
- b.label=T.Text(b,label,11);b.label:SetPoint("LEFT",8,0);b.label:SetWidth((width or 328)-50)
- b.label:SetJustifyH("LEFT")
- b.track=CreateFrame("Frame",nil,b,"BackdropTemplate")
- b.track:SetSize(30,16);b.track:SetPoint("RIGHT",-6,0)
- b.track:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
- b.thumb=b.track:CreateTexture(nil,"ARTWORK");b.thumb:SetSize(12,12)
+ local b=T.TickToggle(CreateFrame("CheckButton",nil,parent),label,width)
  local function paint()
-  local v=get()
-  local r,g,bl=T.Colour()
-  b.track:SetBackdropColor(.08,.09,.11,1)
-  b.track:SetBackdropBorderColor(v and r or .28,v and g or .30,v and bl or .34,1)
-  if v then b.thumb:SetColorTexture(r,g,bl,1)else b.thumb:SetColorTexture(.3,.32,.36,1)end
-  b.thumb:ClearAllPoints()
-  b.thumb:SetPoint("CENTER",b.track,v and 6 or -6,0)
-  b.label:SetTextColor(v and r or .7,v and g or .73,v and bl or .78)
+  b.SetTick(get())
   -- An option that needs another one on is greyed out until it is.
   if b.needs then
    local ready=not not b.needs()
@@ -999,7 +987,7 @@ local function ToggleRow(parent,label,get,set,width)
  return b
 end
 local function ActionButton(parent,label,width)
- local b=T.Button(parent,label or"",width or 328,24)
+ local b=T.Button(parent,label or"",width or T.BOX_COLUMN,24)
  b.label:ClearAllPoints();b.label:SetPoint("CENTER")
  b.label:SetFont(select(1,GameFontHighlight:GetFont()),11,"")
  local r,g,bl=T.Colour()
@@ -1038,18 +1026,18 @@ local function Needs(switch,needs,hint)
  cover:Hide();switch.dependencyHelp=cover
  switch.draw()
 end
--- A wide reminder's switch takes a whole line. A button of its own sits in
--- that line, just left of the switch, and the label has the rest.
-local function Inline(switch,b,labelWidth)
- b:SetPoint("RIGHT",switch.track,"LEFT",-8,0)
- switch.label:SetWidth(labelWidth)
+-- A wide reminder's switch takes a whole column. A button of its own sits at
+-- that column's right end, and the label has the room between.
+local function Inline(switch,b)
+ b:SetPoint("RIGHT",switch,"RIGHT",0,0)
+ switch.label:SetWidth(switch:GetWidth()-24-b:GetWidth()-8)
  local paint=switch.draw
  switch.draw=function()paint();b.draw()end
 end
 -- PET LOW HEALTH!'s Below button cycles the limit in steps of 5.
 local function LimitButton(switch,def)
  local b=ActionButton(switch,"",88)
- Inline(switch,b,194)
+ Inline(switch,b)
  b.draw=function()b.label:SetText("Below "..Limit(def).."%  >")end
  b:SetScript("OnClick",function()
   if InCombatLockdown()then return end
@@ -1062,16 +1050,17 @@ local function AnyName(def)
  for _,choice in ipairs(def.choices)do if choice.key=="any"then return choice.name end end
  return "Any"
 end
--- The choice cycle button, beside its switch ("Blessing: Any  >"). In a wide
--- reminder's line the label already names it, so it shows just the choice
--- ("Any seal  >", "Seal of Fury  >").
+-- The choice cycle button. Its switch's name, just before it, already says
+-- what it picks, so it shows just the choice ("Any blessing  >", "Blessing
+-- of Salvation  >"): half a column beside a half-column switch, or 176 at the
+-- end of a wide reminder's line, room for "Shadow Resistance Aura  >".
+local ADV_UNIT=160 -- an Advanced switch or choice button: half a column
 local function ChoiceButton(parent,def,switch)
- local b=ActionButton(switch or parent,"",switch and 158 or 170)
- if switch then Inline(switch,b,126)end
+ local b=ActionButton(switch or parent,"",switch and 176 or ADV_UNIT)
+ if switch then Inline(switch,b)end
  b.draw=function()
   local choice=ChoiceOf(def)
-  if switch then b.label:SetText((choice and choice.name or AnyName(def)).."  >")
-  else b.label:SetText((def.choiceLabel or "Spell")..": "..(choice and choice.name or "Any").."  >")end
+  b.label:SetText((choice and choice.name or AnyName(def)).."  >")
  end
  b:SetScript("OnClick",function()
   if InCombatLockdown()then return end
@@ -1084,7 +1073,7 @@ end
 -- A hand's poison button ("Main hand: Instant Poison  >") cycles through the
 -- poisons your level allows.
 local function PoisonButton(parent,hand)
- local b=ActionButton(parent,"",328)
+ local b=ActionButton(parent,"",T.BOX_COLUMN)
  b.draw=function()b.label:SetText(Poisons.Label(hand))end
  b:SetScript("OnClick",function()
   if InCombatLockdown()then return end
@@ -1100,7 +1089,8 @@ local function BuildOptions(parent,anchor)
  local items={}
  dropdown=CreateFrame("Frame",nil,parent,"BackdropTemplate")
  T.BindInlinePanel(dropdown,anchor)
- dropdown:SetSize(352,190)
+ -- The page's whole width, under Class Reminders & Buffs (a whole line).
+ dropdown:SetSize(T.BOX_WIDTH,190)
  dropdown:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
  dropdown:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
  dropdown:SetBackdropColor(.026,.029,.037,.99)
@@ -1117,7 +1107,9 @@ local function BuildOptions(parent,anchor)
   -- Rogues: POISON! clickable to apply, and each hand's poison.
   local poisonClick,mainPoison,offPoison
   if poisonSupported then
-   poisonClick=ToggleRow(dropdown,"Click to apply poisons (Needs testing)",PoisonClick,function(v)SetOpt("reminderPoisonClick",v)end)
+   poisonClick=ToggleRow(dropdown,"Click to apply poisons",PoisonClick,function(v)SetOpt("reminderPoisonClick",v)end)
+   -- Not seen working in game yet: a small "experimental" after its name.
+   T.TickTag(poisonClick,"experimental")
    Needs(poisonClick,Clickable,"Turn on Clickable reminders to use this.")
    Explain(poisonClick,"Click to apply poisons",Poisons.ClickHelp,function()return "Default: Off."end)
    mainPoison,offPoison=PoisonButton(dropdown,"main"),PoisonButton(dropdown,"off")
@@ -1125,7 +1117,7 @@ local function BuildOptions(parent,anchor)
   local mana=ToggleRow(dropdown,"Say when you're out of "..power,power=="rage"and RageOn or ManaOn,
    function(v)SetOpt(power=="rage"and "reminderRage"or "reminderMana",v);M:Refresh()end)
  local prev=ToggleRow(dropdown,"Show all reminders",function()return preview end,function(v)preview=v end)
- local size=ActionButton(dropdown,"",158)
+ local size=ActionButton(dropdown,"")
  size.draw=function()size.label:SetText("Alert size: "..SIZES[SizeIndex()].key.."  >")end
  size:SetScript("OnClick",function()
   if InCombatLockdown()then return end
@@ -1133,7 +1125,7 @@ local function BuildOptions(parent,anchor)
   if next>#SIZES then next=1 end
   SetOpt("reminderSize",next);size.draw();M:Refresh()
  end)
- local reset=ActionButton(dropdown,"Reset alert positions",158)
+ local reset=ActionButton(dropdown,"Reset alert positions")
  reset:SetScript("OnClick",function()
   if InCombatLockdown()then return end
   ClearSpots();M:Refresh()
@@ -1155,14 +1147,22 @@ local function BuildOptions(parent,anchor)
    if v==nil then return default end
    return v==true
   end
-  -- A wide reminder's switch takes a whole line, with its button in it.
+  -- A wide reminder's switch takes a whole column, with its button in it;
+  -- the others half a column, a choice button beside them in the other half.
+  -- A plain switch whose name needs more than half a column's 132 at 12
+  -- point takes the whole column too (CREATE HEALTHSTONE!, SHADOW
+  -- PROTECTION!): over 17 capitals, or wider as the game measures it.
   local wide=def.wide
-  local switch=ToggleRow(dropdown,def.text or def.key,get,function(v)SetOpt(key,v)end,wide and 340 or 170)
+  local name=def.text or def.key
+  local switch=ToggleRow(dropdown,name,get,function(v)SetOpt(key,v)end,wide and T.BOX_COLUMN or ADV_UNIT)
+  if not wide and not def.choices and (#name>17 or switch.label:GetStringWidth()>ADV_UNIT-28)then
+   wide=true;switch:SetWidth(T.BOX_COLUMN);switch.label:SetWidth(T.BOX_COLUMN-28)
+  end
   switch.wide=wide
   advRows[#advRows+1]=switch
   if def.kind=="petHealth"then
    switch.limit=LimitButton(switch,def)
-   local title=def.text or def.key
+   local title=name
    local help=function()return PetHealthHelp(def)end
    local default=function()return "Default: Off, below "..LIMIT_DEFAULT.."%"end
    Explain(switch,title,help,default);Explain(switch.limit,title,help,default)
@@ -1176,6 +1176,7 @@ local function BuildOptions(parent,anchor)
     local default=function()return "Default: "..(def.off and "Off"or "On")..", "..AnyName(def)end
     Explain(switch,title,help,default);Explain(cbtn,title,help,default)
    else
+    switch.pairNext=cbtn
     advRows[#advRows+1]=cbtn
    end
   end
@@ -1186,7 +1187,7 @@ local function BuildOptions(parent,anchor)
  items[#items+1]=size;items[#items+1]=reset;items[#items+1]=adv
  for _,frame in ipairs(advRows)do items[#items+1]=frame;items[#items+1]=frame.limit;items[#items+1]=frame.choice end
  dropdown.offHint=T.Text(dropdown,"Turn on Class Reminders & Buffs to use these options.",10,true)
- dropdown.offHint:SetPoint("BOTTOMLEFT",12,8);dropdown.offHint:SetWidth(326);dropdown.offHint:SetJustifyH("LEFT")
+ dropdown.offHint:SetPoint("BOTTOMLEFT",T.BOX_COLUMNS[1],8);dropdown.offHint:SetWidth(T.BOX_WIDTH-24);dropdown.offHint:SetJustifyH("LEFT")
  dropdown.items=items
  dropdown.groupSupported,dropdown.clickSupported,dropdown.petCombatSupported=groupSupported,clickSupported,petCombatSupported
  dropdown.spellSupported=spellSupported
@@ -1201,42 +1202,48 @@ end
 function M:LayoutDropdown()
  if not dropdown then return end
  dropdown.group.draw();dropdown.combat.draw();dropdown.prev.draw()
- local y=-8
+ -- The page's two columns (ClassTools: ticks at 10 and 376): the switches two
+ -- to a line, then the buttons in a grid, then Advanced.
+ local X=T.BOX_COLUMNS
+ local y,column=-8,0
+ local function NewLine()
+  if column>0 then column=0;y=y-T.BOX_STEP end
+ end
  local function place(frame,supported)
   if not frame then return end
   if supported==false then frame:Hide();return end
   if frame.draw then frame.draw()end
-  frame:ClearAllPoints();frame:SetPoint("TOPLEFT",12,y);frame:Show();y=y-26
+  frame:ClearAllPoints();frame:SetPoint("TOPLEFT",X[column+1],y);frame:Show()
+  column=column+1
+  if column>=2 then NewLine()end
  end
-  place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported)
-  place(dropdown.combatClick,dropdown.petCombatSupported)
-  place(dropdown.poisonClick);place(dropdown.mainPoison);place(dropdown.offPoison)
-  place(dropdown.mana,dropdown.spellSupported);place(dropdown.prev)
- if dropdown.size then
-  if dropdown.size.draw then dropdown.size.draw()end
-  dropdown.size:ClearAllPoints();dropdown.size:SetPoint("TOPLEFT",12,y);dropdown.size:Show()
- end
- if dropdown.reset then
-  dropdown.reset:ClearAllPoints();dropdown.reset:SetPoint("TOPLEFT",182,y);dropdown.reset:Show()
- end
- y=y-26
- place(dropdown.adv)
- local column=0
+ place(dropdown.group,dropdown.groupSupported);place(dropdown.combat);place(dropdown.clickable,dropdown.clickSupported)
+ place(dropdown.combatClick,dropdown.petCombatSupported);place(dropdown.poisonClick)
+ place(dropdown.mana,dropdown.spellSupported);place(dropdown.prev)
+ NewLine()
+ place(dropdown.mainPoison);place(dropdown.offPoison);NewLine()
+ place(dropdown.size);place(dropdown.reset);NewLine()
+ place(dropdown.adv);NewLine()
+ -- Advanced: half a column each, so four to a line. A wide switch (its own
+ -- button in it, or a long name) fills a column; a switch with its choice
+ -- button beside it keeps the two in one column.
+ local unit={X[1],X[1]+T.BOX_COLUMN-ADV_UNIT,X[2],X[2]+T.BOX_COLUMN-ADV_UNIT}
+ local at=0
  for _,frame in ipairs(dropdown.advRows)do
   if dropdown.advanced then
    if frame.draw then frame.draw()end
-   -- A wide switch starts its own line and fills it.
-   if frame.wide and column>0 then column=0;y=y-26 end
+   if (frame.wide or frame.pairNext)and at%2==1 then at=at+1 end
+   if at>=4 then at=0;y=y-T.BOX_STEP end
    frame:ClearAllPoints()
-   frame:SetPoint("TOPLEFT",12+column*170,y)
+   frame:SetPoint("TOPLEFT",unit[at+1],y)
    frame:Show()
-   column=column+(frame.wide and 2 or 1)
-   if column>=2 then column=0;y=y-26 end
+   at=at+(frame.wide and 2 or 1)
+   if at>=4 then at=0;y=y-T.BOX_STEP end
   else
    frame:Hide()
   end
  end
- if column>0 then y=y-26 end
+ if at>0 then y=y-T.BOX_STEP end
  dropdown:SetHeight(-y+24)
  self:UpdateOptionsState()
 end

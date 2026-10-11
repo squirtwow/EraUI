@@ -360,11 +360,13 @@ local function ClassColour()
     return 0.7, 0.7, 0.7
 end
 
+-- The running version's notes; a version without notes of its own (a
+-- development copy, "dev") gets the newest, as the list below does.
 local function EntryForVersion()
     for _, entry in ipairs(UPDATES) do
         if entry.version == EraUI.version then return entry end
     end
-    return UPDATES[#UPDATES]
+    return UPDATES[1]
 end
 
 -- The current release and the couple before it, so an update that skipped a

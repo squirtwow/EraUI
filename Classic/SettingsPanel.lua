@@ -135,6 +135,10 @@ local function SkinPanel()
     plate:ClearAllPoints()
     plate:SetPoint("TOP", panel, "TOP", 0, 12)
     plate:Show()
+    -- Dark Windows: the box and its header plate in Dark Mode's colours
+    -- (Core/Appearance.lua).
+    if ns.DarkBackdrop then ns.DarkBackdrop(box) end
+    if ns.DarkWindowArt then ns.DarkWindowArt(plate, "frame") end
     local title = panel.NineSlice and panel.NineSlice.Text
     if title then
         title:SetFontObject(ns.FONT_GOLD)

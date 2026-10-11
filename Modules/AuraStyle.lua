@@ -305,11 +305,22 @@ local function Dim()
  local grey=E.Classic and E.Classic.DarkGrey
  return grey and math.min(1,(grey())/.42)or 1
 end
--- Colours a ring's grey line; a ring already at that shade is left alone.
+-- Colours a ring's line; a line already in that colour is left alone.
+local function Paint(ring,r,g,b)
+ if ring.r==r and ring.g==g and ring.b==b then return end
+ ring.r,ring.g,ring.b=r,g,b
+ for _,strip in ipairs(ring.line)do strip:SetColorTexture(r,g,b,1)end
+end
+-- The grey line at the slider's shade. A line wearing a debuff's type
+-- colour (Thin Debuff Colours, below) keeps it: the slider leaves it alone.
 local function Tone(ring,dim)
- if ring.dim==dim then return end
  ring.dim=dim
- for _,strip in ipairs(ring.line)do strip:SetColorTexture(LINE[3]*dim,LINE[4]*dim,LINE[5]*dim,1)end
+ if not ring.typed then Paint(ring,LINE[3]*dim,LINE[4]*dim,LINE[5]*dim)end
+end
+-- A debuff's type colour on its ring's line, or (no colour) the grey again.
+local function TypeLine(ring,r,g,b)
+ ring.typed=r~=nil or nil
+ if r then Paint(ring,r,g,b)else Tone(ring,ring.dim)end
 end
 -- While its ring shows, the icon's art is zoomed in a little (the .07 trim
 -- EraUI's own icons use) so its bright built-in bevel is cut off and the
@@ -356,8 +367,9 @@ end
 -- Boosted Rest is good for you, but the game lists it with your debuffs, so
 -- it wears a typeless debuff's red ring. While Dark Aura Borders show, that
 -- ring goes and the dark border shows, as on your buffs. Known by the Bonus
--- XP icon it shows: the only aura data EraUI reads, and only on the debuff
--- row (the dark ring itself reads none). In a fight the game can keep the
+-- XP icon it shows: with the debuff's type (Thin Debuff Colours, below) the
+-- only aura data EraUI reads, and only on the debuff row (the dark ring
+-- itself reads none). In a fight the game can keep the
 -- icon secret, so each aura seen as Boosted Rest is remembered by its
 -- instance ID; when neither can be read, the border is left as it is.
 local BONUS_XP_ICON=1001982 -- Interface\Icons\xpbonus_icon
@@ -378,18 +390,82 @@ local function IsBonus(button)
  if known then return bonusAuras[id]==true end
  return nil
 end
-local function Friendly(button,on)
+-- Thin Debuff Colours (off unless ticked, needs Dark Aura Borders): on the
+-- debuff row, a debuff whose type can be read wears the dark border like
+-- your buffs, its ring's thin line in the type's colour (the game's own,
+-- DebuffColour) and the game's thick coloured border hidden (alpha 0). In a
+-- fight the game can keep the type secret, so each type read is remembered
+-- by the aura's instance ID, as Boosted Rest is; a debuff whose type can't
+-- be told keeps the game's border as the game set it. Boosted Rest keeps
+-- its plain dark border. Remembered types are kept for the last hundred or
+-- so auras seen (two lists: the newer one is moved back when full).
+local typed=setmetatable({}, {__mode="k"}) -- debuff button: its border hidden for a type line
+local TYPES_KEPT=100
+local types,oldTypes,typeCount={},{},0 -- auraInstanceID -> dispel type (false: none)
+local function RememberType(id,dispel)
+ if types[id]==nil then
+  if typeCount>=TYPES_KEPT then oldTypes,types,typeCount=types,{},0 end
+  typeCount=typeCount+1
+ end
+ types[id]=dispel or false
+end
+-- Whether the type of the debuff a button shows can be told, and the type
+-- (nil for none). Read only while it is public; secret values are never
+-- compared or kept.
+local function DebuffType(info)
+ if type(info)~="table"then return false end
+ local dispel,id=info.debuffType,info.auraInstanceID
+ local known=Public(id)and id~=nil
+ if Public(dispel)then
+  if known then RememberType(id,dispel)end
+  return true,dispel
+ end
+ if not known then return false end
+ local seen=types[id]
+ if seen==nil then seen=oldTypes[id];if seen~=nil then RememberType(id,seen)end end
+ if seen==nil then return false end
+ return true,seen or nil
+end
+-- Hides a debuff's native border; one already hidden is left alone.
+local function HideBorder(border)
+ local alpha=border:GetAlpha()
+ if not(Public(alpha)and alpha==0)then border:SetAlpha(0)end
+end
+-- A debuff button's border and line, checked on every pass of the debuff
+-- row: Boosted Rest's dark border, a type line, or the game's own border.
+local function Debuff(button,on)
  if not button or button.isAuraAnchor then return end
  local border=button.DebuffBorder
  if not border then return end
+ local ring=rings[button]
  local bonus=false
  if on then bonus=IsBonus(button)end
- if bonus==nil or not(bonus or friendly[button])or Locked(button)then return end
- if bonus then
-  friendly[button]=true;border:SetAlpha(0)
- elseif friendly[button]then
-  friendly[button]=nil;border:SetAlpha(1)
+ if bonus==nil then
+  -- Nothing can be told: Boosted Rest's dark border stays as it is; a type
+  -- line gives way to the game's own border.
+  if typed[button]and not Locked(button)then
+   typed[button]=nil;border:SetAlpha(1)
+   if ring then TypeLine(ring)end
+  end
+  return
  end
+ local r,g,b
+ if not bonus and on and ring and ring.on and E:GetSetting("darkDebuffLines")then
+  local kind=button.auraType
+  if Public(kind)and kind=="Debuff"then
+   local known,dispel=DebuffType(button.buttonInfo)
+   if known then r,g,b=DebuffColour(dispel)end
+  end
+ end
+ if bonus or r then
+  if Locked(button)then return end
+  HideBorder(border)
+  friendly[button],typed[button]=bonus or nil,r and true or nil
+ elseif friendly[button]or typed[button]then
+  if Locked(button)then return end
+  friendly[button],typed[button]=nil,nil;border:SetAlpha(1)
+ end
+ if ring then TypeLine(ring,r,g,b)end
 end
 -- Each debuff button is checked again straight after the game updates it, so
 -- the dark border stays on the right icon however the row is refreshed.
@@ -397,7 +473,7 @@ local watched=setmetatable({}, {__mode="k"})
 local function WatchDebuff(button)
  if not button or watched[button]or button.isAuraAnchor or type(button.Update)~="function"then return end
  watched[button]=true
- hooksecurefunc(button,"Update",function(self)Friendly(self,DarkBorders())end)
+ hooksecurefunc(button,"Update",function(self)Debuff(self,DarkBorders())end)
 end
 -- The player's aura rows: buffs, debuffs, external defensives and the
 -- consolidated-buff popout, plus the consolidated button itself.
@@ -415,7 +491,7 @@ local function StyleFrame(frame)
  local debuffs=frame==DebuffFrame
  for _,button in ipairs(frame.auraFrames or{})do
   Ring(button,on,shade,dim);StyleButton(button)
-  if debuffs then WatchDebuff(button);Friendly(button,on)end
+  if debuffs then WatchDebuff(button);Debuff(button,on)end
  end
 end
 function M:RefreshBorders()
@@ -424,7 +500,7 @@ function M:RefreshBorders()
  for index=1,4 do
   for _,button in ipairs(rows[index]and rows[index].auraFrames or{})do
    Ring(button,on,shade,dim)
-   if index==2 then Friendly(button,on)end
+   if index==2 then Debuff(button,on)end
   end
  end
  Ring(consolidated,on,shade,dim,true);Ring(DeadlyDebuffFrame and DeadlyDebuffFrame.Debuff,on,shade,dim)

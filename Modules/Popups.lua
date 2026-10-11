@@ -31,6 +31,10 @@ local function Skin(frame)
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border", tile = true,
             tileSize = 32, edgeSize = 32, insets = {left = 8, right = 8, top = 8, bottom = 8}})
         art:SetBackdropColor(1, 1, 1, 1)
+        -- Dark Windows darkens the box in Dark Mode, as it does the buttons
+        -- (Core/Appearance.lua, through EraUI.Classic).
+        local classic = EraUI.Classic
+        if classic and classic.DarkBackdrop then classic.DarkBackdrop(art) end
         state.art = art
         skins[frame] = state
     end

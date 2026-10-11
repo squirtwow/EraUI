@@ -164,6 +164,21 @@ Equal(printed[1], "Version 9.9.9 is out (you have 1.2.0). Update from CurseForge
     "so their guild share counts")
 UnitName = function() return "Zriel" end
 
+-- A development copy runs as "dev" (no number in its .toc): it shares
+-- nothing, and no version it hears is newer or older than it.
+assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
+M = E.modules.UpdateCheck
+E.version = "dev"
+printed, sentMessages = {}, {}
+now = now + 61
+M:Share()
+Equal(Sent(), "", "dev: nothing shared")
+Equal(M.Newer("9.9.9", "dev") or M.Newer("dev", "1.0.0"), false, "dev: never newer or older")
+M:Heard("v:9.9.9", "GUILD", "Squirt-Zephras")
+M:Heard("v:1.0.0", "GUILD", "Rumble-Zephras")
+Equal(#printed .. " " .. Sent(), "0 ", "dev: nothing said, nothing shared back")
+E.version = "1.2.0"
+
 -- Switched off: nothing shared or said.
 assert(loadfile("Modules/UpdateCheck.lua"))("EraUI", E)
 M = E.modules.UpdateCheck

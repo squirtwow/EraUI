@@ -72,6 +72,29 @@ function EraUI:NamePlatesHandedOver()
     return yes and true or false
 end
 
+-- Another addon showing the world map's unexplored areas: EraUI's Reveal
+-- World Map steps aside while one is loaded with its own reveal on, so the
+-- map isn't drawn over twice, and its card says so. Each entry is a folder
+-- name and how that addon saves its reveal switch (on unless saved off, as
+-- each starts). Asked each time, never kept; anything that can't be read
+-- counts as not revealing, so EraUI works as before.
+local MAP_REVEALERS = {
+    { "Leatrix_Maps", function() local db = _G.LeaMapsDB return not (type(db) == "table" and db.RevealMap == "Off") end },
+    { "MapUtils", function() local db = _G.MAUTTAB return not (type(db) == "table" and db.REVEALMAP == false) end },
+}
+function EraUI:MapRevealHandedOver()
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded
+    if type(loaded) ~= "function" then return false end
+    for _, entry in ipairs(MAP_REVEALERS) do
+        local ok, yes = pcall(loaded, entry[1])
+        if ok and not Hidden(yes) and yes then
+            local readOk, on = pcall(entry[2])
+            if readOk and on == true then return true end
+        end
+    end
+    return false
+end
+
 function EraUI:SafeHide(frame)
     if not frame then return end
     if InCombatLockdown and InCombatLockdown() and frame.IsProtected and frame:IsProtected() then
@@ -107,6 +130,10 @@ function EraUI:AddClassicBackdrop(frame, inset)
         insets = { left = 6, right = 6, top = 6, bottom = 6 },
     })
     bg:SetBackdropColor(0.16, 0.12, 0.08, 0.96)
+    -- Dark Windows darkens the box in Dark Mode (Core/Appearance.lua, loaded
+    -- after this file; reached through EraUI.Classic when a box is made).
+    local classic = self.Classic
+    if classic and classic.DarkBackdrop then classic.DarkBackdrop(bg, { 0.16, 0.12, 0.08, 0.96 }) end
     frame.__EraUIBackdrop = bg
     return bg
 end

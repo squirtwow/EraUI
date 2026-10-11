@@ -16,6 +16,9 @@ Core\CastTiming.lua
 Core\ClassicAssets.lua
 Core\ClassicWidgets.lua
 Core\Presets.lua
+Core\SettingsRows.lua
+Core\SettingsNav.lua
+Core\SettingsTour.lua
 Core\Settings.lua
 Core\SettingsLayout.lua
 Classic\Core.lua

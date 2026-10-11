@@ -125,7 +125,7 @@ function M:Refresh()
 end
 function M:BeginMove()
  if InCombatLockdown()then return end
- if not Enabled()then E:Print("Enable Pet Feeding in Hunter settings first.");return end
+ if not Enabled()then E:Print("Turn on Pet Feeding in /era > Hunter first.");return end
  if GameTooltip then GameTooltip:Hide()end
  if panel then panel:Hide()end
  if E.settingsFrame then E.settingsFrame:Hide()end
@@ -213,7 +213,7 @@ function M:HidePanel()
 end
 function M:RefreshPanel(food)
  if not panel then return end
- T.SubState(panel,not not Enabled(),"Enable Pet Feeding in the Hunter settings.")
+ T.SubState(panel,not not Enabled(),"Turn on Pet Feeding above to use these options.")
  if Enabled()then panel.hint:SetText(self:StatusLine(food))end
 end
 function M:Open()

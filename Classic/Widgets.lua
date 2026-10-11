@@ -524,6 +524,8 @@ function ns.DropList(entries)
         })
         list:SetBackdropColor(1, 1, 1, 1)
         list:SetBackdropBorderColor(1, 1, 1, 1)
+        -- Dark Windows darkens the box in Dark Mode (Core/Appearance.lua).
+        if ns.DarkBackdrop then ns.DarkBackdrop(list) end
     end
     list.items = {}
     local widest = 0

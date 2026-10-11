@@ -489,6 +489,22 @@ loader:SetScript("OnEvent",function(_,event,name)
         EraUIDB.layoutNotice = returning and 1 or 0
         EraUI:SaveSettings()
     end
+    -- The grouped /era layout (sub-tabs, one row per option): a welcome card
+    -- on the next /era open (layoutWelcome 1) and "just added" after new options
+    -- while the version it arrived in runs (layoutPillsVersion), both only
+    -- for accounts that knew an earlier layout, by the same signs as above.
+    -- An account still waiting on the old note gets the card instead. Fresh
+    -- installs start with the new layout (0 and ""). Decided once, after
+    -- every saved copy has loaded; both values are backed up.
+    if type(EraUIDB.layoutWelcome) ~= "number" then
+        local state = CharacterWelcome()
+        local returning = (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
+            or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
+            or type(EraUIDB.afkScreenVersion) == "number" or EraUIDB.layoutNotice == 1
+        EraUIDB.layoutWelcome = returning and 1 or 0
+        EraUIDB.layoutPillsVersion = returning and EraUI.version or ""
+        EraUI:SaveSettings()
+    end
     -- 1.3.0 saved AFK Screen off for everyone while it was Coming soon, so nobody
     -- chose that. Turn it on once, after every saved copy has loaded; the marker
     -- is backed up too, so a later "off" sticks.

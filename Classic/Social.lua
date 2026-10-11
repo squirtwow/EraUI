@@ -408,6 +408,8 @@ local function Build()
             edgeSize = 20,
             insets = { left = 5, right = 5, top = 5, bottom = 5 },
         })
+        -- Dark Windows: the border takes Dark Mode's grey (no fill).
+        if ns.DarkBackdrop then ns.DarkBackdrop(queryBox, false) end
     end
     panel.queryBox = queryBox
     panel.query:SetAutoFocus(false)

@@ -45,7 +45,8 @@ local function Session(db, char, classic, lateIdentity)
     assert(loadfile("Core/Persistence.lua"))("EraUI",E)
     E.Classic={DB_DEFAULTS={},TOGGLES={},db=classic or {
         erauiMigrated=true,erauiSettingsMenuMigrated=true,
-    },OnForever=function() return true end,MirrorSave=function() end,QueueApply=function() end}
+    },OnForever=function() return true end,MirrorSave=function() end,QueueApply=function() end,
+    FirstRun=function() end,ShowWelcome=function() end}
     -- Model the Classic loader rebinding its namespace after the early reset.
     local classicLoader=CreateFrame("Frame")
     classicLoader:RegisterEvent("ADDON_LOADED")
@@ -257,6 +258,42 @@ for _, key in ipairs({"darkMenuBar","darkWindows"}) do
     equal(EraUIDB[key],true,key.." switched back on survives missing SavedVariables")
     flush()
 end
+-- Black Pages (under Dark Windows): off by default and live; a save from
+-- before it has it off; switched on it survives missing SavedVariables, and
+-- switched off again it stays off.
+equal(E.settingDefaults.blackPages,false,"Black Pages off by default")
+equal(E.reloadSettings.blackPages,nil,"Black Pages applies live, not on reload")
+E:SetSetting("blackPages",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(older.blackPages,nil,"a save from before Black Pages")
+E,flush,fire=Session(older)
+equal(EraUIDB.blackPages,false,"an older save gets Black Pages off")
+flush()
+E:SetSetting("blackPages",true);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.blackPages,true,"Black Pages switched on survives missing SavedVariables")
+flush()
+E:SetSetting("blackPages",false);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.blackPages,false,"switched off again, it stays off when SavedVariables are lost")
+flush()
+-- Thin Debuff Colours (under Dark Aura Borders): the same as Black Pages.
+equal(E.settingDefaults.darkDebuffLines,false,"Thin Debuff Colours off by default")
+equal(E.reloadSettings.darkDebuffLines,nil,"Thin Debuff Colours applies live, not on reload")
+E:SetSetting("darkDebuffLines",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(older.darkDebuffLines,nil,"a save from before Thin Debuff Colours")
+E,flush,fire=Session(older)
+equal(EraUIDB.darkDebuffLines,false,"an older save gets Thin Debuff Colours off")
+flush()
+E:SetSetting("darkDebuffLines",true);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.darkDebuffLines,true,"Thin Debuff Colours switched on survives missing SavedVariables")
+flush()
+E:SetSetting("darkDebuffLines",false);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.darkDebuffLines,false,"switched off again, it stays off when SavedVariables are lost")
+flush()
 -- Class-coloured Tooltips: the same.
 equal(E.settingDefaults.tooltipClassColours,false,"Class-coloured Tooltips off by default")
 equal(E.reloadSettings.tooltipClassColours,nil,"Class-coloured Tooltips applies live, not on reload")
@@ -481,6 +518,122 @@ do
     Fresh();E,flush,fire=Session({layoutNotice=0,afkScreenVersion=2},{},classic({updateNotesSeen="1.4.0"}))
     equal(EraUIDB.layoutNotice,0,"a decided 0 is never turned into 1")
     flush()
+end
+-- The grouped /era layout (sub-tabs, one row per option): a welcome card
+-- (layoutWelcome 1) and "just added" after new options' names while the
+-- version it came in runs (layoutPillsVersion), decided once per account by
+-- the same signs as the old note, or a note still waiting; fresh installs 0
+-- and ""; both backed up.
+do
+    local function Fresh()
+        for k in pairs(cvars) do cvars[k]=nil end
+        character,realm="Hunter","RealmOne"
+    end
+    local classic=function(extra)
+        local db={erauiMigrated=true,erauiSettingsMenuMigrated=true}
+        for k,v in pairs(extra or {}) do db[k]=v end
+        return db
+    end
+    Fresh();E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutWelcome,0,"a fresh install gets no welcome card")
+    equal(EraUIDB.layoutPillsVersion,"","and no just added words")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","both stay decided when SavedVariables are lost")
+    flush()
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
+    equal(EraUIDB.layoutWelcome,1,"an earlier EraUI's save gets the card once")
+    equal(EraUIDB.layoutPillsVersion,E.version,"and the labels for the version running now")
+    equal(type(E.version)=="string" and E.version~="",true,"a version to compare against")
+    equal(EraUIDB.afkScreenVersion.." "..EraUIDB.layoutNotice,"2 1","the AFK marker and the old note are decided as before")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutWelcome,1,"a waiting card survives lost SavedVariables")
+    equal(EraUIDB.layoutPillsVersion,E.version,"and so does the labels' version, as text")
+    flush()
+    E:SetSetting("layoutWelcome",0);E:SaveSettings();flush()
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.5.5"}))
+    equal(EraUIDB.layoutWelcome,0,"once put away it is never asked for again")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutWelcome,0,"not even when SavedVariables are lost")
+    equal(EraUIDB.layoutPillsVersion,E.version,"the labels' version is kept")
+    flush()
+    -- Each sign of an earlier EraUI on its own is enough.
+    for label,extra in pairs({["update notes seen"]={updateNotesSeen="1.5.5"},["the welcome seen"]={erauiWelcomeSeen=true},
+        ["setup finished on the account"]={erauiSetupComplete=true}}) do
+        Fresh();E,flush,fire=Session({},{},classic(extra))
+        equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"1 "..E.version,label..": the card and the labels")
+        flush()
+    end
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:110,2,2.5"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutWelcome,1,"a character that finished setup before gets it")
+    flush()
+    Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:000,0,"
+    E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","a character record with nothing seen is a fresh install")
+    flush()
+    -- The old one-time note: still waiting, the card replaces it; put away
+    -- before (an account that used EraUI), the card still comes.
+    Fresh();E,flush,fire=Session({layoutNotice=1},{},classic())
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutNotice,"1 1","a waiting old note: the card comes (the note is put away with it)")
+    flush()
+    Fresh();E,flush,fire=Session({layoutNotice=0},{},classic({updateNotesSeen="1.4.0"}))
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutNotice,"1 0","the old note put away: the card still comes, the note stays away")
+    flush()
+    -- Installed since the old note (so it was decided 0), with only the AFK
+    -- marker left to show EraUI ran before: it knew the old tabs too.
+    Fresh();E,flush,fire=Session({layoutNotice=0,afkScreenVersion=2},{},classic())
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"1 "..E.version,"the AFK marker alone: the card and the labels")
+    flush()
+    Fresh();E,flush,fire=Session({layoutWelcome=0,layoutPillsVersion="",afkScreenVersion=2},{},classic({updateNotesSeen="1.5.5"}))
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","a decided 0 is never turned into 1")
+    flush()
+end
+-- What's New with the version read from the .toc (Core/Init.lua). Releases
+-- 1.5.3 to 1.5.5 still called themselves 1.5.2, so every account that used
+-- them has its notes marked seen at "1.5.2". On the first login with the
+-- real number they see the newest notes once (What's New opens on the
+-- running version's, with the two before), then not again for it; the
+-- labels' version is the real one too.
+do
+    local function Fresh()
+        for k in pairs(cvars) do cvars[k]=nil end
+        character,realm="Hunter","RealmOne"
+    end
+    local classic=function(extra)
+        local db={erauiMigrated=true,erauiSettingsMenuMigrated=true,erauiWelcomeSeen=true}
+        for k,v in pairs(extra or {}) do db[k]=v end
+        return db
+    end
+    local asked={}
+    C_AddOns={GetAddOnMetadata=function(name,field) asked[#asked+1]=name..","..field; return name=="EraUI" and field=="Version" and "1.5.5" or nil end,
+        IsAddOnLoaded=function() return false end}
+    local shown=0
+    local function Login(db,seen,fresh)
+        E,flush,fire=Session(db,{onboarding=fresh and {} or {welcomeSeen=true,setupComplete=true}},
+            fresh and {erauiMigrated=true,erauiSettingsMenuMigrated=true,updateNotesSeen=seen} or classic({updateNotesSeen=seen}))
+        E.ShowUpdateNotes=function() shown=shown+1 end
+        E.Classic.ShowWelcome=function() end -- a fresh install's welcome (Classic/Welcome.lua)
+        E.Classic.FirstRun();flush()
+    end
+    Fresh();Login({},"1.5.2")
+    equal(E.version.." "..asked[1],"1.5.5 EraUI,Version","the version is the .toc's own")
+    equal(shown.." "..E.Classic.db.updateNotesSeen,"1 1.5.5","an account last marked at the stuck 1.5.2 sees the newest notes once")
+    equal(EraUIDB.layoutPillsVersion,"1.5.5","and the new layout's words count from the real version")
+    E.Classic.FirstRun();flush()
+    equal(shown,1,"not twice in a session")
+    Login(copy(EraUIDB),"1.5.5")
+    equal(shown,1,"nor at the next login")
+    Fresh();Login({},"",true)
+    equal(shown.." "..E.Classic.db.updateNotesSeen,"1 1.5.5","a fresh install gets the welcome; its notes are marked seen without showing")
+    -- A development copy (no number in its .toc) runs as "dev": the notes
+    -- still show once for a returning account, the newest ones.
+    C_AddOns.GetAddOnMetadata=function() return "@project-version@" end
+    Fresh();Login({},"1.5.5")
+    equal(E.version.." "..shown.." "..E.Classic.db.updateNotesSeen,"dev 2 dev","a development copy runs as dev and nothing breaks")
+    C_AddOns=nil
 end
 -- The Poison Reminders panel became the rogue's POISON! class reminder (after
 -- 1.5.1). Its users keep poison alerts, once; the two old alerts become one;

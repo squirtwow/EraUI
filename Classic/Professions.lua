@@ -318,18 +318,41 @@ end
 -- rows' art (emblem rings, spell plates, the rank bars' frames) go the
 -- spellbook's darker brown-grey, the window's frame takes Dark Mode's grey,
 -- and the dark "learn a profession" text turns light. Blizzard's own book
--- (the skin off) gets the same on its profession cards. Colours only: the
--- bars' green fill, the icons and the gold names keep theirs.
+-- (the skin off) gets the same on its profession cards, their "learn a
+-- profession" text included (hidden while the skin is on). With Black Pages
+-- the pages, cards and plates go near black and the rings and bars' frames
+-- ("trim") take the frame's grey, so they still show, and the game's dark
+-- small text on the plates and cards (a spell's rank under its name) turns
+-- light, as it is only readable on the brown-grey. Colours only: the bars'
+-- green fill, the icons and the gold names keep theirs.
 local BAR_ART = { "BGLeft", "BGMiddle", "BGRight", "capLeft", "capRight" }
 local FRAME_ART = { "titleStrip", "streaks", "backing" }
+local CARD_TEXT = { "missingHeader", "missingText" }
+
+-- The game's text on a spell button or card: what is dark turns light with
+-- Black Pages (Core/Appearance.lua decides; gold and light text are left).
+local function BlackPageText(frame, force)
+    if not ns.DarkBlackPageText or not frame.GetRegions then return end
+    for _, region in ipairs({ frame:GetRegions() }) do
+        if region.IsObjectType and region:IsObjectType("FontString") then ns.DarkBlackPageText(region, force) end
+    end
+end
 
 local function DarkCard(card, force)
     if not card or not ns.DarkWindowArt then return end
     if card.Background then ns.DarkWindowArt(card.Background, "page", force) end
     for n = 1, 4 do
         local button = card["SpellButton" .. n]
-        if button and button.fcuiPlate then ns.DarkWindowArt(button.fcuiPlate, "page", force) end
+        if button then
+            if button.fcuiPlate then ns.DarkWindowArt(button.fcuiPlate, "page", force) end
+            BlackPageText(button, force)
+        end
     end
+    for _, key in ipairs(CARD_TEXT) do
+        local text = card[key]
+        if text and text.IsObjectType and text:IsObjectType("FontString") then ns.DarkWindowText(text, force) end
+    end
+    BlackPageText(card, force)
 end
 
 local function DarkBook()
@@ -339,10 +362,10 @@ local function DarkBook()
     for i = 1, 5 do
         local row = rows[i]
         if row then
-            if row.ring then ns.DarkWindowArt(row.ring, "page") end
+            if row.ring then ns.DarkWindowArt(row.ring, "trim") end
             for _, key in ipairs(BAR_ART) do
                 local piece = row.bar and row.bar[key]
-                if piece then ns.DarkWindowArt(piece, "page") end
+                if piece then ns.DarkWindowArt(piece, "trim") end
             end
             ns.DarkWindowText(row.missingText)
             if not row.primary then ns.DarkWindowText(row.missingHeader) end

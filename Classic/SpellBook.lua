@@ -525,9 +525,22 @@ local function CreateBook()
         ns.SetTex(tex, piece[1])
         tex:SetSize(piece[2], piece[3])
         tex:SetPoint(piece[4], f, piece[4], 0, 0)
-        -- Dark Windows: a darker brown-grey page in Dark Mode (Core/Appearance.lua).
-        if ns.DarkWindowArt then ns.DarkWindowArt(tex, "page") end
+        -- Dark Windows: a darker brown-grey page in Dark Mode
+        -- (Core/Appearance.lua). The pieces hold the book's frame, title
+        -- strip and icon ring too, so with Black Pages they take the frame's
+        -- grey ("trim") and the cover below blacks out the parchment alone.
+        if ns.DarkWindowArt then ns.DarkWindowArt(tex, "trim") end
     end
+    -- Black Pages: EraUI's own near black over the parchment (322 by 356
+    -- from 22, 75 in the art), above the four pieces and below the text,
+    -- slots and buttons. Made hidden: Dark Windows shows it only with
+    -- Black Pages.
+    local cover = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+    cover:SetSize(322, 356)
+    cover:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -75)
+    cover:Hide()
+    f.PageCover = cover
+    if ns.DarkWindowArt then ns.DarkWindowArt(cover, "cover") end
 
     local icon = f:CreateTexture(nil, "ARTWORK")
     ns.SetTex(icon, "sbIcon")

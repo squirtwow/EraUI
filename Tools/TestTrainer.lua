@@ -1,5 +1,8 @@
 -- Compact trainer layout and native-control ownership regression. The secure
 -- execution model is deliberately narrow; only the actual client proves taint.
+-- Also: the greeting's room above the list (never cut by it, two lines, the
+-- small font or the game's "..." when longer), the money box's border handed
+-- to Dark Windows, and that nothing taking the mouse sits over Train.
 local checks = 0
 local function Equal(actual, expected, label)
     checks = checks + 1
@@ -131,7 +134,22 @@ function methods:ForEachFrame(fn) for _, row in ipairs(self.visible or {}) do fn
 function methods:GetValue() return self.value end
 function methods:SetValue(value) states[self].value = math.max(0, math.min(value, self.maximum or 0)); if self.changed then self.changed() end end
 function methods:SetRange(value) states[self].maximum = value; self:SetValue(self.value) end
-for _, name in ipairs({ "SetJustifyH", "SetJustifyV", "SetWordWrap", "SetBlendMode", "SetVertexColor", "RegisterForClicks", "SetHorizTile", "SetVertTile" }) do methods[name] = function() end end
+for _, name in ipairs({ "SetJustifyH", "SetJustifyV", "SetBlendMode", "SetVertexColor", "RegisterForClicks", "SetHorizTile", "SetVertTile" }) do methods[name] = function() end end
+-- Text layout: the font set, the line limit, word wrap, and the game's
+-- truncation (a line holds about 40 characters of the window's font across
+-- the greeting, 52 of the small one).
+local PER_LINE = { GameFontHighlight = 40, GameFontHighlightSmall = 52 }
+function methods:SetFontObject(font)
+    assert(type(font) == "string" and PER_LINE[font], "greeting font is the window's or the small one")
+    states[self].font = font
+end
+function methods:SetMaxLines(value) states[self].maxLines = value end
+function methods:SetWordWrap(value) states[self].wrap = value end
+function methods:IsTruncated()
+    local text, per = self.text or "", PER_LINE[self.font]
+    assert(per, "truncation asked before a font was set")
+    return math.ceil(#text / per) > (self.maxLines or math.huge)
+end
 function hooksecurefunc(name, fn) hooks[name] = hooks[name] or {}; hooks[name][#hooks[name] + 1] = fn end
 function InCombatLockdown() return combat end
 local function Drive(frame)
@@ -175,7 +193,8 @@ function GetTrainerServiceStepIndex() return trainerType == Enum.TrainerType.Tra
 function GetTrainerServiceSkillReq() return nil end
 function GetTrainerServiceNumAbilityReq() return 0 end
 function GetTrainerServiceDescription(index) return "Description " .. index end
-function GetTrainerGreetingText() return "Learn an ability." end
+local greetingText = "Learn an ability."
+function GetTrainerGreetingText() return greetingText end
 function GetTrainerServiceTypeFilter(kind) return filters[kind] end
 function SetTrainerServiceTypeFilter(kind, value) filters[kind] = value; Event("TRAINER_UPDATE") end
 function BuyTrainerService() error("addon purchase call") end
@@ -308,6 +327,68 @@ Equal(ClassTrainerFrame.TrainButton.points[1][2], panel.train, "real Train butto
 Equal(drivers[bridge], "[combat] 1; 0", "late-loaded bridge has combat input driver")
 Equal(drivers[panel], nil, "Classic layout has no combat hide rule")
 Equal(panel.empty.shown, false, "populated list hides empty-state message")
+
+-- The greeting (a profession trainer's says what the profession is, as
+-- "Enchanting is the art of improving existing items through magic"): it
+-- used to run 36 tall from -30, under the list's stone (from -50) and tab,
+-- so its second line was cut. Now it has the room between the title strip
+-- (to -20) and the list's tab (from -53) and Filter (from -57), on a frame
+-- above the stone, two lines at most. (Tools/TestDarkWindows.lua checks the
+-- same room against the real shell and window code.)
+local box, greeting = panel.greetingBox, panel.greeting
+local stone
+for _, frame in ipairs(frames) do if frame.kind == "Texture" and frame.texture == "classic-rock" then stone = frame end end
+local gap = stone and stone.parent
+Equal(gap ~= nil and gap.parent == panel, true, "setup: the stone between the greeting and the list")
+Equal(greeting.parent, box, "the greeting is drawn on its own frame")
+Equal(box.parent == panel and box.kind == "Frame", true, "a plain frame on the trainer layout")
+Equal(box.level > gap.level, true, "above the list's stone, so the stone never cuts the greeting")
+local top, bottom = box.points[1], box.points[2]
+Equal(top[1] .. " " .. top[3] .. " " .. top[4], "TOPLEFT TOPLEFT 72", "it starts right of the portrait, as before")
+Equal(bottom[1] .. " " .. bottom[3] .. " " .. bottom[4], "BOTTOMRIGHT TOPRIGHT -14", "and runs to the window's right edge, as before")
+Equal(top[2] == panel and bottom[2] == panel, true, "both corners on the trainer layout")
+Equal(top[5] <= -21 and top[5] >= -24, true, "its top just below the title strip (to -20): " .. top[5])
+Equal(bottom[5] >= -52, true, "its bottom above the list's tab (from -53) and Filter (from -57): " .. bottom[5])
+Equal(top[5] - bottom[5] >= 30, true, "room for two lines of the window's font (about 26)")
+Equal(greeting.points[1][1] == "TOPLEFT" and greeting.points[1][2] == box and greeting.points[2][2] == box, true,
+    "the text fills that room")
+Equal(greeting.maxLines, 2, "two lines at most")
+Equal(greeting.wrap, true, "long text wraps")
+Equal(greeting.text .. " / " .. greeting.font, "Learn an ability. / GameFontHighlight", "a short greeting in the window's font")
+Equal(greeting:IsTruncated(), false, "shown whole")
+-- The Train-button rule: nothing new takes the mouse, nor sits over Train.
+Equal(box.mouse ~= true and box.mouseMotion ~= true, true, "the greeting's frame takes no mouse input or motion")
+Equal(box.level < ClassTrainerFrame.TrainButton.level, true, "and sits below the native Train button")
+for _, frame in ipairs(frames) do
+    if frame ~= ClassTrainerFrame.TrainButton and (frame.mouse or frame.mouseMotion)
+        and frame.level > ClassTrainerFrame.TrainButton.level then
+        Equal(frame, panel.trainBlocker, "only the combat input shield takes the mouse above Train")
+    end
+end
+local function Greet(text)
+    greetingText = text
+    Event("TRAINER_UPDATE")
+    Flush()
+end
+Greet("Enchanting is the art of improving existing items through magic.")
+Equal(greeting.font, "GameFontHighlight", "two lines' worth (the user's enchanting trainer) keep the window's font")
+Equal(greeting:IsTruncated(), false, "and show whole")
+Greet(string.rep("A longer greeting, ", 5))
+Equal(greeting.font, "GameFontHighlightSmall", "a greeting needing three lines takes the small font")
+Equal(greeting:IsTruncated(), false, "and shows whole in two")
+Greet(string.rep("A very long greeting, ", 10))
+Equal(greeting.font .. " " .. greeting.maxLines, "GameFontHighlightSmall 2", "longer still: the small font, two lines")
+Equal(greeting:IsTruncated(), true, "the rest ends cleanly with the game's \"...\" instead of running under the list")
+Greet("")
+Equal(greeting.text .. "|" .. greeting.font, "|GameFontHighlight", "no greeting: nothing shown, the window's font")
+Greet(nil)
+Equal(greeting.text, "", "a trainer without a greeting shows nothing")
+Greet("Learn an ability.")
+Equal(greeting.font, "GameFontHighlight", "the next trainer starts in the window's font again")
+-- Dark Windows: the money box's gold-edged border takes Dark Mode's grey
+-- like the window's other edges (TestDarkWindows checks every edge piece).
+Equal(panel.oval.texture, "Interface\\MoneyFrame\\UI-MoneyFrame-Border", "setup: the money box's border")
+Equal(darkRoles[panel.oval], "frame", "the money box's border is window frame art for Dark Windows")
 ClassTrainerFrame:Hide()
 panel:Hide()
 Native(function() ClassTrainerFrame:Show() end)

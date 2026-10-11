@@ -93,4 +93,15 @@ check(not w:IsShown(),"Got it dismisses the window")
 E.ShowUpdateNotes()
 check(w:IsShown() and s:GetVerticalScroll()==0,"reopening starts at the current release")
 check(w.title.text=="EraUI 1.2.0","current release title remains intact")
+-- A version without notes of its own (a development copy runs as "dev", its
+-- .toc having no number) gets the newest notes' title, never the oldest's.
+E.version="dev";w:Hide();E.ShowUpdateNotes()
+local newest=w.title.text:match("^EraUI (%d+)%.(%d+)%.(%d+)$")
+local a,b,c=w.title.text:match("^EraUI (%d+)%.(%d+)%.(%d+)$")
+check(newest~=nil and (tonumber(a)*10000+tonumber(b)*100+tonumber(c))>=10505,"a development copy titles the newest notes ("..tostring(w.title.text)..")")
+local devTitle=w.title.text
+E.version="99.0.0";w:Hide();E.ShowUpdateNotes()
+check(w.title.text==devTitle,"so does a version newer than every note")
+E.version=devTitle:match("^EraUI (.+)$");w:Hide();E.ShowUpdateNotes()
+check(w.title.text==devTitle,"and that is a real release's notes")
 print("Update-note scrolling checks passed: "..checks.." assertions.")

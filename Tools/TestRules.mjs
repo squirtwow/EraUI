@@ -47,3 +47,56 @@ test("EraUI's windows close on Escape through the game's own list", () => {
   assert.deepEqual(callers.sort(), ['Classic/OptionsWindow.lua', 'Classic/QuestLog.lua', 'Classic/SpellBook.lua', 'Classic/Status.lua',
     'Classic/Talents.lua', 'Classic/Widgets.lua'], 'the windows that close on Escape (Widgets.lua: the drop down lists)');
 });
+
+// Dark Windows (Core/Appearance.lua) darkens every classic dialog box EraUI
+// draws: each backdrop with the dialog border goes to ns.DarkBackdrop, and
+// each dialog header plate to ns.DarkWindowArt as frame art, later in the
+// same file. A new box made without it shows up here. Tools/TestDarkWindows.lua
+// checks the colours on the mock game.
+const after = (text, from, pattern) => pattern.test(text.slice(from));
+const name = who => who.replace(/[.]/g, '\\.');
+test('every classic dialog box and header plate is handed to Dark Windows', () => {
+  const boxes = new Set(), plates = new Set(), missing = [];
+  for (const file of files) {
+    const text = code[file];
+    const backdrop = /([\w.]+):SetBackdrop\(/g;
+    let match;
+    while ((match = backdrop.exec(text))) {
+      let depth = 1, end = backdrop.lastIndex;
+      while (end < text.length && depth > 0) {
+        if (text[end] === '(') depth++;
+        else if (text[end] === ')') depth--;
+        end++;
+      }
+      if (!/UI-DialogBox-Border|DIALOG_BORDER/.test(text.slice(backdrop.lastIndex, end))) continue;
+      boxes.add(file);
+      if (!after(text, end, new RegExp(`DarkBackdrop\\(${name(match[1])}[,)]`))) missing.push(`${file}: ${match[1]}'s backdrop`);
+    }
+    const header = /([\w.]+):SetTexture\((DIALOG_HEADER|"[^"]*UI-DialogBox-Header")\)/g;
+    while ((match = header.exec(text))) {
+      plates.add(file);
+      if (!after(text, header.lastIndex, new RegExp(`DarkWindowArt\\(${name(match[1])}, "frame"\\)`))) missing.push(`${file}: ${match[1]}'s header`);
+    }
+  }
+  assert.deepEqual(missing, [], 'dialog art Dark Windows never sees');
+  assert.deepEqual([...boxes].sort(), ['Classic/CharacterSheet.lua', 'Classic/Controls.lua', 'Classic/EquipmentPane.lua',
+    'Classic/GameMenu.lua', 'Classic/Guild.lua', 'Classic/OptionsWindow.lua', 'Classic/SettingsPanel.lua', 'Classic/Social.lua',
+    'Classic/Status.lua', 'Classic/TradeSkill.lua', 'Classic/Welcome.lua', 'Classic/Widgets.lua', 'Core/Utils.lua', 'Modules/Popups.lua'],
+    'the files drawing a classic dialog box');
+  assert.deepEqual([...plates].sort(), ['Classic/EquipmentPane.lua', 'Classic/GameMenu.lua', 'Classic/OptionsWindow.lua',
+    'Classic/SettingsPanel.lua', 'Classic/Status.lua', 'Classic/Welcome.lua'], 'the files drawing a dialog header plate');
+});
+
+// EraUI.version (Core/Init.lua) is what What's New, the Update Notice and
+// the settings window's "just added" words compare against. It was a string
+// left at 1.5.2 through 1.5.3 to 1.5.5; it is now read from the .toc's
+// Version as the addon loads, so it can't fall behind again
+// (Tools/TestVersion.mjs runs that read).
+test("EraUI.version comes from the .toc, never a number typed in Init.lua", () => {
+  const toc = readFileSync(new URL('EraUI.toc', root), 'utf8').match(/^## Version:\s*(\S+)/m)?.[1];
+  const init = code['Core/Init.lua'];
+  assert.ok(toc, 'the .toc has a Version');
+  assert.equal(/EraUI\.version\s*=\s*["'\d]/.test(init), false, 'no version typed into Core/Init.lua');
+  assert.match(init, /^EraUI\.version\s*=\s*TocVersion\(C_AddOns and C_AddOns\.GetAddOnMetadata\)/m, 'read with C_AddOns.GetAddOnMetadata');
+  assert.match(init, /TocVersion\(GetAddOnMetadata\)\s*or\s*"dev"/, 'then the old global, then "dev"');
+});

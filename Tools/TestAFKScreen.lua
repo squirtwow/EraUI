@@ -1343,7 +1343,7 @@ Equal(s.mapHides,0,"never hidden in combat")
 -- 27. Preview.
 Session({afkScreen=false})
 s.M:Preview();Flush()
-Equal(s.prints[1],"Turn on AFK Screen in /era > Screen & Cursor first.","preview asks to turn the option on")
+Equal(s.prints[1],"Turn on AFK Screen in /era > Screen & Cursor > AFK Screen first.","preview asks to turn the option on, on its sub-tab")
 Equal(Active(),false,"no preview while off")
 Session()
 s.combat=true;s.M:Preview();Flush();s.combat=false

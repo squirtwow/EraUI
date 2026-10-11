@@ -72,9 +72,10 @@ local function Send(channel)
 end
 
 -- Shares your version on every channel you're in, or just one; in combat it
--- waits for the fight to end.
+-- waits for the fight to end. A development copy ("dev", no number in its
+-- .toc) has nothing to share.
 function M:Share(only)
-    if not On() or not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
+    if not On() or not (C_ChatInfo and C_ChatInfo.SendAddonMessage) or not Parse(EraUI.version) then return end
     if InCombatLockdown() then
         pending = true
         return

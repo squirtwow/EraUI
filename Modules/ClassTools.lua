@@ -221,6 +221,52 @@ function T:Refresh()
  local m=self:ActiveModule();if m and m.Refresh then m:Refresh()end
 end
 
+-- The options box a class tool opens under its row in /era. It spans the
+-- page (the row above it takes the whole line) and lays its options out in
+-- the page's two columns: tick boxes at 10 and 376, names at 34 and 400,
+-- like the rows around it. Buttons fill a column each (332).
+T.BOX_WIDTH=718
+T.BOX_COLUMNS={10,376}
+T.BOX_COLUMN=332
+T.BOX_STEP=26
+-- The rows' square tick box (Core/SettingsRows.lua): a grey edge, a dark
+-- fill and, when on, an inner square in your class colour.
+local TICK_EDGE,TICK_FILL={.30,.32,.36},{.059,.063,.075}
+function T.TickBox(owner,x)
+ local Rows=E.SettingsRows
+ if Rows and Rows.TickBox then return Rows.TickBox(owner,x)end
+ local box=owner:CreateTexture(nil,"ARTWORK");box:SetSize(14,14);box:SetPoint("LEFT",owner,"LEFT",x or 0,0)
+ box:SetColorTexture(TICK_EDGE[1],TICK_EDGE[2],TICK_EDGE[3],1)
+ local fill=owner:CreateTexture(nil,"ARTWORK",nil,1)
+ fill:SetPoint("TOPLEFT",box,"TOPLEFT",1,-1);fill:SetPoint("BOTTOMRIGHT",box,"BOTTOMRIGHT",-1,1)
+ fill:SetColorTexture(TICK_FILL[1],TICK_FILL[2],TICK_FILL[3],1)
+ local mark=owner:CreateTexture(nil,"OVERLAY");mark:SetSize(8,8);mark:SetPoint("CENTER",box,"CENTER",0,0)
+ mark:SetColorTexture(T.Colour());mark:Hide()
+ return box,fill,mark
+end
+-- A switch in the box: its tick box at its left, its name after it. Its
+-- owner calls b.SetTick(on) to show the inner square.
+function T.TickToggle(b,label,width)
+ width=width or T.BOX_COLUMN
+ b:SetSize(width,24)
+ b.tickBox,b.tickFill,b.tickMark=T.TickBox(b,0)
+ b.label=T.Text(b,label,12);b.label:SetPoint("LEFT",24,0);b.label:SetWidth(width-28)
+ b.label:SetJustifyH("LEFT");b.label:SetWordWrap(false);b.label:SetTextColor(.86,.88,.92)
+ b.SetTick=function(on)
+  b.tickMark:SetColorTexture(T.Colour())
+  b.tickMark:SetShown(on and true or false)
+ end
+ return b
+end
+-- A small plain word after a switch's name, as the rows have ("experimental":
+-- not seen working in game yet).
+function T.TickTag(b,word)
+ b.tag=T.Text(b,word,10);b.tag:SetShadowOffset(0,0)
+ b.tag:SetTextColor(.66,.61,.53)
+ b.tag:SetPoint("LEFT",b.label,"LEFT",math.floor(b.label:GetStringWidth()+.5)+6,-1)
+ return b.tag
+end
+
 -- Sub-category panel shown under a settings row by a class tool.
 function T.BindInlinePanel(panel,anchor)
  anchor.inlinePanel=panel
@@ -234,35 +280,25 @@ function T.BindInlinePanel(panel,anchor)
  changed()
 end
 function T.SubPanel(parent,anchor,width)
+ width=width or T.BOX_WIDTH
  local p=CreateFrame("Frame",nil,parent,"BackdropTemplate")
- p:SetSize(width or 352,40)
+ p:SetSize(width,40)
  p:SetPoint("TOPLEFT",anchor,"BOTTOMLEFT",0,-6)
  p:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
  p:SetBackdropColor(.026,.029,.037,.99)
  p:SetBackdropBorderColor(.19,.20,.24,1)
  p.items={}
  p.hint=T.Text(p,"",10,true)
- p.hint:SetPoint("BOTTOMLEFT",12,8);p.hint:SetWidth((width or 352)-24);p.hint:SetJustifyH("LEFT")
+ p.hint:SetPoint("BOTTOMLEFT",T.BOX_COLUMNS[1],8);p.hint:SetWidth(width-24);p.hint:SetJustifyH("LEFT")
  T.BindInlinePanel(p,anchor)
  return p
 end
 function T.SubToggle(parent,label,key,default,changed,width)
- local b=CreateFrame("CheckButton",nil,parent)
- b:SetSize(width or 328,24)
- b.label=T.Text(b,label,11);b.label:SetPoint("LEFT",8,0);b.label:SetWidth((width or 328)-50);b.label:SetJustifyH("LEFT")
- b.track=CreateFrame("Frame",nil,b,"BackdropTemplate")
- b.track:SetSize(30,16);b.track:SetPoint("RIGHT",-6,0)
- b.track:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
- b.thumb=b.track:CreateTexture(nil,"ARTWORK");b.thumb:SetSize(12,12)
+ local b=T.TickToggle(CreateFrame("CheckButton",nil,parent),label,width)
  local function paint()
   local v=T.Options()[key]
   if v==nil then v=default end
-  local r,g,bl=T.Colour()
-  b.track:SetBackdropColor(.08,.09,.11,1)
-  b.track:SetBackdropBorderColor(v and r or .28,v and g or .30,v and bl or .34,1)
-  if v then b.thumb:SetColorTexture(r,g,bl,1)else b.thumb:SetColorTexture(.3,.32,.36,1)end
-  b.thumb:ClearAllPoints();b.thumb:SetPoint("CENTER",b.track,v and 6 or -6,0)
-  b.label:SetTextColor(v and r or .7,v and g or .73,v and bl or .78)
+  b.SetTick(v)
  end
  b:SetScript("OnClick",function()
   if InCombatLockdown()then return end
@@ -278,7 +314,7 @@ function T.SubToggle(parent,label,key,default,changed,width)
  return b
 end
 function T.SubButton(parent,label,width,height,secure)
- local b=T.Button(parent,label or"",width or 328,height or 24,secure)
+ local b=T.Button(parent,label or"",width or T.BOX_COLUMN,height or 24,secure)
  b.label:ClearAllPoints();b.label:SetPoint("CENTER")
  b.label:SetFont(select(1,GameFontHighlight:GetFont()),11,"")
  return b
@@ -286,7 +322,7 @@ end
 function T.SubSlider(parent,label,key,low,high,default,changed,width)
  local b=CreateFrame("Slider",nil,parent,"BackdropTemplate")
  b.layoutTop=22 -- Reserve the label above the slider, not just the track.
- b:SetSize(width or 328,12)
+ b:SetSize(width or T.BOX_COLUMN,12)
  T.Skin(b)
  b:SetOrientation("HORIZONTAL");b:SetMinMaxValues(low,high);b:SetValueStep(1);b:SetObeyStepOnDrag(true)
  b:SetThumbTexture("Interface\\Buttons\\WHITE8X8")
@@ -310,17 +346,34 @@ function T.SubSlider(parent,label,key,low,high,default,changed,width)
  b.draw()
  return b
 end
+-- The box's options in its two columns, two to a line in reading order. A
+-- new kind of option (switches, then buttons, then sliders) starts a new
+-- line, so like goes with like. A slider keeps room for its name above it.
+local function LayoutKind(f)
+ if f.tickBox then return "tick" end
+ if f.layoutTop then return "slider" end
+ return "button"
+end
 function T.SubLayout(p,items,step)
- local y=-8
- step=step or 26
+ step=step or T.BOX_STEP
+ local y,column,line,kind=-8,0,0,nil
+ local function NewLine()
+  if column>0 then y=y-line;column,line=0,0 end
+ end
  for _,f in ipairs(items or{})do
   if f then
    if f.draw then f.draw()end
-   y=y-(f.layoutTop or 0)
-   f:ClearAllPoints();f:SetPoint("TOPLEFT",12,y);f:Show()
-   y=y-(f.layoutTop and(f:GetHeight()+8)or step)
+   local this=LayoutKind(f)
+   if kind and this~=kind then NewLine()end
+   kind=this
+   local top=f.layoutTop or 0
+   f:ClearAllPoints();f:SetPoint("TOPLEFT",T.BOX_COLUMNS[column+1],y-top);f:Show()
+   line=math.max(line,top+(f.layoutTop and(f:GetHeight()+8)or step))
+   column=column+1
+   if column>=2 then NewLine()end
   end
  end
+ NewLine()
  p:SetHeight(math.max(28,-y+24))
  return y
 end

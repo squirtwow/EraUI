@@ -495,22 +495,27 @@ local sealOptions=sealer:options();sealOptions.adv:Fire("OnClick")
 local blessButton,blessSwitch,sealSwitch,auraSwitch
 for _,f in ipairs(sealOptions.advRows)do
  local text=f.label.text or ""
- if text:find("^Blessing:")then blessButton=f elseif text=="BLESSING!"then blessSwitch=f
+ if text=="BLESSING!"then blessSwitch=f;blessButton=f.pairNext
  elseif text=="SEAL!"then sealSwitch=f elseif text=="AURA!"then auraSwitch=f end
 end
--- Their switches have plain labels and take a whole line each, like PET LOW
--- HEALTH!, with the choice button in the line, just left of the switch.
+-- The Blessing button shows just the choice: BLESSING! before it says what for.
+Equal(blessButton.label.text,"Any blessing  >","the Blessing button shows the choice, on Any")
+-- Their switches have plain labels and take a whole column each (the box
+-- has two, ticks at 10 and 376), like PET LOW HEALTH!, with the choice
+-- button at the column's end. BLESSING! and its button share the first.
 Equal(sealSwitch~=nil and auraSwitch~=nil,true,"/era Advanced labels SEAL! and AURA! plainly")
-Equal(sealSwitch:IsShown()and sealSwitch.width.." "..sealSwitch.point[2],"340 12","SEAL! takes a whole line")
-Equal(sealSwitch.point[3],blessSwitch.point[3]-26,"under the BLESSING! line")
-Equal(auraSwitch.width.." "..auraSwitch.point[2].." "..auraSwitch.point[3],"340 12 "..(sealSwitch.point[3]-26),"and AURA! the line under it")
-Equal(blessButton.point[3]==blessSwitch.point[3]and blessButton.point[2]-blessSwitch.point[2],170,"the Blessing button still sits beside BLESSING!")
+Equal(sealSwitch:IsShown()and sealSwitch.width.." "..sealSwitch.point[2],"332 376","SEAL! takes the right-hand column")
+Equal(sealSwitch.point[3],blessSwitch.point[3],"beside BLESSING! and its button")
+Equal(auraSwitch.width.." "..auraSwitch.point[2].." "..auraSwitch.point[3],"332 10 "..(sealSwitch.point[3]-26),"and AURA! the left-hand column of the line under it")
+Equal(blessSwitch.point[2].." "..blessSwitch.width,"10 160","BLESSING! half the left-hand column")
+Equal(blessButton.point[3]==blessSwitch.point[3]and blessButton.point[2]-blessSwitch.point[2],172,"the Blessing button sits beside BLESSING!, in the same column")
 local sealButton,auraButton=sealSwitch.choice,auraSwitch.choice
-Equal(sealButton.parent==sealSwitch and sealButton.point[2]==sealSwitch.track and sealButton.point[1],"RIGHT","the Seal button is in SEAL!'s line, left of the switch")
-Equal(auraButton.parent==auraSwitch and auraButton.point[2],auraSwitch.track,"the Aura button in AURA!'s")
+Equal(sealButton.parent==sealSwitch and sealButton.point[2]==sealSwitch and sealButton.point[1]..sealButton.point[3],"RIGHTRIGHT","the Seal button at the end of SEAL!'s column")
+Equal(auraButton.parent==auraSwitch and auraButton.point[2],auraSwitch,"the Aura button in AURA!'s")
 Equal(sealButton.label.text,"Any seal  >","the Seal button shows the choice, on Any")
 Equal(auraButton.label.text,"Any aura  >","and the Aura button")
-Equal(sealSwitch.label.width,126,"the label keeps the rest of the line")
+Equal(sealSwitch.label.width,332-24-176-8,"the label keeps the rest of the column")
+Equal(sealSwitch.tickBox~=nil and sealSwitch.track==nil,true,"a square tick box, not an ON/OFF track")
 local greyed=0
 for _,f in ipairs(sealOptions.items)do if f==sealButton or f==auraButton then greyed=greyed+1 end end
 Equal(greyed,2,"both buttons grey out with the other options")
@@ -622,16 +627,20 @@ Equal(poisonOptions.group:IsShown(),false,"rogues have no group toggle")
 Equal(rogue.env.EraUIDB.reminderGroup,true,"a hidden group setting is kept")
 Equal(poisonOptions.clickable:IsShown(),true,"rogues now have Clickable reminders")
 Equal(poisonOptions.poisonClick:IsShown(),true,"and Click to apply poisons")
-Equal(poisonOptions.poisonClick.label.text,"Click to apply poisons (Needs testing)","labelled Needs testing")
+Equal(poisonOptions.poisonClick.label.text,"Click to apply poisons","a plain name")
+Equal(poisonOptions.poisonClick.tag.text,"experimental","with a small experimental after it")
 Equal(poisonOptions.poisonClick.dependencyDisabled,true,"greyed out until Clickable reminders is on")
 Equal(poisonOptions.mana:IsShown(),false,"no out-of-mana note: poisons cost none")
 Equal(poisonOptions.combatClick:IsShown(),false,"no pet clicks in combat")
 Equal(poisonOptions.mainPoison.label.text,"Main hand: Instant Poison  >","the main hand's pick: Instant by default")
 Equal(poisonOptions.offPoison.label.text,"Off hand: Deadly Poison  >","the off hand's: Deadly by default at 60")
-local function Below(a,b)return a:IsShown()and b:IsShown()and a.point[3]<b.point[3]end
-Equal(Below(poisonOptions.poisonClick,poisonOptions.clickable)and Below(poisonOptions.mainPoison,poisonOptions.poisonClick)
- and Below(poisonOptions.offPoison,poisonOptions.mainPoison)and Below(poisonOptions.prev,poisonOptions.offPoison),true,
- "Click to apply poisons and the two picks sit under Clickable reminders, before Show all reminders")
+-- Two columns: Show during combat | Clickable reminders, Click to apply
+-- poisons | Show all reminders, then the two picks side by side under them.
+local function Place(f)return f.point[2].." "..f.point[3]end
+Equal(Place(poisonOptions.combat).." / "..Place(poisonOptions.clickable).." / "..Place(poisonOptions.poisonClick).." / "..Place(poisonOptions.prev),
+ "10 -8 / 376 -8 / 10 -34 / 376 -34","the switches two to a line")
+Equal(Place(poisonOptions.mainPoison).." / "..Place(poisonOptions.offPoison).." / "..Place(poisonOptions.size).." / "..Place(poisonOptions.reset).." / "..Place(poisonOptions.adv),
+ "10 -60 / 376 -60 / 10 -86 / 376 -86 / 10 -112","then the two picks, the alert buttons and Advanced, two to a line")
 poisonOptions.poisonClick:Fire("OnClick")
 Equal(rogue.env.EraUIDB.reminderPoisonClick,nil,"can't be switched on before Clickable reminders")
 poisonOptions.clickable:Fire("OnClick")
@@ -944,13 +953,13 @@ demon.env.EraUIDB.reminderChoice_WARLOCK_pet=427733;demon.env.EraUIDB.reminderLa
 demon.env.EraUIDB.reminderClickable=true;demon.M:Initialize()
 local demonOptions=demon:options();demonOptions.adv:Fire("OnClick")
 local cycle
-for _,f in ipairs(demonOptions.advRows)do if f.label.text and f.label.text:find("^Demon:")then cycle=f end end
-Equal(cycle.label.text,"Demon: Any  >","a saved Felguard choice reads as Any")
+for _,f in ipairs(demonOptions.advRows)do if f.pairNext and f.label.text=="SUMMON PET!"then cycle=f.pairNext end end
+Equal(cycle.label.text,"Any demon  >","a saved Felguard choice reads as Any")
 Equal(demon:click(demon:row("pet")),nil,"and Any with two demons and no valid last cast still never guesses")
 cycle:Fire("OnClick")
 Equal(demon.env.EraUIDB.reminderChoice_WARLOCK_pet,0,"cycling from it lands on a real choice")
 cycle:Fire("OnClick")
-Equal(cycle.label.text,"Demon: Summon Imp  >","then the next demon")
+Equal(cycle.label.text,"Summon Imp  >","then the next demon")
 local blesser=Session("PALADIN")
 blesser.known[19740]=true;blesser.env.EraUIDB.reminderChoice_PALADIN_blessing=20911
 blesser.env.EraUIDB.reminderClickable=true;blesser.M:Initialize()
@@ -962,10 +971,10 @@ incubus.known[688]=true;incubus.known[712]=true;incubus.known[713]=true
 incubus.env.EraUIDB.reminderClickable=true;incubus.M:Initialize()
 local incubusOptions=incubus:options();incubusOptions.adv:Fire("OnClick")
 local picker
-for _,f in ipairs(incubusOptions.advRows)do if f.label.text and f.label.text:find("^Demon:")then picker=f end end
+for _,f in ipairs(incubusOptions.advRows)do if f.pairNext and f.label.text=="SUMMON PET!"then picker=f.pairNext end end
 local shown={}
 for _=1,4 do picker:Fire("OnClick");shown[#shown+1]=picker.label.text end
-Equal(table.concat(shown," | "),"Demon: Summon Imp  > | Demon: Summon Succubus  > | Demon: Summon Incubus  > | Demon: Any  >",
+Equal(table.concat(shown," | "),"Summon Imp  > | Summon Succubus  > | Summon Incubus  > | Any demon  >",
  "the Demon button cycles through Incubus and back to Any")
 picker:Fire("OnClick");picker:Fire("OnClick");picker:Fire("OnClick")
 Equal(incubus:click(incubus:row("pet")),"/cast [nocombat] Summon Incubus","a chosen Incubus is what a click summons")
@@ -996,15 +1005,15 @@ local lowSwitch,trueSwitch,aspectSwitch,aspectButton
 for _,f in ipairs(menderOptions.advRows)do
  local text=f.label.text
  if text=="PET LOW HEALTH!"then lowSwitch=f elseif text=="TRUESHOT AURA!"then trueSwitch=f
- elseif text=="ASPECT!"then aspectSwitch=f elseif text and text:find("^Aspect:")then aspectButton=f end
+ elseif text=="ASPECT!"then aspectSwitch=f;aspectButton=f.pairNext end
 end
 Equal(lowSwitch~=nil,true,"/era Advanced has its switch, with a plain label")
-Equal(lowSwitch:IsShown()and lowSwitch.width,340,"on a whole line")
-Equal(lowSwitch.point[2],12,"starting at the left")
-Equal(lowSwitch.point[3],trueSwitch.point[3]-26,"on the line under TRUESHOT AURA!")
-Equal(aspectButton.point[3]==aspectSwitch.point[3]and aspectButton.point[2]-aspectSwitch.point[2],170,"the Aspect button still sits beside ASPECT!")
+Equal(lowSwitch:IsShown()and lowSwitch.width,332,"a whole column")
+Equal(lowSwitch.point[2],376,"the right-hand one")
+Equal(lowSwitch.point[3],trueSwitch.point[3],"beside TRUESHOT AURA!")
+Equal(aspectButton.point[3]==aspectSwitch.point[3]and aspectButton.point[2]-aspectSwitch.point[2],172,"the Aspect button sits beside ASPECT!, in its column")
 Equal(lowSwitch.limit.parent,lowSwitch,"its Below button is on the same line")
-Equal(lowSwitch.limit.point[2],lowSwitch.track,"just left of the switch")
+Equal(lowSwitch.limit.point[2]==lowSwitch and lowSwitch.limit.point[1]..lowSwitch.limit.point[3],"RIGHTRIGHT","at the column's end")
 Equal(lowSwitch.limit.label.text,"Below 35%  >","the limit starts at 35%")
 local listed=false
 for _,f in ipairs(menderOptions.items)do if f==lowSwitch.limit then listed=true end end
@@ -1108,8 +1117,9 @@ Equal(funnel:row("pet")and funnel:row("pet").sub.text,"Pet is dead","SUMMON PET!
 local funnelOptions=funnel:options();funnelOptions.adv:Fire("OnClick")
 local demonLow
 for _,f in ipairs(funnelOptions.advRows)do if f.label.text=="PET LOW HEALTH!"then demonLow=f end end
-Equal(demonLow and demonLow.point[2],12,"the warlock's switch has its own line too")
--- A wide switch fills its line: a switch listed after it starts the next one.
+Equal(demonLow and demonLow.point[2].." "..demonLow.width,"376 332","the warlock's switch has a whole column too")
+-- A wide switch fills its column: in the right-hand one, a switch listed
+-- after it starts the next line.
 local wide=Session("HUNTER")
 table.insert(wide.E.ReminderSpells.HUNTER,{key="later",text="LATER!",kind="shards"})
 wide.M:Initialize()
@@ -1118,7 +1128,8 @@ local wideLow,later
 for _,f in ipairs(wideOptions.advRows)do
  if f.label.text=="PET LOW HEALTH!"then wideLow=f elseif f.label.text=="LATER!"then later=f end
 end
-Equal(later.point[2].." "..later.point[3],"12 "..(wideLow.point[3]-26),"a switch after the wide one starts the next line")
+Equal(wideLow.point[2],376,"the wide switch in the right-hand column")
+Equal(later.point[2].." "..later.point[3],"10 "..(wideLow.point[3]-26),"a switch after the wide one starts the next line")
 Equal(wideOptions.height,-(later.point[3]-26)+24,"and the panel grows to fit it")
 
 -- Click pet reminders in combat (Needs testing): off by default; SUMMON PET!,
@@ -1155,8 +1166,8 @@ local fo=fighter:options()
 local cc=fo.combatClick
 Equal(cc:IsShown(),true,"hunters get the option")
 Equal(cc.label.text,"Click pet reminders in combat","labelled plainly, confirmed in game")
-Equal(cc.point[3],fo.clickable.point[3]-26,"right under Clickable reminders")
-Equal(fo.mana.point[3],cc.point[3]-26,"with the mana note under it")
+Equal(cc.point[2].." "..cc.point[3],"376 "..fo.clickable.point[3],"right beside Clickable reminders")
+Equal(fo.mana.point[2].." "..fo.mana.point[3],"10 "..(cc.point[3]-26),"with the mana note on the next line")
 local listedCc=false
 for _,f in ipairs(fo.items)do if f==cc then listedCc=true end end
 Equal(listedCc,true,"it greys out with the other options")

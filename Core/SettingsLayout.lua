@@ -1,10 +1,22 @@
 local _,E=...
 
--- Expanded pages pack complete card + inline-panel blocks into measured rows.
+-- /era's scrolling page. The viewport is pinned by two corners (so it always
+-- has a size), just right of the tab list; its content is sized when made.
+-- A page is a list of items from Core/SettingsNav.lua: section headings and
+-- column blocks (an option with the sub-options under it). A heading starts
+-- a new line across the page; a wide block takes a line of its own; other
+-- blocks go two to a line, and a line is as tall as its taller block. A
+-- class option's box (row.inlinePanel) opens under its row and is measured
+-- with it. Any page may scroll, with the hint under it while there's more.
+local ROW_GAP,COLUMN,WIDE,WIDTH,INDENT=4,366,718,352,22
+local HEADING,HEADING_GAP=18,8
+
 function E:CreateSettingsViewport(frame)
  local scroll=CreateFrame("ScrollFrame",nil,frame)
- -- Just right of the tab list (frame.viewLeft, set by Core/Settings.lua).
- scroll:SetPoint("TOPLEFT",frame.viewLeft or 226,-148);scroll:SetPoint("BOTTOMRIGHT",-40,94)
+ -- Just right of the tab list (frame.viewLeft, frame.viewTop and
+ -- frame.viewBottom, set by Core/Settings.lua before this is made).
+ scroll:SetPoint("TOPLEFT",frame,"TOPLEFT",frame.viewLeft or 226,frame.viewTop or -88)
+ scroll:SetPoint("BOTTOMRIGHT",frame,"BOTTOMRIGHT",-40,frame.viewBottom or 114)
  scroll:EnableMouseWheel(true)
  local content=CreateFrame("Frame",nil,scroll)
  content:SetSize(718,1);scroll:SetScrollChild(content)
@@ -31,44 +43,58 @@ function E:CreateSettingsViewport(frame)
  function frame:SetSettingsScroll(value)
   value=math.max(0,math.min(range,value or 0))
   scroll:SetVerticalScroll(value)
-   if slider:GetValue()~=value then slider:SetValue(value)end
-   hint:SetShown(range>0 and value<range-1)
+  if slider:GetValue()~=value then slider:SetValue(value)end
+  hint:SetShown(range>0 and value<range-1)
   self:RefreshInlineActions()
  end
  slider:SetScript("OnValueChanged",function(_,value)frame:SetSettingsScroll(value)end)
  scroll:SetScript("OnMouseWheel",function(_,delta)frame:SetSettingsScroll(scroll:GetVerticalScroll()-delta*48)end)
+ local function RowHeight(row)
+  local inline=row.inlinePanel
+  return row:GetHeight()+((inline and inline:IsShown())and(6+inline:GetHeight())or 0)
+ end
+ -- Places one block's rows down a column from x,y; returns its height.
+ local function PlaceBlock(block,x,y,width,order)
+  local top=y
+  for i,row in ipairs(block.rows)do
+   local depth=block.depth and block.depth[row] or 0
+   if i>1 then y=y+ROW_GAP end
+   row:SetWidth(width-depth*INDENT)
+   row:ClearAllPoints();row:SetPoint("TOPLEFT",content,"TOPLEFT",x+depth*INDENT,-y)
+   y=y+RowHeight(row)
+   order[#order+1]=row
+  end
+  return y-top
+ end
  function frame:LayoutSettings(reset)
   if self.layoutBusy then return end
   self.layoutBusy=true
-  local bottom=0
-  local function Height(card)
-   local inline=card.inlinePanel
-   return card:GetHeight()+((inline and inline:IsShown())and(6+inline:GetHeight())or 0)
+  local y,column,line,first,used=0,0,0,true,false
+  local order={}
+  local function Finish()
+   if column>0 or line>0 then y=y+line+ROW_GAP;used=true end
+   column,line=0,0
   end
-  if self.settingsEntries then
-   -- Two per row in order. A full-width entry (section label, the Appearance
-   -- choice, the More card) takes a row of its own, and an entry in breaks
-   -- (a card with its options on show) starts one. pad leaves room above
-   -- each entry for its search tag.
-   local y,column,height,pad=0,0,0,self.settingsPad or 0
-   local breaks=self.settingsBreaks or {}
-   for _,card in ipairs(self.settingsEntries)do
-    local wide=card.fullWidth
-    if(wide or breaks[card])and column>0 then bottom=y+height;y=bottom+4;column,height=0,0 end
-    card:ClearAllPoints();card:SetPoint("TOPLEFT",content,"TOPLEFT",wide and 0 or column*366,-(y+pad))
-    height=math.max(height,pad+Height(card))
-    column=wide and 2 or column+1
-    if column>=2 then bottom=y+height;y=bottom+4;column,height=0,0 end
-   end
-   if column>0 then bottom=y+height end
-  else
-   for _,card in pairs(self.checks)do
-    if card:IsShown()then
-     local _,_,_,_,y=card:GetPoint()
-     bottom=math.max(bottom,-(y or 0)+Height(card))
-    end
+  for _,item in ipairs(self.settingsItems or {})do
+   if item.heading then
+    Finish()
+    if not first then y=y+HEADING_GAP end
+    item.fs:ClearAllPoints();item.fs:SetPoint("TOPLEFT",content,"TOPLEFT",2,-y)
+    y=y+HEADING;first=false
+   elseif item.wide then
+    Finish()
+    line=PlaceBlock(item,0,y,WIDE,order);first=false
+    Finish()
+   else
+    if column>=2 then Finish()end
+    line=math.max(line,PlaceBlock(item,column*COLUMN,y,WIDTH,order));first=false
+    column=column+1
+    if column>=2 then Finish()end
    end
   end
+  Finish()
+  local bottom=used and y-ROW_GAP or y
+  self.visibleRows=order
   local height=math.max(1,scroll:GetHeight())
   content:SetHeight(math.max(height,bottom+8))
   range=math.max(0,content:GetHeight()-height)

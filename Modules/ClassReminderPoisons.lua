@@ -310,7 +310,7 @@ end
 function P.ClickHelp()
  return "With Clickable reminders on, a left-click on POISON!'s icon puts your main hand's poison on your main hand, and a right-click puts your off hand's poison on your off hand. "
   .."It uses the game's own item use, outside combat only, with the highest rank you carry that your level allows. "
-  .."Pick each hand's poison with the buttons below. Needs testing."
+  .."Pick each hand's poison with the buttons below. Experimental: not seen working in game yet."
 end
 function P.ChoiceHelp(hand)
  local low=P.MinLevel()

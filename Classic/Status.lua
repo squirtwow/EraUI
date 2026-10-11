@@ -119,6 +119,10 @@ local function Build()
     header:SetTexture("Interface\\DialogFrame\\UI-DialogBox-Header")
     header:SetSize(300, 64)
     header:SetPoint("TOP", frame, "TOP", 0, 12)
+    -- Dark Windows: the box and its header plate in Dark Mode's colours
+    -- (Core/Appearance.lua).
+    if ns.DarkBackdrop then ns.DarkBackdrop(frame) end
+    if ns.DarkWindowArt then ns.DarkWindowArt(header, "frame") end
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOP", header, "TOP", 0, -14)
     title:SetText("EraUI status")

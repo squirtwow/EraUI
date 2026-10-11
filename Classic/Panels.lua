@@ -229,6 +229,24 @@ local function SkinMaxMin(button)
     end
 end
 
+-- Dark Windows (Core/Appearance.lua): Dark Mode tints the metal corners
+-- (ns.SetTex) but not what is drawn straight from a file: the metal edges,
+-- the stone backing, its streaks and the title strip. In Dark Mode, with
+-- Dark Windows on, they take its grey too, painted again (force) each time
+-- the window is skinned, since that sets their files again. Colours only.
+local WINDOW_ART = { "backing", "streaks", "titleStrip" }
+local function DarkFrameArt(frame)
+    if not ns.DarkWindowArt then return end
+    local slice = frame.NineSlice
+    for key in pairs(EDGES) do
+        if slice[key] then ns.DarkWindowArt(slice[key], "frame", true) end
+    end
+    for _, key in ipairs(WINDOW_ART) do
+        local tex = frame.fcui[key]
+        if tex then ns.DarkWindowArt(tex, "frame", true) end
+    end
+end
+
 function ns.SkinWindow(frame, opts)
     if ns.WindowAllowed and not ns.WindowAllowed(frame) then return end
     if not frame or not active then return end
@@ -337,6 +355,7 @@ function ns.SkinWindow(frame, opts)
     end
     if ns.SkinScrollBarsUnder then ns.SkinScrollBarsUnder(frame, 5) end
     if opts.after then opts.after(frame) end
+    DarkFrameArt(frame)
     skinnedWindows[frame] = true
 end
 

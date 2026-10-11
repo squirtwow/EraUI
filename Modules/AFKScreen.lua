@@ -7,7 +7,7 @@ local M={};E:RegisterModule("AFKScreen",M)
 -- calls, so it is safe in combat.
 -- UIParent is never hidden or shown.
 -- Coming soon: while this is true the AFK Screen never runs, whatever is
--- saved, and its /era card shows SOON.
+-- saved, and its /era row says "coming soon".
 M.comingSoon=false
 local floor,min,max,abs,format,sin,tan,pi,sqrt=math.floor,math.min,math.max,math.abs,string.format,math.sin,math.tan,math.pi,math.sqrt
 local FONT=STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
@@ -682,7 +682,7 @@ end
 function M:Preview()
  if self.comingSoon then E:Print("The AFK screen is coming soon.");return end
  if not E:GetSetting("enabled")then E:Print("EraUI is turned off, so the AFK screen can't open.");return end
- if not E:GetSetting("afkScreen")then E:Print("Turn on AFK Screen in /era > Screen & Cursor first.");return end
+ if not E:GetSetting("afkScreen")then E:Print("Turn on AFK Screen in /era > Screen & Cursor > AFK Screen first.");return end
  if InCombat()then E:Print("The AFK screen can't open in combat.");return end
  -- The short delay lets the chat box give up keyboard focus first.
  C_Timer.After(.3,function()M:Enter(true)end)

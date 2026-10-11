@@ -435,6 +435,8 @@ local function BuildPopout(host)
             tile = true, tileSize = 32, edgeSize = 32,
             insets = { left = 11, right = 12, top = 12, bottom = 11 },
         })
+        -- Dark Windows darkens the box in Dark Mode (Core/Appearance.lua).
+        if ns.DarkBackdrop then ns.DarkBackdrop(out) end
     end
     out:SetSize(206, 250)
     out:SetPoint("TOPLEFT", host, "TOPRIGHT", -6, -70)

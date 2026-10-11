@@ -76,7 +76,7 @@ function M:Refresh()
  if not panel then return end
  local level=not InCombatLockdown()and ValidLevel("target")
  local active=E:GetSetting("enabled") and E:GetSetting("mageSupplies")
- T.SubState(panel,not not active,"Enable Conjuring Suggestions in Mage settings.")
+ T.SubState(panel,not not active,"Turn on Conjuring Suggestions above to use these options.")
  if active then
   panel.hint:SetText(level and("Target level "..level.." · highest suitable learned ranks")or "Target a player to see suitable food and water.")
  end
@@ -89,7 +89,7 @@ function M:Attach(parent,anchor)
   panel=T.SubPanel(parent,anchor)
   panel.items={}
   for _,kind in ipairs({"food","water"})do
-    local b=T.SubButton(panel,"",328,24)
+    local b=T.SubButton(panel,"",nil,24)
    buttons[kind]=b
    panel.items[#panel.items+1]=b
   end

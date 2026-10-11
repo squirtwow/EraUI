@@ -12,7 +12,7 @@ local M={};E:RegisterModule("BagItemLevels",M)
 -- of a mark blends normally, so it fades with the interface (the AFK screen
 -- hides the UI that way) and with a bag search.
 -- Coming soon: while this is true Bag Item Levels never runs, whatever is
--- saved, and its /era card shows SOON. It ships for testing, off by default.
+-- saved, and its /era row says "coming soon". It ships for testing, off by default.
 M.comingSoon=false
 local ARROW="Interface\\AddOns\\EraUI\\Media\\BagArrow.tga" -- Tools/GenerateBagArrow.mjs
 local FONT="Interface\\AddOns\\EraUI\\Media\\Fonts\\LilitaOne-Regular.ttf" -- bold, OFL, also a damage text font

@@ -2,7 +2,20 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 EraUI.name = ADDON_NAME
-EraUI.version = "1.5.2"
+-- The version is the .toc's own "## Version", read as the addon loads, so it
+-- can never be left behind at a release. A copy without a real number there
+-- (empty, or the packager's "@project-version@" placeholder) runs as "dev":
+-- What's New then shows the newest notes and the update notice neither
+-- shares nor compares it.
+local function TocVersion(read)
+    if type(read) ~= "function" then return nil end
+    local ok, value = pcall(read, ADDON_NAME, "Version")
+    if not ok or type(value) ~= "string" then return nil end
+    value = value:match("^%s*(.-)%s*$")
+    if value == "" or value:find("@", 1, true) then return nil end
+    return value
+end
+EraUI.version = TocVersion(C_AddOns and C_AddOns.GetAddOnMetadata) or TocVersion(GetAddOnMetadata) or "dev"
 EraUI.modules = {}
 EraUI.callbacks = {}
 EraUI.moduleResults = {}
@@ -30,8 +43,10 @@ local defaults = {
     darkenClassColours = false, -- Darkness row tick: class-coloured unit borders darken with the slider too
     darkAuraBorders = true, -- Dark Aura Borders: shows only in Dark Mode, so choosing Dark Mode gives them
     darkAuraShadows = true, -- Aura Shadows (Needs testing): shows only with Dark Mode and Dark Aura Borders
+    darkDebuffLines = false, -- Thin Debuff Colours (Needs testing): debuffs get the dark border with a thin line in their type's colour; off by default
     darkMenuBar = true, -- Dark Menu Bar: shows only in Dark Mode, so choosing Dark Mode gives it
     darkWindows = true, -- Dark Windows (Needs testing): shows only in Dark Mode, so choosing Dark Mode gives it
+    blackPages = false, -- Black Pages (Needs testing): near-black spellbook and professions pages under Dark Windows; off by default
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
@@ -313,7 +328,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         EraUI.db = EraUIDB
         -- The damage text font is read by the game as you log in.
         if EraUIDB.enabled ~= false and EraUI.ApplyCombatFont then EraUI:ApplyCombatFont() end
-        EraUI:Status("v" .. EraUI.version .. " loaded for WoW Forever beta.")
+        EraUI:Status((EraUI.version == "dev" and "Development copy" or ("v" .. EraUI.version)) .. " loaded for WoW Forever beta.")
     elseif event == "PLAYER_LOGIN" then
         if not EraUI.Persistence.character and EraUI.LoadCharOnboarding then EraUI.LoadCharOnboarding() end
         EraUI.Persistence:LoadCharacter()

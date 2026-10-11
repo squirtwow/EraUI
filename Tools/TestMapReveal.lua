@@ -331,4 +331,32 @@ equal(#E2.messages,0,"late-loaded early pin does not report an error")
 WorldMapFrame.container:OnCanvasSizeChanged()
 equal(late.states[latePin].drawn,12,"saved enabled setting works on late map")
 equal(listener.events.ADDON_LOADED,nil,"late-load listener retired")
+
+-- Another addon revealing the map (the real EraUI:MapRevealHandedOver,
+-- Core/Utils.lua): EraUI draws nothing while one is loaded with its own reveal
+-- on, and draws again once that reveal is off or the addon is gone. Anything
+-- that can't be read counts as not revealing; the saved choice never changes.
+assert(loadfile("Core/Utils.lua"))("EraUI",E2)
+local function Redraw()WorldMapFrame.container:OnCanvasSizeChanged();return late.states[latePin].drawn end
+local loaded={}
+local function Addons()C_AddOns={IsAddOnLoaded=function(name)return loaded[name]==true end}end
+Addons()
+equal(Redraw(),12,"no other map addon: reveal as before")
+loaded.Leatrix_Maps=true;LeaMapsDB=nil
+equal(Redraw(),0,"a map addon loaded with nothing saved (its reveal starts on): EraUI steps aside")
+equal(late.states[latePin].status,"another addon reveals the map","the diagnostics say why")
+LeaMapsDB={RevealMap="On"};equal(Redraw(),0,"its reveal saved on")
+LeaMapsDB={RevealMap="Off"};equal(Redraw(),12,"its reveal saved off: EraUI reveals")
+loaded.MapUtils=true;MAUTTAB={REVEALMAP=true};equal(Redraw(),0,"a second map addon's reveal on")
+MAUTTAB={REVEALMAP=false};equal(Redraw(),12,"its reveal off too")
+MAUTTAB=nil;equal(Redraw(),0,"the second with nothing saved: its reveal starts on")
+loaded={Leatrix_Maps=true};Addons()
+LeaMapsDB=setmetatable({},{__index=function()error("unreadable")end})
+equal(Redraw(),12,"a saved switch that can't be read counts as not revealing")
+C_AddOns={IsAddOnLoaded=function()error("addon list unreadable")end};LeaMapsDB=nil
+equal(Redraw(),12,"an addon list that can't be read counts as no other addon")
+C_AddOns=nil
+equal(Redraw(),12,"gone again: reveal as before")
+equal(E2.settings.revealMap,true,"the saved choice is never changed")
+for _,f in ipairs(frames)do equal(f.scripts.OnUpdate,nil,"still no polling")end
 print("Map reveal lifecycle/data checks passed: "..checks.." assertions; 45 maps, 572 regions, 972 textures.")

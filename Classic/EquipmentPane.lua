@@ -114,6 +114,10 @@ local function Build()
     header:SetTexture(DIALOG_HEADER)
     header:SetSize(300, 64)
     header:SetPoint("TOP", pane, "TOP", 0, 12)
+    -- Dark Windows: the box and its header plate in Dark Mode's colours
+    -- (Core/Appearance.lua).
+    if ns.DarkBackdrop then ns.DarkBackdrop(pane) end
+    if ns.DarkWindowArt then ns.DarkWindowArt(header, "frame") end
     local title = pane:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOP", header, "TOP", 0, -14)
     title:SetText(EQUIPMENT_MANAGER or "Equipment Manager")
