@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.6.0
+
+### Added
+- A new settings layout: grouped tabs, sub-tabs and one row per option, with a short walkthrough. Your settings are kept.
+- Flat Bars: a plain, solid fill on unit-frame and cast bars (experimental).
+- Dark Windows: in Dark Mode, EraUI's red buttons and pop-ups, the game menu, help tips, the spellbook and Professions go dark with the Darkness slider (experimental).
+- Black Pages: black Spellbook and Professions pages (experimental).
+- Thin Debuff Colours: your debuffs get the dark border with a thin line in their colour (experimental).
+- More from Squirt lists Forever Enhanced Cursor and Forever Enhanced Cooldown Pulse.
+
+### Changed
+- Clean Minimap also hides the minimap buttons of Squirt's other addons until you hover the map.
+- Reveal World Map steps aside while another map addon is already revealing the map.
+
+### Fixed
+- The target frame shows all five combo points again.
+- No more "blocked" message after fights with a focus or target.
+- With Friends & Guild on, the friends key opens the classic Friends List instead of the game's new social window.
+- The sort bags button shows on the combined bag again.
+- Trainer descriptions are no longer cut off.
+- Switching Dark Menu Bar on or off applies at once.
+- What's New and the update notice show the right version.
+
 ## 1.5.5
 
 ### Added
