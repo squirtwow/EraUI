@@ -9,6 +9,7 @@ local CHUNK, MAX_CHUNKS = 900, 128
 local LIMIT = CHUNK * MAX_CHUNKS
 local layouts = {
     mapPosition=true, mapSize=true, minimapButtonPosition=true,
+    minimapDrawerButtonPosition=true, minimapDrawerOrder=true,
     comboPointPosition=true, energyBarPosition=true, resourceBarPositions=true,
     swingTimerPosition=true, rangedSwingTimerPosition=true, advancedCastBarPosition=true,
     rewardProfiles=true,

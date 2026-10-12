@@ -23,13 +23,18 @@ local DEPENDS = {
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
     darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode", darkWindows="darkMode",
     blackPages="darkWindows", darkDebuffLines="darkAuraBorders",
+    -- On Appearance > Style, its parent on Casting: greyed there, never indented.
+    roundedCastBars="castBars",
+    -- Cast Bar Colour is a whole line of its own on Casting: greyed by Cast
+    -- Bars, never indented under it (GroupParent).
+    castBarColour="castBars", castBarCustomColour="castBars",
 }
 -- The names on the rows, so a description points at a switch the player can find.
 local DEPEND_NAMES = {
     advancedCastBar = "Advanced Cast Bar", spellbook = "Spellbook",
     unitFrames = "Unit Frames", actionBars = "Action Bars",
     afkScreen = "AFK Screen", darkMode = "Dark Mode", darkAuraBorders = "Dark Aura Borders",
-    darkWindows = "Dark Windows",
+    darkWindows = "Dark Windows", castBars = "Cast Bars",
 }
 -- The row each of those switches is on (Dark Mode is the Classic / Dark Mode choice).
 local DEPEND_ROWS = {darkMode = "appearanceChoice"}
@@ -72,18 +77,32 @@ local FOLDS = {
     cursorCastColour="cursorCastRing",
     cursorTrailClassColour="cursorTrail", cursorTrailSize="cursorTrail", cursorTrailOpacity="cursorTrail",
     cursorTrailLength="cursorTrail", cursorTrailColour="cursorTrail",
+    cleanMinimapStyle="cleanMinimap", minimapDrawerColumns="cleanMinimap",
+    castBarCustomColour="castBarColour",
 }
 local FOLD_PARENTS = {}
 for _, parentKey in pairs(FOLDS) do FOLD_PARENTS[parentKey] = true end
+-- A folded option that also waits for a choice: the drawer's Icons per Row
+-- shows only with Clean Minimap's Drawer style, Custom Cast Bar Colour only
+-- with Cast Bar Colour's Custom (folded under that choice row itself, so the
+-- choice alone opens it).
+local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, castBarCustomColour = {"castBarColour", "custom"}}
 local function Folded(key)
-    return FOLDS[key] ~= nil and EraUI:GetSavedSetting(FOLDS[key]) ~= true
+    local parent = FOLDS[key]
+    if parent == nil then return false end
+    local choice = FOLD_CHOICES[key]
+    if not (choice and choice[1] == parent) and EraUI:GetSavedSetting(parent) ~= true then return true end
+    return choice ~= nil and EraUI:GetSavedSetting(choice[1]) ~= choice[2]
 end
 -- The row each sub-option sits under: its fold, its group or its first
 -- DEPENDS option. GROUPS are for layout only, never greyed: the reward
 -- profile goes with Highlight Reward Upgrades, Red Combo Points with the
--- floating orbs it colours.
+-- floating orbs it colours. A whole-line row (Nav.WIDE) has its own line,
+-- so the option it needs never takes it in: Cast Bar Colour is greyed by
+-- Cast Bars, never indented under it.
 local GROUPS = {rewardProfile = "rewardUpgradeHighlight", comboPointRed = "floatingComboPoints"}
 local function GroupParent(key)
+    if Nav.WIDE[key] then return FOLDS[key] or GROUPS[key] end
     return FOLDS[key] or GROUPS[key] or Parents(key)[1]
 end
 -- Earlier names of renamed options (one or a list), so searching an old name
@@ -202,7 +221,9 @@ local settingHelp = {
     damageMeterSkin = "A Classic look for Blizzard's Damage Meter: dark frame, grey border, Classic bars and fonts. Its own options keep working.",
     disableAggroHighlight = "Hides the combat and threat glows on Classic player, target and focus frames.",
     questTracker = "Classic text and collapse buttons on the quest tracker. With another quest addon's tracker on, EraUI asks which one to show.",
-    cleanMinimap = "Hides addon buttons round the minimap until you hover over it. Clock, mail, tracking and zoom stay put.",
+    cleanMinimap = "Tidies the addon buttons round the minimap: hidden until you hover it, or tucked into a drawer. Clock, mail, tracking and zoom stay put.",
+    cleanMinimapStyle = "Hover hides addon buttons until you hover the minimap. Drawer tucks them into one button that opens a grid you can arrange.",
+    minimapDrawerColumns = "How many addon buttons sit in each row of the drawer's grid.",
     questDialogs = "Classic window for accepting and handing in quests. Quest text, rewards and buttons work as before.",
     professions = "Classic profession windows, progress bars and spell buttons. Recipes and controls work as before.",
     spellbook = "Classic parchment, frame and spell buttons. Spell tabs, casting and dragging to your bars work as before.",
@@ -237,10 +258,13 @@ local settingHelp = {
     blackPages = "Near black spellbook and Professions pages instead of Dark Windows' brown-grey. Names keep their gold and text stays readable.",
     flatBars = "A plain, even fill instead of Classic's shaded one on unit-frame and cast bars. Their colours stay. Works with Classic or Dark Mode.",
     thickAuraBorders = "Thick dark borders round your own buffs and debuffs, debuffs lined in their colour. Works with Classic or Dark Mode. Wins over the other aura borders.",
+    roundedCastBars = "Thick, soft-cornered cast bars for you, your pet, target and focus: the spell icon in its own tile, its name left, the time right. Needs Cast Bars.",
     advancedCastBar = "Your own cast bar with the spell icon, cast time and latency. A preview shows while /era is open; hover + on it to move or resize.",
     advancedCastClassFill = "A muted class colour instead of gold. Priests get dark silver so the text stays readable.",
     advancedCastTicks = "Marks each tick on channelled spells whose description gives the ticks. Not every channel does.",
     castBarClassBorder = "Class-coloured outlines on player, target, focus and your nameplate cast bars. NPCs keep theirs.",
+    castBarColour = "Your own and your pet's cast bar fill. Match look: yellow in Classic, light grey in Dark Mode. Interrupted casts stay red, uninterruptible ones grey.",
+    castBarCustomColour = "Click to pick the colour of your own and your pet's cast bar.",
     mapQuestObjectives = "Blizzard's quest objectives on the world map, using the game's own map filter.",
     movableMap = "Drag the world map's header to move it, and its edges or corners to resize it. Normal and full size each keep their own place.",
     revealMap = "Unexplored parts of the world map shaded grey until you explore them. No exploration credit.",
@@ -320,7 +344,8 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- Not seen working in game yet: the row says "experimental" after its name
 -- (Core/SettingsRows.lua), so its description doesn't have to.
 local EXPERIMENTAL = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true,
-    characterItemLevels = true, flatBars = true, thickAuraBorders = true}
+    characterItemLevels = true, flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true,
+    castBarColour = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -328,6 +353,9 @@ end
 local function DefaultText(key)
     if key == "presets" or key == "rewardProfile" or key == "classTools" or key:find("^more") then return nil end
     if key == "appearanceChoice" then return "Default: Classic." end
+    if key == "cleanMinimapStyle" then return "Default: Hover." end
+    if key == "castBarColour" then return "Default: Match look." end
+    if key == "castBarCustomColour" then return "Default: light grey." end
     if key == "showAllSpellRanks" or (EraUI.cvarSettings and EraUI.cvarSettings[key]) then
         return "Default: keep your existing game preference."
     end
@@ -470,6 +498,19 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
         if key=="thickAuraBorders" then
             if EraUI.modules.AuraStyle then EraUI.modules.AuraStyle:RefreshBorders() end
             EraUI:Status("Thick Aura Borders "..(value and "enabled." or "disabled."))
+            return
+        end
+        -- Rounded Cast Bars: the Classic cast bars' new look at once
+        -- (Classic/CastBars.lua; a protected bar in a fight follows when it
+        -- ends), the Advanced Cast Bar's fine line, then the class colour
+        -- on the new line (Modules/ClassAccents.lua).
+        if key=="roundedCastBars" then
+            local classic=EraUI.Classic or {}
+            local done=true
+            if classic.RefreshRoundedCasts then done=classic.RefreshRoundedCasts()~=false end
+            if EraUI.modules.AdvancedCastBar then EraUI.modules.AdvancedCastBar:Refresh() end
+            if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:Refresh() end
+            EraUI:Status("Rounded Cast Bars "..(value and "enabled." or "disabled.")..(done and "" or " Some bars change when combat ends."))
             return
         end
         if key=="darkAuraBorders" or key=="darkAuraShadows" or key=="darkDebuffLines" then
@@ -706,11 +747,14 @@ local function BuildLookRows(frame)
     presets.summary = "Choose a ready-made set of options."
     presets.SetChecked = function() UpdatePresetLabel(frame) end
     frame.presetButton, frame.presetLabel = presets.button, presets.text
-    -- Frame Style, under the choice: Flat Bars and Thick Aura Borders.
+    -- Frame Style, under the choice: Flat Bars, Thick Aura Borders and
+    -- Rounded Cast Bars (greyed while Cast Bars, on Casting, is off).
     local flat = MakeCheck(frame, "Flat Bars", "flatBars", nil, "Plain, even fill on unit-frame and cast bars. Works with Classic or Dark Mode.", false)
     flat.searchText = flat.searchText .. " flat bar texture solid plain fill frame style"
     local thick = MakeCheck(frame, "Thick Aura Borders", "thickAuraBorders", nil, "Thick dark borders round your own buffs and debuffs. Works with Classic or Dark Mode.", false)
     thick.searchText = thick.searchText .. " thick border outline edge frame aura buff debuff icon frame style"
+    local rounded = MakeCheck(frame, "Rounded Cast Bars", "roundedCastBars", nil, "Thick soft-cornered cast bars with the spell icon in its own tile. Needs Cast Bars.", false)
+    rounded.searchText = rounded.searchText .. " rounded round soft corners cast bar castbar spell icon tile name time thick frame style"
     -- Darkness: dragging re-tints the Dark Mode artwork at once
     -- (Core/Appearance.lua). Its value shows once, in "Darkness: 58"; the
     -- grey swatch that sat after the slider read as an empty box, so it went.
@@ -735,6 +779,36 @@ local function BuildLookRows(frame)
     MakeCheck(frame, "Class-coloured Tooltips", "tooltipClassColours", nil, "Player tooltips: border, name and class in the player's class colour.", false)
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", nil, "Class-coloured unit frame borders. Needs Dark Mode and Unit Frames.", false)
     MakeCheck(frame, "Class-coloured Cast Border", "castBarClassBorder", nil, "Class-coloured outlines on players' cast bars. NPCs keep theirs.", false)
+end
+
+-- Clean Minimap's two styles, and the drawer's icons per row: folded under
+-- Clean Minimap, Icons per Row only with Drawer chosen. Both apply at once
+-- (Modules/MinimapTools.lua; a change made in a fight follows when it ends).
+local function BuildDrawerRows(frame)
+    local style
+    style = Rows.Choice(frame, "cleanMinimapStyle", "Style", {"Hover", "Drawer"}, function(index)
+        local drawer = index == 2
+        EraUI:SetSetting("cleanMinimapStyle", drawer and "drawer" or "hover")
+        style:SetChecked()
+        if frame.RefreshFolds then frame:RefreshFolds() end
+        local tools = EraUI.modules.MinimapTools
+        if tools then tools:Discover(); tools:Refresh() end
+        EraUI:Status("Clean Minimap: " .. (drawer and "addon buttons tucked into one drawer button on the minimap." or "addon buttons hide until you hover the minimap.")
+            .. (InCombatLockdown() and " Applies after combat." or ""))
+    end)
+    style.searchText = "clean minimap style hover drawer minimap buttons addon buttons tidy tuck grid arrange"
+    style.summary = "Hide until hover, or one drawer button."
+    style.SetChecked = function() Rows.SelectChoice(style, EraUI:GetSavedSetting("cleanMinimapStyle") == "drawer" and 2 or 1) end
+    style:HookScript("OnShow", function() style:SetChecked() end)
+    local columns = Rows.Slider(frame, "minimapDrawerColumns", "Icons per Row", {low = 3, high = 8, step = 1,
+        read = function() return tonumber(EraUI:GetSavedSetting("minimapDrawerColumns")) or 5 end,
+        save = function(value)
+            EraUI:SetSetting("minimapDrawerColumns", value)
+            local tools = EraUI.modules.MinimapTools
+            if tools and tools.LayoutDrawer then tools:LayoutDrawer() end
+        end})
+    columns.searchText = "clean minimap drawer icons per row columns grid minimap buttons tidy"
+    columns.summary = "How many icons each row of the drawer holds."
 end
 
 -- The plain switches of the other tabs.
@@ -762,7 +836,9 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Latency Zone", "advancedCastLatency", nil, "Red end zone based on world latency. Shown when cast duration is readable.", false)
     -- Map & Minimap.
     MakeCheck(frame, "Minimap", "minimap", nil, "Classic round map and controls.", false)
-    MakeCheck(frame, "Clean Minimap", "cleanMinimap", nil, "Addon buttons appear on hover.", false)
+    local clean = MakeCheck(frame, "Clean Minimap", "cleanMinimap", nil, "Addon buttons hide until hover, or sit in one drawer.", false)
+    clean.searchText = clean.searchText .. " drawer minimap buttons tidy"
+    BuildDrawerRows(frame)
     MakeCheck(frame, "Coordinates", "coordinates", nil, "Your map position beneath the minimap.", false)
     MakeCheck(frame, "Map Quest Objectives", "mapQuestObjectives", nil, "Blizzard's quest objectives on the world map.", false)
     MakeCheck(frame, "Movable World Map", "movableMap", nil, "Drag the header to move; resize from the corners and edges.", false)
@@ -845,12 +921,32 @@ local function RingSlider(frame, key, label, low, high, default, format)
     return row
 end
 
-local function CursorColour(frame, key, classKey, label)
-    local function RGB()
-        local hex = EraUI:GetSavedSetting(key)
-        if type(hex) ~= "string" or not hex:match("^%x%x%x%x%x%x$") then hex = "FFFFFF" end
-        return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255
+-- A saved hex colour ("FF8000") as r, g, b, or fallback's when it isn't one.
+local function HexRGB(hex, fallback)
+    if type(hex) ~= "string" or not hex:match("^%x%x%x%x%x%x$") then hex = fallback end
+    return tonumber(hex:sub(1, 2), 16) / 255, tonumber(hex:sub(3, 4), 16) / 255, tonumber(hex:sub(5, 6), 16) / 255
+end
+-- The game's colour picker at r, g, b: changed() each time the colour moves,
+-- cancel() when it's cancelled. False when the game has none.
+local function OpenPicker(r, g, b, changed, cancel)
+    local picker = ColorPickerFrame
+    if not picker then return false end
+    if picker.SetupColorPickerAndShow then
+        picker:SetupColorPickerAndShow({r = r, g = g, b = b, hasOpacity = false, swatchFunc = changed, cancelFunc = cancel})
+    else
+        picker:Hide(); picker.func = nil; picker.hasOpacity = false; picker:SetColorRGB(r, g, b)
+        picker.func = changed; picker.cancelFunc = cancel; picker:Show()
     end
+    return true
+end
+-- The picker's colour now, as a hex string.
+local function PickedHex()
+    local red, green, blue = ColorPickerFrame:GetColorRGB()
+    return string.format("%02X%02X%02X", math.floor(red * 255 + .5), math.floor(green * 255 + .5), math.floor(blue * 255 + .5))
+end
+
+local function CursorColour(frame, key, classKey, label)
+    local function RGB() return HexRGB(EraUI:GetSavedSetting(key), "FFFFFF") end
     local row = Rows.Colour(frame, key, label, RGB)
     local function Save(hex, classColour)
         EraUI:SetSetting(key, hex); EraUI:SetSetting(classKey, classColour)
@@ -858,24 +954,65 @@ local function CursorColour(frame, key, classKey, label)
         row:SetChecked(); RefreshCursor()
     end
     row:SetScript("OnClick", function()
-        local picker = ColorPickerFrame
-        if not picker then return end
         local old = EraUI:GetSavedSetting(key) or "FFFFFF"
         local oldClass = EraUI:GetSavedSetting(classKey)
         local r, g, b = RGB()
-        local function Changed()
-            local red, green, blue = picker:GetColorRGB()
-            Save(string.format("%02X%02X%02X", math.floor(red * 255 + .5), math.floor(green * 255 + .5), math.floor(blue * 255 + .5)), false)
-        end
-        local function Cancel() Save(old, oldClass) end
-        if picker.SetupColorPickerAndShow then
-            picker:SetupColorPickerAndShow({r = r, g = g, b = b, hasOpacity = false, swatchFunc = Changed, cancelFunc = Cancel})
-        else
-            picker:Hide(); picker.func = nil; picker.hasOpacity = false; picker:SetColorRGB(r, g, b)
-            picker.func = Changed; picker.cancelFunc = Cancel; picker:Show()
-        end
+        OpenPicker(r, g, b, function() Save(PickedHex(), false) end, function() Save(old, oldClass) end)
     end)
     return row
+end
+
+-- Cast Bar Colour (Casting): Match look, Yellow, Grey, Class or Custom on a
+-- whole line (five choices don't fit half of one), applied at once to your
+-- own and your pet's cast bar (Classic/CastBars.lua). Custom opens the
+-- colour picker; Custom Cast Bar Colour, folded under the row until Custom
+-- is chosen, opens it again. Cancelling the picker puts back the colour and
+-- the choice from before. Greyed while Cast Bars is off.
+local CAST_COLOURS = {"auto", "classic", "grey", "class", "custom"}
+local CAST_COLOUR_SAID = {auto = "matches the look", classic = "Classic yellow", grey = "light grey", class = "your class colour",
+    custom = "your own colour"}
+local function BuildCastColourRows(frame)
+    local choice, swatch
+    local function Index()
+        local saved = EraUI:GetSavedSetting("castBarColour")
+        for i, id in ipairs(CAST_COLOURS) do if id == saved then return i end end
+        return 1
+    end
+    local function RGB() return HexRGB(EraUI:GetSavedSetting("castBarCustomColour"), "C7CCD6") end
+    -- The page is laid out again only when the choice changes, not at each
+    -- move of the picker.
+    local function Save(id, hex)
+        local moved = EraUI:GetSavedSetting("castBarColour") ~= id
+        EraUI:SetSetting("castBarColour", id)
+        if hex then EraUI:SetSetting("castBarCustomColour", hex) end
+        choice:SetChecked(); swatch:SetChecked()
+        if moved and frame.RefreshFolds then frame:RefreshFolds() end
+        local classic = EraUI.Classic or {}
+        if classic.RefreshCastColours then classic.RefreshCastColours() end
+    end
+    local function Pick(before)
+        local old = EraUI:GetSavedSetting("castBarCustomColour") or "C7CCD6"
+        local r, g, b = RGB()
+        OpenPicker(r, g, b, function() Save("custom", PickedHex()) end, function() Save(before, old) end)
+    end
+    choice = Rows.Choice(frame, "castBarColour", "Cast Bar Colour", {"Match look", "Yellow", "Grey", "Class", "Custom"}, function(index)
+        if choice.dependencyDisabled then choice:SetChecked(); return end
+        local before, id = CAST_COLOURS[Index()], CAST_COLOURS[index]
+        Save(id)
+        EraUI:Status("Cast bar colour: " .. CAST_COLOUR_SAID[id] .. ".")
+        if id == "custom" then Pick(before) end
+    end)
+    choice.searchText = "cast bar colour castbar fill yellow grey light class class-coloured custom match look dark mode pet channel"
+    choice.summary = "Your own and your pet's cast bar fill."
+    choice.SetChecked = function() Rows.SelectChoice(choice, Index()) end
+    choice:HookScript("OnShow", function() choice:SetChecked() end)
+    swatch = Rows.Colour(frame, "castBarCustomColour", "Custom Cast Bar Colour", RGB)
+    swatch.searchText = "custom cast bar colour castbar fill picker pick own"
+    swatch.summary = "Pick your cast bar's colour."
+    swatch:SetScript("OnClick", function()
+        if swatch.dependencyDisabled then return end
+        Pick(CAST_COLOURS[Index()])
+    end)
 end
 
 -- Screen & Cursor's cursor effects: each switch with its folded options.
@@ -1714,6 +1851,7 @@ function SettingsModule:Initialize()
     Tour.Attach(frame)
     BuildLookRows(frame)
     BuildToggleRows(frame)
+    BuildCastColourRows(frame)
     BuildCursorRows(frame)
     BuildScreenRows(frame)
     for _, info in ipairs(MORE) do MoreRow(frame, info) end

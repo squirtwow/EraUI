@@ -184,13 +184,52 @@ local function ClearExtras()
     spell:ClearAllPoints();spell:SetPoint("LEFT",bar,"LEFT",4,0);spell:SetPoint("RIGHT",bar,"RIGHT",-88,0)
     for _,mark in ipairs(markers)do mark:Hide()end
 end
-local function Colours()
-    Fill()
+local function ClassRGB()
     local _,class=UnitClass("player")
     local c=(CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class]) or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
     local r,g,b=.7,.7,.7
     if c then r,g,b=c.r,c.g,c.b end
     if class=="PALADIN" then r,g,b=.96,.55,.73 end
+    return r,g,b,class
+end
+-- Rounded Cast Bars (Appearance > Style > Frame Style; needs Cast Bars): this
+-- bar already has soft corners, so it only takes the Classic cast bars' fine
+-- line, one unit wide, 2 to 1 units past the icon and the bar, just inside
+-- its own edge: muted bronze in Classic, the Darkness grey in Dark Mode
+-- (Classic/CastBars.lua ns.RoundedCastLine), the class colour with
+-- Class-coloured Cast Border. Made the first time it shows; colour set only
+-- when it changes.
+local lines,lineShown,lineR,lineG,lineB={},false
+local function RoundLine(r,g,b)
+    local on=(EraUI:GetSetting("castBars") and EraUI:GetSetting("roundedCastBars"))and true or false
+    if not on and not lines[1] then return end
+    if not lines[1] then
+        for i,spot in ipairs({{iconEdge,"TOPLEFT",-2,2,bar,"TOPRIGHT",2,1},{iconEdge,"BOTTOMLEFT",-2,-1,bar,"BOTTOMRIGHT",2,-2},
+            {iconEdge,"TOPLEFT",-2,1,iconEdge,"BOTTOMLEFT",-1,-1},{bar,"TOPRIGHT",1,1,bar,"BOTTOMRIGHT",2,-1}})do
+            local strip=edge:CreateTexture(nil,"ARTWORK")
+            strip:SetPoint("TOPLEFT",spot[1],spot[2],spot[3],spot[4]);strip:SetPoint("BOTTOMRIGHT",spot[5],spot[6],spot[7],spot[8])
+            strip:Hide();lines[i]=strip
+        end
+    end
+    if on then
+        local classic=EraUI.Classic
+        if not EraUI:GetSetting("castBarClassBorder") then
+            if classic and classic.RoundedCastLine then r,g,b=classic.RoundedCastLine() else r,g,b=.55,.46,.27 end
+        end
+        if r~=lineR or g~=lineG or b~=lineB then
+            lineR,lineG,lineB=r,g,b
+            for _,strip in ipairs(lines)do strip:SetColorTexture(r,g,b,1)end
+        end
+    end
+    if on~=lineShown then
+        lineShown=on
+        for _,strip in ipairs(lines)do strip:SetShown(on)end
+    end
+end
+local function Colours()
+    Fill()
+    local r,g,b,class=ClassRGB()
+    RoundLine(r,g,b)
     if EraUI:GetSetting("castBarClassBorder") then edge:SetBackdropBorderColor(r*.35,g*.35,b*.35,1) else edge:SetBackdropBorderColor(.1,.1,.1,1) end
     if EraUI:GetSetting("advancedCastClassFill") then bar:SetStatusBarColor(r*(class=="PRIEST" and .48 or .68),g*(class=="PRIEST" and .48 or .68),b*(class=="PRIEST" and .48 or .68))
     else bar:SetStatusBarColor(1,.62,.12)end
@@ -303,6 +342,11 @@ function Module:Refresh(event,retry)
     end
     Update()
     if castState then bar:SetFrameStrata(editing and "DIALOG" or "MEDIUM");bar:SetScript("OnUpdate",Update);Native(false);bar:Show();Hover()end
+end
+-- The Darkness slider (Classic/CastBars.lua ns.RefreshRoundedCastLines): the
+-- line's grey at once.
+function Module:RefreshLine()
+    if bar then RoundLine(ClassRGB()) end
 end
 function Module:Initialize()
     local events=CreateFrame("Frame")

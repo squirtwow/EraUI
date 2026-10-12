@@ -167,6 +167,23 @@ P:Apply("classic")
 Equal(saved.thickAuraBorders, true, "the Classic look keeps a switched-on Thick Aura Borders")
 saved.thickAuraBorders = nil
 Equal(P:Current(), "classic", "and off, still the Classic look")
+-- Rounded Cast Bars is one too: Classic or Dark Mode, the same as Flat Bars.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "roundedCastBars" then inExtras = true end end
+Equal(inExtras, true, "Rounded Cast Bars is an optional look")
+saved.roundedCastBars = true
+Equal(P:Changes("classic").roundedCastBars, nil, "the Classic look leaves Rounded Cast Bars alone")
+Equal(P:Changes("qol").roundedCastBars, false, "Quality of Life only switches Rounded Cast Bars off")
+P:Apply("qol")
+Equal(saved.roundedCastBars, false, "Rounded Cast Bars off after Quality of Life only")
+P:Apply("classic")
+Equal(saved.roundedCastBars, false, "Rounded Cast Bars stays as chosen after the Classic look")
+saved.roundedCastBars = true
+Equal(P:Current(), "classic", "Rounded Cast Bars on is still the Classic look")
+P:Apply("classic")
+Equal(saved.roundedCastBars, true, "the Classic look keeps a switched-on Rounded Cast Bars")
+saved.roundedCastBars = nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")

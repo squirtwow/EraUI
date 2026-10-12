@@ -16,8 +16,13 @@ Colours), Frames & Nameplates (Unit Frames, Nameplates), Bags & Vendors (Bags
 & Loot, Vendors) and Screen & Cursor (Screen, Cursor, AFK Screen). A tab
 remembers its last sub-tab for the session. Appearance > Style has the Style
 section (the Classic / Dark Mode choice, Presets) and, under it, Frame Style
-(Flat Bars and Thick Aura Borders for now; the other frame style options come
-later).
+(Flat Bars, Thick Aura Borders and Rounded Cast Bars for now; the other frame
+style options come later). Rounded Cast Bars needs Cast Bars (on Casting): it
+is greyed, with "Switch on Cast Bars first (Casting)." in the footer, while
+that is off, and never indented under it (they're on different pages).
+Casting has Cast bars (Cast Bars, the Advanced Cast Bar and its options) and,
+under it, Colour: Cast Bar Colour (Match look, Yellow, Grey, Class, Custom)
+and Custom Cast Bar Colour, a colour swatch that shows only with Custom.
 
 `TABS` in `Core/SettingsNav.lua` is the map: every page's sections (titles
 drawn in gold small capitals) and rows, in reading order. Every option is on
@@ -37,7 +42,8 @@ One row per option (`Core/SettingsRows.lua`), 32 tall, in two columns 352
 wide (x 0 and 366 of the 718 page); a wide row (the Look choice, Presets, the
 Darkness and damage text sliders, the damage font, Class Reminders & Buffs,
 a hunter's or mage's class tools heading, AFK Screen, the More from Squirt
-addons) takes the whole 718. A tick row has a 14 x 14
+addons, Cast Bar Colour, whose five choices don't fit half a line) takes the
+whole 718. A tick row has a 14 x 14
 square tick box (dark fill, grey edge) with an 8 x 8 inner square in the
 player's class colour when on; a click anywhere on the row flips it (PreClick
 flips the tick, then the row's own OnClick saves and applies, exactly as the
@@ -50,13 +56,14 @@ line): "just added" in the game's gold (1, .82, 0), "experimental" in a
 muted warm grey (.66, .61, .53) for options not seen working in game yet
 (`EXPERIMENTAL` in Core/Settings.lua: Aura Shadows, Thin Debuff Colours,
 Dark Windows, Black Pages, Character Item Levels, Flat Bars, Thick Aura
-Borders), "coming soon" and "log
+Borders, Rounded Cast Bars, Clean Minimap's Style, Cast Bar Colour; the last
+two have no "just added", which wouldn't fit before their buttons), "coming soon" and "log
 out to apply" (a new damage font, after the font button) in the muted grey.
 "just added" shows only to players who had the old layout and only while
 they run the version the new layout arrived in (`EraUIDB.layoutPillsVersion`,
 the name kept so saved values stay), never in the setup walkthrough: Thin
-Debuff Colours, Black Pages, Dark Windows, Flat Bars, Thick Aura Borders (new
-since 1.5.5). Nothing says an
+Debuff Colours, Black Pages, Dark Windows, Flat Bars, Thick Aura Borders,
+Rounded Cast Bars (new since 1.5.5). Nothing says an
 option moved any more (the user, 2026-10-11: the boxed capital labels
 "looked too AI generated"). Search results carry the same words, and
 searching "experimental" finds those options. The class box's Click to apply
@@ -88,7 +95,9 @@ column, each sub-option indented 22 a level (two at most) with a thin line up
 to its parent. A wide row's sub-options start the next block in the left
 column (the AFK Screen's options). Options whose parent is on another
 sub-page (Dark Mode on Style, Unit Frames for Class-coloured Unit Borders)
-are not indented. Clean Minimap and Character Item Levels work without the
+are not indented, and nor is a wide row: Cast Bar Colour is greyed by Cast
+Bars (DEPENDS) but sits on its own line (GroupParent gives a wide row no
+DEPENDS parent). Clean Minimap and Character Item Levels work without the
 option before them, so they sit beside it, not under it. Red Combo Points and
 the reward profile sit under their row through GROUPS, layout only, never
 greyed.
@@ -96,7 +105,10 @@ greyed.
 The cursor ring, cast progress ring and cursor trail options are folded:
 hidden, not greyed, until their switch is on, then shown right under it at
 once, keeping the scroll. The AFK Screen's options are not folded; they grey
-out while it is off.
+out while it is off. A fold can also wait for a choice (`FOLD_CHOICES`):
+Icons per Row for Clean Minimap's Drawer, and Custom Cast Bar Colour for
+Cast Bar Colour's Custom (folded under the choice row itself, so the choice
+alone opens it, indented one level under the wide row).
 
 ### Greying and hand-overs
 

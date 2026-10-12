@@ -674,6 +674,8 @@ function ns.RefreshDarkness()
     -- classic windows' buttons, boxes and pages (Dark Windows).
     local auras = EraUI.modules.AuraStyle
     if auras and auras.RefreshDarkness then auras:RefreshDarkness() end
+    -- Rounded Cast Bars' fine line (Classic/CastBars.lua), the Advanced Cast Bar's too.
+    if ns.RefreshRoundedCastLines then ns.RefreshRoundedCastLines() end
     if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
     ns.RefreshDarkWindows()
 end

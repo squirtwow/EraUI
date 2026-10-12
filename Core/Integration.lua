@@ -126,7 +126,7 @@ local qolOptions = {
     {"vendorPrice", "QoL: Vendor prices", "Add missing selling prices to item tooltips."},
     {"bagSpace", "QoL: Bag space", "Show free slots on the backpack."},
     {"questLevels", "QoL: Quest levels", "Show levels on tracked quests."},
-    {"cleanMinimap", "QoL: Clean minimap", "Hide supported addon buttons until hover; native controls stay visible."},
+    {"cleanMinimap", "QoL: Clean minimap", "Hide addon buttons until hover, or tuck them into one drawer; native controls stay visible."},
     {"coordinates", "QoL: Coordinates", "Show your map position beneath the minimap."},
     {"autoSellJunk", "QoL: Sell junk", "Sell grey items on your next merchant visit."},
     {"autoRepair", "QoL: Auto repair", "Repair using your own money on your next repair-vendor visit."},

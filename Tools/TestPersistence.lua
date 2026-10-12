@@ -83,6 +83,9 @@ local E,flush,fire=Session({reminderSize=3,reminderChoice_HUNTER_aspect=13165,re
     mapPosition={x=-200.5,y=33.25},mapSize={w=800,h=530},profile="Text ;=: | utf8 café",
     resourceBarPositions={HUNTER={x=50,y=-10,width=200,height=22}},
     rewardProfiles={HUNTER=2},cursorRingSize=72,
+    cleanMinimap=true,cleanMinimapStyle="drawer",minimapDrawerColumns=6,
+    minimapDrawerOrder={"OtherAddonMinimapButton","EraUIMinimapButton","LibDBIcon10_Questbook"},
+    minimapDrawerButtonPosition={x=-0.6,y=0.8},
 }, {classTools={feedFish=true,feedLowest=false,feedPosition={x=160,y=-175,size=46},
     trainingGuide={entries={shot={name="Arcane Shot",rank="Rank 2",cost=120,level=12,
         requirements={["Arcane Shot (Rank 1)"]=false}}},trainer="Class trainer",updated="2026-09-26"}}}, {
@@ -130,6 +133,11 @@ equal(EraUIDB.profile,"Text ;=: | utf8 café","strings round-trip")
 equal(EraUIDB.mapSize.w,800,"map dimensions survive")
 equal(EraUIDB.resourceBarPositions.HUNTER.width,200,"nested resource layout survives")
 equal(EraUIDB.rewardProfiles.HUNTER,2,"reward profile survives")
+equal(tostring(EraUIDB.cleanMinimap).." "..EraUIDB.cleanMinimapStyle.." "..EraUIDB.minimapDrawerColumns,"true drawer 6",
+    "Clean Minimap's Drawer style and its icons per row survive")
+equal(table.concat(EraUIDB.minimapDrawerOrder,","),"OtherAddonMinimapButton,EraUIMinimapButton,LibDBIcon10_Questbook",
+    "the drawer's order survives, by name")
+equal(EraUIDB.minimapDrawerButtonPosition.x..","..EraUIDB.minimapDrawerButtonPosition.y,"-0.6,0.8","the drawer button's spot survives")
 equal(E.ClassTools.Options().feedLowest,false,"character preference false survives")
 equal(E.ClassTools.Options().feedPosition.size,46,"feeding layout survives")
 equal(E.ClassTools.Options().trainingGuide.entries.shot.cost,120,"trainer quote survives missing SavedVariables")
@@ -327,6 +335,44 @@ flush()
 E:SetSetting("thickAuraBorders",false);E:SaveSettings();flush()
 E,flush,fire=Session()
 equal(EraUIDB.thickAuraBorders,false,"switched off again, Thick Aura Borders stays off when SavedVariables are lost")
+flush()
+-- Rounded Cast Bars (Appearance > Style > Frame Style): the same.
+equal(E.settingDefaults.roundedCastBars,false,"Rounded Cast Bars off by default")
+equal(E.reloadSettings.roundedCastBars,nil,"Rounded Cast Bars applies live, not on reload")
+E:SetSetting("roundedCastBars",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(older.roundedCastBars,nil,"a save from before Rounded Cast Bars")
+E,flush,fire=Session(older)
+equal(EraUIDB.roundedCastBars,false,"an older save gets Rounded Cast Bars off")
+flush()
+E:SetSetting("roundedCastBars",true);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.roundedCastBars,true,"Rounded Cast Bars switched on survives missing SavedVariables")
+flush()
+E:SetSetting("roundedCastBars",false);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.roundedCastBars,false,"switched off again, Rounded Cast Bars stays off when SavedVariables are lost")
+flush()
+-- Cast Bar Colour (Casting): a choice and a hex colour, both strings, live.
+equal(E.settingDefaults.castBarColour.." "..E.settingDefaults.castBarCustomColour,"auto C7CCD6","Match look by default, Custom at the light grey")
+equal(E.reloadSettings.castBarColour or E.reloadSettings.castBarCustomColour,nil,"Cast Bar Colour applies live, not on reload")
+E:SetSetting("castBarColour",nil);E:SetSetting("castBarCustomColour",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(tostring(older.castBarColour)..tostring(older.castBarCustomColour),"nilnil","a save from before Cast Bar Colour")
+E,flush,fire=Session(older)
+equal(EraUIDB.castBarColour.." "..EraUIDB.castBarCustomColour,"auto C7CCD6","an older save gets Match look, today's colours")
+flush()
+E:SetSetting("castBarColour","custom");E:SetSetting("castBarCustomColour","FF8000");E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.castBarColour.." "..EraUIDB.castBarCustomColour,"custom FF8000","Custom and its colour survive missing SavedVariables")
+flush()
+E:SetSetting("castBarColour","class");E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.castBarColour.." "..EraUIDB.castBarCustomColour,"class FF8000","Class chosen survives, the custom colour kept for later")
+flush()
+E:SetSetting("castBarColour","auto");E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.castBarColour,"auto","back to Match look, it stays Match look when SavedVariables are lost")
 flush()
 -- Class-coloured Tooltips: the same.
 equal(E.settingDefaults.tooltipClassColours,false,"Class-coloured Tooltips off by default")

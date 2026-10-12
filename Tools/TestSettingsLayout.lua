@@ -21,7 +21,7 @@ local function ParentOf(E) return function(key) return E.SettingsRules.GroupPare
 local EXPECTED = {
  {group = "LOOK", tabs = {
   {"appearance", "Appearance", "How EraUI looks: the style, Dark Mode and class colours.", {
-   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars", "thickAuraBorders"}}}},
+   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars", "thickAuraBorders", "roundedCastBars"}}}},
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
     {"BARS AND WINDOWS", {"darkMenuBar", "darkWindows", "blackPages"}}}},
@@ -33,7 +33,8 @@ local EXPECTED = {
     "classIconPortraitMine", "classIconPortraitOthers"}}}},
    {"plates", "Nameplates", {{"NAMEPLATES", {"friendlyNameplates", "enemyNameplates"}}}}}},
   {"map", "Map & Minimap", "The minimap and the world map.", {
-   {"main", nil, {{"MINIMAP", {"minimap", "cleanMinimap", "coordinates"}}, {"WORLD MAP", {"mapQuestObjectives", "movableMap", "revealMap"}}}}}},
+   {"main", nil, {{"MINIMAP", {"minimap", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns", "coordinates"}},
+    {"WORLD MAP", {"mapQuestObjectives", "movableMap", "revealMap"}}}}}},
   {"windows", "Windows & Tooltips", "Classic frames for the game's windows, and tooltips.", {
    {"main", nil, {{"WINDOWS", {"gameMenu", "popups", "blizzardSettings", "mailSkin", "auctionHouse", "damageMeterSkin",
     "otherWindows", "contextMenus"}}, {"TOOLTIPS", {"tooltipSkin", "tooltipIDs"}}}}}},
@@ -41,7 +42,8 @@ local EXPECTED = {
  {group = "GAMEPLAY", tabs = {
   {"class", nil, "Tools for your class. Each class sees its own.", nil},
   {"casting", "Casting", "Cast bars for you and everyone else.", {
-   {"main", nil, {{"CAST BARS", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency"}}}}}},
+   {"main", nil, {{"CAST BARS", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency"}},
+    {"COLOUR", {"castBarColour", "castBarCustomColour"}}}}}},
   {"quests", "Quests", "The quest log, dialogue and tracker.", {
    {"main", nil, {{"QUESTS", {"questLog", "questDialogs", "questTracker", "questLevels"}},
     {"AUTOMATION", {"autoQuests", "autoGossip", "rewardUpgradeHighlight", "rewardProfile"}}}}}},
@@ -168,6 +170,12 @@ local PARENT = {
  comboPointRed = "floatingComboPoints",
  afkCameraNormal = "afkScreen", afkTurnRight = "afkScreen", afkZoom = "afkScreen", afk24Hour = "afkScreen",
  afkShowGuild = "afkScreen", afkShowZone = "afkScreen", afkShowDate = "afkScreen", afkShowQuote = "afkScreen",
+ -- Clean Minimap's style and the drawer's icons per row, folded under it
+ -- (checked in their own block below).
+ cleanMinimapStyle = "cleanMinimap", minimapDrawerColumns = "cleanMinimap",
+ -- Custom Cast Bar Colour, folded under the Cast Bar Colour choice (a whole
+ -- line, greyed by Cast Bars but never indented under it: its own block below).
+ castBarCustomColour = "castBarColour",
 }
 local FOLDED = {
  cursorRing = {"cursorRingClassColour", "cursorRingSize", "cursorRingThickness"},
@@ -178,9 +186,10 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- Options new since 1.5.5 ("just added" for returning players this version)
 -- and those not seen working in game yet ("experimental", always). Nothing
 -- says it moved any more.
-local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true}
+local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
+ roundedCastBars = true}
 local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
- flatBars = true, thickAuraBorders = true}
+ flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true, castBarColour = true}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -1053,7 +1062,8 @@ do
  end
  -- The Presets row heads Appearance > Style: the active preset, never a warning.
  Open(f, "appearance", "style")
- equal(Keys(f), "appearanceChoice,presets,flatBars,thickAuraBorders", "Style holds the Look choice and Presets, then Frame Style's Flat Bars and Thick Aura Borders")
+ equal(Keys(f), "appearanceChoice,presets,flatBars,thickAuraBorders,roundedCastBars",
+  "Style holds the Look choice and Presets, then Frame Style's Flat Bars, Thick Aura Borders and Rounded Cast Bars")
  -- Flat Bars: a tick under the choice, in its own Frame Style section,
  -- applying at once (Classic/Skin.lua and the Advanced Cast Bar) with the
  -- usual chat line.
@@ -1135,6 +1145,73 @@ do
   local hit = false
   for _, key in ipairs(found) do if key == "thickAuraBorders" then hit = true end end
   equal(hit, true, "searching " .. word .. " finds Thick Aura Borders")
+ end
+ f.searchBox:SetText(""); Flush()
+ -- Rounded Cast Bars: the third tick in Frame Style, on Flat Bars' page and
+ -- never indented (its switch, Cast Bars, is on Casting), greyed with a note
+ -- while Cast Bars is off, applying at once through the cast bars, the
+ -- Advanced Cast Bar and the class accents, with its own chat line.
+ Open(f, "appearance", "style")
+ M.NoOverlaps(f, "DRUID Appearance > Style with Rounded Cast Bars")
+ local rounded = f.checks.roundedCastBars
+ equal(rounded.text:GetText() .. " / " .. tostring(rounded:IsVisible()) .. " / " .. tostring(rounded:GetChecked()) .. " / " .. tostring(rounded.wide)
+  .. " / " .. tostring(rounded.dependencyDisabled == true) .. " / " .. tostring(rounded.depth or 0),
+  "Rounded Cast Bars / true / false / nil / false / 0", "Rounded Cast Bars: a tick row, off, not greyed with Cast Bars on, not indented")
+ equal(f.rowHome.roundedCastBars.tab == f.rowHome.flatBars.tab and f.rowHome.roundedCastBars.sub == f.rowHome.flatBars.sub, true,
+  "Rounded Cast Bars on Flat Bars' page")
+ local keysThere = Keys(f)
+ equal(keysThere:find("thickAuraBorders,roundedCastBars", 1, true) ~= nil, true, "Rounded Cast Bars right after Thick Aura Borders")
+ local _, roundedHelp, roundedExtras = M.Hover(f, rounded)
+ equal(roundedHelp, "Rounded Cast Bars  Thick, soft-cornered cast bars for you, your pet, target and focus: the spell icon in its own tile, its name left, the time right. Needs Cast Bars.",
+  "Rounded Cast Bars: its words")
+ equal(roundedExtras, "Default: Off.", "Rounded Cast Bars: no reload line, nothing to switch on first with Cast Bars on, off by default")
+ equal(rounded.summary, "Thick soft-cornered cast bars with the spell icon in its own tile. Needs Cast Bars.", "Rounded Cast Bars: its summary")
+ local castRefreshes, advancedRefreshes, accentRefreshes, roundedStatus, roundedWaits = 0, 0, 0, nil, false
+ local order = {}
+ local realClassic, realAdvanced, realAccents = E.Classic, E.modules.AdvancedCastBar, E.modules.ClassAccents
+ E.Classic = setmetatable({RefreshRoundedCasts = function()
+  castRefreshes = castRefreshes + 1; order[#order + 1] = "casts"; return not roundedWaits end}, {__index = realClassic})
+ E.modules.AdvancedCastBar = {Refresh = function() advancedRefreshes = advancedRefreshes + 1; order[#order + 1] = "advanced" end}
+ E.modules.ClassAccents = {Refresh = function() accentRefreshes = accentRefreshes + 1; order[#order + 1] = "accents" end}
+ local status3 = E.Status
+ E.Status = function(_, m) roundedStatus = m end
+ rounded:Click()
+ equal(tostring(E.settings.roundedCastBars) .. " " .. castRefreshes .. " " .. advancedRefreshes .. " " .. accentRefreshes .. " " .. roundedStatus,
+  "true 1 1 1 Rounded Cast Bars enabled.", "a click switches it on, live")
+ equal(table.concat(order, ","), "casts,advanced,accents", "the cast bars first, then the Advanced Cast Bar, then the class colour on the new line")
+ rounded:Click()
+ equal(tostring(E.settings.roundedCastBars) .. " " .. castRefreshes .. " " .. advancedRefreshes .. " " .. accentRefreshes .. " " .. roundedStatus,
+  "false 2 2 2 Rounded Cast Bars disabled.", "and off, live")
+ roundedWaits = true
+ rounded:Click()
+ equal(roundedStatus, "Rounded Cast Bars enabled. Some bars change when combat ends.", "a bar held in a fight: it says the rest follow")
+ roundedWaits = false
+ rounded:Click()
+ E.Classic, E.modules.AdvancedCastBar, E.modules.ClassAccents = {}, nil, nil
+ rounded:Click()
+ equal(tostring(E.settings.roundedCastBars) .. " " .. roundedStatus, "true Rounded Cast Bars enabled.", "without the cast bars loaded the tick still saves")
+ rounded:Click()
+ E.Classic, E.modules.AdvancedCastBar, E.modules.ClassAccents = realClassic, realAdvanced, realAccents
+ -- Cast Bars off (Casting): greyed, a note says where to switch it on, and a
+ -- click changes nothing.
+ E.settings.castBars = false
+ f:RefreshDependencies()
+ local _, _, greyExtras = M.Hover(f, rounded)
+ equal(tostring(rounded.dependencyDisabled) .. " / " .. greyExtras, "true / Switch on Cast Bars first (Casting).  Default: Off.",
+  "Cast Bars off: greyed, its note names the switch and its tab")
+ local clicksBefore = castRefreshes
+ rounded:Click()
+ equal(tostring(E.settings.roundedCastBars) .. " " .. tostring(rounded:GetChecked()) .. " " .. (castRefreshes - clicksBefore), "false false 0",
+  "greyed: a click changes nothing")
+ E.settings.castBars = true
+ f:RefreshDependencies()
+ equal(rounded.dependencyDisabled, false, "Cast Bars back on: not greyed")
+ E.Status = status3
+ for _, word in ipairs({"rounded", "corner", "cast bar", "icon", "tile", "frame style"}) do
+  local found = M.Results(f, word)
+  local hit = false
+  for _, key in ipairs(found) do if key == "roundedCastBars" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds Rounded Cast Bars")
  end
  f.searchBox:SetText(""); Flush()
  Open(f, "appearance", "style")
@@ -1384,8 +1461,11 @@ end
 -- indented with their line; folds; which pages scroll.
 do
  local E, f = Session("DRUID")
- -- The cursor effects' folded options open, so every row shows.
+ -- The cursor effects' folded options open, Clean Minimap's (with the
+ -- Drawer style) and Cast Bar Colour's (with Custom), so every row shows.
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
+ E.settings.castBarColour = "custom"
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
  for g, group in ipairs(EXPECTED) do
@@ -1477,7 +1557,7 @@ do
   end
  end
  -- Not indented: options whose mockup parent is no real dependency.
- for _, key in ipairs({"cleanMinimap", "characterItemLevels", "classColourBorders", "darkAuraBorders", "darkMenuBar", "darkWindows"}) do
+ for _, key in ipairs({"cleanMinimap", "characterItemLevels", "classColourBorders", "darkAuraBorders", "darkMenuBar", "darkWindows", "castBarColour"}) do
   equal(f.checks[key].depth or 0, 0, key .. " not indented")
  end
  Open(f, "class")
@@ -1486,6 +1566,7 @@ do
  equal(f.checks.comboPointRed.dependencyDisabled, nil, "but is never greyed by it")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  -- Folds: hidden (not greyed) until their switch is on, open right after it
  -- at once keeping the scroll, and fold away again.
  local height = f:GetHeight()
@@ -1522,6 +1603,7 @@ do
  E.settings.afkScreen = nil
  -- Every sub-page with every fold open: which ones scroll (measured).
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = true, true, true, true
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = true, "drawer", "custom"
  local scrolls = {}
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
@@ -1532,6 +1614,7 @@ do
  end
  equal(table.concat(scrolls, ","), "", "no page scrolls at the default size, every fold open (the class tab's boxes are checked per class)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  -- The viewport is pinned by two corners and sized; its content too.
  equal(#f.settingsScroll.points, 2, "the viewport is pinned by two corners")
  equal(f.settingsScroll:GetWidth() > 0 and f.settingsScroll:GetHeight() > 0 and f.settingsContent:GetWidth() > 0, true, "it and its content have a size")
@@ -1695,12 +1778,12 @@ end
 do
  local E, f = Session("DRUID")
  local function Results(q) local keys, crumbs = M.Results(f, q); return table.concat(keys, ","), crumbs end
- local colours = "darkenClassColours,classColors,tooltipClassColours,classColourBorders,castBarClassBorder,advancedCastClassFill,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
+ local colours = "darkenClassColours,classColors,tooltipClassColours,classColourBorders,castBarClassBorder,advancedCastClassFill,castBarColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
  Open(f, "map")
  equal(Results("class colour"), colours, "class colour finds every class-colour option, in tab then page order")
  equal(Results("class color"), colours, "and so does class color")
  equal(Results("Class Colored"), colours, "and class colored")
- equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 9 options found. Click one to go to it.", "search says how many and what a click does")
+ equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 10 options found. Click one to go to it.", "search says how many and what a click does")
  equal(f.subTabStrip:IsShown(), false, "no sub-tabs in search")
  for _, tab in ipairs(f.tabs) do equal(tab.underline:IsShown(), false, tab.id .. " not highlighted in search") end
  local _, crumbs = Results("class colour")
@@ -1725,7 +1808,8 @@ do
  _, crumbs = Results("update notice")
  equal(crumbs[1], "Chat & Names", "on Chat & Names")
  equal(Has(Results("cast bar"), "moreFECM"), true, "cast bar finds More from Squirt")
- equal(Results("casting"), "castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency", "casting finds the Casting tab")
+ equal(Results("casting"), "castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency,castBarColour,castBarCustomColour",
+  "casting finds the Casting tab, its folded Custom Cast Bar Colour too")
  -- A broad search lists every result in one scrolling list.
  local broad = Results("e")
  local count = select(2, broad:gsub(",", ",")) + 1
@@ -2136,6 +2220,7 @@ do
  equal(E.SettingsNav.MOVED, nil, "no moved list any more")
  -- Every row with words, on its page, as it shows.
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
+ E.settings.cleanMinimap = true
  local looked, worded = 0, 0
  for key, row in pairs(f.checks) do
   if TESTING[key] or row.unavailable then worded = worded + 1 end
@@ -2146,8 +2231,20 @@ do
    looked = looked + 1
   end
  end
- equal(looked == worded and looked >= 7, true, "every row with words checked (" .. looked .. ": the seven experimental ones and the coming soon ones)")
+ equal(looked == worded and looked >= 8, true, "every row with words checked (" .. looked .. ": the eight experimental ones and the coming soon ones)")
+ -- Clean Minimap's Style row: its name and "experimental" stop short of its
+ -- Hover and Drawer buttons (the glyph widths, never under the game's), as
+ -- they show to returning players too.
+ E.settings.layoutPillsVersion = "9.9.9"; f:Hide(); f:Show(); Flush()
+ Open(f, "map")
+ local style = f.checks.cleanMinimapStyle
+ local words = M.Glyphs(style.text:GetText(), 13)
+ for i, id in ipairs(style.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(style.tags[i]:GetText(), 10) end
+ equal(table.concat(style.tagIds, ",") .. " " .. tostring(style.text:GetLeft() + words <= style.buttons[1]:GetLeft() - 4), "TEST true",
+  "Clean Minimap's Style: its name and experimental clear its Hover button")
+ E.settings.layoutPillsVersion = nil; f:Hide(); f:Show(); Flush()
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
+ E.settings.cleanMinimap = nil
  equal(table.concat(f.checks.contextMenus.tagIds, ","), "SOON", "Context Menus says coming soon")
  for _, version in ipairs({"1.0.0", "", false}) do
   E.settings.layoutPillsVersion = version or nil; f:Hide(); f:Show(); Flush()
@@ -2166,7 +2263,7 @@ do
  -- "experimental" finds the experimental options.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,characterItemLevels,darkAuraShadows,darkDebuffLines,darkWindows,flatBars,thickAuraBorders", "searching experimental finds them")
+ equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkDebuffLines,darkWindows,flatBars,roundedCastBars,thickAuraBorders", "searching experimental finds them")
  f.searchBox:SetText(""); Flush()
 end
 
@@ -2329,7 +2426,8 @@ end
 -- names on one line; headings in small capitals; no "/" in tab names.
 do
  local E, f = Session("WARLOCK")
- local MINOR = {a = true, an = true, ["and"] = true, the = true, of = true, on = true, to = true, ["in"] = true, from = true, ["for"] = true, with = true}
+ local MINOR = {a = true, an = true, ["and"] = true, the = true, of = true, on = true, to = true, ["in"] = true, from = true, ["for"] = true, with = true,
+  per = true}
  local function TitleCase(label)
   local first = true
   for word in label:gmatch("%S+") do
@@ -2367,6 +2465,7 @@ do
  -- slider at its lowest and highest value (the glyph widths at 13 point),
  -- and the slider keeps room to drag.
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  local sliders = 0
  for key, row in pairs(f.checks) do
   if row.rowKind == "slider" then
@@ -2382,8 +2481,9 @@ do
    sliders = sliders + 1
   end
  end
- equal(sliders, 9, "every slider row measured (Darkness, damage text size, seven cursor sliders)")
+ equal(sliders, 10, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
  Open(f, "quests")
  equal(f.checks.rewardProfile.text:GetText():find("^Reward Profile: ") ~= nil, true, "the reward profile row in Title Case")
 end
@@ -2436,5 +2536,224 @@ do
    RAID_CLASS_COLORS[c] and RAID_CLASS_COLORS[c].g or .7, RAID_CLASS_COLORS[c] and RAID_CLASS_COLORS[c].b or .7}), c .. " EraUI title in the class colour")
  end
  UnitClass = oldClass
+end
+
+-- Clean Minimap's style (Hover or Drawer, experimental) and the drawer's
+-- Icons per Row: folded under Clean Minimap, Icons per Row only with Drawer
+-- chosen, opening and folding at once keeping the scroll; each choice saved
+-- and applied through Modules/MinimapTools.lua at once; the footer's
+-- default; search words; the walkthrough's Map & Minimap page.
+do
+ local E, f = Session("PRIEST")
+ -- The real defaults (Core/Init.lua): off, Hover, five a row.
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ local defaults = real.settingDefaults
+ equal(tostring(defaults.cleanMinimap) .. " " .. defaults.cleanMinimapStyle .. " " .. defaults.minimapDrawerColumns, "false hover 5",
+  "Clean Minimap off by default; when on, Hover (as before) and five icons a row")
+ equal(real.reloadSettings.cleanMinimapStyle or real.reloadSettings.minimapDrawerColumns, nil, "both apply without a reload")
+ for key, value in pairs(defaults) do E.settingDefaults[key] = value end
+ local calls = {}
+ E.modules.MinimapTools = {Discover = function() calls[#calls + 1] = "discover" end, Refresh = function() calls[#calls + 1] = "refresh" end,
+  LayoutDrawer = function() calls[#calls + 1] = "layout" end}
+ local clean, style, columns = f.checks.cleanMinimap, f.checks.cleanMinimapStyle, f.checks.minimapDrawerColumns
+ Open(f, "map")
+ equal(Keys(f), "minimap,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap", "Clean Minimap off: its style and icons per row folded away")
+ equal(style.rowKind .. " " .. style.labelText .. " " .. style.buttons[1].label:GetText() .. "/" .. style.buttons[2].label:GetText(), "choice Style Hover/Drawer",
+  "the style is a choice row: Hover or Drawer")
+ equal(columns.rowKind .. " " .. columns.labelText .. " " .. columns.info.low .. "-" .. columns.info.high, "slider Icons per Row 3-8", "icons per row: a slider from 3 to 8")
+ -- A short window, so the page scrolls.
+ M.Resize(f, 340)
+ Open(f, "map")
+ f:SetSettingsScroll(10)
+ equal(f.settingsScroll:GetVerticalScroll(), 10, "the page scrolled a little")
+ clean:Click(); Flush()
+ equal(E.settings.cleanMinimap, true, "Clean Minimap on")
+ equal(Keys(f), "minimap,cleanMinimap,cleanMinimapStyle,coordinates,mapQuestObjectives,movableMap,revealMap", "its style opens right under it at once; icons per row waits for Drawer")
+ equal(style.selected, 1, "Hover chosen until Drawer is (as before)")
+ equal(f.settingsScroll:GetVerticalScroll(), 10, "opening keeps the scroll")
+ equal(style.depth == 1 and style.connV:IsShown() and style.dependencyDisabled == nil, true, "the style sits under Clean Minimap, never greyed")
+ calls = {}
+ style.buttons[2]:Click(); Flush()
+ equal(E.settings.cleanMinimapStyle .. " " .. style.selected, "drawer 2", "Drawer chosen and saved")
+ equal(Keys(f), "minimap,cleanMinimap,cleanMinimapStyle,minimapDrawerColumns,coordinates,mapQuestObjectives,movableMap,revealMap",
+  "Icons per Row opens under the style at once")
+ equal(columns.depth, 1, "Icons per Row sits under Clean Minimap too")
+ equal(table.concat(calls, ","), "discover,refresh", "the drawer applies at once (MinimapTools)")
+ equal(f.settingsScroll:GetVerticalScroll(), 10, "choosing keeps the scroll")
+ M.NoOverlaps(f, "Clean Minimap's drawer rows"); M.Fits(f, "Clean Minimap's drawer rows")
+ M.SubOptionsFollow(f, "Clean Minimap's drawer rows", ParentOf(E))
+ equal(columns.text:GetText(), "Icons per Row: 5", "five icons a row by default")
+ calls = {}
+ columns.slider:SetValue(7)
+ equal(E.settings.minimapDrawerColumns .. " " .. columns.text:GetText() .. " " .. table.concat(calls, ","), "7 Icons per Row: 7 layout",
+  "the slider saves and lays the drawer out again at once")
+ columns.slider:SetValue(99)
+ equal(E.settings.minimapDrawerColumns, 8, "never more than eight")
+ E.settings.minimapDrawerColumns = nil
+ -- The keyboard flips the choice too.
+ f:FocusRow(style); f.keys:Fire("OnSpacePressed")
+ equal(E.settings.cleanMinimapStyle, "hover", "Space on the row: back to Hover")
+ equal(columns:IsShown(), false, "Hover: Icons per Row folds away")
+ f:ClearRowFocus()
+ -- The footer: what each does, Hover by default.
+ local _, help, extras = M.Hover(f, style)
+ equal(Has(help, "Hover hides addon buttons") and Has(help, "Drawer tucks them") and Has(extras, "Default: Hover."), true, "the style's description and default: " .. help .. " | " .. extras)
+ equal(M.LinesIn(help, 570, 12) <= 2, true, "two footer lines at most")
+ _, help, extras = M.Hover(f, columns)
+ equal(Has(help, "each row of the drawer") and Has(extras, "Default: 5."), true, "icons per row's description and default: " .. help .. " | " .. extras)
+ -- Search finds them by drawer, minimap buttons and tidy, folded or not.
+ clean:Click(); Flush()
+ equal(E.settings.cleanMinimap, false, "Clean Minimap off again")
+ equal(style:IsShown() or columns:IsShown(), false, "both fold away with it")
+ for _, query in ipairs({"drawer", "minimap buttons", "tidy"}) do
+  local found = M.Results(f, query)
+  table.sort(found)
+  equal(table.concat(found, ","), "cleanMinimap,cleanMinimapStyle,minimapDrawerColumns", "search " .. query .. " finds Clean Minimap and its drawer rows")
+ end
+ f.searchBox:SetText(""); Flush()
+ -- A jump to a folded option lands on Clean Minimap.
+ equal(f:JumpTo("minimapDrawerColumns"), clean, "a jump to Icons per Row lands on Clean Minimap while folded")
+ M.Resize(f, 650)
+ -- The walkthrough's Map & Minimap page offers the style with Clean Minimap on.
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
+ f:SetSetupMode(true); Flush(); f.setupPreset = "qol"
+ local shown = false
+ for page = 1, 40 do
+  f.setupPage = page; f:RenderSetup(); Flush()
+  if f.sectionTitle:GetText() == "Map & Minimap" then shown = true; break end
+ end
+ equal(shown and Keys(f):find("cleanMinimap,cleanMinimapStyle,minimapDrawerColumns", 1, true) ~= nil, true, "the walkthrough's Map & Minimap page: " .. Keys(f))
+ M.NoOverlaps(f, "walkthrough Map & Minimap with the drawer"); M.Fits(f, "walkthrough Map & Minimap with the drawer")
+ f:SetSetupMode(false); Flush()
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
+end
+
+-- Cast Bar Colour (Casting, experimental): a whole line under its own Colour
+-- heading with Match look, Yellow, Grey, Class and Custom, its name and
+-- "experimental" clear of the first button; greyed while Cast Bars is off
+-- (a click changes nothing), never indented under it; each choice saved and
+-- applied at once (Classic/CastBars.lua ns.RefreshCastColours); Custom opens
+-- the colour picker and Custom Cast Bar Colour under it (folded until then),
+-- whose click opens the picker again; the picked colour saved as hex, a
+-- cancel puts back the colour and the choice from before; the footer's
+-- descriptions and defaults; search; a jump to the folded row; the keyboard.
+-- (The bars themselves: Tools/TestCastBarColour.lua.)
+do
+ local E, f = Session("PALADIN")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ local defaults = real.settingDefaults
+ equal(defaults.castBarColour .. " " .. defaults.castBarCustomColour, "auto C7CCD6", "Match look by default; Custom starts at the light grey")
+ equal(real.reloadSettings.castBarColour or real.reloadSettings.castBarCustomColour, nil, "both apply without a reload")
+ for key, value in pairs(defaults) do E.settingDefaults[key] = value end
+ local refreshes, status = 0, nil
+ E.Classic.RefreshCastColours = function() refreshes = refreshes + 1 end
+ local say = E.Status
+ E.Status = function(_, m) status = m end
+ E.settings.castBars = true; f:RefreshDependencies()
+ local row, swatch = f.checks.castBarColour, f.checks.castBarCustomColour
+ Open(f, "casting")
+ equal(PageText(f), "CAST BARS:castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency|COLOUR:castBarColour",
+  "under its own Colour heading; Custom Cast Bar Colour folded away until Custom")
+ local names = {}
+ for i, button in ipairs(row.buttons) do names[i] = button.label:GetText() end
+ equal(row.rowKind .. " " .. row.labelText .. " " .. table.concat(names, "/"), "choice Cast Bar Colour Match look/Yellow/Grey/Class/Custom",
+  "a choice row with the five")
+ equal(tostring(row.wide) .. " " .. N(row:GetWidth()) .. " " .. (row.depth or 0) .. " " .. tostring(row.connV:IsShown()), "true 718 0 false",
+  "a whole line, never indented under Cast Bars")
+ equal(row.selected .. " " .. tostring(row.dependencyDisabled) .. " " .. row.alpha, "1 false 1", "Match look chosen, available with Cast Bars on")
+ -- Its name and "experimental" stop short of the first button (the glyph
+ -- widths, never under the game's); each button holds its name, in the row,
+ -- clear of the next.
+ local words = M.Glyphs(row.text:GetText(), 13)
+ for i, id in ipairs(row.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(row.tags[i]:GetText(), 10) end
+ equal(table.concat(row.tagIds, ",") .. " " .. tostring(row.text:GetLeft() + words <= row.buttons[1]:GetLeft() - 4), "TEST true",
+  "its name and experimental clear Match look")
+ for i, button in ipairs(row.buttons) do
+  equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= row:GetRight() + .01, true, names[i] .. " fits its button, in the row")
+  if i > 1 then equal(row.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, names[i - 1] .. " clear of " .. names[i]) end
+ end
+ M.NoOverlaps(f, "Cast Bar Colour"); M.Fits(f, "Cast Bar Colour")
+ -- Greyed while Cast Bars is off: named in the footer, a click changes nothing.
+ E.settings.castBars = false; f:RefreshDependencies()
+ equal(tostring(row.dependencyDisabled) .. " " .. row.alpha, "true 0.45", "greyed while Cast Bars is off")
+ local _, help, extras = M.Hover(f, row)
+ equal(extras, "Switch on Cast Bars first.  Default: Match look.", "it names Cast Bars, on the same page")
+ row.buttons[3]:Click(); Flush()
+ equal(tostring(E.settings.castBarColour) .. " " .. row.selected .. " " .. refreshes, "nil 1 0", "a click while greyed changes nothing")
+ E.settings.castBars = true; f:RefreshDependencies()
+ equal(tostring(row.dependencyDisabled) .. " " .. row.alpha, "false 1", "Cast Bars on frees it at once")
+ -- Each choice saved and applied at once, with a word in chat.
+ for i, want in ipairs({{"classic", "Classic yellow"}, {"grey", "light grey"}, {"class", "your class colour"}, {"auto", "matches the look"}}) do
+  local index = ({classic = 2, grey = 3, class = 4, auto = 1})[want[1]]
+  row.buttons[index]:Click(); Flush()
+  equal(E.settings.castBarColour .. " " .. row.selected .. " " .. refreshes .. " " .. tostring(status), want[1] .. " " .. index .. " " .. i .. " Cast bar colour: " .. want[2] .. ".",
+   names[index] .. " saved, applied at once, said")
+  equal(swatch:IsShown(), false, names[index] .. ": no custom colour row")
+ end
+ -- Custom: the picker opens at the custom colour, and its row opens under the choice.
+ local picker
+ ColorPickerFrame = {SetupColorPickerAndShow = function(_, info) picker = info end, GetColorRGB = function() return 1, .5, 0 end}
+ row.buttons[3]:Click(); Flush()
+ refreshes = 0
+ row.buttons[5]:Click(); Flush()
+ equal(E.settings.castBarColour .. " " .. row.selected .. " " .. refreshes, "custom 5 1", "Custom chosen and applied")
+ equal(picker ~= nil and string.format("%.3f,%.3f,%.3f %s", picker.r, picker.g, picker.b, tostring(picker.hasOpacity)), "0.780,0.800,0.839 false",
+  "the colour picker opens at once, at the custom colour (the light grey), no opacity")
+ equal(Keys(f), "castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency,castBarColour,castBarCustomColour",
+  "Custom Cast Bar Colour opens under the choice at once")
+ equal(swatch.rowKind .. " " .. swatch.labelText .. " " .. swatch.depth .. " " .. tostring(swatch.connV:IsShown()) .. " " .. Colour(swatch.swatch.fill),
+  "colour Custom Cast Bar Colour 1 true 0.780,0.800,0.839", "a colour row under the choice, its swatch the light grey")
+ M.NoOverlaps(f, "Custom Cast Bar Colour"); M.Fits(f, "Custom Cast Bar Colour")
+ M.SubOptionsFollow(f, "Custom Cast Bar Colour", ParentOf(E))
+ picker.swatchFunc(); Flush()
+ equal(E.settings.castBarCustomColour .. " " .. E.settings.castBarColour .. " " .. refreshes .. " " .. Colour(swatch.swatch.fill), "FF8000 custom 2 1.000,0.502,0.000",
+  "the picked colour saved as hex, applied at once, the swatch shows it")
+ picker.cancelFunc(); Flush()
+ equal(E.settings.castBarCustomColour .. " " .. E.settings.castBarColour .. " " .. row.selected .. " " .. refreshes .. " " .. tostring(swatch:IsShown()),
+  "C7CCD6 grey 3 3 false", "cancel puts back the colour and the choice from before, and folds the row away")
+ -- The row's own click opens the picker again; a cancel keeps Custom.
+ row.buttons[5]:Click(); Flush()
+ picker.swatchFunc(); Flush()
+ picker = nil
+ swatch:Click(); Flush()
+ equal(picker ~= nil and string.format("%.3f,%.3f,%.3f", picker.r, picker.g, picker.b), "1.000,0.502,0.000", "the row's click opens the picker at the colour picked")
+ ColorPickerFrame.GetColorRGB = function() return .2, .4, .6 end
+ picker.swatchFunc(); Flush()
+ equal(E.settings.castBarCustomColour, "336699", "a new colour picked")
+ picker.cancelFunc(); Flush()
+ equal(E.settings.castBarCustomColour .. " " .. E.settings.castBarColour .. " " .. tostring(swatch:IsShown()), "FF8000 custom true", "cancel: the colour before, still Custom")
+ -- Greyed: the colour row's click opens nothing.
+ E.settings.castBars = false; f:RefreshDependencies()
+ picker = nil
+ swatch:Click(); Flush()
+ equal(tostring(swatch.dependencyDisabled) .. " " .. tostring(picker), "true nil", "with Cast Bars off its click opens nothing")
+ E.settings.castBars = true; f:RefreshDependencies()
+ ColorPickerFrame = nil
+ -- Without the game's picker Custom is still chosen.
+ row.buttons[2]:Click(); Flush()
+ row.buttons[5]:Click(); Flush()
+ equal(E.settings.castBarColour, "custom", "no picker: Custom chosen all the same")
+ -- The footer: what each does, two lines at most, and the defaults.
+ _, help, extras = M.Hover(f, row)
+ equal(help, "Cast Bar Colour  Your own and your pet's cast bar fill. Match look: yellow in Classic, light grey in Dark Mode. Interrupted casts stay red, uninterruptible ones grey.",
+  "its description")
+ equal(M.LinesIn(help, 570, 12) .. " " .. extras, "2 Default: Match look.", "two footer lines, Match look by default")
+ _, help, extras = M.Hover(f, swatch)
+ equal(help .. " | " .. extras, "Custom Cast Bar Colour  Click to pick the colour of your own and your pet's cast bar. | Default: light grey.", "the colour row's description and default")
+ -- Search finds them by cast colour, cast bar colour and fill, folded or not.
+ row.buttons[1]:Click(); Flush()
+ for _, query in ipairs({"cast colour", "cast bar color", "fill", "castbar", "class colour", "match look", "pet"}) do
+  equal(Has(table.concat(M.Results(f, query), ","), "castBarColour"), true, "search " .. query .. " finds Cast Bar Colour")
+ end
+ equal(table.concat(M.Results(f, "custom cast bar"), ","), "castBarColour,castBarCustomColour", "custom cast bar finds the choice and its colour row while folded")
+ f.searchBox:SetText(""); Flush()
+ equal(f:JumpTo("castBarCustomColour"), row, "a jump to the folded colour row lands on Cast Bar Colour")
+ -- The keyboard moves the choice on, one at a time.
+ Open(f, "casting")
+ f:FocusRow(row); f.keys:Fire("OnSpacePressed"); Flush()
+ equal(E.settings.castBarColour .. " " .. row.selected, "classic 2", "Space on the row: Match look to Yellow")
+ f:ClearRowFocus()
+ E.Status = say
+ E.settings.castBarColour, E.settings.castBarCustomColour, E.settings.castBars = nil, nil, nil
 end
 print("Settings layout/combat checks passed: " .. M.checks .. " assertions.")

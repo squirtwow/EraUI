@@ -53,7 +53,7 @@ local TABS = {
     appearance = {name = "Appearance", icon = "Interface\\Icons\\INV_Misc_Desecrated_ClothShoulder",
         about = "How EraUI looks: the style, Dark Mode and class colours.", subs = {
             {id = "style", name = "Style", sections = {S("Style", {"appearanceChoice", "presets"}),
-                S("Frame style", {"flatBars", "thickAuraBorders"})}},
+                S("Frame style", {"flatBars", "thickAuraBorders", "roundedCastBars"})}},
             {id = "dark", name = "Dark Mode", sections = {
                 S("Darkness", {"darkModeDarkness", "darkenClassColours"}),
                 S("Borders", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}),
@@ -72,7 +72,7 @@ local TABS = {
         }},
     map = {name = "Map & Minimap", icon = "Interface\\Icons\\INV_Misc_Map_01",
         about = "The minimap and the world map.", sections = {
-            S("Minimap", {"minimap", "cleanMinimap", "coordinates"}),
+            S("Minimap", {"minimap", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns", "coordinates"}),
             S("World map", {"mapQuestObjectives", "movableMap", "revealMap"})}},
     windows = {name = "Windows & Tooltips", icon = "Interface\\Icons\\INV_Misc_Gear_01",
         about = "Classic frames for the game's windows, and tooltips.", sections = {
@@ -86,7 +86,8 @@ local TABS = {
             S("Timers", {"swingTimer", "rangedSwingTimer"})}},
     casting = {name = "Casting", icon = "Interface\\Icons\\Spell_Arcane_Blast",
         about = "Cast bars for you and everyone else.", sections = {
-            S("Cast bars", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency"})}},
+            S("Cast bars", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency"}),
+            S("Colour", {"castBarColour", "castBarCustomColour"})}},
     quests = {name = "Quests", icon = "Interface\\GossipFrame\\AvailableQuestIcon",
         about = "The quest log, dialogue and tracker.", sections = {
             S("Quests", {"questLog", "questDialogs", "questTracker", "questLevels"}),
@@ -130,12 +131,15 @@ Nav.RESOURCES = {ROGUE = "Combo points and energy", DRUID = "Combo points and re
 
 -- Rows that take the whole width. (A hunter's or mage's class tools heading
 -- does too, with its options box under it: Core/Settings.lua sets wideRow.)
+-- Cast Bar Colour's five choices don't fit half a line.
 Nav.WIDE = {appearanceChoice = true, presets = true, darkModeDarkness = true, classReminders = true,
-    damageFont = true, damageTextScale = true, afkScreen = true, moreFECM = true, moreFEC = true, moreFECP = true}
+    damageFont = true, damageTextScale = true, afkScreen = true, moreFECM = true, moreFEC = true, moreFECP = true,
+    castBarColour = true}
 -- "just added" after the name, for players who had the old layout, while
 -- they run the version the new layout came in (EraUIDB.layoutPillsVersion):
 -- the options not released before.
-Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true}
+Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
+    roundedCastBars = true}
 
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end

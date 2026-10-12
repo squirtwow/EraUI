@@ -81,7 +81,8 @@ test('every classic dialog box and header plate is handed to Dark Windows', () =
   assert.deepEqual(missing, [], 'dialog art Dark Windows never sees');
   assert.deepEqual([...boxes].sort(), ['Classic/CharacterSheet.lua', 'Classic/Controls.lua', 'Classic/EquipmentPane.lua',
     'Classic/GameMenu.lua', 'Classic/Guild.lua', 'Classic/OptionsWindow.lua', 'Classic/SettingsPanel.lua', 'Classic/Social.lua',
-    'Classic/Status.lua', 'Classic/TradeSkill.lua', 'Classic/Welcome.lua', 'Classic/Widgets.lua', 'Core/Utils.lua', 'Modules/Popups.lua'],
+    'Classic/Status.lua', 'Classic/TradeSkill.lua', 'Classic/Welcome.lua', 'Classic/Widgets.lua', 'Core/Utils.lua',
+    'Modules/MinimapTools.lua', 'Modules/Popups.lua'],
     'the files drawing a classic dialog box');
   assert.deepEqual([...plates].sort(), ['Classic/EquipmentPane.lua', 'Classic/GameMenu.lua', 'Classic/OptionsWindow.lua',
     'Classic/SettingsPanel.lua', 'Classic/Status.lua', 'Classic/Welcome.lua'], 'the files drawing a dialog header plate');
@@ -207,4 +208,46 @@ test("EraUI writes no key on the unit frames and runs none of the game's methods
   assert.equal(/parent\.haveElite/.test(code['Classic/CastBars.lua']), false, 'the cast bars read the elite flag from the weak table');
   assert.match(units, /local function Place\(frame, \.\.\.\)\s+if InCombatLockdown\(\) then return end/, 'Place never runs in a fight');
   assert.match(units, /local function Rescale\(frame, newScale\)\s+if InCombatLockdown\(\) then return end/, 'nor Rescale');
+});
+
+// Rounded Cast Bars (Appearance > Style > Frame Style, 2026-10-11): the
+// shell is EraUI's own frames and textures, its state in weak tables. The
+// cast bars write a key only on EraUI's own tables, never set a script on
+// the game's bars (post-hooks only), never move the bars themselves (the
+// player's is an Edit Mode frame), and don't use the game's tooltip; the
+// class accents write only on EraUI's own outline. Tools/TestRoundedCastBars.lua
+// runs it all on sealed mock bars.
+test('Rounded Cast Bars writes only on EraUI\'s own tables and uses no GameTooltip', () => {
+  const cast = code['Classic/CastBars.lua'];
+  assert.equal(/GameTooltip/.test(cast), false, 'no GameTooltip in the cast bars');
+  const owners = [...cast.matchAll(/^\s*([A-Za-z_][\w.]*)\.[A-Za-z_]\w*\s*(?:,\s*[\w.]+\s*)*=(?!=)/gm)].map(m => m[1]);
+  assert.deepEqual([...new Set(owners)].sort(), ['ns', 'state', 'was'], 'keys written only on EraUI\'s own tables');
+  assert.equal(/\b(?:bar|b|parent|shield|own|text)\s*:\s*SetScript\s*\(/.test(cast), false, 'no script set on the game\'s bars');
+  const shell = cast.slice(cast.indexOf('function ns.RoundedCastLine()'), cast.indexOf('local Position'));
+  assert.ok(shell.length > 1000, 'the shell\'s code found');
+  assert.equal(/\bbar\s*:\s*(?:ClearAllPoints|SetPoint|SetAllPoints|SetScale|SetParent)\s*\(/.test(shell), false, 'the shell never moves a bar itself');
+  assert.equal(/hooksecurefunc|HookScript/.test(shell), false, 'and adds no hook of its own');
+  // Under the target's aura row the game keeps layout scripts from addons
+  // (UntrustedLayoutScriptExecution), so the shell is pinned, never resized.
+  assert.equal(/OnSizeChanged|OnRectChanged/.test(cast), false, 'no layout script on the cast bars');
+  assert.match(cast, /local rounds = setmetatable\(\{\}, \{ __mode = "k" \}\)/, 'each bar\'s shell kept in a weak table');
+  const accents = code['Modules/ClassAccents.lua'];
+  const accentOwners = [...accents.matchAll(/\b([A-Za-z_]\w*)\.[A-Za-z_]\w*\s*=(?!=)/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(accentOwners)].sort(), ['outline', 'state'], 'the class accents write only on their own outline and state');
+});
+
+// Cast Bar Colour (Casting, 2026-10-11): the kind of cast comes only from
+// the fill's atlas name (the bar's type is a secret for other units), and
+// the live switch recolours only the player's and pet's bars, with the one
+// cosmetic setter. Tools/TestCastBarColour.lua runs it on sealed mock bars.
+test("Cast Bar Colour reads the atlas name only and recolours only your own and your pet's bar", () => {
+  const cast = code['Classic/CastBars.lua'];
+  assert.equal(/\bbarType\b|notInterruptible/.test(cast), false, "the bar's type is never read");
+  assert.match(cast, /local function OwnBar\(bar\)\s+return bar ~= nil and \(bar == PlayerCastingBarFrame or bar == PetCastingBarFrame\)/,
+    "your own bars are the player's and the pet's");
+  const refresh = cast.slice(cast.indexOf('function ns.RefreshCastColours()'), cast.indexOf('function ns.RefreshRoundedCasts()'));
+  assert.ok(refresh.length > 50, "the live switch's code found");
+  assert.match(refresh, /if OwnBar\(bar\) then bar:SetStatusBarColor\(FillRGB\(bar, kinds\[bar\]\)\) end/, 'only your own bars, their colour only');
+  assert.equal(count(refresh, /\bbar\s*:\s*\w+\s*\(/g), 1, 'one call on a bar, the colour');
+  assert.match(cast, /local kinds = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "each bar's last kind kept in a weak table");
 });
