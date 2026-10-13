@@ -676,9 +676,34 @@ local function PlaceTot(frame)
     tot:SetPoint("TOPLEFT", frame, "TOPLEFT", wantX, wantY)
 end
 
-local function FillTot(tot, fallbackUnit)
+-- As on the target frame, the client never rewrites the target-of-target's
+-- name when it becomes you, so the previous name lingers. Checked for a
+-- moment after each change (the client may write after us), then left
+-- alone, so a name another addon swaps in afterwards stays. With secondary
+-- names hidden, the client still writes the full name here (the target
+-- frame follows the setting), so the unit's surname is trimmed whenever it
+-- shows up.
+local TOT_NAME_WINDOW = 0.5
+local function KeepTotName(tot, mine, unit)
+    local label = tot.Name
+    if not label then return end
+    local name = UnitName(unit)
+    if not name or (issecretvalue and issecretvalue(name)) then return end
+    local now = GetTime()
+    if name ~= mine.totName then mine.totName, mine.totNameUntil = name, now + TOT_NAME_WINDOW end
+    local text = label:GetText()
+    if issecretvalue and issecretvalue(text) then return end
+    local hideSurnames = EraUI:GetSetting("hideSecondaryNames")
+    local withSurname = text ~= nil and text:sub(1, #name + 1) == name .. " "
+    if hideSurnames and withSurname then label:SetText(name) return end
+    if now > (mine.totNameUntil or 0) then return end
+    if text ~= name and not (withSurname and not hideSurnames) then label:SetText(name) end
+end
+
+local function FillTot(tot, fallbackUnit, changed)
     local mine = own[tot]
     if not mine or not mine.totHealth then return end
+    if changed then mine.totNameUntil = GetTime() + TOT_NAME_WINDOW end
     local unit = tot.unit or fallbackUnit
     if not unit or not UnitExists(unit) then
         -- Clear the bars so the previous target-of-target's health cannot
@@ -687,10 +712,12 @@ local function FillTot(tot, fallbackUnit)
         mine.totHealth:SetValue(0)
         mine.totPower:SetMinMaxValues(0, 1)
         mine.totPower:SetValue(0)
+        mine.totName = nil
         return
     end
     ns.SetHealth(mine.totHealth, unit)
     ns.SetPower(mine.totPower, unit)
+    KeepTotName(tot, mine, unit)
 end
 
 local function SkinTarget(frame, unit)
@@ -930,14 +957,14 @@ local function SkinTarget(frame, unit)
         end)
         holder:SetScript("OnShow", function()
             since = 0
-            if active then FillTot(tot, fallbackUnit) end
+            if active then FillTot(tot, fallbackUnit, true) end
         end)
         holder:RegisterEvent("PLAYER_TARGET_CHANGED")
         holder:RegisterEvent("PLAYER_FOCUS_CHANGED")
         holder:RegisterUnitEvent("UNIT_TARGET", frame.unit or unit)
         holder:SetScript("OnEvent", function()
             since = 0
-            if active then FillTot(tot, fallbackUnit) end
+            if active then FillTot(tot, fallbackUnit, true) end
         end)
         totHealth:SetStatusBarColor(0, 1, 0)
         totPower:SetStatusBarColor(0, 0, 1)

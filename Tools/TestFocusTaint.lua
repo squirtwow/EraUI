@@ -184,6 +184,7 @@ hooksecurefunc = function(t, key, fn)
     if V[t] then V[t][key], T[t][key] = hooked, nil else rawset(t, key, hooked) end
 end
 C_Timer = { After = function() end }
+GetTime = function() return 100 end
 UnitExists = function() return true end
 UnitHealth = function() return 50 end
 UnitHealthMax = function() return 100 end
