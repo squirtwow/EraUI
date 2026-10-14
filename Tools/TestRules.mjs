@@ -251,3 +251,136 @@ test("Cast Bar Colour reads the atlas name only and recolours only your own and 
   assert.equal(count(refresh, /\bbar\s*:\s*\w+\s*\(/g), 1, 'one call on a bar, the colour');
   assert.match(cast, /local kinds = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "each bar's last kind kept in a weak table");
 });
+
+// Dark Bag Buttons (Appearance > Dark Mode, 2026-10-14): only colours, on the
+// game's own bag icons and open-bag lines, after the game's own updates
+// (post-hooks); EraUI's state in weak tables beside the buttons, never a key
+// on them. Tools/TestDarkBagButtons.lua runs it on a mock of the bag bar.
+test("Dark Bag Buttons only colours the game's textures and writes no key on the bag buttons", () => {
+  const skins = code['Classic/BarSkins.lua'];
+  const block = skins.slice(skins.indexOf('local BAG_BAR ='), skins.indexOf('local function ApplyBagArt'));
+  assert.ok(block.length > 1000, "the block's code found");
+  const calls = [...block.matchAll(/\b(?:texture|button)\s*:\s*(\w+)\s*\(/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(calls)].sort(), ['GetVertexColor', 'SetDesaturated', 'SetVertexColor'], "only colour calls on the game's textures");
+  assert.equal(/\b(?:button|texture|icon)\s*(?:\.\w+|\[[^\]]+\])\s*=(?!=)/.test(block), false, 'no key written on a button or its textures');
+  assert.equal(/GameTooltip|SetScript|HookScript|SetOverrideBinding/.test(block), false, 'no tooltip, script or binding');
+  assert.equal(count(block, /hooksecurefunc\(/g), 2, "two post-hooks: each button's texture update, and the game's two icon calls");
+  assert.match(block, /local bagBar = setmetatable\(\{\}, \{ __mode = "k" \}\)/, 'the buttons kept in a weak table');
+  assert.match(block, /local bagPaint = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "each texture's colours kept in a weak table");
+  const refresh = skins.slice(skins.indexOf('function ns.RefreshDarkBagButtons()'), skins.indexOf('local keyrings'));
+  assert.match(refresh, /if DarkBags\(\) then WatchBags\(\) end/, 'nothing hooked until the tick is first on');
+});
+
+// Upgrade Spell Ranks (Action Bars, 2026-10-14): the only file that puts
+// anything on your action bars. It changes a slot through the game's own
+// pick up, place and clear calls, only for a spell, never in a fight, and
+// touches no frame, tooltip, hook or binding. Tools/TestSpellRanks.lua runs
+// it on a mock of the spellbook and the bars.
+test('Upgrade Spell Ranks alone places actions, spells only, never in a fight', () => {
+  assert.deepEqual(where(/\b(PlaceAction|PickupAction|PutActionInSlot)\b/), ['Modules/SpellRanks.lua'], 'files placing actions on the bars');
+  const ranks = code['Modules/SpellRanks.lua'];
+  assert.match(ranks, /function Module:Apply\(\)[\s\S]*?if InCombatLockdown\(\) then return end[\s\S]*?for _, slot in ipairs\(Slots\(\)\) do/,
+    'a fight stops it before any slot is touched');
+  assert.match(ranks, /local new = kind == "spell" and pending\[id\]/, 'only a spell in a slot is ever replaced');
+  assert.equal(/GameTooltip|HookScript|hooksecurefunc|SetOverrideBinding|SetBinding/.test(ranks), false, 'no tooltip, hook or binding');
+  assert.equal(count(ranks, /:SetScript\(/g), 1, "one script, on its own event frame");
+  // The game's own buttons are only read, to spot a move that tainted them.
+  assert.match(ranks, /pcall\(issecurevariable, button, "action"\)/, "the game's buttons' slot key is checked after a move");
+  assert.equal(/\b(button|events)\.\w+\s*=[^=]|\bActionBarButtonEventsFrame\.\w+\s*=[^=]/.test(ranks), false, "no key written on the game's buttons or their events frame");
+});
+
+// Stat Tracker (Character & Spells, 2026-10-14): EraUI's own panel only. It
+// hooks nothing of the game's (its two hooks are on EraUI's own /era
+// window), uses no tooltip or binding, writes keys only on its own tables,
+// reads every stat through pcall (the game's functions are never called
+// straight) and registers every event through pcall, so an event Forever
+// lacks can't stop it. Tools/TestStatTracker.lua runs it on a mock of the game.
+test("Stat Tracker hooks nothing of the game's, reads through pcall and writes keys only on its own tables", () => {
+  const stats = code['Modules/StatTracker.lua'];
+  assert.equal(/GameTooltip|hooksecurefunc|SetOverrideBinding|SetBinding/.test(stats), false, 'no tooltip, hook or binding');
+  const owners = [...stats.matchAll(/^\s*([A-Za-z_][\w.]*)\.[A-Za-z_]\w*\s*(?:,\s*[\w.]+\s*)*=(?!=)/gm)].map(m => m[1]);
+  assert.deepEqual([...new Set(owners)].sort(), ['Module', 'gain'], 'keys written only on its own module and gain tables');
+  assert.equal(count(stats, /:HookScript\(/g), 2, 'two hooks');
+  assert.match(stats, /local settings = EraUI\.settingsFrame[\s\S]*?settings:HookScript\("OnShow"[\s\S]*?settings:HookScript\("OnHide"/,
+    "both on EraUI's own /era window");
+  assert.equal(/\b(UnitStat|UnitAttackPower|UnitRangedAttackPower|UnitArmor|GetUnitSpeed|GetInventoryItemDurability|GetCritChance|GetRangedCritChance|GetSpellCritChance|GetSpellBonusDamage|GetCombatRatingBonus|GetHitModifier|GetRangedHitModifier|GetSpellHitModifier|GetDodgeChance|GetParryChance|GetBlockChance)\s*\(/.test(stats),
+    false, "no stat function called straight: each through pcall");
+  assert.equal(/:Register(Unit)?Event\(/.test(stats), false, 'every event registered through pcall');
+  assert.match(stats, /local function Number\(v\) return Public\(v\) and type\(v\) == "number" end/, 'a number is used only when it is no secret');
+  // The mock's secrets can't catch `secret ~= nil` (Lua never asks a table's
+  // metatable about nil), so the order is checked here.
+  assert.match(stats, /local current, maximum = Call\(GetInventoryItemDurability, slot\)\s*if not \(Public\(current\) and Public\(maximum\)\) then return false end\s*if current ~= nil or maximum ~= nil then/,
+    "durability checked for secrets before it's compared");
+  // 2026-10-14, after the first look in game: whether you swim and your class
+  // come through pcall and are checked for secrets before they're compared
+  // (the mock can't see `secret == true`); the panel sits on its own: one
+  // layer (HIGH), never pinned to /era, never raised for it.
+  assert.equal(/\b(IsSwimming|UnitClass)\s*\(/.test(stats), false, 'IsSwimming and UnitClass through pcall too');
+  assert.match(stats, /local swimming = Call\(IsSwimming\)\s*if not Public\(swimming\) then return false end\s*if swimming == true then/,
+    'swimming checked for a secret before it is compared');
+  assert.match(stats, /local _, class = Call\(UnitClass, "player"\)\s*if Public\(class\) and type\(class\) == "string" then/,
+    'the class checked for a secret before it is compared');
+  assert.deepEqual([...stats.matchAll(/:SetFrameStrata\(([^)]*)\)/g)].map(m => m[1]), ['"HIGH"'], 'one layer, HIGH, set once');
+  assert.equal(/SetFrameLevel|SetPoint\([^)]*settingsFrame/.test(stats), false, 'never raised, never pinned to /era');
+});
+
+// Thick Frames (Appearance > Style > Frame Style, 2026-10-14): EraUI's own
+// textures, each frame's look kept in a weak table beside it. On the game's
+// pieces only cosmetic setters: no hook or script of its own, no key written
+// on the game's frames or pieces, no method run on the player, target, focus
+// or pet frame (Edit Mode frames) or on any unit frame handed to it, no
+// tooltip or binding. Classic/UnitFrames.lua's keepers follow the look a
+// frame already wears. Tools/TestThickFrames.lua runs it on a mock game.
+test("Thick Frames writes only on EraUI's own tables and only dresses the game's pieces", () => {
+  const thick = code['Classic/ThickFrames.lua'];
+  assert.ok(thick && thick.length > 2000, 'Thick Frames is in the .toc');
+  assert.ok(files.indexOf('Classic/ThickFrames.lua') < files.indexOf('Classic/UnitFrames.lua'), 'loaded before the unit frames');
+  assert.equal(/GameTooltip|hooksecurefunc|HookScript|SetScript|SetOverrideBinding|SetBinding/.test(thick), false, 'no tooltip, hook, script or binding');
+  const roots = [...thick.matchAll(/^\s*([A-Za-z_]\w*)(?:\.[A-Za-z_]\w*|\[[^\]]+\])+\s*(?:,\s*[\w.]+\s*)*=(?!=)/gm)].map(m => m[1]);
+  // cap and masks: a texture's two end masks and their state, EraUI's own
+  // tables in the frame's s.caps (rounded bar ends).
+  assert.deepEqual([...new Set(roots)].sort(), ['GEOMETRY', 'T', 'cap', 'g', 'masks', 'ns', 's', 'worn'], "keys written only on EraUI's own tables");
+  // Rounded ends: a mask goes on or off a texture only through pcall (a
+  // fourth mask throws on Forever), never more than the two end caps, CLAMP.
+  assert.equal(/:(?:Add|Remove)MaskTexture\(/.test(thick), false, 'masks added and removed only through pcall');
+  assert.equal([...thick.matchAll(/:CreateMaskTexture\(/g)].length, 1, 'masks made in one place');
+  assert.match(thick, /for i, side in ipairs\(\{ "Left", "Right" \}\) do/, 'two end masks per texture, no more');
+  assert.match(thick, /SetTexture\(CAP_FILE:format\(side\), "CLAMP", "CLAMP"\) == false/, 'the art CLAMP-wrapped, and checked that it loaded');
+  assert.equal(/\b(?:frame|tot|label|text|region|reaction|threat|group|container|main|health|power|bar)\s*(?:\.\w+|\[[^\]]+\])\s*=(?!=)/.test(thick), false,
+    "no key written on the game's pieces");
+  assert.equal(/\b(?:PlayerFrame|TargetFrame|FocusFrame|PetFrame)\s*:/.test(thick), false, 'no method run on the Edit Mode frames by name');
+  assert.equal(/\b(?:frame|tot)\s*:\s*\w+\s*\(/.test(thick), false, 'no method run on a unit frame handed to it (a canvas only makes textures)');
+  assert.match(thick, /local worn = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "each frame's look kept in a weak table");
+  const units = code['Classic/UnitFrames.lua'];
+  assert.match(units, /local thick = ThickWorn\(PlayerFrame\)/, "the player's keeper follows the look it wears");
+  assert.match(units, /local thick = ThickWorn\(frame\)\s+local wantY = thick and thick\.AURA_Y or AURA_Y/, 'so does the aura row');
+});
+
+// Raid-style Party Outline (Appearance > Style > Frame Style, 2026-10-14):
+// EraUI's own frame on the game's party border, pinned to it, and the flat
+// fill on the game's party bars; nothing else. One post-hook (the game's
+// party frame being made, set only while the look waits for it), no script,
+// tooltip or binding, nothing of Edit Mode's touched, no key written on the
+// game's frames (its state in weak tables), on the game's pieces only the
+// fill, the border fill's alpha and reads, and nothing done in a fight.
+// Tools/TestPartyOutline.lua runs it on a mock of the game's party frame.
+test("Raid-style Party Outline writes only on EraUI's own tables and never acts in a fight", () => {
+  const outline = code['Classic/PartyOutline.lua'];
+  assert.ok(outline && outline.length > 2000, 'the Raid-style Party Outline is in the .toc');
+  assert.ok(files.indexOf('Classic/PartyOutline.lua') > files.indexOf('Classic/Skin.lua'), 'loaded after the skin helpers it uses');
+  assert.equal(/GameTooltip|HookScript|SetScript|SetOverrideBinding|SetBinding|EditMode/.test(outline), false, 'no tooltip, script, binding or Edit Mode');
+  assert.equal(count(outline, /hooksecurefunc\(/g), 1, 'one post-hook');
+  assert.match(outline, /local function Watch\(\)[\s\S]*?hooksecurefunc\("CompactPartyFrame_Generate"/, "on the game's party frame being made, from Watch");
+  const roots = [...outline.matchAll(/^\s*([A-Za-z_]\w*)(?:\.[A-Za-z_]\w*|\[[^\]]+\])+\s*(?:,\s*[\w.]+\s*)*=(?!=)/gm)].map(m => m[1]);
+  assert.deepEqual([...new Set(roots)].sort(), ['faded', 'flat', 'o', 'outline'], "keys written only on EraUI's own tables");
+  assert.equal(/\b(?:group|border|bar|b|tex|member|members|region|unitFrame|list)\s*(?:\.\w+|\[[^\]]+\])\s*=(?!=)/.test(outline), false,
+    "no key written on the game's pieces");
+  const calls = [...outline.matchAll(/\b(?:bar|b|tex|member|members|region|group|border|unitFrame|list)\s*:\s*(\w+)\s*\(/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(calls)].sort(), ['GetAlpha', 'GetAtlas', 'GetFrameLevel', 'GetStatusBarTexture', 'GetTexture', 'SetAlpha', 'SetStatusBarTexture'],
+    "on the game's pieces only the fill, the border fill's alpha, and reads");
+  assert.match(outline, /local flat = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "each bar's own art kept in a weak table");
+  assert.match(outline, /local faded = setmetatable\(\{\}, \{ __mode = "k" \}\)/, "the border fill's alpha kept in a weak table");
+  assert.match(outline, /function ns\.RefreshPartyOutline\(\)[\s\S]*?if InCombatLockdown\(\) then[\s\S]*?return false\s*end\s*local group = Group\(\)/,
+    'a fight stops it before anything is touched');
+  assert.match(code['Core/Appearance.lua'], /if ns\.RefreshPartyOutlineLine then ns\.RefreshPartyOutlineLine\(\) end/, 'the Darkness slider tones its line');
+});

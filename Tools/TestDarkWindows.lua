@@ -410,7 +410,16 @@ ns.DarkRedButton(skinned)
 equal(Sets(), before, "nor does registering a button again")
 
 -- The Darkness slider re-tints at once (through RefreshDarkness).
+-- The Stat Tracker's edge too (Modules/StatTracker.lua paints it again).
+local painted = 0
+E.modules.StatTracker = { Paint = function() painted = painted + 1 end }
+-- And the Raid-style Party Outline's fine line (Classic/PartyOutline.lua).
+local outlined = 0
+ns.RefreshPartyOutlineLine = function() outlined = outlined + 1 end
 E.settings.darkModeDarkness = 58; ns.RefreshDarkness()
+equal(painted, 1, "the Darkness slider repaints the Stat Tracker's edge once")
+equal(outlined, 1, "the Darkness slider tones the Raid-style Party Outline's line once")
+E.modules.StatTracker, ns.RefreshPartyOutlineLine = nil, nil
 AllButtons(IsButton, "Darkness 58")
 equal(Near(skinned.stateTex.Normal.colour[1], .94), true, "Darkness 58: dark grey, not near black")
 

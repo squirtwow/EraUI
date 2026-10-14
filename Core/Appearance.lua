@@ -75,6 +75,14 @@ function ns.ThemeTexture(texture,key)
     texture:SetVertexColor(ns.DarkGrey())
 end
 
+-- A texture that stops being Dark Mode's art (Thick Frames' reaction line,
+-- which the Classic look's backing made grey): the slider leaves it alone
+-- from now on. Its colour isn't touched; the game sets it again.
+function ns.UntintTexture(texture)
+    if not texture then return end
+    tinted[texture], classTinted[texture] = nil, nil
+end
+
 -- Dark Windows (on with Dark Mode, its own tick): what Dark Mode left light
 -- in EraUI's classic windows follows the Darkness slider too. The red panel
 -- buttons lose their red and take a lifted grey: a dark grey at Darkness 58,
@@ -676,6 +684,13 @@ function ns.RefreshDarkness()
     if auras and auras.RefreshDarkness then auras:RefreshDarkness() end
     -- Rounded Cast Bars' fine line (Classic/CastBars.lua), the Advanced Cast Bar's too.
     if ns.RefreshRoundedCastLines then ns.RefreshRoundedCastLines() end
+    -- Thick Frames' fine line (Classic/ThickFrames.lua).
+    if ns.RefreshThickFrameLines then ns.RefreshThickFrameLines() end
+    -- The Raid-style Party Outline's fine line (Classic/PartyOutline.lua).
+    if ns.RefreshPartyOutlineLine then ns.RefreshPartyOutlineLine() end
+    -- The Stat Tracker's edge (Modules/StatTracker.lua).
+    local stats = EraUI.modules.StatTracker
+    if stats and stats.Paint then stats:Paint() end
     if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
     ns.RefreshDarkWindows()
 end

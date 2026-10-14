@@ -811,7 +811,12 @@ Position = function(bar)
         return
     end
     local y = 3
-    if parent.haveToT then
+    -- A thick frame (Classic/ThickFrames.lua) has no elite art below it, but
+    -- its level's pill and target of target sit lower.
+    local thickY = ns.ThickCastY and ns.ThickCastY(parent)
+    if thickY then
+        y = thickY
+    elseif parent.haveToT then
         y = -25
     elseif ns.UnitFrameOwn and ns.UnitFrameOwn(parent, "haveElite") then
         -- The elite art flag EraUI's unit frames keep for the frame

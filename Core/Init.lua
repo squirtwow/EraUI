@@ -45,11 +45,17 @@ local defaults = {
     darkAuraShadows = true, -- Aura Shadows (Needs testing): shows only with Dark Mode and Dark Aura Borders
     darkDebuffLines = false, -- Thin Debuff Colours (Needs testing): debuffs get the dark border with a thin line in their type's colour; off by default
     darkMenuBar = true, -- Dark Menu Bar: shows only in Dark Mode, so choosing Dark Mode gives it
+    darkBagButtons = false, -- Dark Bag Buttons (experimental): grey, darker bag bar icons and a dark open-bag line; Dark Mode only; off by default, applies live
     darkWindows = true, -- Dark Windows (Needs testing): shows only in Dark Mode, so choosing Dark Mode gives it
     blackPages = false, -- Black Pages (Needs testing): near-black spellbook and professions pages under Dark Windows; off by default
     flatBars = false, -- Flat Bars (experimental): a plain, solid fill on unit-frame and cast bars, Classic or Dark Mode; off by default, applies live
+    thickFrames = false, -- Thick Frames (experimental): thick dark soft-cornered plates with taller bars on player, pet, target, focus and target of target; needs Unit Frames; off by default, applies live (a change in a fight waits for its end)
+    thickFrameRings = false, -- Portrait Rings (experimental, under Thick Frames): a thick dark ring round each portrait; off by default, applies live
+    thickFrameEdge = "dark", -- Edge (experimental, under Thick Frames): "dark" (every edge near black, the default) or "class" (a fine line in class colours inside the plates, rings and level pill; elites gold, rares silver, other NPCs none); applies live
+    thickFrameParty = false, -- Classic Party Frames (experimental, under Thick Frames): the same plates on EraUI's Classic-style party frames; off by default, applies live
     thickAuraBorders = false, -- Thick Aura Borders (experimental): thick dark borders round your own buff and debuff icons, Classic or Dark Mode; wins over Dark Aura Borders; off by default, applies live
     roundedCastBars = false, -- Rounded Cast Bars (experimental): thick soft-cornered player, pet, target and focus cast bars with the spell icon in its own tile; needs Cast Bars; off by default, applies live
+    partyOutline = false, -- Raid-style Party Outline (experimental): a flat fill and one thick dark outline round the game's raid-style party frames (the outline while Edit Mode's Display Border is on); steps aside while Forever Enhanced Raid Frames draws the party; off by default, applies live (a change in a fight waits for its end)
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
@@ -119,6 +125,7 @@ local defaults = {
     inviteFromWhispers = false,
     hideKeybindText = false,
     hideMacroText = false,
+    upgradeSpellRanks = false, -- Upgrade Spell Ranks (experimental): a new rank you learn takes the outgrown rank's place on your action bars, out of combat; lower ranks, macros and items stay; off by default, applies live
     hideZoneText = false,
     maxCameraZoom = false,
 
@@ -154,6 +161,20 @@ local defaults = {
     bagSpace = true,
     bagItemLevels = false, -- Bag Item Levels; off by default, a saved choice is kept
     characterItemLevels = false, -- Character Item Levels (Needs testing); off by default, a saved choice is kept
+    statTracker = false, -- Stat Tracker (experimental): a small panel of the stats ticked below, updating live; drag to move; off by default, applies live
+    statTrackerLayout = "list", -- "list" (a stat a line) or "line" (all on one line)
+    statTrackerShow = "always", -- "always", "combat" (only in a fight) or "calm" (only out of one); always while /era is open
+    statTrackerGains = true, -- a stat that goes up turns green with how much, for five seconds
+    statTrackerTitle = true, -- the "Stats" title over the list
+    statTrackerScale = 100, -- Panel Size, 50 to 150 (percent), in either layout
+    statTrackerPerLine = 16, -- Stats per Line (One line only), 1 to 16; 16 (All) keeps them all on one line
+    statTrackerNameColour = "auto", -- the stat names: "auto" (Match look: Classic gold, Dark Mode grey), "gold", "class", "white" or "custom"
+    statTrackerNameCustomColour = "FFD100", -- Stat Name Colour's Custom: a hex colour, the Classic gold until one is picked
+    -- The stats on the panel (Modules/StatTracker.lua STATS), the approved eight ticked.
+    statTrackerStrength = false, statTrackerAgility = true, statTrackerStamina = true, statTrackerIntellect = false,
+    statTrackerSpirit = false, statTrackerAttackPower = true, statTrackerCrit = true, statTrackerHit = true,
+    statTrackerSpellPower = false, statTrackerSpellCrit = false, statTrackerArmor = true, statTrackerDodge = true,
+    statTrackerParry = false, statTrackerBlock = false, statTrackerSpeed = true, statTrackerDurability = false,
     classColors = true,
     hideStatusMessages = true,
     afkScreen = true,        -- AFK Screen; on by default (the user's call), a saved choice is kept

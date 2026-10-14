@@ -187,10 +187,15 @@ if type(LoadMicroButtonTextures) == "function" then
     end)
 end
 -- The buttons are there once you're in the world (EraUI's world map button
--- too); Dark Mode only changes with a reload.
+-- too); Dark Mode only changes with a reload. The bag buttons (Dark Bag
+-- Buttons, below) too: by then a bar addon and its skin have set them up, so
+-- EraUI's colours come after theirs.
 local menuWatch = CreateFrame("Frame")
 menuWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
-menuWatch:SetScript("OnEvent", function() ns.RefreshDarkMenuBar() end)
+menuWatch:SetScript("OnEvent", function()
+    ns.RefreshDarkMenuBar()
+    if ns.RefreshDarkBagButtons then ns.RefreshDarkBagButtons() end
+end)
 
 -- A micro button is down while its window is up, and up when it is not. Kept
 -- by looking (a few times a second) rather than by asking the client to go
@@ -270,6 +275,99 @@ function ns.MicroButtonFollows(button, isShown)
     end
 end
 
+-- Dark Bag Buttons (Dark Mode, its own tick, off unless ticked): the bag
+-- bar's icons go grey and darker, all alike, instead of each bag's own
+-- colours, and an open bag's button shows a dark line instead of a bright
+-- one. The same buttons wherever they sit (EraUI's Classic bar, the game's
+-- bag bar or another bar addon's) and whatever skin they wear. Only colours
+-- are set, on the game's own icon and open-bag textures, after the game's
+-- own updates: the hooks go on the first time it's on. Nothing is written on
+-- the buttons; what each texture wore before is kept beside it, so the tick
+-- off gives it back.
+local BAG_BAR = { "MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag1Slot", "CharacterBag2Slot",
+    "CharacterBag3Slot", "CharacterReagentBag0Slot", "KeyRingButton" }
+local BAG_ICON = .6 -- the icons' brightness once grey: darker, still easy to tell apart
+local BAG_OPEN = { 0, 0, 0 } -- an open bag's line: black (the user: "id want that to be blakc instead" of the grey)
+local bagBar = setmetatable({}, { __mode = "k" })   -- button: one of the bag bar's, its update hooked
+local bagPaint = setmetatable({}, { __mode = "k" }) -- texture: EraUI's colour { r, g, b, grey = desaturated, own = its own }
+local bagCallsHooked = false
+
+local function DarkBags()
+    return (EraUI:GetSetting("enabled") and EraUI:GetSetting("darkMode") and EraUI:GetSetting("darkBagButtons"))
+        and true or false
+end
+
+-- The game keeps a colour as bytes, so it reads back a little off.
+local function Near(a, b) return math.abs(a - b) < .01 end
+
+-- A texture's colour now, or nothing when it can't be read (a secret).
+local function ColourOf(texture)
+    local r, g, b, a = texture:GetVertexColor()
+    if issecretvalue and (issecretvalue(r) or issecretvalue(g) or issecretvalue(b) or issecretvalue(a)) then return end
+    if type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return end
+    return r, g, b, type(a) == "number" and a or 1
+end
+
+-- EraUI's colour on one texture (and grey, for an icon). Any colour but the
+-- one EraUI gave it last is the game's or a skin's own, kept for later.
+local function Paint(texture, r, g, b, grey)
+    if not texture then return end
+    local paint = bagPaint[texture]
+    if not paint then
+        paint = { own = { 1, 1, 1, 1 } }
+        bagPaint[texture] = paint
+    end
+    local cr, cg, cb, ca = ColourOf(texture)
+    if cr and not (paint[1] and Near(cr, paint[1]) and Near(cg, paint[2]) and Near(cb, paint[3])) then
+        paint.own = { cr, cg, cb, ca }
+    end
+    paint[1], paint[2], paint[3], paint.grey = r, g, b, grey
+    texture:SetVertexColor(r, g, b, paint.own[4])
+    if grey then texture:SetDesaturated(true) end
+end
+
+-- Its own colour back (out of grey too, if EraUI greyed it), then left alone.
+local function Unpaint(texture)
+    local paint = texture and bagPaint[texture]
+    if not paint then return end
+    bagPaint[texture] = nil
+    local own = paint.own
+    texture:SetVertexColor(own[1], own[2], own[3], own[4])
+    if paint.grey then texture:SetDesaturated(false) end
+end
+
+-- One bag button, after anything the game (or a skin) does to it.
+local function DimBag(button)
+    if not bagBar[button] then return end
+    if DarkBags() then
+        Paint(button.icon, BAG_ICON, BAG_ICON, BAG_ICON, true)
+        Paint(button.SlotHighlightTexture, BAG_OPEN[1], BAG_OPEN[2], BAG_OPEN[3])
+    else
+        Unpaint(button.icon)
+        Unpaint(button.SlotHighlightTexture)
+    end
+end
+
+-- The bag buttons the game has, each one's texture update hooked once, and
+-- the two item-button calls that put an icon's colour back after it (the
+-- game's slot update ends with them, and a bag being moved greys it).
+local function WatchBags()
+    for _, name in ipairs(BAG_BAR) do
+        local button = _G[name]
+        if button and not bagBar[button] then
+            bagBar[button] = true
+            if type(rawget(button, "UpdateTextures")) == "function" then
+                hooksecurefunc(button, "UpdateTextures", DimBag)
+            end
+        end
+    end
+    if bagCallsHooked then return end
+    bagCallsHooked = true
+    for _, name in ipairs({ "SetItemButtonTextureVertexColor", "SetItemButtonDesaturated" }) do
+        if type(_G[name]) == "function" then hooksecurefunc(name, DimBag) end
+    end
+end
+
 local function ApplyBagArt(button)
     local state = bags[button]
     if not state or not state.active then return end
@@ -301,9 +399,16 @@ local function ApplyBagArt(button)
         highlight:SetAlpha(1)
     end
     if button.SlotHighlightTexture then
-        ns.SetTex(button.SlotHighlightTexture, "checked")
+        -- An open bag: the classic glow, or with Dark Bag Buttons the slot
+        -- pressed in, in DimBag's dark grey (no colour darkens a glow).
+        if DarkBags() then
+            ns.SetTex(button.SlotHighlightTexture, "slotPushed")
+            button.SlotHighlightTexture:SetBlendMode("BLEND")
+        else
+            ns.SetTex(button.SlotHighlightTexture, "checked")
+            button.SlotHighlightTexture:SetBlendMode("ADD")
+        end
         button.SlotHighlightTexture:SetTexCoord(0, 1, 0, 1)
-        button.SlotHighlightTexture:SetBlendMode("ADD")
         button.SlotHighlightTexture:SetAlpha(1)
     end
     if button.CircleMask then button.CircleMask:SetShown(state.round == true) end
@@ -366,6 +471,8 @@ local function ApplyBagArt(button)
     if state.backpack and button.FreeSlots and button.Count then
         button.Count:SetAlpha(0)
     end
+    -- Dark Bag Buttons over the classic icons, last.
+    DimBag(button)
 end
 
 local function HookBag(button)
@@ -413,6 +520,18 @@ function ns.UnskinBagButton(button)
         button.FreeSlots:SetPoint("CENTER", button, "CENTER", 0, -10)
         button.FreeSlots:SetFontObject("NumberFontNormal")
         if button.Count then button.Count:SetAlpha(1) end
+    end
+end
+
+-- Every bag button, after the tick changes and once you're in the world
+-- (Dark Mode only changes with a reload). A button wearing EraUI's classic
+-- art gets that again too, for its open-bag look.
+function ns.RefreshDarkBagButtons()
+    if DarkBags() then WatchBags() end
+    for button in pairs(bagBar) do
+        DimBag(button)
+        local state = bags[button]
+        if state and state.active then ApplyBagArt(button) end
     end
 end
 

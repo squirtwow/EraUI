@@ -12,7 +12,7 @@ local layouts = {
     minimapDrawerButtonPosition=true, minimapDrawerOrder=true,
     comboPointPosition=true, energyBarPosition=true, resourceBarPositions=true,
     swingTimerPosition=true, rangedSwingTimerPosition=true, advancedCastBarPosition=true,
-    rewardProfiles=true,
+    statTrackerPosition=true, rewardProfiles=true,
 }
 local reminderTypes = {
     reminderGroup="boolean", reminderCombat="boolean", reminderSize="number", reminderClickable="boolean", reminderMana="boolean", reminderRage="boolean",

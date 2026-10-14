@@ -16,13 +16,38 @@ Colours), Frames & Nameplates (Unit Frames, Nameplates), Bags & Vendors (Bags
 & Loot, Vendors) and Screen & Cursor (Screen, Cursor, AFK Screen). A tab
 remembers its last sub-tab for the session. Appearance > Style has the Style
 section (the Classic / Dark Mode choice, Presets) and, under it, Frame Style
-(Flat Bars, Thick Aura Borders and Rounded Cast Bars for now; the other frame
-style options come later). Rounded Cast Bars needs Cast Bars (on Casting): it
+(Flat Bars, Thick Frames with Portrait Rings, Classic Party Frames and Edge,
+a choice of Dark or Class colour, indented under it, Thick Aura Borders,
+Rounded Cast Bars and the Raid-style
+Party Outline, its own switch, never greyed: it dresses the game's raid-style
+party frames, not EraUI's). Rounded Cast Bars needs Cast Bars (on Casting): it
 is greyed, with "Switch on Cast Bars first (Casting)." in the footer, while
 that is off, and never indented under it (they're on different pages).
+Thick Frames needs Unit Frames the same way ("Switch on Unit Frames first
+(Frames & Nameplates > Unit Frames)."); its two ticks and Edge are greyed
+while it's off ("Switch on Thick Frames first."). Edge is named with one
+short word: indented, with "experimental" and its Dark and Class colour
+buttons, "Frame Edge" doesn't fit.
 Casting has Cast bars (Cast Bars, the Advanced Cast Bar and its options) and,
 under it, Colour: Cast Bar Colour (Match look, Yellow, Grey, Class, Custom)
 and Custom Cast Bar Colour, a colour swatch that shows only with Custom.
+Appearance > Dark Mode has Darkness, Borders and Bars and windows: Dark Menu
+Bar beside Dark Bag Buttons, then Dark Windows with Black Pages under it; all
+of them greyed while Dark Mode is off.
+Action Bars ends with Upgrade Spell Ranks, after Hide Macro Names: it works
+with any bars, so the Classic Action Bars look being off never greys it.
+Character & Spells ends with the Stat Tracker (2026-10-14): a Stat tracker
+section under Spellbook with its switch, Layout (List, One line) beside it,
+Show It (Always, In a fight, Out of a fight) on a whole line, Panel Size (a
+whole-line slider, 50% to 150%), Stats per Line (a whole-line slider, 1 to
+16, All at the top; greyed while Layout is List, the footer saying "Set
+Layout to One line first.", `NEEDS_CHOICE`), then Gains in Green beside Show Title, then
+Stat Name Colour (Match look, Gold, Class, White, Custom) on a whole line
+with Custom Stat Name Colour, a swatch, folded under it until Custom is
+chosen; then its sixteen stat ticks, two to a line, under
+Attributes, Offence, Defence and Other. All but the switch show only while
+it's on (`SHOWN_WITH`, below), so switched off the page fits; switched on it
+scrolls, the one page that does with its rows open.
 
 `TABS` in `Core/SettingsNav.lua` is the map: every page's sections (titles
 drawn in gold small capitals) and rows, in reading order. Every option is on
@@ -42,8 +67,9 @@ One row per option (`Core/SettingsRows.lua`), 32 tall, in two columns 352
 wide (x 0 and 366 of the 718 page); a wide row (the Look choice, Presets, the
 Darkness and damage text sliders, the damage font, Class Reminders & Buffs,
 a hunter's or mage's class tools heading, AFK Screen, the More from Squirt
-addons, Cast Bar Colour, whose five choices don't fit half a line) takes the
-whole 718. A tick row has a 14 x 14
+addons, Cast Bar Colour, whose five choices don't fit half a line, the
+Stat Tracker's Show It, whose three don't either, its Panel Size and Stats
+per Line sliders and its Stat Name Colour, five choices again) takes the whole 718. A tick row has a 14 x 14
 square tick box (dark fill, grey edge) with an 8 x 8 inner square in the
 player's class colour when on; a click anywhere on the row flips it (PreClick
 flips the tick, then the row's own OnClick saves and applies, exactly as the
@@ -56,14 +82,17 @@ line): "just added" in the game's gold (1, .82, 0), "experimental" in a
 muted warm grey (.66, .61, .53) for options not seen working in game yet
 (`EXPERIMENTAL` in Core/Settings.lua: Aura Shadows, Thin Debuff Colours,
 Dark Windows, Black Pages, Character Item Levels, Flat Bars, Thick Aura
-Borders, Rounded Cast Bars, Clean Minimap's Style, Cast Bar Colour; the last
-two have no "just added", which wouldn't fit before their buttons), "coming soon" and "log
+Borders, Rounded Cast Bars, Dark Bag Buttons, Upgrade Spell Ranks, Stat Tracker, Thick Frames, Portrait Rings,
+Classic Party Frames, Edge, Raid-style Party Outline, Clean Minimap's Style, Cast Bar Colour; the last
+two have no "just added", which wouldn't fit before their buttons, nor do
+Portrait Rings, Classic Party Frames and Edge: indented, "Classic Party Frames" and
+both words don't fit, nor Edge's buttons, and Thick Frames above them says it), "coming soon" and "log
 out to apply" (a new damage font, after the font button) in the muted grey.
 "just added" shows only to players who had the old layout and only while
 they run the version the new layout arrived in (`EraUIDB.layoutPillsVersion`,
 the name kept so saved values stay), never in the setup walkthrough: Thin
 Debuff Colours, Black Pages, Dark Windows, Flat Bars, Thick Aura Borders,
-Rounded Cast Bars (new since 1.5.5). Nothing says an
+Rounded Cast Bars, Dark Bag Buttons, Upgrade Spell Ranks, Stat Tracker, Thick Frames, Raid-style Party Outline (new since 1.5.5). Nothing says an
 option moved any more (the user, 2026-10-11: the boxed capital labels
 "looked too AI generated"). Search results carry the same words, and
 searching "experimental" finds those options. The class box's Click to apply
@@ -106,15 +135,31 @@ The cursor ring, cast progress ring and cursor trail options are folded:
 hidden, not greyed, until their switch is on, then shown right under it at
 once, keeping the scroll. The AFK Screen's options are not folded; they grey
 out while it is off. A fold can also wait for a choice (`FOLD_CHOICES`):
-Icons per Row for Clean Minimap's Drawer, and Custom Cast Bar Colour for
-Cast Bar Colour's Custom (folded under the choice row itself, so the choice
-alone opens it, indented one level under the wide row).
+Icons per Row for Clean Minimap's Drawer, Custom Cast Bar Colour for Cast
+Bar Colour's Custom and Custom Stat Name Colour for Stat Name Colour's
+Custom (folded under the choice row itself, so the choice alone opens it,
+indented one level under the wide row).
+
+Rows can also show only with their switch without being laid out under it
+(`SHOWN_WITH`): the Stat Tracker's eight options and sixteen stat ticks. They
+have no layout parent, so each is a block of its own: Layout sits beside the
+switch, Show It, Panel Size, Stats per Line and Stat Name Colour take their own lines, and
+the ticks go two to a line under their group headings (a fold would stack
+them all in one indented column). They open and close at once with the
+switch, keeping the scroll; search lists them while hidden and a jump to one
+lands on the switch. Custom Stat Name Colour is both: hidden while the Stat
+Tracker is off, then folded under Stat Name Colour until Custom is chosen
+(`Folded` checks the switch first, then the fold); a jump to it lands on Stat
+Name Colour, or on the switch while that's off.
 
 ### Greying and hand-overs
 
 An option waiting on another (DEPENDS, every option up the chain) is greyed
 (alpha .45) and refuses clicks and keys, putting its tick back; it still
-shows its description. Forever Enhanced Nameplates takes both nameplate rows,
+shows its description. One waiting on another's choice (`NEEDS_CHOICE`:
+Stats per Line on Layout's One line) greys the same way, its slider can't be
+dragged and a move puts it back; the footer gives the reason ("Set Layout to
+One line first."), and the Layout click frees or greys it at once. Forever Enhanced Nameplates takes both nameplate rows,
 and another map addon revealing the map takes Reveal World Map: greyed, a
 second muted line on the row says what handles it, the saved choice is kept.
 The row grows to 46; its name, tick box and labels move up 7 together, and the
@@ -210,7 +255,8 @@ Presets (the Look choice, Dark Mode's options and the class colours; it may
 scroll). The option pages are, in order: Action Bars, Map & Minimap, Quests,
 Bags & Vendors, Chat & Names, Group & Invites and Screen & Cursor, each with
 its section headings and without its reload-only looks (Classic Chat
-Dragging stays) or Update Notice. Show All Spell Ranks joins Action Bars,
+Dragging stays) or Update Notice (Action Bars offers Upgrade Spell Ranks with
+the rest, it needs no reload). Show All Spell Ranks joins Action Bars,
 Tooltip IDs joins Chat & Names (after Click Links Again to Close), and
 Class-coloured Chat Names joins Chat & Names when the style page is skipped,
 so every option the walkthrough offered before is still offered once. An

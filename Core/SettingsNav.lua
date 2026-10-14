@@ -53,17 +53,18 @@ local TABS = {
     appearance = {name = "Appearance", icon = "Interface\\Icons\\INV_Misc_Desecrated_ClothShoulder",
         about = "How EraUI looks: the style, Dark Mode and class colours.", subs = {
             {id = "style", name = "Style", sections = {S("Style", {"appearanceChoice", "presets"}),
-                S("Frame style", {"flatBars", "thickAuraBorders", "roundedCastBars"})}},
+                S("Frame style", {"flatBars", "thickFrames", "thickFrameRings", "thickFrameParty", "thickFrameEdge", "thickAuraBorders",
+                    "roundedCastBars", "partyOutline"})}},
             {id = "dark", name = "Dark Mode", sections = {
                 S("Darkness", {"darkModeDarkness", "darkenClassColours"}),
                 S("Borders", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}),
-                S("Bars and windows", {"darkMenuBar", "darkWindows", "blackPages"})}},
+                S("Bars and windows", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"})}},
             {id = "classcol", name = "Class Colours", sections = {
                 S("Class colours", {"classColors", "tooltipClassColours", "classColourBorders", "castBarClassBorder"})}},
         }},
     actionBars = {name = "Action Bars", icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
         about = "The stone dock and the Classic action buttons.", sections = {
-            S("Action bars", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText"})}},
+            S("Action bars", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText", "upgradeSpellRanks"})}},
     frames = {name = "Frames & Nameplates", icon = "Interface\\Icons\\INV_Helmet_03",
         about = "Unit frames, portraits and nameplates.", subs = {
             {id = "unit", name = "Unit Frames", sections = {S("Unit frames", {"unitFrames", "matchFocusSize",
@@ -93,9 +94,19 @@ local TABS = {
             S("Quests", {"questLog", "questDialogs", "questTracker", "questLevels"}),
             S("Automation", {"autoQuests", "autoGossip", "rewardUpgradeHighlight", "rewardProfile"})}},
     character = {name = "Character & Spells", icon = "Interface\\Icons\\INV_Chest_Plate04",
-        about = "Character, talents, spellbook, trainer and professions.", sections = {
+        about = "Character, talents, spellbook, trainer, professions and the stat tracker.", sections = {
             S("Windows", {"characterPanel", "characterItemLevels", "talentWindow", "trainer", "professions"}),
-            S("Spellbook", {"spellbook", "spellbookCombatDrag", "trainingGuide", "showAllSpellRanks"})}},
+            S("Spellbook", {"spellbook", "spellbookCombatDrag", "trainingGuide", "showAllSpellRanks"}),
+            -- The Stat Tracker, then its stat ticks in the panel's four
+            -- groups: all but its switch show only while it's on.
+            S("Stat tracker", {"statTracker", "statTrackerLayout", "statTrackerShow", "statTrackerScale", "statTrackerPerLine",
+                "statTrackerGains", "statTrackerTitle", "statTrackerNameColour", "statTrackerNameCustomColour"}),
+            S("Attributes", {"statTrackerStrength", "statTrackerAgility", "statTrackerStamina", "statTrackerIntellect",
+                "statTrackerSpirit"}),
+            S("Offence", {"statTrackerAttackPower", "statTrackerCrit", "statTrackerHit", "statTrackerSpellPower",
+                "statTrackerSpellCrit"}),
+            S("Defence", {"statTrackerArmor", "statTrackerDodge", "statTrackerParry", "statTrackerBlock"}),
+            S("Other", {"statTrackerSpeed", "statTrackerDurability"})}},
     bags = {name = "Bags & Vendors", icon = "Interface\\Icons\\INV_Misc_Bag_08",
         about = "Bags, loot and merchants.", subs = {
             {id = "bagsloot", name = "Bags & Loot", sections = {S("Bags", {"bagsBank", "bagSpace", "bagItemLevels",
@@ -131,15 +142,21 @@ Nav.RESOURCES = {ROGUE = "Combo points and energy", DRUID = "Combo points and re
 
 -- Rows that take the whole width. (A hunter's or mage's class tools heading
 -- does too, with its options box under it: Core/Settings.lua sets wideRow.)
--- Cast Bar Colour's five choices don't fit half a line.
+-- Cast Bar Colour's five choices don't fit half a line, nor the Stat
+-- Tracker's Always, In a fight and Out of a fight, nor Stat Name Colour's
+-- five; Panel Size and Stats per Line are full sliders, like Darkness.
 Nav.WIDE = {appearanceChoice = true, presets = true, darkModeDarkness = true, classReminders = true,
     damageFont = true, damageTextScale = true, afkScreen = true, moreFECM = true, moreFEC = true, moreFECP = true,
-    castBarColour = true}
+    castBarColour = true, statTrackerShow = true, statTrackerScale = true, statTrackerPerLine = true, statTrackerNameColour = true}
 -- "just added" after the name, for players who had the old layout, while
 -- they run the version the new layout came in (EraUIDB.layoutPillsVersion):
--- the options not released before.
+-- the options not released before. Thick Frames' two ticks and its Edge
+-- choice, indented under it, say only "experimental": "Classic Party Frames"
+-- and both words don't fit an indented row (nor Edge's name, tag and two
+-- buttons), and the tick they sit under already says it's new.
 Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
-    roundedCastBars = true}
+    roundedCastBars = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true,
+    partyOutline = true}
 
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end
@@ -713,7 +730,10 @@ local function ScrollTo(frame, row, centre)
 end
 
 -- Opens an option's tab and sub-tab, scrolls it into the middle and flashes
--- it. A folded option opens at its switch. Changes nothing.
+-- it. A folded option (or one shown only with its switch) opens at its
+-- switch: the first of its fold and its switch that shows (Custom Stat Name
+-- Colour lands on Stat Name Colour, or on Stat Tracker while that's off).
+-- Changes nothing.
 local function JumpTo(frame, key)
     local home = frame.rowHome[key]
     if not home then return end
@@ -721,7 +741,11 @@ local function JumpTo(frame, key)
     ResetSearch(frame)
     SelectCategory(frame, home.tab, home.sub, true)
     local target = frame.checks[key]
-    if target and not target:IsShown() then target = frame.checks[Rules().FOLDS[key] or ""] end
+    local rules = Rules()
+    if target and not target:IsShown() then
+        local fold, with = frame.checks[rules.FOLDS[key] or ""], frame.checks[rules.SHOWN_WITH and rules.SHOWN_WITH[key] or ""]
+        target = (fold and fold:IsShown()) and fold or with or fold
+    end
     if not (target and target:IsShown()) then return end
     ScrollTo(frame, target, true)
     Rows().Flash(target)

@@ -21,13 +21,15 @@ local function ParentOf(E) return function(key) return E.SettingsRules.GroupPare
 local EXPECTED = {
  {group = "LOOK", tabs = {
   {"appearance", "Appearance", "How EraUI looks: the style, Dark Mode and class colours.", {
-   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars", "thickAuraBorders", "roundedCastBars"}}}},
+   {"style", "Style", {{"STYLE", {"appearanceChoice", "presets"}}, {"FRAME STYLE", {"flatBars", "thickFrames", "thickFrameRings", "thickFrameParty",
+    "thickFrameEdge", "thickAuraBorders", "roundedCastBars", "partyOutline"}}}},
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
-    {"BARS AND WINDOWS", {"darkMenuBar", "darkWindows", "blackPages"}}}},
+    {"BARS AND WINDOWS", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"}}}},
    {"classcol", "Class Colours", {{"CLASS COLOURS", {"classColors", "tooltipClassColours", "classColourBorders", "castBarClassBorder"}}}}}},
   {"actionBars", "Action Bars", "The stone dock and the Classic action buttons.", {
-   {"main", nil, {{"ACTION BARS", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText"}}}}}},
+   {"main", nil, {{"ACTION BARS", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText",
+    "upgradeSpellRanks"}}}}}},
   {"frames", "Frames & Nameplates", "Unit frames, portraits and nameplates.", {
    {"unit", "Unit Frames", {{"UNIT FRAMES", {"unitFrames", "matchFocusSize", "disableAggroHighlight", "portraitDebuffs",
     "classIconPortraitMine", "classIconPortraitOthers"}}}},
@@ -47,9 +49,15 @@ local EXPECTED = {
   {"quests", "Quests", "The quest log, dialogue and tracker.", {
    {"main", nil, {{"QUESTS", {"questLog", "questDialogs", "questTracker", "questLevels"}},
     {"AUTOMATION", {"autoQuests", "autoGossip", "rewardUpgradeHighlight", "rewardProfile"}}}}}},
-  {"character", "Character & Spells", "Character, talents, spellbook, trainer and professions.", {
+  {"character", "Character & Spells", "Character, talents, spellbook, trainer, professions and the stat tracker.", {
    {"main", nil, {{"WINDOWS", {"characterPanel", "characterItemLevels", "talentWindow", "trainer", "professions"}},
-    {"SPELLBOOK", {"spellbook", "spellbookCombatDrag", "trainingGuide", "showAllSpellRanks"}}}}}},
+    {"SPELLBOOK", {"spellbook", "spellbookCombatDrag", "trainingGuide", "showAllSpellRanks"}},
+    {"STAT TRACKER", {"statTracker", "statTrackerLayout", "statTrackerShow", "statTrackerScale", "statTrackerPerLine", "statTrackerGains",
+     "statTrackerTitle", "statTrackerNameColour", "statTrackerNameCustomColour"}},
+    {"ATTRIBUTES", {"statTrackerStrength", "statTrackerAgility", "statTrackerStamina", "statTrackerIntellect", "statTrackerSpirit"}},
+    {"OFFENCE", {"statTrackerAttackPower", "statTrackerCrit", "statTrackerHit", "statTrackerSpellPower", "statTrackerSpellCrit"}},
+    {"DEFENCE", {"statTrackerArmor", "statTrackerDodge", "statTrackerParry", "statTrackerBlock"}},
+    {"OTHER", {"statTrackerSpeed", "statTrackerDurability"}}}}}},
   {"bags", "Bags & Vendors", "Bags, loot and merchants.", {
    {"bagsloot", "Bags & Loot", {{"BAGS", {"bagsBank", "bagSpace", "bagItemLevels", "lootWindow", "fastAutoLoot", "discardCheapestJunk"}}}},
    {"vendors", "Vendors", {{"VENDORS", {"merchantSkin", "autoSellJunk", "autoRepair", "vendorPrice", "junkValueSummary", "durabilityWarning"}}}}}},
@@ -176,6 +184,12 @@ local PARENT = {
  -- Custom Cast Bar Colour, folded under the Cast Bar Colour choice (a whole
  -- line, greyed by Cast Bars but never indented under it: its own block below).
  castBarCustomColour = "castBarColour",
+ -- Custom Stat Name Colour, folded under the Stat Name Colour choice (a whole
+ -- line, shown only with the Stat Tracker on: its own block below).
+ statTrackerNameCustomColour = "statTrackerNameColour",
+ -- Thick Frames' two ticks and its Frame Edge choice (Thick Frames itself is
+ -- greyed by Unit Frames, on another page, and never indented).
+ thickFrameRings = "thickFrames", thickFrameParty = "thickFrames", thickFrameEdge = "thickFrames",
 }
 local FOLDED = {
  cursorRing = {"cursorRingClassColour", "cursorRingSize", "cursorRingThickness"},
@@ -186,10 +200,14 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- Options new since 1.5.5 ("just added" for returning players this version)
 -- and those not seen working in game yet ("experimental", always). Nothing
 -- says it moved any more.
+-- (Thick Frames' two ticks and Frame Edge only "experimental": both words
+-- don't fit an indented "Classic Party Frames", nor Frame Edge's buttons.)
 local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
- roundedCastBars = true}
+ roundedCastBars = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true, partyOutline = true}
 local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
- flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true, castBarColour = true}
+ flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true, castBarColour = true,
+ darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true, thickFrameRings = true, thickFrameParty = true,
+ thickFrameEdge = true, partyOutline = true}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -207,20 +225,21 @@ for _, c in ipairs(CLASSES) do
  equal(f.checks.portraitDebuffs:IsShown(), true, c .. " portrait setting on Frames & Nameplates > Unit Frames")
  equal(f.checks.matchFocusSize:IsShown(), true, c .. " focus sizing on Frames & Nameplates > Unit Frames")
  -- Appearance > Dark Mode: Darkness, then Dark Aura Borders with Aura Shadows
- -- and Thin Debuff Colours under it, then Dark Menu Bar and Dark Windows with
- -- Black Pages under it.
+ -- and Thin Debuff Colours under it, then Dark Menu Bar beside Dark Bag
+ -- Buttons, and Dark Windows with Black Pages under it.
  do
   local aura, shade, lines = f.checks.darkAuraBorders, f.checks.darkAuraShadows, f.checks.darkDebuffLines
-  local bar, windows, black = f.checks.darkMenuBar, f.checks.darkWindows, f.checks.blackPages
-  for _, row in ipairs({aura, shade, lines, bar, windows, black}) do
+  local bar, bags, windows, black = f.checks.darkMenuBar, f.checks.darkBagButtons, f.checks.darkWindows, f.checks.blackPages
+  for _, row in ipairs({aura, shade, lines, bar, bags, windows, black}) do
    equal(row.category == Tab(f, "appearance") and row.subId, "dark", c .. " " .. row.settingKey .. " on Appearance > Dark Mode")
   end
-  equal(aura.text:GetText() .. "/" .. shade.text:GetText() .. "/" .. lines.text:GetText() .. "/" .. windows.text:GetText() .. "/" .. black.text:GetText(),
-   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Windows/Black Pages", c .. " plain labels (experimental is a small word after the name)")
+  equal(aura.text:GetText() .. "/" .. shade.text:GetText() .. "/" .. lines.text:GetText() .. "/" .. bags.text:GetText() .. "/"
+   .. windows.text:GetText() .. "/" .. black.text:GetText(),
+   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Bag Buttons/Dark Windows/Black Pages", c .. " plain labels (experimental is a small word after the name)")
   Open(f, "appearance", "dark")
   M.NoOverlaps(f, c .. " Appearance > Dark Mode")
   M.Fits(f, c .. " Appearance > Dark Mode")
-  equal(Keys(f), "darkModeDarkness,darkenClassColours,darkAuraBorders,darkAuraShadows,darkDebuffLines,darkMenuBar,darkWindows,blackPages",
+  equal(Keys(f), "darkModeDarkness,darkenClassColours,darkAuraBorders,darkAuraShadows,darkDebuffLines,darkMenuBar,darkBagButtons,darkWindows,blackPages",
    c .. " Dark Mode in the approved order")
   for _, row in ipairs({shade, lines}) do
    equal(row.depth == 1 and math.abs(row:GetLeft() - aura:GetLeft() - 22) < .01 and row:GetTop() < aura:GetBottom(), true,
@@ -228,20 +247,25 @@ for _, c in ipairs(CLASSES) do
   end
   equal(black.depth == 1 and math.abs(black:GetLeft() - windows:GetLeft() - 22) < .01 and black:GetTop() < windows:GetBottom(), true,
    c .. " Black Pages indented under Dark Windows")
-  equal(windows:GetTop() == bar:GetTop() and windows:GetLeft() > bar:GetRight(), true, c .. " Dark Windows beside Dark Menu Bar")
-  -- Dark Mode off greys all five; Dark Aura Borders off greys its two;
+  equal((bags.depth or 0) == 0 and bags:GetTop() == bar:GetTop() and bags:GetLeft() > bar:GetRight(), true,
+   c .. " Dark Bag Buttons beside Dark Menu Bar, not indented")
+  equal(windows:GetLeft() == bar:GetLeft() and windows:GetTop() < bar:GetBottom(), true, c .. " Dark Windows on the next line, under Dark Menu Bar")
+  -- Dark Mode off greys all six; Dark Aura Borders off greys its two;
   -- Dark Windows off greys Black Pages.
   E.settings.darkMode = nil; E.settings.darkAuraBorders = true; E.settings.darkWindows = true; f:RefreshDependencies()
-  for _, row in ipairs({aura, shade, lines, bar, windows, black}) do
+  for _, row in ipairs({aura, shade, lines, bar, bags, windows, black}) do
    equal(row.dependencyDisabled == true and row.alpha, .45, c .. " " .. row.settingKey .. " greyed while Dark Mode is off")
   end
+  bags:SetChecked(true); bags:Fire("OnClick")
+  equal(E.settings.darkBagButtons == nil and bags:GetChecked() == false, true, c .. " Dark Bag Buttons can't be switched on without Dark Mode; its tick goes back")
   aura:SetChecked(false); aura:Click()
   equal(E.settings.darkAuraBorders == true and aura:GetChecked() == true, true, c .. " a click on a greyed row changes nothing and keeps its tick")
   shade:SetChecked(true); shade:Fire("OnClick")
   equal(E.settings.darkAuraShadows == nil and shade:GetChecked() == false, true, c .. " Aura Shadows can't be switched on without Dark Mode; its tick goes back")
   E.settings.darkMode = true; E.settings.darkAuraBorders = false; E.settings.darkWindows = false; f:RefreshDependencies()
-  equal(aura.dependencyDisabled == false and aura.alpha == 1 and bar.dependencyDisabled == false and windows.dependencyDisabled == false, true,
-   c .. " Dark Mode on: Dark Aura Borders, Dark Menu Bar and Dark Windows available")
+  equal(aura.dependencyDisabled == false and aura.alpha == 1 and bar.dependencyDisabled == false and bags.dependencyDisabled == false
+   and bags.alpha == 1 and windows.dependencyDisabled == false, true,
+   c .. " Dark Mode on: Dark Aura Borders, Dark Menu Bar, Dark Bag Buttons and Dark Windows available")
   equal(shade.dependencyDisabled and lines.dependencyDisabled and black.dependencyDisabled, true, c .. " their sub-options still greyed")
   lines:SetChecked(true); lines:Fire("OnClick"); black:SetChecked(true); black:Fire("OnClick")
   equal(E.settings.darkDebuffLines == nil and E.settings.blackPages == nil, true, c .. " Thin Debuff Colours and Black Pages can't be switched on yet")
@@ -572,6 +596,37 @@ do
  bar:Click()
  equal(status, "Dark Menu Bar enabled. It shows once Dark Mode is applied.", "Dark Menu Bar waits for Dark Mode")
  E.GetSetting = get
+ -- Dark Bag Buttons: its words, off by default, live through EraUI.Classic
+ -- with its own chat line, waiting for Dark Mode like the rows round it.
+ local bagRow = f.checks.darkBagButtons
+ _, help, extras = M.Hover(f, bagRow)
+ equal(help, "Dark Bag Buttons  Your bag buttons' icons in a darker grey, all alike, instead of each bag's colours. An open bag shows a dark line, not a bright one.",
+  "Dark Bag Buttons: what it does, in two lines")
+ equal(extras, "Default: Off.", "Dark Bag Buttons: off by default, no reload line")
+ equal(bagRow.summary, "Grey, darker bag icons and a dark line on open bags. Dark Mode only.", "Dark Bag Buttons: its summary")
+ local bagPasses = 0
+ E.Classic.RefreshDarkBagButtons = function() bagPasses = bagPasses + 1 end
+ bagRow:SetChecked(false); bagRow:Click()
+ equal(tostring(E.settings.darkBagButtons) .. " " .. bagPasses .. " " .. menus .. " " .. wins .. " " .. status,
+  "true 1 2 3 Dark Bag Buttons enabled.", "Dark Bag Buttons on, live through EraUI.Classic, the menu bar and windows left alone")
+ bagRow:Click()
+ equal(tostring(E.settings.darkBagButtons) .. " " .. bagPasses .. " " .. status, "false 2 Dark Bag Buttons disabled.", "and off, live")
+ E.GetSetting = function(self, key) if key == "darkMode" then return false end; return get(self, key) end
+ bagRow:Click()
+ equal(status, "Dark Bag Buttons enabled. They show once Dark Mode is applied.", "Dark Bag Buttons waits for Dark Mode")
+ E.GetSetting = get
+ bagRow:Click()
+ E.Classic.RefreshDarkBagButtons = nil
+ bagRow:Click()
+ equal(E.settings.darkBagButtons, true, "without Classic loaded, the Dark Bag Buttons tick still saves")
+ bagRow:Click()
+ for _, word in ipairs({"bag", "backpack", "icon", "grey", "gray", "colour", "color", "open", "dark"}) do
+  local hit = false
+  for _, key in ipairs(M.Results(f, word)) do if key == "darkBagButtons" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds Dark Bag Buttons")
+ end
+ f.searchBox:SetText(""); Flush()
+ Open(f, "appearance", "dark")
  E.Classic.RefreshDarkWindows, E.Classic.RefreshDarkMenuBar = nil, nil
  windows:Click()
  equal(E.settings.darkWindows, false, "without Classic loaded, the tick still saves")
@@ -1015,6 +1070,7 @@ do
  Next()
  equal(f.sectionTitle:GetText(), "Action Bars", "the first options page is Action Bars")
  equal(f.checks.hideKeybindText:IsShown() and f.checks.showAllSpellRanks:IsShown(), true, "Action Bars offers keybind text and, joining it, Show All Spell Ranks")
+ equal(f.checks.upgradeSpellRanks:IsShown(), true, "and Upgrade Spell Ranks, which applies without a reload")
  equal(f.checks.actionBars:IsShown(), false, "but not the reload-only Action Bars look")
  Next(); Next(); Next(); Next(); Next(); Next()
  equal(f.sectionTitle:GetText(), "Screen & Cursor", "the last options page is Screen & Cursor")
@@ -1062,8 +1118,8 @@ do
  end
  -- The Presets row heads Appearance > Style: the active preset, never a warning.
  Open(f, "appearance", "style")
- equal(Keys(f), "appearanceChoice,presets,flatBars,thickAuraBorders,roundedCastBars",
-  "Style holds the Look choice and Presets, then Frame Style's Flat Bars, Thick Aura Borders and Rounded Cast Bars")
+ equal(Keys(f), "appearanceChoice,presets,flatBars,thickFrames,thickFrameRings,thickFrameParty,thickFrameEdge,thickAuraBorders,roundedCastBars,partyOutline",
+  "Style holds the Look choice and Presets, then Frame Style's Flat Bars, Thick Frames with its two ticks and Frame Edge, Thick Aura Borders, Rounded Cast Bars and the Raid-style Party Outline")
  -- Flat Bars: a tick under the choice, in its own Frame Style section,
  -- applying at once (Classic/Skin.lua and the Advanced Cast Bar) with the
  -- usual chat line.
@@ -1212,6 +1268,227 @@ do
   local hit = false
   for _, key in ipairs(found) do if key == "roundedCastBars" then hit = true end end
   equal(hit, true, "searching " .. word .. " finds Rounded Cast Bars")
+ end
+ f.searchBox:SetText(""); Flush()
+ -- Thick Frames: the tick right after Flat Bars, on Flat Bars' page and
+ -- never indented (its switch, Unit Frames, is on Frames & Nameplates),
+ -- greyed with a note while Unit Frames is off. Its two ticks, Portrait
+ -- Rings and Classic Party Frames, sit indented under it and are greyed
+ -- while it's off. Each applies at once through the unit frames with its own
+ -- chat line, and says so when a fight holds the frames.
+ E.settings.unitFrames = true
+ Open(f, "appearance", "style")
+ M.NoOverlaps(f, "DRUID Appearance > Style with Thick Frames")
+ M.Fits(f, "DRUID Appearance > Style with Thick Frames")
+ local thickRow, ringsRow, partyRow = f.checks.thickFrames, f.checks.thickFrameRings, f.checks.thickFrameParty
+ equal(thickRow.text:GetText() .. " / " .. tostring(thickRow:IsVisible()) .. " / " .. tostring(thickRow:GetChecked()) .. " / " .. tostring(thickRow.wide)
+  .. " / " .. tostring(thickRow.dependencyDisabled == true) .. " / " .. tostring(thickRow.depth or 0),
+  "Thick Frames / true / false / nil / false / 0", "Thick Frames: a tick row, off, not greyed with Unit Frames on, not indented")
+ equal(f.rowHome.thickFrames.tab == f.rowHome.flatBars.tab and f.rowHome.thickFrames.sub == f.rowHome.flatBars.sub, true,
+  "Thick Frames on Flat Bars' page")
+ equal(Keys(f):find("flatBars,thickFrames,thickFrameRings,thickFrameParty,thickFrameEdge,thickAuraBorders", 1, true) ~= nil, true,
+  "Thick Frames right after Flat Bars, its two ticks and Frame Edge right after it")
+ equal(ringsRow.text:GetText() .. " / " .. partyRow.text:GetText(), "Portrait Rings / Classic Party Frames", "the two ticks' names")
+ for _, row in ipairs({ringsRow, partyRow}) do
+  equal(tostring(row:IsVisible()) .. " / " .. tostring(row:GetChecked()) .. " / " .. tostring(row.depth) .. " / " .. tostring(row.dependencyDisabled),
+   "true / false / 1 / true", row.text:GetText() .. ": shown, off, indented under Thick Frames, greyed while it's off")
+ end
+ -- Edge (Frame Edge): a choice row (Dark, Class colour) indented under Thick
+ -- Frames after its ticks, Dark chosen, greyed while it's off; its name (one
+ -- short word: there's room for no more) and "experimental" clear its
+ -- buttons, each button holds its word, in the row.
+ local edgeRow = f.checks.thickFrameEdge
+ local edgeNames = {}
+ for i, button in ipairs(edgeRow.buttons) do edgeNames[i] = button.label:GetText() end
+ equal(edgeRow.rowKind .. " " .. edgeRow.labelText .. " " .. table.concat(edgeNames, "/") .. " / " .. tostring(edgeRow:IsVisible()) .. " / " .. tostring(edgeRow.wide)
+  .. " / " .. tostring(edgeRow.depth) .. " / " .. tostring(edgeRow.dependencyDisabled) .. " / " .. edgeRow.selected .. " / " .. edgeRow.alpha,
+  "choice Edge Dark/Class colour / true / nil / 1 / true / 1 / 0.45",
+  "Frame Edge: a choice row, Dark or Class colour, indented under Thick Frames, greyed while it's off, Dark chosen")
+ local edgeWords = M.Glyphs(edgeRow.text:GetText(), 13)
+ for i in ipairs(edgeRow.tagIds) do edgeWords = edgeWords + (i == 1 and 6 or 5) + M.Glyphs(edgeRow.tags[i]:GetText(), 10) end
+ equal(table.concat(edgeRow.tagIds, ",") .. " " .. tostring(edgeRow.text:GetLeft() + edgeWords <= edgeRow.buttons[1]:GetLeft() - 4), "TEST true",
+  "Frame Edge: only experimental (just added doesn't fit an indented choice), its name and tag clear Dark")
+ for i, button in ipairs(edgeRow.buttons) do
+  equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= edgeRow:GetRight() + .01, true, edgeNames[i] .. " fits its button, in the row")
+  if i > 1 then equal(edgeRow.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, edgeNames[i - 1] .. " clear of " .. edgeNames[i]) end
+ end
+ local _, edgeHelp, edgeExtras = M.Hover(f, edgeRow)
+ equal(edgeHelp, "Edge  The thick frames' edges. Dark keeps them near black. Class colour adds a fine line round the frames and rings: yours, a player's in theirs, gold for elites.",
+  "Frame Edge: its words")
+ equal(M.LinesIn(edgeHelp, 570, 12) <= 3, true, "Frame Edge: its words fit the footer's three lines")
+ equal(edgeExtras, "Switch on Thick Frames first.  Default: Dark.", "Frame Edge: greyed, its note names Thick Frames; Dark by default")
+ equal(edgeRow.summary, "Dark edges, or a fine line in class colours.", "Frame Edge: its summary")
+ M.SubOptionsFollow(f, "DRUID Appearance > Style with Thick Frames", ParentOf(E))
+ local _, thickFramesHelp, thickFramesExtras = M.Hover(f, thickRow)
+ equal(thickFramesHelp, "Thick Frames  Thick dark frames with round corners and taller bars for you, your pet, target, focus and target of target. Elites get a gold mark. Needs Unit Frames.",
+  "Thick Frames: its words")
+ equal(thickFramesExtras, "Default: Off.", "Thick Frames: no reload line, nothing to switch on first with Unit Frames on, off by default")
+ equal(thickRow.summary, "Thick dark frames with round corners on player, pet, target, focus and target of target.", "Thick Frames: its summary")
+ local _, ringsHelp, ringsExtras = M.Hover(f, ringsRow)
+ equal(ringsHelp, "Portrait Rings  A thick dark ring round each portrait on the thick frames; Edge below can line it in class colours. Off, the portraits sit on the frames without one.",
+  "Portrait Rings: its words")
+ equal(ringsExtras, "Switch on Thick Frames first.  Default: Off.", "Portrait Rings: greyed, its note names Thick Frames (same page, no crumb)")
+ equal(ringsRow.summary, "Dark ring round each portrait.", "Portrait Rings: its summary")
+ local _, partyHelp, partyExtras = M.Hover(f, partyRow)
+ equal(partyHelp, "Classic Party Frames  Thick frames on EraUI's Classic-style party frames too, like your pet's. Raid-style party frames aren't changed.",
+  "Classic Party Frames: its words")
+ equal(partyExtras, "Switch on Thick Frames first.  Default: Off.", "Classic Party Frames: greyed, its note names Thick Frames")
+ equal(partyRow.summary, "The same frames on EraUI's Classic-style party frames.", "Classic Party Frames: its summary")
+ -- Greyed: a click changes nothing.
+ ringsRow:Click()
+ equal(tostring(E.settings.thickFrameRings) .. " " .. tostring(ringsRow:GetChecked()), "nil false", "Portrait Rings greyed: a click changes nothing")
+ local frameRefreshes, framesStatus, framesWait = 0, nil, false
+ local realClassic2 = E.Classic
+ E.Classic = setmetatable({RefreshThickFrames = function() frameRefreshes = frameRefreshes + 1; return not framesWait end}, {__index = realClassic2})
+ local status4 = E.Status
+ E.Status = function(_, m) framesStatus = m end
+ thickRow:Click()
+ equal(tostring(E.settings.thickFrames) .. " " .. frameRefreshes .. " " .. framesStatus, "true 1 Thick Frames enabled.", "a click switches it on, live")
+ for _, row in ipairs({ringsRow, partyRow}) do
+  equal(row.dependencyDisabled, false, row.text:GetText() .. ": not greyed with Thick Frames on")
+ end
+ ringsRow:Click()
+ equal(tostring(E.settings.thickFrameRings) .. " " .. frameRefreshes .. " " .. framesStatus, "true 2 Thick Frames: Portrait Rings enabled.",
+  "Portrait Rings on, live, its own line")
+ partyRow:Click()
+ equal(tostring(E.settings.thickFrameParty) .. " " .. frameRefreshes .. " " .. framesStatus, "true 3 Thick Frames: Classic Party Frames enabled.",
+  "Classic Party Frames on, live, its own line")
+ -- Frame Edge with Thick Frames on: free; each choice saved and applied at
+ -- once through the thick frames' lines (no unit-frame pass, so a fight
+ -- never holds it: only EraUI's own textures change), with its own chat
+ -- line; Space on the row flips it too.
+ local lineRefreshes = 0
+ E.Classic.RefreshThickFrameLines = function() lineRefreshes = lineRefreshes + 1 end
+ equal(tostring(edgeRow.dependencyDisabled) .. " " .. edgeRow.alpha, "false 1", "Frame Edge: free with Thick Frames on")
+ edgeRow.buttons[2]:Click(); Flush()
+ equal(E.settings.thickFrameEdge .. " " .. edgeRow.selected .. " " .. lineRefreshes .. " " .. frameRefreshes .. " " .. framesStatus,
+  "class 2 1 3 Thick Frames: a fine line in class colours round the frames and portrait rings.",
+  "Class colour: saved, the lines toned at once (no unit-frame pass), said")
+ edgeRow.buttons[1]:Click(); Flush()
+ equal(E.settings.thickFrameEdge .. " " .. edgeRow.selected .. " " .. lineRefreshes .. " " .. framesStatus,
+  "dark 1 2 Thick Frames: dark frame edges and portrait rings.", "Dark: saved, at once, said")
+ f:FocusRow(edgeRow); f.keys:Fire("OnSpacePressed")
+ equal(E.settings.thickFrameEdge .. " " .. edgeRow.selected .. " " .. lineRefreshes, "class 2 3", "Space on the row flips it")
+ f:ClearRowFocus()
+ edgeRow.buttons[1]:Click(); Flush()
+ framesWait = true
+ ringsRow:Click()
+ equal(tostring(E.settings.thickFrameRings) .. " " .. framesStatus, "false Thick Frames: Portrait Rings disabled. Some frames change when combat ends.",
+  "in a fight: it says the frames follow when it ends")
+ thickRow:Click()
+ equal(tostring(E.settings.thickFrames) .. " " .. framesStatus, "false Thick Frames disabled. Some frames change when combat ends.",
+  "Thick Frames off in a fight: the same note")
+ framesWait = false
+ equal(tostring(ringsRow.dependencyDisabled) .. " " .. tostring(partyRow.dependencyDisabled), "true true", "Thick Frames off greys its ticks again")
+ equal(tostring(edgeRow.dependencyDisabled) .. " " .. edgeRow.alpha, "true 0.45", "and Frame Edge")
+ local linesBefore = lineRefreshes
+ edgeRow.buttons[2]:Click(); Flush()
+ equal(E.settings.thickFrameEdge .. " " .. edgeRow.selected .. " " .. (lineRefreshes - linesBefore), "dark 1 0", "Frame Edge greyed: a click changes nothing")
+ partyRow:Click()
+ equal(tostring(E.settings.thickFrameParty) .. " " .. frameRefreshes, "true 5", "greyed, a ticked one stays ticked and a click changes nothing")
+ E.Classic = {}
+ thickRow:Click()
+ equal(tostring(E.settings.thickFrames) .. " " .. framesStatus, "true Thick Frames enabled.", "without the unit frames loaded the tick still saves")
+ partyRow:Click()
+ thickRow:Click()
+ E.Classic = realClassic2
+ equal(tostring(E.settings.thickFrames) .. " " .. tostring(E.settings.thickFrameParty), "false false", "all off again")
+ -- Unit Frames off (Frames & Nameplates): greyed, a note says where.
+ E.settings.unitFrames = false
+ f:RefreshDependencies()
+ local _, _, framesGrey = M.Hover(f, thickRow)
+ equal(tostring(thickRow.dependencyDisabled) .. " / " .. framesGrey, "true / Switch on Unit Frames first (Frames & Nameplates > Unit Frames).  Default: Off.",
+  "Unit Frames off: greyed, its note names the switch and its page")
+ local _, _, ringsGrey = M.Hover(f, ringsRow)
+ equal(ringsGrey, "Switch on Unit Frames first (Frames & Nameplates > Unit Frames).  Default: Off.", "its ticks name Unit Frames first, up the chain")
+ local _, _, edgeGrey = M.Hover(f, edgeRow)
+ equal(edgeGrey, "Switch on Unit Frames first (Frames & Nameplates > Unit Frames).  Default: Dark.", "Frame Edge too")
+ local before = frameRefreshes
+ thickRow:Click()
+ equal(tostring(E.settings.thickFrames) .. " " .. tostring(thickRow:GetChecked()) .. " " .. (frameRefreshes - before), "false false 0",
+  "greyed: a click changes nothing")
+ E.settings.unitFrames = true
+ f:RefreshDependencies()
+ equal(thickRow.dependencyDisabled, false, "Unit Frames back on: not greyed")
+ E.Status = status4
+ E.settings.thickFrameEdge = nil
+ for _, case in ipairs({{"thick frames", "thickFrames"}, {"plate", "thickFrames"}, {"soft corners", "thickFrames"}, {"round corners", "thickFrames"},
+  {"frame style", "thickFrames"}, {"portrait ring", "thickFrameRings"}, {"ring", "thickFrameRings"}, {"party", "thickFrameParty"},
+  {"classic party", "thickFrameParty"}, {"frame edge", "thickFrameEdge"}, {"edge", "thickFrameEdge"}, {"class colour", "thickFrameEdge"},
+  {"outline", "thickFrameEdge"}}) do
+  local found = M.Results(f, case[1])
+  local hit = false
+  for _, key in ipairs(found) do if key == case[2] then hit = true end end
+  equal(hit, true, "searching " .. case[1] .. " finds " .. case[2])
+ end
+ f.searchBox:SetText(""); Flush()
+ -- Raid-style Party Outline: the last tick in Frame Style, its own switch
+ -- (the game's party frames, not EraUI's: never greyed, never indented),
+ -- applying at once through Classic/PartyOutline.lua with its own chat
+ -- line: where it shows, or that Forever Enhanced Raid Frames has the
+ -- party; in a fight it says the frames follow when it ends.
+ Open(f, "appearance", "style")
+ M.NoOverlaps(f, "DRUID Appearance > Style with the Raid-style Party Outline")
+ M.Fits(f, "DRUID Appearance > Style with the Raid-style Party Outline")
+ local outlineRow = f.checks.partyOutline
+ equal(outlineRow.text:GetText() .. " / " .. tostring(outlineRow:IsVisible()) .. " / " .. tostring(outlineRow:GetChecked()) .. " / " .. tostring(outlineRow.wide)
+  .. " / " .. tostring(outlineRow.dependencyDisabled) .. " / " .. tostring(outlineRow.depth or 0),
+  "Raid-style Party Outline / true / false / nil / nil / 0", "Raid-style Party Outline: a tick row, off, never greyed, not indented")
+ equal(f.rowHome.partyOutline.tab == f.rowHome.flatBars.tab and f.rowHome.partyOutline.sub == f.rowHome.flatBars.sub, true,
+  "Raid-style Party Outline on Flat Bars' page")
+ equal(Keys(f):find("roundedCastBars,partyOutline$") ~= nil, true, "the Raid-style Party Outline last, right after Rounded Cast Bars")
+ equal(table.concat(outlineRow.tagIds or {}, ","), "TEST", "it says experimental (just added too for returning players: checked with the rest below)")
+ local _, outlineHelp, outlineExtras = M.Hover(f, outlineRow)
+ equal(outlineHelp, "Raid-style Party Outline  Flat bars and one thick dark outline round the game's raid-style party frames. The outline shows while Edit Mode's Display Border is on.",
+  "Raid-style Party Outline: its words")
+ equal(outlineExtras, "Default: Off.", "Raid-style Party Outline: no reload line, nothing to switch on first, off by default")
+ equal(outlineRow.summary, "Flat bars and one thick outline round raid-style party frames.", "Raid-style Party Outline: its summary (the mockup's)")
+ local outlineRefreshes, outlineStatus, outlineWaits, outlineAside = 0, nil, false, false
+ local realClassic3 = E.Classic
+ E.Classic = setmetatable({RefreshPartyOutline = function() outlineRefreshes = outlineRefreshes + 1; return not outlineWaits end,
+  PartyOutlineStepsAside = function() return outlineAside end}, {__index = realClassic3})
+ local status5 = E.Status
+ E.Status = function(_, m) outlineStatus = m end
+ outlineRow:Click()
+ equal(tostring(E.settings.partyOutline) .. " " .. outlineRefreshes .. " " .. outlineStatus,
+  "true 1 Raid-style Party Outline enabled. It shows on raid-style party frames with Edit Mode's Display Border on.", "a click switches it on, live, saying where it shows")
+ outlineRow:Click()
+ equal(tostring(E.settings.partyOutline) .. " " .. outlineRefreshes .. " " .. outlineStatus, "false 2 Raid-style Party Outline disabled.", "and off, live")
+ outlineAside = true
+ outlineRow:Click()
+ equal(outlineStatus, "Raid-style Party Outline enabled. Forever Enhanced Raid Frames draws your party, so it steps aside.",
+  "while Forever Enhanced Raid Frames draws the party: it says it steps aside")
+ outlineRow:Click()
+ outlineAside, outlineWaits = false, true
+ outlineRow:Click()
+ equal(outlineStatus, "Raid-style Party Outline enabled. It shows on raid-style party frames with Edit Mode's Display Border on. Some frames change when combat ends.",
+  "in a fight: it says the frames follow when it ends")
+ outlineRow:Click()
+ equal(outlineStatus, "Raid-style Party Outline disabled. Some frames change when combat ends.", "off in a fight: the same note")
+ outlineWaits = false
+ -- Never greyed: Unit Frames, Cast Bars and the look don't matter.
+ local get5 = E.GetSetting
+ E.settings.unitFrames, E.settings.castBars = false, false
+ for _, dark in ipairs({false, true}) do
+  E.GetSetting = function(self, key) if key == "darkMode" then return dark end; return get5(self, key) end
+  f:RefreshDependencies()
+  equal(outlineRow.dependencyDisabled, nil, "never greyed, Unit Frames and Cast Bars off (Dark Mode " .. tostring(dark) .. ")")
+ end
+ E.GetSetting = get5
+ E.settings.unitFrames, E.settings.castBars = true, true
+ f:RefreshDependencies()
+ E.Classic = {}
+ outlineRow:Click()
+ equal(tostring(E.settings.partyOutline) .. " " .. outlineStatus,
+  "true Raid-style Party Outline enabled. It shows on raid-style party frames with Edit Mode's Display Border on.", "without Classic loaded the tick still saves")
+ outlineRow:Click()
+ equal(tostring(E.settings.partyOutline) .. " " .. outlineRefreshes, "false 6", "off again; each click with Classic loaded refreshed it once")
+ E.Classic, E.Status = realClassic3, status5
+ for _, word in ipairs({"raid", "outline", "raid style", "party outline", "display border", "edit mode", "flat", "frame style"}) do
+  local found = M.Results(f, word)
+  local hit = false
+  for _, key in ipairs(found) do if key == "partyOutline" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds the Raid-style Party Outline")
  end
  f.searchBox:SetText(""); Flush()
  Open(f, "appearance", "style")
@@ -1462,10 +1739,12 @@ end
 do
  local E, f = Session("DRUID")
  -- The cursor effects' folded options open, Clean Minimap's (with the
- -- Drawer style) and Cast Bar Colour's (with Custom), so every row shows.
+ -- Drawer style), Cast Bar Colour's (with Custom) and the Stat Tracker's
+ -- (with Stat Name Colour's Custom), so every row shows.
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  E.settings.castBarColour = "custom"
+ E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
  for g, group in ipairs(EXPECTED) do
@@ -1513,8 +1792,12 @@ do
      end
      M.NoOverlaps(f, id .. " > " .. sub[1])
      M.Fits(f, id .. " > " .. sub[1])
-     -- None of the topic pages scrolls at the default size with folds closed.
-     equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), true, id .. " > " .. sub[1] .. " fits without scrolling")
+     -- None of the topic pages scrolls at the default size, these folds
+     -- open, but Character & Spells with the Stat Tracker's twenty-three
+     -- rows open (switched off it fits: the Stat Tracker's own block below).
+     local long = id == "character"
+     equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), not long,
+      id .. " > " .. sub[1] .. (long and " scrolls, the Stat Tracker open" or " fits without scrolling"))
     end
    end
   end
@@ -1522,6 +1805,7 @@ do
  equal(index, #f.tabs, "every tab checked")
  equal(#f.tabs, 14, "fourteen tabs")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
+ E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  -- The class tab, per class (its page above); here its place and name.
  equal(Tab(f, "class") .. "," .. Tab(f, "casting"), "6,7", "your class is the sixth tab and Casting the seventh")
  -- Every option is on exactly one sub-page.
@@ -1545,9 +1829,12 @@ do
  end
  equal(seen.classColourBorders .. " / " .. seen.appearanceChoice, "appearance > classcol / appearance > style", "Class-coloured Unit Borders' switches live elsewhere on purpose")
  -- Sub-options right after their parent, indented with their line, on
- -- every sub-page, with every fold open.
+ -- every sub-page, with every fold open (the Stat Tracker's rows have no
+ -- layout parent: each its own block, never indented, but Custom Stat Name
+ -- Colour, under its choice).
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = true, true, true, true
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
+ E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
    f:SelectCategory(i, sub.id); Flush()
@@ -1557,15 +1844,21 @@ do
   end
  end
  -- Not indented: options whose mockup parent is no real dependency.
- for _, key in ipairs({"cleanMinimap", "characterItemLevels", "classColourBorders", "darkAuraBorders", "darkMenuBar", "darkWindows", "castBarColour"}) do
+ for _, key in ipairs({"cleanMinimap", "characterItemLevels", "classColourBorders", "darkAuraBorders", "darkMenuBar", "darkBagButtons", "darkWindows", "castBarColour",
+  "statTrackerLayout", "statTrackerShow", "statTrackerScale", "statTrackerPerLine", "statTrackerGains", "statTrackerNameColour", "statTrackerStrength",
+  "statTrackerDurability"}) do
   equal(f.checks[key].depth or 0, 0, key .. " not indented")
  end
+ Open(f, "character")
+ equal(f.checks.statTrackerNameCustomColour.depth == 1 and f.checks.statTrackerNameCustomColour.connV:IsShown(), true,
+  "Custom Stat Name Colour sits under Stat Name Colour")
  Open(f, "class")
  equal(f.checks.comboPointRed.depth == 1 and f.checks.comboPointRed.connV:IsShown(), true, "Red Combo Points sits under Floating Combo Points")
  E.settings.floatingComboPoints = false; f:RefreshDependencies()
  equal(f.checks.comboPointRed.dependencyDisabled, nil, "but is never greyed by it")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
+ E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  -- Folds: hidden (not greyed) until their switch is on, open right after it
  -- at once keeping the scroll, and fold away again.
@@ -1604,6 +1897,7 @@ do
  -- Every sub-page with every fold open: which ones scroll (measured).
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = true, true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = true, "drawer", "custom"
+ E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
  local scrolls = {}
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
@@ -1612,9 +1906,11 @@ do
    equal(f.settingsScrollHint:IsShown(), f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + 1, cat.id .. " > " .. sub.id .. " scroll hint only when it scrolls")
   end
  end
- equal(table.concat(scrolls, ","), "", "no page scrolls at the default size, every fold open (the class tab's boxes are checked per class)")
+ equal(table.concat(scrolls, ","), "character>main",
+  "only Character & Spells scrolls at the default size, every fold open: the Stat Tracker's rows (the class tab's boxes are checked per class)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
+ E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  -- The viewport is pinned by two corners and sized; its content too.
  equal(#f.settingsScroll.points, 2, "the viewport is pinned by two corners")
  equal(f.settingsScroll:GetWidth() > 0 and f.settingsScroll:GetHeight() > 0 and f.settingsContent:GetWidth() > 0, true, "it and its content have a size")
@@ -1668,8 +1964,17 @@ do
    local _, _, text = M.Hover(f, row)
    local name, where = text:match("^Switch on (.-) first %((.-)%)%.")
    name = name or text:match("^Switch on (.-) first%.")
+   -- Waiting on a choice (Stats per Line on Layout's One line): that row
+   -- by its label, and one of its own choices by its button's name.
+   local choice
+   if not name then name, choice = text:match("^Set (.-) to (.-) first%.") end
    local owner = name and f.checks[names[name]]
    equal(owner ~= nil, true, key .. " names a row: " .. text)
+   if choice then
+    local found = false
+    for _, button in ipairs(owner.buttons or {}) do if button.label:GetText() == choice then found = true end end
+    equal(found, true, key .. " names one of " .. name .. "'s own choices: " .. choice)
+   end
    local home, mine = f.rowHome[owner.settingKey], f.rowHome[key]
    local elsewhere = home.tab ~= mine.tab or home.sub ~= mine.sub
    equal(where, elsewhere and E.SettingsNav.Crumb(f, home) or nil, key .. " gives the place only when it is elsewhere")
@@ -1778,16 +2083,18 @@ end
 do
  local E, f = Session("DRUID")
  local function Results(q) local keys, crumbs = M.Results(f, q); return table.concat(keys, ","), crumbs end
- local colours = "darkenClassColours,classColors,tooltipClassColours,classColourBorders,castBarClassBorder,advancedCastClassFill,castBarColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
+ local colours = "thickFrameEdge,darkenClassColours,classColors,tooltipClassColours,classColourBorders,castBarClassBorder,advancedCastClassFill,castBarColour,"
+  .. "statTrackerNameColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
  Open(f, "map")
- equal(Results("class colour"), colours, "class colour finds every class-colour option, in tab then page order")
+ equal(Results("class colour"), colours, "class colour finds every class-colour option, in tab then page order (Stat Name Colour folded)")
  equal(Results("class color"), colours, "and so does class color")
  equal(Results("Class Colored"), colours, "and class colored")
- equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 10 options found. Click one to go to it.", "search says how many and what a click does")
+ equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 12 options found. Click one to go to it.", "search says how many and what a click does")
  equal(f.subTabStrip:IsShown(), false, "no sub-tabs in search")
  for _, tab in ipairs(f.tabs) do equal(tab.underline:IsShown(), false, tab.id .. " not highlighted in search") end
  local _, crumbs = Results("class colour")
- equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[6] .. "|" .. crumbs[9], "Appearance > Dark Mode|Appearance > Class Colours|Casting|Screen & Cursor > Cursor", "each result says where it lives")
+ equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[3] .. "|" .. crumbs[7] .. "|" .. crumbs[10],
+  "Appearance > Style|Appearance > Dark Mode|Appearance > Class Colours|Casting|Screen & Cursor > Cursor", "each result says where it lives")
  for i, result in ipairs(f.visibleRows) do
   equal(result.isResult and result:GetHeight() == 40 and result.text:GetText() == result.target.labelText, true, "result " .. i .. " a row with the option's name")
   equal(not Has(result.crumb:GetText(), EM) and Colour(result.crumb.colour), "0.440,0.480,0.530", "result " .. i .. " breadcrumb small and grey, no em dash")
@@ -2263,7 +2570,7 @@ do
  -- "experimental" finds the experimental options.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkDebuffLines,darkWindows,flatBars,roundedCastBars,thickAuraBorders", "searching experimental finds them")
+ equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkBagButtons,darkDebuffLines,darkWindows,flatBars,partyOutline,roundedCastBars,statTracker,thickAuraBorders,thickFrameEdge,thickFrameParty,thickFrameRings,thickFrames,upgradeSpellRanks", "searching experimental finds them")
  f.searchBox:SetText(""); Flush()
 end
 
@@ -2408,7 +2715,8 @@ do
  S.combat = true
  for _, b in ipairs(actions) do b.shown = false end
  for i, cat in ipairs(f.categories) do for _, sub in ipairs(cat.subs) do f:SelectCategory(i, sub.id); Flush() end end
- M.Results(f, "class colour"); f.visibleRows[1]:Click(); Flush()
+ -- (a jump to Dark Mode's page: Tab, Tab and Space there flip a tick)
+ M.Results(f, "darken class colours"); f.visibleRows[1]:Click(); Flush()
  f.searchBox:SetFocus(); f.searchBox:Fire("OnTabPressed"); f.keys:Fire("OnTabPressed"); f.keys:Fire("OnSpacePressed"); f.keys:Fire("OnEscapePressed")
  E.settings.layoutWelcome = 1; f:Hide(); f:Show(); Flush()
  equal(f.welcoming, true, "the welcome card shows in combat (nothing secure)")
@@ -2466,6 +2774,7 @@ do
  -- and the slider keeps room to drag.
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
+ E.settings.statTracker = true
  local sliders = 0
  for key, row in pairs(f.checks) do
   if row.rowKind == "slider" then
@@ -2481,9 +2790,11 @@ do
    sliders = sliders + 1
   end
  end
- equal(sliders, 10, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row)")
+ equal(sliders, 12, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
+  .. " and Stats per Line)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
+ E.settings.statTracker = nil
  Open(f, "quests")
  equal(f.checks.rewardProfile.text:GetText():find("^Reward Profile: ") ~= nil, true, "the reward profile row in Title Case")
 end
@@ -2755,5 +3066,380 @@ do
  f:ClearRowFocus()
  E.Status = say
  E.settings.castBarColour, E.settings.castBarCustomColour, E.settings.castBars = nil, nil, nil
+end
+
+-- Upgrade Spell Ranks (Action Bars, experimental): a tick after Hide Macro
+-- Names, off by default, applying at once through Modules/SpellRanks.lua
+-- with its own chat line. It works with any bars, so the Classic Action Bars
+-- look being off never greys it. Its footer words, and search finds it.
+do
+ local E, f = Session("PRIEST")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ equal(tostring(real.settingDefaults.upgradeSpellRanks) .. " " .. tostring(real.reloadSettings.upgradeSpellRanks), "false nil",
+  "Upgrade Spell Ranks: off by default, no reload")
+ E.settingDefaults.upgradeSpellRanks = false
+ Open(f, "actionBars")
+ equal(Keys(f), "actionBars,gryphons,hideEmptyActionSlots,hideKeybindText,hideMacroText,upgradeSpellRanks", "last on Action Bars, after Hide Macro Names")
+ local row = f.checks.upgradeSpellRanks
+ equal(row.text:GetText() .. " / " .. tostring(row:IsVisible()) .. " / " .. tostring(row:GetChecked()) .. " / " .. tostring(row.wide)
+  .. " / " .. table.concat(row.tagIds, ","), "Upgrade Spell Ranks / true / false / nil / TEST", "a tick row, off, saying experimental")
+ local _, help, extras = M.Hover(f, row)
+ equal(help, "Upgrade Spell Ranks  A new rank you learn replaces the rank it outgrew on your action bars, after any fight. Lower ranks you placed, macros and items stay.",
+  "its words")
+ equal(M.LinesIn(help, 570, 12) <= 2, true, "two footer lines at most")
+ equal(extras, "Default: Off.", "no reload line, off by default")
+ equal(row.summary, "A new rank takes the old one's place on your bars. Waits out fights.", "its summary")
+ -- The Classic Action Bars look off: it is still free to switch.
+ E.settings.actionBars = false; f:RefreshDependencies()
+ equal(row.dependencyDisabled == true or row.greyed == true, false, "never greyed by the Action Bars look")
+ E.settings.actionBars = true; f:RefreshDependencies()
+ local refreshes, said = 0, nil
+ local say = E.Status
+ E.Status = function(_, m) said = m end
+ E.modules.SpellRanks = {Refresh = function() refreshes = refreshes + 1 end}
+ row:Click()
+ equal(tostring(E.settings.upgradeSpellRanks) .. " " .. refreshes .. " " .. said,
+  "true 1 Upgrade Spell Ranks enabled. The next rank you learn takes the old one's place on your bars.", "a click switches it on, live")
+ row:Click()
+ equal(tostring(E.settings.upgradeSpellRanks) .. " " .. refreshes .. " " .. said, "false 2 Upgrade Spell Ranks disabled.", "and off, live")
+ E.modules.SpellRanks = nil
+ row:Click()
+ equal(tostring(E.settings.upgradeSpellRanks) .. " " .. said, "true Upgrade Spell Ranks enabled. The next rank you learn takes the old one's place on your bars.",
+  "without the module loaded the tick still saves")
+ row:Click()
+ E.Status = say
+ for _, word in ipairs({"rank", "spell rank", "upgrade", "highest", "trainer", "downrank", "action bar"}) do
+  equal(Has(table.concat(M.Results(f, word), ","), "upgradeSpellRanks"), true, "searching " .. word .. " finds Upgrade Spell Ranks")
+ end
+ f.searchBox:SetText(""); Flush()
+ E.settings.upgradeSpellRanks = nil
+end
+
+-- Stat Tracker (Character & Spells, experimental): its own Stat tracker
+-- section under Spellbook. Off, only its switch shows and the page fits.
+-- Switched on (live, through Modules/StatTracker.lua, with a chat line),
+-- its rows open at once, keeping the scroll, none indented and none greyed:
+-- Layout beside the switch, Show It on a line of its own (its three choices),
+-- Panel Size a whole-line slider (50% to 150%), Stats per Line one under it
+-- (1 to 16, All at the top; greyed for a list, the footer saying why, free
+-- at once with One line), Gains in Green beside Show
+-- Title, Stat Name Colour a whole line (five choices, Custom's colour row
+-- folded under it until Custom is chosen), then the sixteen stat ticks two
+-- to a line under Attributes, Offence, Defence and Other, in the panel's own
+-- order, the approved eight ticked. Each choice, slider move, colour and
+-- tick saved and shown at once; the footer's defaults; search finds them
+-- folded; a jump lands on the switch (or on Stat Name Colour).
+do
+ local E, f = Session("ROGUE")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ local defaults = real.settingDefaults
+ local ticked = {}
+ for _, key in ipairs(f.pages.character.main) do
+  if key:find("^statTracker%u") and defaults[key] == true and key ~= "statTrackerGains" and key ~= "statTrackerTitle" then ticked[#ticked + 1] = key end
+ end
+ equal(tostring(defaults.statTracker) .. " " .. defaults.statTrackerLayout .. " " .. defaults.statTrackerShow .. " " .. tostring(defaults.statTrackerGains)
+  .. " " .. tostring(defaults.statTrackerTitle) .. " " .. defaults.statTrackerScale .. " " .. defaults.statTrackerNameColour .. " " .. defaults.statTrackerNameCustomColour,
+  "false list always true true 100 auto FFD100", "off by default; when on: a list, always, gains in green, the title, 100%, names matching the look, Custom at gold")
+ equal(defaults.statTrackerPerLine, 16, "Stats per Line: All (every one of the sixteen on one line) by default")
+ equal(table.concat(ticked, ","), "statTrackerAgility,statTrackerStamina,statTrackerAttackPower,statTrackerCrit,statTrackerHit,statTrackerArmor,statTrackerDodge,statTrackerSpeed",
+  "the approved eight ticked by default")
+ for key in pairs(defaults) do
+  if key:find("^statTracker") then equal(real.reloadSettings[key], nil, key .. " applies without a reload") end
+ end
+ for key, value in pairs(defaults) do E.settingDefaults[key] = value; if key:find("^statTracker") then E.settings[key] = value end end
+ f:Hide(); f:Show(); Flush()
+ -- The ticks in the panel's own order (Modules/StatTracker.lua STATS).
+ local loaded = {}
+ assert(loadfile("Modules/StatTracker.lua"))("EraUI", {RegisterModule = function(_, _, m) loaded.module = m end})
+ local order = {}
+ for _, stat in ipairs(loaded.module.STATS) do order[#order + 1] = "statTracker" .. stat.id end
+ local listed = {}
+ for _, key in ipairs(f.pages.character.main) do if key:find("^statTracker%u") and f.checks[key].rowKind == "tick" and key ~= "statTrackerGains" and key ~= "statTrackerTitle" then listed[#listed + 1] = key end end
+ equal(table.concat(listed, ","), table.concat(order, ","), "the sixteen ticks in the panel's order")
+ local refreshes, said = 0, nil
+ E.modules.StatTracker = {Refresh = function() refreshes = refreshes + 1 end}
+ local say = E.Status
+ E.Status = function(_, m) said = m end
+ local tracker, layout, show = f.checks.statTracker, f.checks.statTrackerLayout, f.checks.statTrackerShow
+ local gains, titled = f.checks.statTrackerGains, f.checks.statTrackerTitle
+ local size, names, swatch = f.checks.statTrackerScale, f.checks.statTrackerNameColour, f.checks.statTrackerNameCustomColour
+ local perLine = f.checks.statTrackerPerLine
+ -- Off: the switch alone under its heading, and the page fits.
+ E.settings.statTracker = false
+ Open(f, "character")
+ equal(PageText(f), "WINDOWS:characterPanel,characterItemLevels,talentWindow,trainer,professions|SPELLBOOK:spellbook,spellbookCombatDrag,trainingGuide,showAllSpellRanks|STAT TRACKER:statTracker",
+  "off: its switch alone, the groups folded away with their headings")
+ equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), true, "off: Character & Spells fits without scrolling")
+ M.NoOverlaps(f, "Stat Tracker off"); M.Fits(f, "Stat Tracker off")
+ equal(tracker.rowKind .. " " .. tracker.text:GetText() .. " " .. tostring(tracker:GetChecked()) .. " " .. table.concat(tracker.tagIds, ","), "tick Stat Tracker false TEST",
+  "a tick row, off, saying experimental")
+ local _, help, extras = M.Hover(f, tracker)
+ equal(help, "Stat Tracker  A small panel of the stats you tick, updating as buffs, gear and levels change them. Drag it anywhere; it stays on screen.", "its words")
+ equal(M.LinesIn(help, 570, 12) <= 2 and extras == "Default: Off.", true, "two footer lines, off by default: " .. extras)
+ -- On: its rows open at once, keeping the scroll.
+ M.Resize(f, 420)
+ Open(f, "character")
+ f:SetSettingsScroll(30)
+ tracker:Click(); Flush()
+ equal(tostring(E.settings.statTracker) .. " " .. refreshes .. " " .. tostring(said), "true 1 Stat Tracker enabled. Drag it to move it; tick the stats you want below.",
+  "a click switches it on, live, with its chat line")
+ equal(f.settingsScroll:GetVerticalScroll(), 30, "opening keeps the scroll")
+ equal(Keys(f):find("statTracker,statTrackerLayout,statTrackerShow,statTrackerScale,statTrackerPerLine,statTrackerGains,statTrackerTitle,statTrackerNameColour,statTrackerStrength", 1, true) ~= nil, true,
+  "its rows open under it at once, Custom's colour row folded: " .. Keys(f))
+ M.Resize(f, 650)
+ Open(f, "character")
+ equal(PageText(f), "WINDOWS:characterPanel,characterItemLevels,talentWindow,trainer,professions|SPELLBOOK:spellbook,spellbookCombatDrag,trainingGuide,showAllSpellRanks"
+  .. "|STAT TRACKER:statTracker,statTrackerLayout,statTrackerShow,statTrackerScale,statTrackerPerLine,statTrackerGains,statTrackerTitle,statTrackerNameColour"
+  .. "|ATTRIBUTES:statTrackerStrength,statTrackerAgility,statTrackerStamina,statTrackerIntellect,statTrackerSpirit"
+  .. "|OFFENCE:statTrackerAttackPower,statTrackerCrit,statTrackerHit,statTrackerSpellPower,statTrackerSpellCrit"
+  .. "|DEFENCE:statTrackerArmor,statTrackerDodge,statTrackerParry,statTrackerBlock|OTHER:statTrackerSpeed,statTrackerDurability",
+  "on: its options, then the sixteen ticks under their four groups")
+ M.NoOverlaps(f, "Stat Tracker on"); M.Fits(f, "Stat Tracker on")
+ M.SubOptionsFollow(f, "Stat Tracker on", ParentOf(E))
+ equal(layout:GetTop() == tracker:GetTop() and layout:GetLeft() > tracker:GetRight(), true, "Layout beside the switch")
+ equal(tostring(show.wide) .. " " .. N(show:GetWidth()) .. " " .. tostring(show:GetTop() < tracker:GetBottom()), "true 718 true", "Show It a whole line under them")
+ equal(tostring(size.wide) .. " " .. N(size:GetWidth()) .. " " .. tostring(size:GetTop() < show:GetBottom()), "true 718 true", "Panel Size a whole line under Show It")
+ equal(tostring(perLine.wide) .. " " .. N(perLine:GetWidth()) .. " " .. tostring(perLine:GetTop() < size:GetBottom()) .. " " .. (perLine.depth or 0)
+  .. " " .. tostring(perLine.connV:IsShown()) .. " " .. #perLine.tagIds, "true 718 true 0 false 0",
+  "Stats per Line a whole line right under Panel Size, never indented, no words after its name")
+ equal(gains:GetTop() == titled:GetTop() and gains:GetTop() < perLine:GetBottom() and titled:GetLeft() > gains:GetRight(), true, "Gains in Green beside Show Title, under Stats per Line")
+ equal(tostring(names.wide) .. " " .. N(names:GetWidth()) .. " " .. tostring(names:GetTop() < gains:GetBottom()), "true 718 true", "Stat Name Colour a whole line under them")
+ local rows = {}
+ for _, key in ipairs(listed) do rows[#rows + 1] = f.checks[key] end
+ for i, row in ipairs(rows) do
+  equal((row.depth or 0) .. " " .. tostring(row.dependencyDisabled) .. " " .. tostring(row.connV:IsShown()), "0 nil false", row.settingKey .. " never indented, never greyed")
+  equal(row:GetChecked(), defaults[row.settingKey], row.settingKey .. " ticked as saved")
+ end
+ local function Pair(a, b) return a:GetTop() == b:GetTop() and b:GetLeft() > a:GetRight() end
+ equal(Pair(rows[1], rows[2]) and Pair(rows[3], rows[4]) and rows[5]:GetTop() < rows[3]:GetBottom() and Pair(rows[6], rows[7]) and Pair(rows[11], rows[12])
+  and Pair(rows[15], rows[16]), true, "two ticks to a line")
+ for _, row in ipairs({layout, show, size, gains, titled, names}) do
+  equal(tostring(row.dependencyDisabled) .. " " .. (row.depth or 0) .. " " .. #row.tagIds, "nil 0 0", row.settingKey .. " not greyed, not indented, no words after its name")
+ end
+ -- Layout: List or One line, a click each, at once.
+ equal(layout.rowKind .. " " .. layout.labelText .. " " .. layout.buttons[1].label:GetText() .. "/" .. layout.buttons[2].label:GetText() .. " " .. layout.selected,
+  "choice Layout List/One line 1", "Layout: List or One line, List chosen")
+ refreshes = 0
+ layout.buttons[2]:Click(); Flush()
+ equal(E.settings.statTrackerLayout .. " " .. layout.selected .. " " .. refreshes .. " " .. said, "line 2 1 Stat Tracker: on one line.", "One line saved, shown at once, said")
+ layout.buttons[1]:Click(); Flush()
+ equal(E.settings.statTrackerLayout .. " " .. layout.selected .. " " .. said, "list 1 Stat Tracker: as a list.", "and back to a list")
+ -- Show It: Always, In a fight or Out of a fight.
+ local shows = {}
+ for i, button in ipairs(show.buttons) do shows[i] = button.label:GetText() end
+ equal(show.rowKind .. " " .. show.labelText .. " " .. table.concat(shows, "/") .. " " .. show.selected, "choice Show It Always/In a fight/Out of a fight 1", "Show It: its three choices, Always chosen")
+ for i, button in ipairs(show.buttons) do
+  equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= show:GetRight() + .01, true, shows[i] .. " fits its button, in the row")
+  if i > 1 then equal(show.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, shows[i - 1] .. " clear of " .. shows[i]) end
+ end
+ equal(show.text:GetLeft() + M.Glyphs(show.text:GetText(), 13) <= show.buttons[1]:GetLeft() - 4, true, "Show It clears its first choice")
+ equal(layout.text:GetLeft() + M.Glyphs(layout.text:GetText(), 13) <= layout.buttons[1]:GetLeft() - 4, true, "Layout clears its first choice")
+ for index, want in ipairs({{"always", "shows all the time."}, {"combat", "shows only in a fight."}, {"calm", "shows only out of a fight."}}) do
+  refreshes = 0
+  show.buttons[index]:Click(); Flush()
+  equal(E.settings.statTrackerShow .. " " .. show.selected .. " " .. refreshes .. " " .. said, want[1] .. " " .. index .. " 1 Stat Tracker: " .. want[2], shows[index] .. " saved, shown at once, said")
+ end
+ -- The keyboard moves a choice on.
+ f:FocusRow(show); f.keys:Fire("OnSpacePressed"); Flush()
+ equal(E.settings.statTrackerShow, "always", "Space on Show It: Out of a fight to Always")
+ f:ClearRowFocus()
+ -- Ticks: saved and shown at once, quietly.
+ said, refreshes = nil, 0
+ f.checks.statTrackerStrength:Click()
+ gains:Click()
+ equal(tostring(E.settings.statTrackerStrength) .. " " .. tostring(E.settings.statTrackerGains) .. " " .. refreshes .. " " .. tostring(said), "true false 2 nil",
+  "a stat's tick and Gains in Green: saved, the panel at once, no chat line")
+ f.checks.statTrackerStrength:Click(); gains:Click()
+ -- Panel Size: 50% to 150% in fives, saved and shown at once, quietly.
+ equal(size.rowKind .. " " .. size.text:GetText() .. " " .. size.info.low .. "-" .. size.info.high .. " " .. size.info.step, "slider Panel Size: 100% 50-150 5",
+  "Panel Size: a slider at 100%, 50% to 150% in fives")
+ said, refreshes = nil, 0
+ size.slider:SetValue(75)
+ equal(E.settings.statTrackerScale .. " " .. size.text:GetText() .. " " .. refreshes .. " " .. tostring(said), "75 Panel Size: 75% 1 nil",
+  "a move: saved, the panel at once, no chat line")
+ size.slider:SetValue(400)
+ equal(E.settings.statTrackerScale, 150, "never more than 150%")
+ size.slider:SetValue(10)
+ equal(E.settings.statTrackerScale, 50, "never less than 50%")
+ size.slider:SetValue(100)
+ -- Stats per Line: 1 to 16, All at the top (the default), for One line only.
+ equal(perLine.rowKind .. " " .. perLine.text:GetText() .. " " .. perLine.info.low .. "-" .. perLine.info.high .. " " .. perLine.info.step,
+  "slider Stats per Line: All 1-16 1", "Stats per Line: a slider at All, 1 to 16")
+ -- A list: greyed, the footer says why, the slider can't be dragged and a move changes nothing.
+ equal(E.settings.statTrackerLayout .. " " .. tostring(perLine.dependencyDisabled) .. " " .. perLine.alpha .. " " .. tostring(perLine.slider:IsMouseEnabled()),
+  "list true 0.45 false", "a list: Stats per Line greyed, its slider not dragged")
+ _, help, extras = M.Hover(f, perLine)
+ equal(help .. " | " .. extras, "Stats per Line  For One line: how many stats go on each line, the rest in neat rows under it. All keeps them on one line."
+  .. " | Set Layout to One line first.  Default: All.", "its words, why it's greyed and its default")
+ equal(M.LinesIn(help, 570, 12) <= 2, true, "two footer lines at most")
+ said, refreshes = nil, 0
+ perLine.slider:SetValue(4)
+ equal(E.settings.statTrackerPerLine .. " " .. perLine.text:GetText() .. " " .. perLine.slider:GetValue() .. " " .. refreshes, "16 Stats per Line: All 16 0",
+  "a move while greyed: nothing saved, the slider back at All, the panel untouched")
+ -- One line frees it at once (the Layout click), and each move shows live, quietly.
+ layout.buttons[2]:Click(); Flush()
+ equal(tostring(perLine.dependencyDisabled) .. " " .. perLine.alpha .. " " .. tostring(perLine.slider:IsMouseEnabled()), "false 1 true",
+  "One line: Stats per Line free at once")
+ _, help, extras = M.Hover(f, perLine)
+ equal(extras, "Default: All.", "free: only its default in the footer")
+ said, refreshes = nil, 0
+ perLine.slider:SetValue(4)
+ equal(E.settings.statTrackerPerLine .. " " .. perLine.text:GetText() .. " " .. refreshes .. " " .. tostring(said), "4 Stats per Line: 4 1 nil",
+  "a move: saved, the panel at once, no chat line")
+ perLine.slider:SetValue(1)
+ equal(E.settings.statTrackerPerLine .. " " .. perLine.text:GetText() .. " " .. refreshes, "1 Stats per Line: 1 2", "1: one stat a line")
+ perLine.slider:SetValue(0)
+ equal(E.settings.statTrackerPerLine, 1, "never fewer than 1")
+ perLine.slider:SetValue(99)
+ equal(E.settings.statTrackerPerLine .. " " .. perLine.text:GetText(), "16 Stats per Line: All", "never more than 16, which reads All")
+ perLine.slider:SetValue(4)
+ -- Back to a list: greyed again at once, its number kept for One line.
+ layout.buttons[1]:Click(); Flush()
+ equal(tostring(perLine.dependencyDisabled) .. " " .. perLine.alpha .. " " .. tostring(perLine.slider:IsMouseEnabled()) .. " " .. E.settings.statTrackerPerLine
+  .. " " .. perLine.text:GetText(), "true 0.45 false 4 Stats per Line: 4", "a list again: greyed at once, 4 kept")
+ -- Changed elsewhere (a /run): greyed or free when /era is next shown.
+ E.settings.statTrackerLayout = "line"
+ f:Hide(); f:Show(); Flush(); Open(f, "character")
+ equal(tostring(perLine.dependencyDisabled) .. " " .. perLine.text:GetText(), "false Stats per Line: 4", "One line set elsewhere: free when /era opens")
+ E.settings.statTrackerLayout = "list"
+ f:Hide(); f:Show(); Flush(); Open(f, "character")
+ equal(tostring(perLine.dependencyDisabled), "true", "and greyed again for a list")
+ -- A number it can't read (lost or broken): All, nothing saved over it.
+ E.settings.statTrackerPerLine = "big"
+ perLine:SetChecked()
+ equal(perLine.text:GetText() .. " " .. E.settings.statTrackerPerLine, "Stats per Line: All big", "Stats per Line unreadable: All, left as it was")
+ E.settings.statTrackerPerLine = 16
+ perLine:SetChecked()
+ -- Stat Name Colour: Match look, Gold, Class, White or Custom, a click each, at once.
+ local colours = {}
+ for i, button in ipairs(names.buttons) do colours[i] = button.label:GetText() end
+ equal(names.rowKind .. " " .. names.labelText .. " " .. table.concat(colours, "/") .. " " .. names.selected .. " " .. tostring(swatch:IsShown()),
+  "choice Stat Name Colour Match look/Gold/Class/White/Custom 1 false", "Stat Name Colour: five choices, Match look chosen, no colour row")
+ for i, button in ipairs(names.buttons) do
+  equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= names:GetRight() + .01, true, colours[i] .. " fits its button, in the row")
+  if i > 1 then equal(names.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, colours[i - 1] .. " clear of " .. colours[i]) end
+ end
+ equal(names.text:GetLeft() + M.Glyphs(names.text:GetText(), 13) <= names.buttons[1]:GetLeft() - 4, true, "Stat Name Colour clears its first choice")
+ for _, want in ipairs({{2, "gold", "names in gold."}, {3, "class", "names in your class colour."}, {4, "white", "names in white."}, {1, "auto", "names match the look."}}) do
+  refreshes = 0
+  names.buttons[want[1]]:Click(); Flush()
+  equal(E.settings.statTrackerNameColour .. " " .. names.selected .. " " .. refreshes .. " " .. said .. " " .. tostring(swatch:IsShown()),
+   want[2] .. " " .. want[1] .. " 1 Stat Tracker: " .. want[3] .. " false", colours[want[1]] .. " saved, shown at once, said, no colour row")
+ end
+ -- Custom: the picker opens at the custom colour, and its row opens under the choice.
+ local picker
+ ColorPickerFrame = {SetupColorPickerAndShow = function(_, info) picker = info end, GetColorRGB = function() return .2, .4, 1 end}
+ names.buttons[3]:Click(); Flush()
+ refreshes = 0
+ names.buttons[5]:Click(); Flush()
+ equal(E.settings.statTrackerNameColour .. " " .. names.selected .. " " .. refreshes .. " " .. said, "custom 5 1 Stat Tracker: names in your own colour.",
+  "Custom chosen, shown at once, said")
+ equal(picker ~= nil and string.format("%.3f,%.3f,%.3f %s", picker.r, picker.g, picker.b, tostring(picker.hasOpacity)), "1.000,0.820,0.000 false",
+  "the colour picker opens at once, at the custom colour (gold), no opacity")
+ equal(Keys(f):find("statTrackerNameColour,statTrackerNameCustomColour,statTrackerStrength", 1, true) ~= nil, true, "Custom Stat Name Colour opens under the choice at once")
+ equal(swatch.rowKind .. " " .. swatch.labelText .. " " .. swatch.depth .. " " .. tostring(swatch.connV:IsShown()) .. " " .. Colour(swatch.swatch.fill),
+  "colour Custom Stat Name Colour 1 true 1.000,0.820,0.000", "a colour row under the choice, its swatch the gold")
+ M.NoOverlaps(f, "Custom Stat Name Colour"); M.Fits(f, "Custom Stat Name Colour")
+ M.SubOptionsFollow(f, "Custom Stat Name Colour", ParentOf(E))
+ picker.swatchFunc(); Flush()
+ equal(E.settings.statTrackerNameCustomColour .. " " .. E.settings.statTrackerNameColour .. " " .. refreshes .. " " .. Colour(swatch.swatch.fill),
+  "3366FF custom 2 0.200,0.400,1.000", "the picked colour saved as hex, shown at once, the swatch shows it")
+ _, help, extras = M.Hover(f, swatch)
+ equal(help .. " | " .. extras, "Custom Stat Name Colour  Click to pick the colour of the stat names. | Default: gold.", "the colour row's words and default")
+ picker.cancelFunc(); Flush()
+ equal(E.settings.statTrackerNameCustomColour .. " " .. E.settings.statTrackerNameColour .. " " .. names.selected .. " " .. tostring(swatch:IsShown()),
+  "FFD100 class 3 false", "cancel puts back the colour and the choice from before, and folds the row away")
+ -- The row's own click opens the picker again; a cancel keeps Custom.
+ names.buttons[5]:Click(); Flush()
+ picker.swatchFunc(); Flush()
+ picker = nil
+ swatch:Click(); Flush()
+ equal(picker ~= nil and string.format("%.3f,%.3f,%.3f", picker.r, picker.g, picker.b), "0.200,0.400,1.000", "the row's click opens the picker at the colour picked")
+ ColorPickerFrame.GetColorRGB = function() return 1, .5, 0 end
+ picker.swatchFunc(); Flush()
+ equal(E.settings.statTrackerNameCustomColour, "FF8000", "a new colour picked")
+ picker.cancelFunc(); Flush()
+ equal(E.settings.statTrackerNameCustomColour .. " " .. E.settings.statTrackerNameColour .. " " .. tostring(swatch:IsShown()), "3366FF custom true",
+  "cancel: the colour before, still Custom")
+ -- A jump to the colour row, folded under Gold, lands on Stat Name Colour.
+ names.buttons[2]:Click(); Flush()
+ equal(f:JumpTo("statTrackerNameCustomColour"), names, "a jump to Custom Stat Name Colour, folded: Stat Name Colour")
+ Open(f, "character")
+ -- Without the game's picker Custom is still chosen.
+ ColorPickerFrame = nil
+ names.buttons[5]:Click(); Flush()
+ equal(E.settings.statTrackerNameColour, "custom", "no picker: Custom chosen all the same")
+ names.buttons[1]:Click(); Flush()
+ E.settings.statTrackerNameCustomColour = "FFD100"
+ -- Changed elsewhere (a profile, a /run): each choice row shows the saved
+ -- choice again when it's next shown.
+ E.settings.statTrackerLayout, E.settings.statTrackerShow, E.settings.statTrackerNameColour = "line", "calm", "white"
+ for _, row in ipairs({layout, show, names}) do row:Hide(); row:Show() end
+ equal(layout.selected .. " " .. show.selected .. " " .. names.selected, "2 3 4", "Layout, Show It and Stat Name Colour show the saved choice again when shown")
+ E.settings.statTrackerLayout, E.settings.statTrackerShow, E.settings.statTrackerNameColour = "list", "always", "auto"
+ for _, row in ipairs({layout, show, names}) do row:Hide(); row:Show() end
+ -- A size it can't read (lost or broken): the slider shows 100%, nothing saved over it.
+ E.settings.statTrackerScale = "big"
+ size:SetChecked()
+ equal(size.text:GetText() .. " " .. E.settings.statTrackerScale, "Panel Size: 100% big", "Panel Size unreadable: 100%, left as it was")
+ E.settings.statTrackerScale = 100
+ size:SetChecked()
+ -- The footer: what each does and its default.
+ _, help, extras = M.Hover(f, layout)
+ equal(Has(help, "List puts each stat") and extras == "Default: List.", true, "Layout's words and default: " .. extras)
+ _, help, extras = M.Hover(f, show)
+ equal(Has(help, "only in a fight") and extras == "Default: Always.", true, "Show It's words and default: " .. extras)
+ _, help, extras = M.Hover(f, gains)
+ equal(Has(help, "five seconds") and extras == "Default: On.", true, "Gains in Green: how long, on by default")
+ _, help, extras = M.Hover(f, size)
+ equal(help .. " | " .. extras, "Panel Size  How big the panel is, from 50% to 150%, as a list or on one line. It stays where you put it. | Default: 100%.",
+  "Panel Size's words and default")
+ _, help, extras = M.Hover(f, names)
+ equal(help .. " | " .. extras, "Stat Name Colour  The colour of the stat names. Match look: gold in Classic, grey in Dark Mode. The numbers keep theirs, green when they go up."
+  .. " | Default: Match look.", "Stat Name Colour's words and default")
+ equal(M.LinesIn(help, 570, 12) <= 2, true, "two footer lines at most")
+ _, help, extras = M.Hover(f, f.checks.statTrackerSpeed)
+ equal(Has(help, "Standing still or swimming doesn't change it.") and extras == "Default: On.", true, "Speed: run speed, not movement or swimming; ticked by default")
+ _, help, extras = M.Hover(f, f.checks.statTrackerStrength)
+ equal(extras, "Default: Off.", "Strength unticked by default")
+ -- EraUI's own words spell it armour (the stat's name is the game's Armor).
+ _, help = M.Hover(f, f.checks.statTrackerArmor)
+ equal(Has(help, "Your armour, gear and buffs included.") and not Has(help:lower(), "your armor"), true, "Armor's words in British spelling: " .. help)
+ -- Off again: everything after the switch folds away.
+ tracker:Click(); Flush()
+ equal(tostring(E.settings.statTracker) .. " " .. tostring(said), "false Stat Tracker disabled.", "off again, said")
+ equal(Keys(f):find("statTrackerLayout", 1, true) == nil and Keys(f):find("statTrackerSpeed", 1, true) == nil and tracker:IsShown(), true, "its rows fold away; the switch stays")
+ -- Search finds them folded; a jump to one lands on the switch.
+ local found = M.Results(f, "stat tracker")
+ equal(#found, 25, "searching stat tracker finds its switch, its eight options and its sixteen ticks")
+ equal(table.concat(M.Results(f, "panel size"), ","), "statTrackerScale", "panel size finds Panel Size")
+ for _, query in ipairs({"stats per line", "per line", "rows", "wrap", "columns", "stat grid"}) do
+  equal(Has(table.concat(M.Results(f, query), ","), "statTrackerPerLine"), true, query .. " finds Stats per Line, folded")
+ end
+ for _, query in ipairs({"stat name colour", "stat name color", "stat words", "stat labels"}) do
+  equal(table.concat(M.Results(f, query), ","), "statTrackerNameColour,statTrackerNameCustomColour", query .. " finds Stat Name Colour and its colour row, folded")
+ end
+ for _, query in ipairs({"name colour gold", "stats class colour", "stats white"}) do
+  equal(Has(table.concat(M.Results(f, query), ","), "statTrackerNameColour"), true, query .. " finds Stat Name Colour")
+ end
+ equal(Has(table.concat(M.Results(f, "durability"), ","), "statTrackerDurability") and Has(table.concat(M.Results(f, "durability"), ","), "durabilityWarning"), true,
+  "durability finds the tracker's tick and the low durability warning")
+ equal(table.concat(M.Results(f, "agility"), ","), "statTrackerAgility", "agility finds its tick")
+ local armour = {}
+ for _, key in ipairs(M.Results(f, "armour")) do armour[key] = true end
+ equal(tostring(armour.statTrackerArmor) .. " " .. tostring(armour.statTracker), "true true", "armour finds the Armor tick and the Stat Tracker")
+ equal(Has(table.concat(M.Results(f, "stats"), ","), "statTracker"), true, "stats finds the Stat Tracker")
+ f.searchBox:SetText(""); Flush()
+ equal(f:JumpTo("statTrackerSpeed"), tracker, "a jump to a folded tick lands on Stat Tracker")
+ equal(f:JumpTo("statTrackerShow"), tracker, "and to a folded choice")
+ equal(f:JumpTo("statTrackerScale"), tracker, "and to Panel Size")
+ equal(f:JumpTo("statTrackerPerLine"), tracker, "and to Stats per Line")
+ E.settings.statTrackerNameColour = "custom"
+ equal(f:JumpTo("statTrackerNameCustomColour"), tracker, "and to Custom Stat Name Colour, with Custom chosen but the tracker off")
+ equal(tostring(swatch:IsShown()) .. " " .. tostring(names:IsShown()), "false false", "Custom chosen, the tracker off: its colour row folded away with the rest")
+ E.settings.statTrackerNameColour = "auto"
+ E.Status = say
+ for key in pairs(defaults) do if key:find("^statTracker") then E.settings[key] = nil end end
+ E.modules.StatTracker = nil
 end
 print("Settings layout/combat checks passed: " .. M.checks .. " assertions.")

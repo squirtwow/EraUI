@@ -38,6 +38,24 @@ local function Busy()
     return true
 end
 
+-- Thick Frames (Classic/ThickFrames.lua, Appearance > Style > Frame Style):
+-- each frame is placed in the Classic look below as before, then wears the
+-- thick look when it's wanted (or takes it off). The keepers that run every
+-- pass, in fights too, follow the look a frame already wears, so a switch
+-- that waits for a fight's end never leaves a frame half in each. Without
+-- that file nothing here changes.
+local function ThickWanted(kind)
+    local thick = ns.Thick
+    return thick ~= nil and thick.Want(kind) and thick or nil
+end
+local function ThickWorn(frame)
+    local thick = ns.Thick
+    return thick ~= nil and thick.Worn(frame) and thick or nil
+end
+local function ThickOff(frame)
+    if ns.Thick and frame then ns.Thick.Off(frame) end
+end
+
 -- Hide Aggro Highlight: the threat flash and your status glow (red in a
 -- fight, gold while resting) stay hidden on the player, target, focus and pet
 -- frames whatever the game does with them later: it shows them again and
@@ -294,13 +312,16 @@ KeepAuraRow = function(frame)
     local auras = frame.GetAuraContainer and frame:GetAuraContainer()
     local art = frame.TargetFrameContainer and frame.TargetFrameContainer.FrameTexture
     if not auras or not art then return end
+    -- Under a thick frame's plate (Thick Frames) the row starts lower.
+    local thick = ThickWorn(frame)
+    local wantY = thick and thick.AURA_Y or AURA_Y
     local point, relativeTo, relativePoint, x, y = auras:GetPoint(1)
     local hidden = issecretvalue and (issecretvalue(point) or issecretvalue(x) or issecretvalue(y) or issecretvalue(relativePoint))
     if not hidden and point == "TOPLEFT" and relativeTo == art and relativePoint == "BOTTOMLEFT"
-        and math.abs((x or 0) - AURA_X) < 0.5 and math.abs((y or 0) - AURA_Y) < 0.5 then
+        and math.abs((x or 0) - AURA_X) < 0.5 and math.abs((y or 0) - wantY) < 0.5 then
         return
     end
-    ns.SetPointOnce(auras, "TOPLEFT", art, "BOTTOMLEFT", AURA_X, AURA_Y)
+    ns.SetPointOnce(auras, "TOPLEFT", art, "BOTTOMLEFT", AURA_X, wantY)
 end
 
 PlayerArt = function()
@@ -576,6 +597,8 @@ local function SkinPlayer()
     if contextual.GroupIndicator then
         ns.SetPointOnce(contextual.GroupIndicator, "BOTTOMLEFT", frame, "TOPLEFT", 97, -20)
     end
+    local thick = ThickWanted("player")
+    if thick then thick.Player(frame, host, health, power, bg, rest, attack) else ThickOff(frame) end
 
     frames.player = { unit = "player", frame = frame, health = health, power = power }
     Keeper("player.anchors", KeepPlayerAnchors)
@@ -586,8 +609,13 @@ KeepPlayerAnchors = function()
     if not active or not On("player") then return end
     local host = Mine(PlayerFrame, "host")
     if not host then return end
-    if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
-    if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
+    local thick = ThickWorn(PlayerFrame)
+    if thick then
+        thick.KeepPlayer(PlayerFrame)
+    else
+        if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
+        if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
+    end
     KeepPlayerLevelColour()
     if PlayerName then
         -- The client can blank the player's own name or show "Unknown", and
@@ -666,7 +694,9 @@ local function PlaceTot(frame)
     if frame.smallSize and math.abs(tot:GetScale() - 1) > 0.01 then tot:SetScale(1) end
     local scale = tot:GetScale()
     if not scale or scale <= 0 then scale = 1 end
-    local wantX, wantY = TOT_X / scale, TOT_Y / scale
+    -- Under a thick frame (Thick Frames) it sits clear of the level's pill.
+    local thick = ThickWorn(frame)
+    local wantX, wantY = TOT_X / scale, (thick and thick.TOT_Y or TOT_Y) / scale
     local point, relativeTo, relativePoint, x, y = tot:GetPoint(1)
     if tot:GetNumPoints() == 1 and point == "TOPLEFT" and relativeTo == frame and relativePoint == "TOPLEFT"
         and math.abs((x or 0) - wantX) < 0.5 and math.abs((y or 0) - wantY) < 0.5 then
@@ -784,7 +814,10 @@ local function SkinTarget(frame, unit)
         main.Name:SetJustifyH("CENTER")
         ns.SetPointOnce(main.Name, "TOPLEFT", host, "TOPLEFT", 36, -30)
     end
-    if main.ReputationColor then
+    -- Thick Frames makes it an underline (its Classic backing isn't put on
+    -- first: in Dark Mode that would grey the game's reaction colour).
+    local thick = ThickWanted(unit)
+    if main.ReputationColor and not thick then
         ns.SetTex(main.ReputationColor, "levelBackground")
         main.ReputationColor:SetTexCoord(0, 1, 0, 1)
         main.ReputationColor:SetSize(BAR_W, 19)
@@ -832,6 +865,7 @@ local function SkinTarget(frame, unit)
         ns.FadeCircles(main)
         OwnPvpIcon(frame, Mine(frame, "texts"), (self and self.unit) or unit, contextual.PvpIcon, "TOPRIGHT", 25, -22)
     end
+    if thick then thick.Target(frame, unit, host, health, power, bg) else ThickOff(frame) end
     frames[frame] = { unit = unit, frame = frame, health = health, power = power, bg = bg }
     Update(frames[frame])
 
@@ -865,8 +899,10 @@ local function SkinTarget(frame, unit)
                 end
             end
         end
+        local thick = ThickWorn(frame)
+        if thick then thick.KeepTarget(frame, currentUnit, Mine(frame, "lastClassification")) end
         if main and main.LevelText and host then
-            ns.SetPointOnce(main.LevelText, "CENTER", host, "TOPLEFT", 198, -71)
+            if not thick then ns.SetPointOnce(main.LevelText, "CENTER", host, "TOPLEFT", 198, -71) end
             local skull = ns.SkullLevel(UnitLevel(frame.unit or unit), frame.unit or unit)
             main.LevelText:SetShown(not skull)
             if contextual and contextual.HighLevelTexture then
@@ -883,7 +919,10 @@ local function SkinTarget(frame, unit)
             -- rewrite them, and unlike player/target they had no keeper.
             local holder = Mine(tot, "artHolder")
             local totArt = holder and ns.OwnTexture(holder, "art", "ARTWORK")
-            if totArt then
+            local totThick = ThickWorn(tot)
+            if totThick then
+                totThick.KeepTot(tot)
+            elseif totArt then
                 ns.SetTex(totArt, "targetOfTarget")
                 totArt:SetTexCoord(0.015625, 0.7265625, 0, 0.703125)
                 totArt:SetSize(93, 45)
@@ -977,6 +1016,8 @@ local function SkinTarget(frame, unit)
                 if debuff then ns.SetPointOnce(debuff, "TOPLEFT", tot, "TOPRIGHT", spots[i][1], spots[i][2]) end
             end
         end
+        local totThick = ThickWanted("tot")
+        if thick and totThick then totThick.Tot(tot, totArt, totBg, totHealth, totPower) else ThickOff(tot) end
     end
 end
 
@@ -1025,6 +1066,8 @@ local function SkinPet()
         ns.SetPointOnce(PetAttackModeTexture, "TOPLEFT", frame, "TOPLEFT", 6, -9)
     end
     if PetHitIndicator then ns.SetPointOnce(PetHitIndicator, "CENTER", frame, "TOPLEFT", 28, -27) end
+    local thick = ThickWanted("pet")
+    if thick then thick.Pet(frame) else ThickOff(frame) end
 end
 
 local function PetArtUndone()
@@ -1121,6 +1164,8 @@ local function SkinPartyMember(frame)
         frame.Flash:SetDrawLayer("BACKGROUND", 0)
     end
     if frame.Name then ns.SetPointOnce(frame.Name, "TOPLEFT", frame, "TOPLEFT", 49, -7) end
+    local thick = ThickWanted("party")
+    if thick then thick.Party(frame, host, health, power, bg) else ThickOff(frame) end
 end
 
 SkinParty = function()
@@ -1157,7 +1202,12 @@ local function KeepParty()
             tex:SetSize(128, 64)
             ns.SetPointOnce(tex, "TOPLEFT", frame, "TOPLEFT", 0, -10)
             if frame.Portrait then ns.SetPointOnce(frame.Portrait, "TOPLEFT", frame, "TOPLEFT", 7, -14) end
-            if frame.Name then ns.SetPointOnce(frame.Name, "TOPLEFT", frame, "TOPLEFT", 49, -7) end
+            local thick = ThickWorn(frame)
+            if thick then
+                thick.KeepParty(frame)
+            elseif frame.Name then
+                ns.SetPointOnce(frame.Name, "TOPLEFT", frame, "TOPLEFT", 49, -7)
+            end
             if frame.Flash then
                 ns.SetTex(frame.Flash, "partyFlash")
                 frame.Flash:SetTexCoord(0, 1, 0, 1)
@@ -1273,6 +1323,7 @@ RestorePlayer = function()
     frames.player = nil
     HideOwnPvp(PlayerFrame)
     ns.Unfade(ns.Path(PlayerFrame, "PlayerFrameContent", "PlayerFrameContentContextual", "PVPIcon"))
+    ThickOff(PlayerFrame)
     HideHost(PlayerFrame)
     local pmain = ns.Path(PlayerFrame, "PlayerFrameContent", "PlayerFrameContentMain")
     if pmain then
@@ -1287,6 +1338,7 @@ RestoreTargetLike = function(frame)
     frames[frame] = nil
     HideOwnPvp(frame)
     ns.Unfade(ns.Path(frame, "TargetFrameContent", "TargetFrameContentContextual", "PvpIcon"))
+    ThickOff(frame)
     HideHost(frame)
     local main = ns.Path(frame, "TargetFrameContent", "TargetFrameContentMain")
     if main then
@@ -1294,6 +1346,7 @@ RestoreTargetLike = function(frame)
         ns.Unfade(main.ManaBar)
     end
     local tot = frame.totFrame
+    ThickOff(tot)
     local totOwn = tot and own[tot]
     if totOwn then
         if totOwn.artHolder then totOwn.artHolder:Hide() end
@@ -1310,6 +1363,7 @@ RestoreParty = function()
     if not pool then return end
     for frame in pool:EnumerateActive() do
         frames[frame] = nil
+        ThickOff(frame)
         HideHost(frame)
         ns.Unfade(frame.HealthBarContainer)
         ns.Unfade(frame.ManaBar)
@@ -1435,7 +1489,7 @@ local function Apply()
         if EraUI:GetSetting("matchFocusSize") and FocusFrame and TargetFrame and not Busy() then MatchFocusSize() end
         SkinTarget(FocusFrame, "focus")
     else RestoreTargetLike(FocusFrame) end
-    if On("pet") then SkinPet() end
+    if On("pet") then SkinPet() else ThickOff(PetFrame) end
     if On("party") then SkinParty() else RestoreParty() end
     SkinRaidManager()
     for _, name in ipairs({ "PlayerFrame", "TargetFrame", "FocusFrame", "PetFrame" }) do
@@ -1450,10 +1504,21 @@ local function Restore()
     RestoreTargetLike(TargetFrame)
     RestoreTargetLike(FocusFrame)
     RestoreParty()
+    ThickOff(PetFrame)
     ns.needsReload = true
 end
 
 ns.RegisterModule("unitFrames", { apply = Apply, restore = Restore })
+
+-- Thick Frames or one of its ticks switched in /era (Core/Settings.lua):
+-- every frame takes its new look at once through the usual pass. In a fight
+-- the pass waits for its end (it moves protected frames) and this says so.
+function ns.RefreshThickFrames()
+    if not active then return true end
+    if Busy() then return false end
+    Apply()
+    return true
+end
 
 local arrowHidden = false
 local arrowWatch

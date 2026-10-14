@@ -184,6 +184,48 @@ P:Apply("classic")
 Equal(saved.roundedCastBars, true, "the Classic look keeps a switched-on Rounded Cast Bars")
 saved.roundedCastBars = nil
 Equal(P:Current(), "classic", "and off, still the Classic look")
+-- Thick Frames is one too. Its two ticks and its Edge choice are not: they
+-- do nothing while it's off, so both presets leave them as chosen.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do
+    if key == "thickFrames" then inExtras = true end
+    Equal(key ~= "thickFrameRings" and key ~= "thickFrameParty" and key ~= "thickFrameEdge", true,
+        "Thick Frames' ticks and Edge are no optional look of their own (" .. key .. ")")
+end
+Equal(inExtras, true, "Thick Frames is an optional look")
+saved.thickFrames, saved.thickFrameRings, saved.thickFrameParty, saved.thickFrameEdge = true, true, true, "class"
+Equal(P:Changes("classic").thickFrames, nil, "the Classic look leaves Thick Frames alone")
+Equal(P:Changes("qol").thickFrames, false, "Quality of Life only switches Thick Frames off")
+Equal(tostring(P:Changes("qol").thickFrameEdge) .. " " .. tostring(P:Changes("classic").thickFrameEdge), "nil nil", "neither touches Edge")
+P:Apply("qol")
+Equal(tostring(saved.thickFrames) .. " " .. tostring(saved.thickFrameRings) .. " " .. tostring(saved.thickFrameParty) .. " " .. tostring(saved.thickFrameEdge),
+    "false true true class", "Thick Frames off after Quality of Life only, its ticks and Edge kept for next time")
+P:Apply("classic")
+Equal(saved.thickFrames, false, "Thick Frames stays as chosen after the Classic look")
+saved.thickFrames = true
+Equal(P:Current(), "classic", "Thick Frames on is still the Classic look")
+P:Apply("classic")
+Equal(tostring(saved.thickFrames) .. " " .. tostring(saved.thickFrameRings) .. " " .. tostring(saved.thickFrameParty) .. " " .. tostring(saved.thickFrameEdge),
+    "true true true class", "the Classic look keeps a switched-on Thick Frames, its ticks and Edge")
+saved.thickFrames, saved.thickFrameRings, saved.thickFrameParty, saved.thickFrameEdge = nil, nil, nil, nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
+-- The Raid-style Party Outline is one too: it shows in Classic or Dark Mode.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "partyOutline" then inExtras = true end end
+Equal(inExtras, true, "the Raid-style Party Outline is an optional look")
+saved.partyOutline = true
+Equal(P:Changes("classic").partyOutline, nil, "the Classic look leaves the Raid-style Party Outline alone")
+Equal(P:Changes("qol").partyOutline, false, "Quality of Life only switches the Raid-style Party Outline off")
+P:Apply("qol")
+Equal(saved.partyOutline, false, "the Raid-style Party Outline off after Quality of Life only")
+P:Apply("classic")
+Equal(saved.partyOutline, false, "the Raid-style Party Outline stays as chosen after the Classic look")
+saved.partyOutline = true
+Equal(P:Current(), "classic", "the Raid-style Party Outline on is still the Classic look")
+P:Apply("classic")
+Equal(saved.partyOutline, true, "the Classic look keeps a switched-on Raid-style Party Outline")
+saved.partyOutline = nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")
@@ -196,6 +238,65 @@ Equal(saved.darkAuraBorders, false, "a switched-off Dark Aura Borders stays off 
 Equal(saved.darkAuraShadows, false, "a switched-off Aura Shadows stays off through presets")
 saved.darkAuraBorders = true
 saved.darkAuraShadows = true
+-- Dark Bag Buttons only shows in Dark Mode too: presets leave it alone, on
+-- or off, and it never changes which preset you're on.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkBagButtons" then inExtras = true end end
+Equal(inExtras, false, "Dark Bag Buttons is not an optional look")
+for _, value in ipairs({ true, false }) do
+    saved.darkBagButtons = value
+    Equal(P:Changes("qol").darkBagButtons, nil, "Quality of Life only leaves Dark Bag Buttons alone (" .. tostring(value) .. ")")
+    Equal(P:Changes("classic").darkBagButtons, nil, "the Classic look leaves Dark Bag Buttons alone (" .. tostring(value) .. ")")
+    P:Apply("qol")
+    Equal(saved.darkBagButtons, value, "Dark Bag Buttons kept after Quality of Life only (" .. tostring(value) .. ")")
+    P:Apply("classic")
+    Equal(saved.darkBagButtons, value, "and after the Classic look (" .. tostring(value) .. ")")
+    Equal(P:Current(), "classic", "Dark Bag Buttons never changes the preset (" .. tostring(value) .. ")")
+end
+saved.darkBagButtons = nil
+-- Upgrade Spell Ranks is a quality-of-life choice, not a look: presets leave
+-- it alone, on or off, and it never changes which preset you're on.
+for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do
+    for _, key in ipairs(list) do Equal(key ~= "upgradeSpellRanks", true, "Upgrade Spell Ranks is not a look") end
+end
+for _, value in ipairs({ true, false }) do
+    saved.upgradeSpellRanks = value
+    Equal(P:Changes("qol").upgradeSpellRanks, nil, "Quality of Life only leaves Upgrade Spell Ranks alone (" .. tostring(value) .. ")")
+    Equal(P:Changes("classic").upgradeSpellRanks, nil, "the Classic look leaves Upgrade Spell Ranks alone (" .. tostring(value) .. ")")
+    P:Apply("qol")
+    Equal(saved.upgradeSpellRanks, value, "Upgrade Spell Ranks kept after Quality of Life only (" .. tostring(value) .. ")")
+    P:Apply("classic")
+    Equal(saved.upgradeSpellRanks, value, "and after the Classic look (" .. tostring(value) .. ")")
+    Equal(P:Current(), "classic", "Upgrade Spell Ranks never changes the preset (" .. tostring(value) .. ")")
+end
+saved.upgradeSpellRanks = nil
+-- The Stat Tracker is a quality-of-life choice too, with its own look in
+-- Classic or Dark Mode: presets leave it, its choices and its ticks alone,
+-- on or off, and it never changes which preset you're on.
+local STAT_KEYS = { "statTracker", "statTrackerLayout", "statTrackerShow", "statTrackerGains", "statTrackerTitle", "statTrackerAgility",
+    "statTrackerStrength", "statTrackerScale", "statTrackerNameColour", "statTrackerNameCustomColour", "statTrackerPerLine" }
+for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do
+    for _, key in ipairs(list) do Equal(key:find("^statTracker"), nil, "no Stat Tracker setting is a look (" .. key .. ")") end
+end
+for _, value in ipairs({ true, false }) do
+    saved.statTracker, saved.statTrackerGains, saved.statTrackerTitle = value, value, value
+    saved.statTrackerAgility, saved.statTrackerStrength = value, not value
+    saved.statTrackerLayout, saved.statTrackerShow = value and "line" or "list", value and "combat" or "calm"
+    saved.statTrackerScale, saved.statTrackerNameColour = value and 60 or 140, value and "custom" or "class"
+    saved.statTrackerNameCustomColour = value and "3366FF" or "FF8000"
+    saved.statTrackerPerLine = value and 4 or 1
+    local before = {}
+    for _, key in ipairs(STAT_KEYS) do before[key] = saved[key] end
+    for _, key in ipairs(STAT_KEYS) do
+        Equal(P:Changes("qol")[key], nil, "Quality of Life only leaves " .. key .. " alone (" .. tostring(value) .. ")")
+        Equal(P:Changes("classic")[key], nil, "the Classic look leaves " .. key .. " alone (" .. tostring(value) .. ")")
+    end
+    P:Apply("qol")
+    P:Apply("classic")
+    for _, key in ipairs(STAT_KEYS) do Equal(saved[key], before[key], key .. " kept through both presets (" .. tostring(value) .. ")") end
+    Equal(P:Current(), "classic", "the Stat Tracker never changes the preset (" .. tostring(value) .. ")")
+end
+for _, key in ipairs(STAT_KEYS) do saved[key] = nil end
 saved.questTrackerChoice = "questie"; saved.questTracker = false
 _, count = P:Changes("classic")
 Equal(count, 0, "the Classic look keeps Questie's tracker when it was chosen")

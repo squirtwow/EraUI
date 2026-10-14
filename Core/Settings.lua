@@ -21,10 +21,13 @@ local DEPENDS = {
     classColourBorders = {"darkMode", "unitFrames"}, gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
-    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode", darkWindows="darkMode",
-    blackPages="darkWindows", darkDebuffLines="darkAuraBorders",
+    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode", darkBagButtons="darkMode",
+    darkWindows="darkMode", blackPages="darkWindows", darkDebuffLines="darkAuraBorders",
     -- On Appearance > Style, its parent on Casting: greyed there, never indented.
     roundedCastBars="castBars",
+    -- Thick Frames the same with Unit Frames (Frames & Nameplates); its two
+    -- ticks and its Edge choice sit under it.
+    thickFrames="unitFrames", thickFrameRings="thickFrames", thickFrameParty="thickFrames", thickFrameEdge="thickFrames",
     -- Cast Bar Colour is a whole line of its own on Casting: greyed by Cast
     -- Bars, never indented under it (GroupParent).
     castBarColour="castBars", castBarCustomColour="castBars",
@@ -34,7 +37,7 @@ local DEPEND_NAMES = {
     advancedCastBar = "Advanced Cast Bar", spellbook = "Spellbook",
     unitFrames = "Unit Frames", actionBars = "Action Bars",
     afkScreen = "AFK Screen", darkMode = "Dark Mode", darkAuraBorders = "Dark Aura Borders",
-    darkWindows = "Dark Windows", castBars = "Cast Bars",
+    darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames",
 }
 -- The row each of those switches is on (Dark Mode is the Classic / Dark Mode choice).
 local DEPEND_ROWS = {darkMode = "appearanceChoice"}
@@ -54,6 +57,10 @@ local function MissingParent(key, depth)
         if EraUI:GetSavedSetting(parentKey) ~= true then return parentKey end
     end
 end
+-- Options that only work with one choice of another: greyed like the ones
+-- above until that choice is made, the footer saying which. Stats per Line
+-- only wraps the One line layout. {choice's key, the choice, the reason}
+local NEEDS_CHOICE = {statTrackerPerLine = {"statTrackerLayout", "line", "Set Layout to One line first."}}
 -- Options another addon takes over while it is loaded: greyed, can't be
 -- switched, and the row says what handles them now. The saved choice is
 -- kept for when that addon is gone (Core/Utils.lua). Squirt's nameplate addon
@@ -78,16 +85,31 @@ local FOLDS = {
     cursorTrailClassColour="cursorTrail", cursorTrailSize="cursorTrail", cursorTrailOpacity="cursorTrail",
     cursorTrailLength="cursorTrail", cursorTrailColour="cursorTrail",
     cleanMinimapStyle="cleanMinimap", minimapDrawerColumns="cleanMinimap",
-    castBarCustomColour="castBarColour",
+    castBarCustomColour="castBarColour", statTrackerNameCustomColour="statTrackerNameColour",
 }
 local FOLD_PARENTS = {}
 for _, parentKey in pairs(FOLDS) do FOLD_PARENTS[parentKey] = true end
 -- A folded option that also waits for a choice: the drawer's Icons per Row
 -- shows only with Clean Minimap's Drawer style, Custom Cast Bar Colour only
--- with Cast Bar Colour's Custom (folded under that choice row itself, so the
--- choice alone opens it).
-local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, castBarCustomColour = {"castBarColour", "custom"}}
+-- with Cast Bar Colour's Custom, Custom Stat Name Colour only with Stat Name
+-- Colour's Custom (folded under that choice row itself, so the choice alone
+-- opens it).
+local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, castBarCustomColour = {"castBarColour", "custom"},
+    statTrackerNameCustomColour = {"statTrackerNameColour", "custom"}}
+-- Shown only while their switch is on, like a fold, but each a row of its
+-- own, never indented under it (no layout parent): the Stat Tracker's
+-- options beside and under it, and its stat ticks two to a line under their
+-- group's heading. Custom Stat Name Colour waits for its switch too, then
+-- for its fold's choice.
+local SHOWN_WITH = {statTrackerLayout = "statTracker", statTrackerShow = "statTracker", statTrackerGains = "statTracker",
+    statTrackerTitle = "statTracker", statTrackerScale = "statTracker", statTrackerPerLine = "statTracker",
+    statTrackerNameColour = "statTracker", statTrackerNameCustomColour = "statTracker"}
+for _, stat in ipairs({"Strength", "Agility", "Stamina", "Intellect", "Spirit", "AttackPower", "Crit", "Hit", "SpellPower",
+    "SpellCrit", "Armor", "Dodge", "Parry", "Block", "Speed", "Durability"}) do
+    SHOWN_WITH["statTracker" .. stat] = "statTracker"
+end
 local function Folded(key)
+    if SHOWN_WITH[key] and EraUI:GetSavedSetting(SHOWN_WITH[key]) ~= true then return true end
     local parent = FOLDS[key]
     if parent == nil then return false end
     local choice = FOLD_CHOICES[key]
@@ -250,15 +272,46 @@ local settingHelp = {
     tooltipClassColours = "A player's tooltip border, name and class in their class colour, on EraUI's tooltips or the game's own. NPCs keep theirs.",
     bagItemLevels = "Item levels on the gear in your bags, in quality colours, with a green arrow on an upgrade over what you wear. Not the bank yet.",
     characterItemLevels = "Item levels on the gear you wear, in quality colours, in EraUI's character window or Blizzard's. They match Bag Item Levels.",
+    statTracker = "A small panel of the stats you tick, updating as buffs, gear and levels change them. Drag it anywhere; it stays on screen.",
+    statTrackerLayout = "List puts each stat on a line of its own. One line puts them all side by side in a single bar.",
+    statTrackerShow = "Always, only in a fight, or only out of one. While /era is open it always shows, so you can drag it into place.",
+    statTrackerGains = "A stat that goes up turns green, with how much it went up after it (like +138), for five seconds.",
+    statTrackerTitle = "A small \"Stats\" title over the list. One line has no title.",
+    statTrackerScale = "How big the panel is, from 50% to 150%, as a list or on one line. It stays where you put it.",
+    statTrackerPerLine = "For One line: how many stats go on each line, the rest in neat rows under it. All keeps them on one line.",
+    statTrackerNameColour = "The colour of the stat names. Match look: gold in Classic, grey in Dark Mode. The numbers keep theirs, green when they go up.",
+    statTrackerNameCustomColour = "Click to pick the colour of the stat names.",
+    statTrackerStrength = "Your strength, as your character window shows it: gear and buffs included.",
+    statTrackerAgility = "Your agility, as your character window shows it: gear and buffs included.",
+    statTrackerStamina = "Your stamina, as your character window shows it: gear and buffs included.",
+    statTrackerIntellect = "Your intellect, as your character window shows it: gear and buffs included.",
+    statTrackerSpirit = "Your spirit, as your character window shows it: gear and buffs included.",
+    statTrackerAttackPower = "Your attack power, melee or ranged, whichever is higher. A hunter sees ranged.",
+    statTrackerCrit = "Your chance to crit with melee or ranged attacks, whichever is higher.",
+    statTrackerHit = "Your hit bonus from gear and talents: the best of melee, ranged and spells, as your character window shows it.",
+    statTrackerSpellPower = "Your bonus spell damage, from your strongest school.",
+    statTrackerSpellCrit = "Your chance to crit with spells.",
+    statTrackerArmor = "Your armour, gear and buffs included.",
+    statTrackerDodge = "Your chance to dodge.",
+    statTrackerParry = "Your chance to parry. It stays at 0% until you can parry.",
+    statTrackerBlock = "Your chance to block. It stays at 0% without a shield.",
+    statTrackerSpeed = "Your run speed: 100% on foot, more with a mount or Sprint. Standing still or swimming doesn't change it.",
+    statTrackerDurability = "The average durability of the gear you wear.",
     darkAuraBorders = "Thin dark borders round your own buff and debuff icons. Debuffs keep their coloured border, or a thin line with Thin Debuff Colours.",
     darkAuraShadows = "A soft shadow round your own buff and debuff icons, just outside the dark border. It never covers the next icon.",
     darkDebuffLines = "Your debuffs get the dark border, with a thin line inside in the debuff's colour, like blue for magic. Target and focus keep theirs.",
     darkMenuBar = "Darkens the bronze frames behind the menu bar buttons with the Darkness slider. The icons keep their colours.",
+    darkBagButtons = "Your bag buttons' icons in a darker grey, all alike, instead of each bag's colours. An open bag shows a dark line, not a bright one.",
     darkWindows = "Darkens the red buttons, pop-ups, window edges and book pages Dark Mode left light, with the Darkness slider. Gold text stays gold.",
     blackPages = "Near black spellbook and Professions pages instead of Dark Windows' brown-grey. Names keep their gold and text stays readable.",
     flatBars = "A plain, even fill instead of Classic's shaded one on unit-frame and cast bars. Their colours stay. Works with Classic or Dark Mode.",
     thickAuraBorders = "Thick dark borders round your own buffs and debuffs, debuffs lined in their colour. Works with Classic or Dark Mode. Wins over the other aura borders.",
     roundedCastBars = "Thick, soft-cornered cast bars for you, your pet, target and focus: the spell icon in its own tile, its name left, the time right. Needs Cast Bars.",
+    thickFrames = "Thick dark frames with round corners and taller bars for you, your pet, target, focus and target of target. Elites get a gold mark. Needs Unit Frames.",
+    thickFrameRings = "A thick dark ring round each portrait on the thick frames; Edge below can line it in class colours. Off, the portraits sit on the frames without one.",
+    thickFrameEdge = "The thick frames' edges. Dark keeps them near black. Class colour adds a fine line round the frames and rings: yours, a player's in theirs, gold for elites.",
+    thickFrameParty = "Thick frames on EraUI's Classic-style party frames too, like your pet's. Raid-style party frames aren't changed.",
+    partyOutline = "Flat bars and one thick dark outline round the game's raid-style party frames. The outline shows while Edit Mode's Display Border is on.",
     advancedCastBar = "Your own cast bar with the spell icon, cast time and latency. A preview shows while /era is open; hover + on it to move or resize.",
     advancedCastClassFill = "A muted class colour instead of gold. Priests get dark silver so the text stays readable.",
     advancedCastTicks = "Marks each tick on channelled spells whose description gives the ticks. Not every channel does.",
@@ -292,6 +345,7 @@ local settingHelp = {
     updateCheck = "Tells you in chat when someone in your guild or group has a newer EraUI.",
     hideKeybindText = "Hides the key labels on your action buttons. Your keybinds still work. A change made in combat waits until it ends.",
     hideMacroText = "Hides macro names on your action buttons. A change made in combat waits until it ends.",
+    upgradeSpellRanks = "A new rank you learn replaces the rank it outgrew on your action bars, after any fight. Lower ranks you placed, macros and items stay.",
     matchFocusSize = "Your focus frame takes the target frame's size. Off, it keeps the game's own layout.",
     advancedCastLatency = "A red zone at the end of the bar, as long as your world latency. It shows whenever the cast's length can be read.",
     fastAutoLoot = "Takes all the loot at once, without the loot window. Not in combat; hold Shift to skip.",
@@ -345,7 +399,8 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- (Core/SettingsRows.lua), so its description doesn't have to.
 local EXPERIMENTAL = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true,
     characterItemLevels = true, flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true,
-    castBarColour = true}
+    thickFrames = true, thickFrameRings = true, thickFrameParty = true, thickFrameEdge = true, partyOutline = true,
+    castBarColour = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -354,8 +409,15 @@ local function DefaultText(key)
     if key == "presets" or key == "rewardProfile" or key == "classTools" or key:find("^more") then return nil end
     if key == "appearanceChoice" then return "Default: Classic." end
     if key == "cleanMinimapStyle" then return "Default: Hover." end
+    if key == "thickFrameEdge" then return "Default: Dark." end
     if key == "castBarColour" then return "Default: Match look." end
     if key == "castBarCustomColour" then return "Default: light grey." end
+    if key == "statTrackerLayout" then return "Default: List." end
+    if key == "statTrackerShow" then return "Default: Always." end
+    if key == "statTrackerScale" then return "Default: 100%." end
+    if key == "statTrackerPerLine" then return "Default: All." end
+    if key == "statTrackerNameColour" then return "Default: Match look." end
+    if key == "statTrackerNameCustomColour" then return "Default: gold." end
     if key == "showAllSpellRanks" or (EraUI.cvarSettings and EraUI.cvarSettings[key]) then
         return "Default: keep your existing game preference."
     end
@@ -384,7 +446,9 @@ local function Describe(frame, row)
     help = help or settingHelp[HELP_KEY[key] or key] or row.summary or ""
     local extras = {}
     if row.unavailable then extras[#extras + 1] = "Coming soon: not finished yet." end
-    if row.dependencyDisabled then
+    if row.dependencyDisabled and NEEDS_CHOICE[key] then
+        extras[#extras + 1] = NEEDS_CHOICE[key][3]
+    elseif row.dependencyDisabled then
         local missing = MissingParent(key) or Parents(key)[1]
         local where = ""
         local home = frame.rowHome and frame.rowHome[DEPEND_ROWS[missing] or missing]
@@ -471,14 +535,16 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             else EraUI:Status("AFK Screen: "..label..(value and " enabled." or " disabled.")) end
             return
         end
-        -- Dark Menu Bar, Dark Windows and Black Pages repaint at once
-        -- (Classic/BarSkins.lua, Core/Appearance.lua), through EraUI.Classic:
-        -- this file has no ns.
-        if key=="darkMenuBar" or key=="darkWindows" or key=="blackPages" then
+        -- Dark Menu Bar, Dark Bag Buttons, Dark Windows and Black Pages
+        -- repaint at once (Classic/BarSkins.lua, Core/Appearance.lua),
+        -- through EraUI.Classic: this file has no ns.
+        if key=="darkMenuBar" or key=="darkBagButtons" or key=="darkWindows" or key=="blackPages" then
             local classic=EraUI.Classic or {}
-            local refresh=classic[key=="darkMenuBar" and "RefreshDarkMenuBar" or "RefreshDarkWindows"]
+            local refresh=classic[key=="darkMenuBar" and "RefreshDarkMenuBar" or key=="darkBagButtons" and "RefreshDarkBagButtons"
+                or "RefreshDarkWindows"]
             if refresh then refresh() end
-            local name=key=="darkMenuBar" and "Dark Menu Bar " or key=="darkWindows" and "Dark Windows " or "Black Pages "
+            local name=key=="darkMenuBar" and "Dark Menu Bar " or key=="darkBagButtons" and "Dark Bag Buttons "
+                or key=="darkWindows" and "Dark Windows " or "Black Pages "
             local later=key=="darkMenuBar" and " It shows once Dark Mode is applied." or " They show once Dark Mode is applied."
             EraUI:Status(name..(value and "enabled." or "disabled.")..(value and not EraUI:GetSetting("darkMode") and later or ""))
             return
@@ -511,6 +577,51 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if EraUI.modules.AdvancedCastBar then EraUI.modules.AdvancedCastBar:Refresh() end
             if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:Refresh() end
             EraUI:Status("Rounded Cast Bars "..(value and "enabled." or "disabled.")..(done and "" or " Some bars change when combat ends."))
+            return
+        end
+        -- Thick Frames and its two ticks: the unit frames take their new look
+        -- at once (Classic/UnitFrames.lua); in a fight it waits for the end.
+        if key=="thickFrames" or key=="thickFrameRings" or key=="thickFrameParty" then
+            local classic=EraUI.Classic or {}
+            local done=true
+            if classic.RefreshThickFrames then done=classic.RefreshThickFrames()~=false end
+            local name=key=="thickFrames" and "Thick Frames " or "Thick Frames: "..label.." "
+            EraUI:Status(name..(value and "enabled." or "disabled.")..(done and "" or " Some frames change when combat ends."))
+            return
+        end
+        -- Raid-style Party Outline: the game's raid-style party frames take
+        -- the look at once (Classic/PartyOutline.lua); in a fight it waits.
+        -- Switched on, chat says where it shows, or that Forever Enhanced
+        -- Raid Frames has the party.
+        if key=="partyOutline" then
+            local classic=EraUI.Classic or {}
+            local done=true
+            if classic.RefreshPartyOutline then done=classic.RefreshPartyOutline()~=false end
+            local note=""
+            if value then
+                local aside=classic.PartyOutlineStepsAside and classic.PartyOutlineStepsAside()
+                note=aside and " Forever Enhanced Raid Frames draws your party, so it steps aside."
+                    or " It shows on raid-style party frames with Edit Mode's Display Border on."
+            end
+            EraUI:Status("Raid-style Party Outline "..(value and "enabled." or "disabled.")..note..(done and "" or " Some frames change when combat ends."))
+            return
+        end
+        -- Upgrade Spell Ranks: a fresh starting point at once, so only ranks
+        -- learned from now on move up (Modules/SpellRanks.lua).
+        if key=="upgradeSpellRanks" then
+            if EraUI.modules.SpellRanks then EraUI.modules.SpellRanks:Refresh() end
+            EraUI:Status("Upgrade Spell Ranks "..(value and "enabled. The next rank you learn takes the old one's place on your bars." or "disabled."))
+            return
+        end
+        -- The Stat Tracker and its ticks change the panel at once
+        -- (Modules/StatTracker.lua); its switch opens or closes its rows.
+        -- Only the switch says so in chat.
+        if key:find("^statTracker") then
+            if key=="statTracker" and parent.RefreshFolds then parent:RefreshFolds() end
+            if EraUI.modules.StatTracker then EraUI.modules.StatTracker:Refresh() end
+            if key=="statTracker" then
+                EraUI:Status("Stat Tracker "..(value and "enabled. Drag it to move it; tick the stats you want below." or "disabled."))
+            end
             return
         end
         if key=="darkAuraBorders" or key=="darkAuraShadows" or key=="darkDebuffLines" then
@@ -709,8 +820,8 @@ end
 -- The rules the navigation, footer and tests read (Core/SettingsNav.lua).
 EraUI.SettingsRules = {
     DEPENDS = DEPENDS, DEPEND_NAMES = DEPEND_NAMES, DEPEND_ROWS = DEPEND_ROWS, Parents = Parents,
-    MissingParent = MissingParent, HANDED_OVER = HANDED_OVER, HANDED_OVER_HELP = HANDED_OVER_HELP,
-    MAP_HANDED_OVER_HELP = MAP_HANDED_OVER_HELP, HandedOver = HandedOver, FOLDS = FOLDS, Folded = Folded,
+    MissingParent = MissingParent, NEEDS_CHOICE = NEEDS_CHOICE, HANDED_OVER = HANDED_OVER, HANDED_OVER_HELP = HANDED_OVER_HELP,
+    MAP_HANDED_OVER_HELP = MAP_HANDED_OVER_HELP, HandedOver = HandedOver, FOLDS = FOLDS, Folded = Folded, SHOWN_WITH = SHOWN_WITH,
     GROUPS = GROUPS, GroupParent = GroupParent, OLD_NAMES = OLD_NAMES, Normalise = Normalise,
     ComingSoon = ComingSoon, settingHelp = settingHelp, HELP_KEY = HELP_KEY, NeedsTesting = NeedsTesting,
     EXPERIMENTAL = EXPERIMENTAL,
@@ -747,14 +858,43 @@ local function BuildLookRows(frame)
     presets.summary = "Choose a ready-made set of options."
     presets.SetChecked = function() UpdatePresetLabel(frame) end
     frame.presetButton, frame.presetLabel = presets.button, presets.text
-    -- Frame Style, under the choice: Flat Bars, Thick Aura Borders and
-    -- Rounded Cast Bars (greyed while Cast Bars, on Casting, is off).
+    -- Frame Style, under the choice: Flat Bars, Thick Frames with its two
+    -- ticks and its Edge choice (greyed while Unit Frames, on Frames &
+    -- Nameplates, is off), Thick Aura Borders, Rounded Cast Bars (greyed
+    -- while Cast Bars, on Casting, is off) and the Raid-style Party Outline
+    -- (its own switch: the game's party frames, not EraUI's).
     local flat = MakeCheck(frame, "Flat Bars", "flatBars", nil, "Plain, even fill on unit-frame and cast bars. Works with Classic or Dark Mode.", false)
     flat.searchText = flat.searchText .. " flat bar texture solid plain fill frame style"
+    local thickFrames = MakeCheck(frame, "Thick Frames", "thickFrames", nil, "Thick dark frames with round corners on player, pet, target, focus and target of target.", false)
+    thickFrames.searchText = thickFrames.searchText .. " thick frame frames unit player pet target focus border edge plate soft round rounded corners taller bars elite frame style"
+    local rings = MakeCheck(frame, "Portrait Rings", "thickFrameRings", nil, "Dark ring round each portrait.", false)
+    rings.searchText = rings.searchText .. " portrait ring rings round circle thick frames frame style"
+    -- Edge (the thick frames' edges): Dark or Class colour, applied at once,
+    -- in a fight too (only EraUI's own textures change:
+    -- Classic/ThickFrames.lua). Named short: indented, "experimental" and its
+    -- two buttons leave room for one short word.
+    local edge
+    edge = Rows.Choice(frame, "thickFrameEdge", "Edge", {"Dark", "Class colour"}, function(index)
+        if edge.dependencyDisabled then edge:SetChecked(); return end
+        local class = index == 2
+        EraUI:SetSetting("thickFrameEdge", class and "class" or "dark")
+        edge:SetChecked()
+        local classic = EraUI.Classic or {}
+        if classic.RefreshThickFrameLines then classic.RefreshThickFrameLines() end
+        EraUI:Status("Thick Frames: " .. (class and "a fine line in class colours round the frames and portrait rings." or "dark frame edges and portrait rings."))
+    end)
+    edge.searchText = "frame edge edges line outline border class colour colours coloured dark ring rings thick frames frame style"
+    edge.summary = "Dark edges, or a fine line in class colours."
+    edge.SetChecked = function() Rows.SelectChoice(edge, EraUI:GetSavedSetting("thickFrameEdge") == "class" and 2 or 1) end
+    edge:HookScript("OnShow", function() edge:SetChecked() end)
+    local party = MakeCheck(frame, "Classic Party Frames", "thickFrameParty", nil, "The same frames on EraUI's Classic-style party frames.", false)
+    party.searchText = party.searchText .. " party group classic party frames thick frames frame style"
     local thick = MakeCheck(frame, "Thick Aura Borders", "thickAuraBorders", nil, "Thick dark borders round your own buffs and debuffs. Works with Classic or Dark Mode.", false)
     thick.searchText = thick.searchText .. " thick border outline edge frame aura buff debuff icon frame style"
     local rounded = MakeCheck(frame, "Rounded Cast Bars", "roundedCastBars", nil, "Thick soft-cornered cast bars with the spell icon in its own tile. Needs Cast Bars.", false)
     rounded.searchText = rounded.searchText .. " rounded round soft corners cast bar castbar spell icon tile name time thick frame style"
+    local outline = MakeCheck(frame, "Raid-style Party Outline", "partyOutline", nil, "Flat bars and one thick outline round raid-style party frames.", false)
+    outline.searchText = outline.searchText .. " raid style party group outline border thick dark flat bar fill compact edit mode display border frame style"
     -- Darkness: dragging re-tints the Dark Mode artwork at once
     -- (Core/Appearance.lua). Its value shows once, in "Darkness: 58"; the
     -- grey swatch that sat after the slider read as an empty box, so it went.
@@ -773,6 +913,8 @@ local function BuildLookRows(frame)
     MakeCheck(frame, "Aura Shadows", "darkAuraShadows", nil, "A soft shadow behind your buff and debuff icons. Needs Dark Aura Borders.", false)
     MakeCheck(frame, "Thin Debuff Colours", "darkDebuffLines", nil, "Debuffs: dark border with a thin line in their colour.", false)
     MakeCheck(frame, "Dark Menu Bar", "darkMenuBar", nil, "Dark frames behind the menu bar buttons. Dark Mode only.", false)
+    local bagButtons = MakeCheck(frame, "Dark Bag Buttons", "darkBagButtons", nil, "Grey, darker bag icons and a dark line on open bags. Dark Mode only.", false)
+    bagButtons.searchText = bagButtons.searchText .. " bag bar backpack button icon colour grey darker open highlight"
     MakeCheck(frame, "Dark Windows", "darkWindows", nil, "Darker buttons, pop-ups, frames and book pages. Dark Mode only.", false)
     MakeCheck(frame, "Black Pages", "blackPages", nil, "Black spellbook and professions pages instead of brown-grey.", false)
     MakeCheck(frame, "Class-coloured Chat Names", "classColors", nil, "Colour new player names by class.", false)
@@ -819,6 +961,8 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Hide Empty Action Slots", "hideEmptyActionSlots", nil, "Reveal empty slots when arranging spells.", false)
     MakeCheck(frame, "Hide Keybind Text", "hideKeybindText", nil, "Hide action-button key labels; bindings still work. Combat changes wait.", false)
     MakeCheck(frame, "Hide Macro Names", "hideMacroText", nil, "Hide action-button macro names. Combat changes wait.", false)
+    local ranks = MakeCheck(frame, "Upgrade Spell Ranks", "upgradeSpellRanks", nil, "A new rank takes the old one's place on your bars. Waits out fights.", false)
+    ranks.searchText = ranks.searchText .. " rank ranks spell spells upgrade highest learn learned train trainer downrank replace action bar button"
     -- Frames & Nameplates.
     MakeCheck(frame, "Unit Frames", "unitFrames", nil, "Player, target and focus styling.", false)
     MakeCheck(frame, "Match Focus Size", "matchFocusSize", nil, "Use target size for focus. Reload to apply; off uses your native layout.", false)
@@ -1013,6 +1157,144 @@ local function BuildCastColourRows(frame)
         if swatch.dependencyDisabled then return end
         Pick(CAST_COLOURS[Index()])
     end)
+end
+
+-- The Stat Tracker (Character & Spells): its switch; its layout and when it
+-- shows (choices); its size and, for One line, its stats per line
+-- (sliders); the green gains and the title; the
+-- names' colour (a choice, Custom's colour folded under it); then a tick for
+-- each stat (Modules/StatTracker.lua has them in the same order). All but
+-- the switch show only while it's on (SHOWN_WITH), and every change shows at
+-- once.
+local STAT_TICKS = {
+    {"statTrackerStrength", "Strength", "Strength on the panel."},
+    {"statTrackerAgility", "Agility", "Agility on the panel."},
+    {"statTrackerStamina", "Stamina", "Stamina on the panel."},
+    {"statTrackerIntellect", "Intellect", "Intellect on the panel."},
+    {"statTrackerSpirit", "Spirit", "Spirit on the panel."},
+    {"statTrackerAttackPower", "Attack Power", "Attack power, melee or ranged."},
+    {"statTrackerCrit", "Crit", "Melee or ranged crit chance."},
+    {"statTrackerHit", "Hit", "Hit bonus from gear and talents."},
+    {"statTrackerSpellPower", "Spell Power", "Bonus spell damage."},
+    {"statTrackerSpellCrit", "Spell Crit", "Spell crit chance."},
+    {"statTrackerArmor", "Armor", "Armour on the panel."},
+    {"statTrackerDodge", "Dodge", "Dodge chance."},
+    {"statTrackerParry", "Parry", "Parry chance."},
+    {"statTrackerBlock", "Block", "Block chance."},
+    {"statTrackerSpeed", "Speed", "Run speed, 100% on foot."},
+    {"statTrackerDurability", "Durability", "Average durability of your gear."},
+}
+local STAT_LAYOUTS, STAT_SHOWS = {"list", "line"}, {"always", "combat", "calm"}
+local STAT_SHOW_SAID = {always = "shows all the time.", combat = "shows only in a fight.", calm = "shows only out of a fight."}
+local function StatChoice(frame, key, label, names, ids, said)
+    local row
+    local function Index()
+        local saved = EraUI:GetSavedSetting(key)
+        for i, id in ipairs(ids) do if id == saved then return i end end
+        return 1
+    end
+    row = Rows.Choice(frame, key, label, names, function(index)
+        EraUI:SetSetting(key, ids[index])
+        row:SetChecked()
+        -- Layout greys or frees Stats per Line at once (NEEDS_CHOICE).
+        if frame.RefreshDependencies then frame:RefreshDependencies() end
+        if EraUI.modules.StatTracker then EraUI.modules.StatTracker:Refresh() end
+        EraUI:Status("Stat Tracker: " .. said(ids[index]))
+    end)
+    row.SetChecked = function() Rows.SelectChoice(row, Index()) end
+    row:HookScript("OnShow", function() row:SetChecked() end)
+    return row
+end
+-- Stat Name Colour: Match look, Gold, Class, White or Custom on a whole
+-- line, worked as Cast Bar Colour's: Custom opens the colour picker, and
+-- Custom Stat Name Colour, folded under the row until Custom is chosen,
+-- opens it again; cancelling puts back the colour and the choice from
+-- before. Each change shows on the panel at once. Only the names change.
+local STAT_NAME_COLOURS = {"auto", "gold", "class", "white", "custom"}
+local STAT_NAME_SAID = {auto = "names match the look.", gold = "names in gold.", class = "names in your class colour.",
+    white = "names in white.", custom = "names in your own colour."}
+local function BuildStatNameRows(frame)
+    local choice, swatch
+    local function Index()
+        local saved = EraUI:GetSavedSetting("statTrackerNameColour")
+        for i, id in ipairs(STAT_NAME_COLOURS) do if id == saved then return i end end
+        return 1
+    end
+    local function RGB() return HexRGB(EraUI:GetSavedSetting("statTrackerNameCustomColour"), "FFD100") end
+    -- The page is laid out again only when the choice changes, not at each
+    -- move of the picker.
+    local function Save(id, hex)
+        local moved = EraUI:GetSavedSetting("statTrackerNameColour") ~= id
+        EraUI:SetSetting("statTrackerNameColour", id)
+        if hex then EraUI:SetSetting("statTrackerNameCustomColour", hex) end
+        choice:SetChecked(); swatch:SetChecked()
+        if moved and frame.RefreshFolds then frame:RefreshFolds() end
+        if EraUI.modules.StatTracker then EraUI.modules.StatTracker:Refresh() end
+    end
+    local function Pick(before)
+        local old = EraUI:GetSavedSetting("statTrackerNameCustomColour") or "FFD100"
+        local r, g, b = RGB()
+        OpenPicker(r, g, b, function() Save("custom", PickedHex()) end, function() Save(before, old) end)
+    end
+    choice = Rows.Choice(frame, "statTrackerNameColour", "Stat Name Colour", {"Match look", "Gold", "Class", "White", "Custom"}, function(index)
+        local before, id = STAT_NAME_COLOURS[Index()], STAT_NAME_COLOURS[index]
+        Save(id)
+        EraUI:Status("Stat Tracker: " .. STAT_NAME_SAID[id])
+        if id == "custom" then Pick(before) end
+    end)
+    choice.searchText = "stat tracker stats name names words labels colour gold class class-coloured white custom match look dark mode grey"
+    choice.summary = "The colour of the stat names."
+    choice.SetChecked = function() Rows.SelectChoice(choice, Index()) end
+    choice:HookScript("OnShow", function() choice:SetChecked() end)
+    swatch = Rows.Colour(frame, "statTrackerNameCustomColour", "Custom Stat Name Colour", RGB)
+    swatch.searchText = "stat tracker stats custom name names words labels colour picker pick own"
+    swatch.summary = "Pick the colour of the stat names."
+    swatch:SetScript("OnClick", function() Pick(STAT_NAME_COLOURS[Index()]) end)
+end
+local function BuildStatRows(frame)
+    local tracker = MakeCheck(frame, "Stat Tracker", "statTracker", nil, "Your stats in a small panel on screen, updating live. Drag it anywhere.", false)
+    tracker.searchText = tracker.searchText .. " stats stat panel live attributes offence defence attack power crit hit armor armour dodge speed durability"
+    local layout = StatChoice(frame, "statTrackerLayout", "Layout", {"List", "One line"}, STAT_LAYOUTS,
+        function(id) return id == "line" and "on one line." or "as a list." end)
+    layout.searchText = "stat tracker stats layout list one line bar side by side"
+    layout.summary = "A stat a line, or all on one line."
+    local show = StatChoice(frame, "statTrackerShow", "Show It", {"Always", "In a fight", "Out of a fight"}, STAT_SHOWS,
+        function(id) return STAT_SHOW_SAID[id] end)
+    show.searchText = "stat tracker stats show when always in a fight combat out of a fight hide"
+    show.summary = "All the time, only in a fight or only out of one."
+    -- Panel Size: the panel's scale, live as the slider moves, in either layout.
+    local size = Rows.Slider(frame, "statTrackerScale", "Panel Size", {low = 50, high = 150, step = 5, wide = true,
+        format = function(value) return value .. "%" end,
+        read = function() return tonumber(EraUI:GetSavedSetting("statTrackerScale")) or 100 end,
+        save = function(value)
+            EraUI:SetSetting("statTrackerScale", value)
+            if EraUI.modules.StatTracker then EraUI.modules.StatTracker:Refresh() end
+        end})
+    size.searchText = "stat tracker stats panel size scale bigger smaller big small one line"
+    size.summary = "How big the panel is."
+    -- Stats per Line: One line's stats in rows of that many, live as the
+    -- slider moves; the top (All) keeps them on one line. Greyed, and not
+    -- dragged, while Layout is List (NEEDS_CHOICE).
+    local perLine
+    perLine = Rows.Slider(frame, "statTrackerPerLine", "Stats per Line", {low = 1, high = #STAT_TICKS, step = 1, wide = true,
+        format = function(value) return value >= #STAT_TICKS and "All" or tostring(value) end,
+        read = function() return tonumber(EraUI:GetSavedSetting("statTrackerPerLine")) or #STAT_TICKS end,
+        save = function(value)
+            if perLine.dependencyDisabled then perLine:SetChecked(); return end
+            EraUI:SetSetting("statTrackerPerLine", value)
+            if EraUI.modules.StatTracker then EraUI.modules.StatTracker:Refresh() end
+        end})
+    perLine.searchText = "stat tracker stats per line rows row wrap wrapping columns column grid one line bar under each other"
+    perLine.summary = "How many stats go on each line of One line."
+    local gains = MakeCheck(frame, "Gains in Green", "statTrackerGains", nil, "A stat that goes up shows green, with how much.", false)
+    gains.searchText = gains.searchText .. " stat tracker stats green change went up increase highlight"
+    local titled = MakeCheck(frame, "Show Title", "statTrackerTitle", nil, "A small Stats title over the list.", false)
+    titled.searchText = titled.searchText .. " stat tracker stats heading"
+    BuildStatNameRows(frame)
+    for _, stat in ipairs(STAT_TICKS) do
+        local row = MakeCheck(frame, stat[2], stat[1], nil, stat[3], false)
+        row.searchText = row.searchText .. " stat tracker stats"
+    end
 end
 
 -- Screen & Cursor's cursor effects: each switch with its folded options.
@@ -1285,6 +1567,16 @@ local function RefreshDependencies(self)
             local enabled = MissingParent(key) == nil
             row.dependencyDisabled = not enabled
             Rows.SetGreyed(row, not enabled or row.handedOver == true)
+        end
+    end
+    -- Waiting on another option's choice: greyed, its slider not dragged.
+    for key, need in pairs(NEEDS_CHOICE) do
+        local row = self.checks[key]
+        if row then
+            local waiting = EraUI:GetSavedSetting(need[1]) ~= need[2]
+            row.dependencyDisabled = waiting
+            Rows.SetGreyed(row, waiting)
+            if row.slider then row.slider:EnableMouse(not waiting) end
         end
     end
     -- Handed over: only a change of state touches the row, so without the
@@ -1852,6 +2144,7 @@ function SettingsModule:Initialize()
     BuildLookRows(frame)
     BuildToggleRows(frame)
     BuildCastColourRows(frame)
+    BuildStatRows(frame)
     BuildCursorRows(frame)
     BuildScreenRows(frame)
     for _, info in ipairs(MORE) do MoreRow(frame, info) end

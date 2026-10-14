@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.0
+
+### Added
+- Thick Frames: thick dark unit frames with round corners and taller bars, plus Portrait Rings, Classic Party Frames and a class-colour Edge (experimental).
+- Stat Tracker: a small panel of the stats you pick, updating live; drag it anywhere (Character & Spells, experimental).
+- Upgrade Spell Ranks: a new rank you learn replaces the old one on your bars (Action Bars, experimental).
+- Rounded Cast Bars: thick soft-cornered cast bars with the spell icon in its own tile (experimental).
+- Thick Aura Borders: thick dark borders round your own buffs and debuffs (experimental).
+- Raid-style Party Outline: flat bars and one thick dark outline round raid-style party frames (experimental).
+- Cast Bar Colour: your cast bar in yellow, grey, your class colour or a colour you pick (experimental).
+- Clean Minimap: a new Drawer style tucks your addon buttons into one minimap button, in a grid you can arrange (experimental).
+- Dark Bag Buttons: in Dark Mode, darker grey bag icons, all alike, and a dark line on an open bag (experimental).
+
+### Changed
+- In Dark Mode your cast bar is now light grey; pick Yellow under Cast Bar Colour for the old look.
+- Dark Windows also darkens the game's red buttons (Release Spirit, quest, mail, trade and more) and red X close buttons (experimental).
+- With Match Focus Size, the focus frame shows only debuffs unless Use Larger Frame is ticked for it in Edit Mode.
+
+### Fixed
+- No more "blocked" message from the focus frame after levelling up in a fight.
+- The target of target shows the right name when it becomes you, and Hide Surnames works there too.
+
 ## 1.6.0
 
 ### Added
