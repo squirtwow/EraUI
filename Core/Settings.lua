@@ -31,13 +31,18 @@ local DEPENDS = {
     -- Cast Bar Colour is a whole line of its own on Casting: greyed by Cast
     -- Bars, never indented under it (GroupParent).
     castBarColour="castBars", castBarCustomColour="castBars",
+    -- Square Minimap reshapes Minimap's own look: greyed while that's off,
+    -- indented under it. Its Square Size slider is greyed with it, and shows
+    -- only while it's ticked (SHOWN_WITH).
+    squareMinimap="minimap", squareMinimapScale="squareMinimap",
 }
 -- The names on the rows, so a description points at a switch the player can find.
 local DEPEND_NAMES = {
     advancedCastBar = "Advanced Cast Bar", spellbook = "Spellbook",
     unitFrames = "Unit Frames", actionBars = "Action Bars",
     afkScreen = "AFK Screen", darkMode = "Dark Mode", darkAuraBorders = "Dark Aura Borders",
-    darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames",
+    darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames", minimap = "Minimap",
+    squareMinimap = "Square Minimap",
 }
 -- The row each of those switches is on (Dark Mode is the Classic / Dark Mode choice).
 local DEPEND_ROWS = {darkMode = "appearanceChoice"}
@@ -100,10 +105,13 @@ local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, ca
 -- own, never indented under it (no layout parent): the Stat Tracker's
 -- options beside and under it, and its stat ticks two to a line under their
 -- group's heading. Custom Stat Name Colour waits for its switch too, then
--- for its fold's choice.
+-- for its fold's choice. Square Size shows only while Square Minimap is
+-- ticked, laid out under Minimap at Square Minimap's own indent (GROUPS):
+-- a fold under Square Minimap would sit two levels in, too narrow for its
+-- slider.
 local SHOWN_WITH = {statTrackerLayout = "statTracker", statTrackerShow = "statTracker", statTrackerGains = "statTracker",
     statTrackerTitle = "statTracker", statTrackerScale = "statTracker", statTrackerPerLine = "statTracker",
-    statTrackerNameColour = "statTracker", statTrackerNameCustomColour = "statTracker"}
+    statTrackerNameColour = "statTracker", statTrackerNameCustomColour = "statTracker", squareMinimapScale = "squareMinimap"}
 for _, stat in ipairs({"Strength", "Agility", "Stamina", "Intellect", "Spirit", "AttackPower", "Crit", "Hit", "SpellPower",
     "SpellCrit", "Armor", "Dodge", "Parry", "Block", "Speed", "Durability"}) do
     SHOWN_WITH["statTracker" .. stat] = "statTracker"
@@ -121,8 +129,10 @@ end
 -- profile goes with Highlight Reward Upgrades, Red Combo Points with the
 -- floating orbs it colours. A whole-line row (Nav.WIDE) has its own line,
 -- so the option it needs never takes it in: Cast Bar Colour is greyed by
--- Cast Bars, never indented under it.
-local GROUPS = {rewardProfile = "rewardUpgradeHighlight", comboPointRed = "floatingComboPoints"}
+-- Cast Bars, never indented under it. Square Size sits under Minimap, right
+-- after Square Minimap, at its indent (it shows with Square Minimap and is
+-- greyed through it: SHOWN_WITH, DEPENDS).
+local GROUPS = {rewardProfile = "rewardUpgradeHighlight", comboPointRed = "floatingComboPoints", squareMinimapScale = "minimap"}
 local function GroupParent(key)
     if Nav.WIDE[key] then return FOLDS[key] or GROUPS[key] end
     return FOLDS[key] or GROUPS[key] or Parents(key)[1]
@@ -253,6 +263,8 @@ local settingHelp = {
     actionBars = "Your action buttons, menu, bags and XP bar on a Classic stone bar along the bottom. Your spells and keybinds are kept.",
     gryphons = "The gryphons at each end of the Classic action bar.",
     minimap = "The round Classic minimap border and zoom buttons, fitted to your map's size.",
+    squareMinimap = "A square map in a thin dark frame, the zone's name on top and the buttons on its edges. In Dark Mode its fine line follows the Darkness slider.",
+    squareMinimapScale = "How big the square minimap is, its frame and buttons too, from 75% to 150%. It works on top of Edit Mode's Minimap Size.",
     unitFrames = "Classic art and bar sizes on player, target and focus frames, with Classic debuff borders. Their controls are kept.",
     castBars = "Classic cast bars for you, target, focus, bosses and nameplates. Boss bars follow Forever Enhanced Cooldown Manager's Raid Timers when it's on.",
     vendorPrice = "Adds a sell price to item tooltips that don't show one.",
@@ -400,7 +412,7 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 local EXPERIMENTAL = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true,
     characterItemLevels = true, flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true,
     thickFrames = true, thickFrameRings = true, thickFrameParty = true, thickFrameEdge = true, partyOutline = true,
-    castBarColour = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true}
+    castBarColour = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, squareMinimap = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -414,7 +426,7 @@ local function DefaultText(key)
     if key == "castBarCustomColour" then return "Default: light grey." end
     if key == "statTrackerLayout" then return "Default: List." end
     if key == "statTrackerShow" then return "Default: Always." end
-    if key == "statTrackerScale" then return "Default: 100%." end
+    if key == "statTrackerScale" or key == "squareMinimapScale" then return "Default: 100%." end
     if key == "statTrackerPerLine" then return "Default: All." end
     if key == "statTrackerNameColour" then return "Default: Match look." end
     if key == "statTrackerNameCustomColour" then return "Default: gold." end
@@ -435,29 +447,32 @@ local function DefaultText(key)
     return "Default: " .. (default and "On" or "Off") .. "."
 end
 
+-- What a greyed row waits for: a choice of another option, or the switch it
+-- needs first (with that switch's tab when it is elsewhere). The footer and
+-- the walkthrough of what's new (Core/SettingsTour.lua) both say it.
+local function WaitingFor(frame, key)
+    if NEEDS_CHOICE[key] then return NEEDS_CHOICE[key][3] end
+    local missing = MissingParent(key) or Parents(key)[1]
+    local where = ""
+    local home = frame.rowHome and frame.rowHome[DEPEND_ROWS[missing] or missing]
+    local mine = frame.rowHome and frame.rowHome[key]
+    if home and mine and (home.tab ~= mine.tab or home.sub ~= mine.sub) then
+        where = " (" .. Nav.Crumb(frame, home) .. ")"
+    end
+    return "Switch on " .. (DEPEND_NAMES[missing] or "its parent option") .. " first" .. where .. "."
+end
+
 -- A row's description for the footer: its help (or its summary), then, each
--- only when it applies, Coming soon, the switch it needs first (with that
--- switch's tab when it is elsewhere), a hand-over note, a reload line (not
--- for a Coming soon switch, which can't be turned on) and its default. The
--- extras come back as one line, gold then grey.
+-- only when it applies, Coming soon, what it waits for, a hand-over note, a
+-- reload line (not for a Coming soon switch, which can't be turned on) and
+-- its default. The extras come back as one line, gold then grey.
 local function Describe(frame, row)
     local key = row.settingKey or ""
     local help = row.helpText and row.helpText()
     help = help or settingHelp[HELP_KEY[key] or key] or row.summary or ""
     local extras = {}
     if row.unavailable then extras[#extras + 1] = "Coming soon: not finished yet." end
-    if row.dependencyDisabled and NEEDS_CHOICE[key] then
-        extras[#extras + 1] = NEEDS_CHOICE[key][3]
-    elseif row.dependencyDisabled then
-        local missing = MissingParent(key) or Parents(key)[1]
-        local where = ""
-        local home = frame.rowHome and frame.rowHome[DEPEND_ROWS[missing] or missing]
-        local mine = frame.rowHome and frame.rowHome[key]
-        if home and mine and (home.tab ~= mine.tab or home.sub ~= mine.sub) then
-            where = " (" .. Nav.Crumb(frame, home) .. ")"
-        end
-        extras[#extras + 1] = "Switch on " .. (DEPEND_NAMES[missing] or "its parent option") .. " first" .. where .. "."
-    end
+    if row.dependencyDisabled then extras[#extras + 1] = WaitingFor(frame, key) end
     local default
     if row.handedOver then
         extras[#extras + 1] = key == "revealMap" and MAP_HANDED_OVER_HELP or HANDED_OVER_HELP
@@ -604,6 +619,19 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
                     or " It shows on raid-style party frames with Edit Mode's Display Border on."
             end
             EraUI:Status("Raid-style Party Outline "..(value and "enabled." or "disabled.")..note..(done and "" or " Some frames change when combat ends."))
+            return
+        end
+        -- Square Minimap: the minimap goes square, or round again, at once
+        -- (Classic/Minimap.lua); in a fight it waits for the end. With
+        -- Minimap waiting for a reload, it shows once that's applied.
+        if key=="squareMinimap" then
+            -- Its Square Size slider opens or closes under it at once.
+            if parent.RefreshFolds then parent:RefreshFolds() end
+            local classic=EraUI.Classic or {}
+            local done=true
+            if classic.RefreshSquareMinimap then done=classic.RefreshSquareMinimap()~=false end
+            local note=(value and EraUI:GetSetting("minimap")==false) and " It shows once Minimap is applied." or ""
+            EraUI:Status("Square Minimap "..(value and "enabled." or "disabled.")..note..(done and "" or " The minimap changes when combat ends."))
             return
         end
         -- Upgrade Spell Ranks: a fresh starting point at once, so only ranks
@@ -822,9 +850,9 @@ EraUI.SettingsRules = {
     DEPENDS = DEPENDS, DEPEND_NAMES = DEPEND_NAMES, DEPEND_ROWS = DEPEND_ROWS, Parents = Parents,
     MissingParent = MissingParent, NEEDS_CHOICE = NEEDS_CHOICE, HANDED_OVER = HANDED_OVER, HANDED_OVER_HELP = HANDED_OVER_HELP,
     MAP_HANDED_OVER_HELP = MAP_HANDED_OVER_HELP, HandedOver = HandedOver, FOLDS = FOLDS, Folded = Folded, SHOWN_WITH = SHOWN_WITH,
-    GROUPS = GROUPS, GroupParent = GroupParent, OLD_NAMES = OLD_NAMES, Normalise = Normalise,
+    FOLD_CHOICES = FOLD_CHOICES, GROUPS = GROUPS, GroupParent = GroupParent, OLD_NAMES = OLD_NAMES, Normalise = Normalise,
     ComingSoon = ComingSoon, settingHelp = settingHelp, HELP_KEY = HELP_KEY, NeedsTesting = NeedsTesting,
-    EXPERIMENTAL = EXPERIMENTAL,
+    EXPERIMENTAL = EXPERIMENTAL, WaitingFor = WaitingFor,
     Describe = Describe, DefaultText = DefaultText, HINTS_VERSION = HINTS_VERSION,
 }
 
@@ -953,6 +981,35 @@ local function BuildDrawerRows(frame)
     columns.summary = "How many icons each row of the drawer holds."
 end
 
+-- Square Size: the whole square minimap, 75% to 150% in fives, on top of
+-- Edit Mode's Minimap Size. Shown only while Square Minimap is ticked, right
+-- under it at its indent; greyed with it while Minimap is off (a move puts
+-- the slider back). Live as it moves (Classic/Minimap.lua); in a fight the
+-- minimap changes when it ends, said once a drag.
+local function BuildSquareSizeRow(frame)
+    local size, waiting
+    size = Rows.Slider(frame, "squareMinimapScale", "Square Size", {low = 75, high = 150, step = 5,
+        format = function(value) return value .. "%" end,
+        read = function()
+            local value = tonumber(EraUI:GetSavedSetting("squareMinimapScale"))
+            if not value or value ~= value or math.abs(value) == math.huge then return 100 end
+            return value
+        end,
+        save = function(value)
+            if size.dependencyDisabled then size:SetChecked(); return end
+            EraUI:SetSetting("squareMinimapScale", value)
+            local classic = EraUI.Classic or {}
+            local done = true
+            if classic.RefreshSquareMinimap then done = classic.RefreshSquareMinimap() ~= false end
+            if not done and not waiting then EraUI:Status("Square Size: the minimap changes when combat ends.") end
+            waiting = not done
+        end})
+    -- The next drag (or click) in a fight says it again.
+    size.slider:HookScript("OnMouseUp", function() waiting = false end)
+    size.searchText = "square minimap size scale bigger smaller big small map frame"
+    size.summary = "How big the square minimap is."
+end
+
 -- The plain switches of the other tabs.
 local function BuildToggleRows(frame)
     -- Action Bars.
@@ -980,6 +1037,9 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Latency Zone", "advancedCastLatency", nil, "Red end zone based on world latency. Shown when cast duration is readable.", false)
     -- Map & Minimap.
     MakeCheck(frame, "Minimap", "minimap", nil, "Classic round map and controls.", false)
+    local squared = MakeCheck(frame, "Square Minimap", "squareMinimap", nil, "A square map in a thin dark frame instead of the round border.", false)
+    squared.searchText = squared.searchText .. " square shape corners frame border edge dark darkness minimap map"
+    BuildSquareSizeRow(frame)
     local clean = MakeCheck(frame, "Clean Minimap", "cleanMinimap", nil, "Addon buttons hide until hover, or sit in one drawer.", false)
     clean.searchText = clean.searchText .. " drawer minimap buttons tidy"
     BuildDrawerRows(frame)
@@ -1567,6 +1627,8 @@ local function RefreshDependencies(self)
             local enabled = MissingParent(key) == nil
             row.dependencyDisabled = not enabled
             Rows.SetGreyed(row, not enabled or row.handedOver == true)
+            -- A greyed slider (Square Size) isn't dragged either.
+            if row.slider then row.slider:EnableMouse(enabled) end
         end
     end
     -- Waiting on another option's choice: greyed, its slider not dragged.
@@ -1828,6 +1890,7 @@ local function SetSetupMode(self, enabled)
     end
     self:ShowRowHelp(nil)
     self:RefreshTags()
+    Tour.RefreshNews(self)
     if enabled then
         local tracker = EraUI.modules.QuestTrackerChoice
         self.trackerStep = tracker and tracker:QuestieInstalled() or false
@@ -1874,6 +1937,9 @@ local function FinishSetup(frame, reloadNow)
     EraUIClassicCharDB.onboarding.exploreSettings = nil
     if EraUI.SaveCharOnboarding then EraUI.SaveCharOnboarding() end
     EraUI:Print("Casting and your class tab have more. /era opens settings any time.")
+    -- The window was already open, so its OnShow didn't run: a new player's
+    -- offer of the walkthrough comes now, as setup hands over to settings.
+    Tour.MaybeWelcome(frame)
 end
 
 -- The finish page asks whether to log out now when a new damage font is
@@ -2026,6 +2092,7 @@ end
 local function OnShow(frame)
     FitToScreen(frame)
     Refresh(frame)
+    Tour.RefreshNews(frame)
     Tour.MaybeWelcome(frame)
 end
 

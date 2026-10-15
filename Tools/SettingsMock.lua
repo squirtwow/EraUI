@@ -275,6 +275,9 @@ function M.Session(c, ready, soon, char, setup)
   advancedCastLatency = true, advancedCastTicks = true, movableMap = true, mapQuestObjectives = true,
   hideStatusMessages = true}) do E.settingDefaults[key] = value end
  E.cvarSettings = {classIconPortraitMine = "ReplaceMyPlayerPortrait", classIconPortraitOthers = "ReplaceOtherPlayerPortraits"}
+ -- The real release list: What's New's release (1.7.0 here, the newest, as
+ -- "9.9.9" has no notes of its own) and version order for "just added".
+ assert(loadfile("Core/Updates.lua"))("EraUI", E)
  -- In the .toc's order.
  assert(loadfile("Core/SettingsRows.lua"))("EraUI", E)
  assert(loadfile("Core/SettingsNav.lua"))("EraUI", E)

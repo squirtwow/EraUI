@@ -44,8 +44,11 @@ Rows.TAGS = TAGS
 local TAG_SIZE, TAG_GAP = 10, 5
 Rows.TAG_SIZE, Rows.TAG_GAP = TAG_SIZE, TAG_GAP
 
+-- Your class colour; grey when the class can't be read (a secret value is
+-- never used as a key) or has no colour.
 local function ClassColour()
     local _, class = UnitClass("player")
+    if issecretvalue and issecretvalue(class) then return .7, .7, .7 end
     local colour = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class])
         or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
     if colour then return colour.r, colour.g, colour.b end

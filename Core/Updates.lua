@@ -403,8 +403,11 @@ local UPDATES = {
     },
 }
 
+-- Grey when the class can't be read (a secret value is never used as a key)
+-- or has no colour.
 local function ClassColour()
     local _, class = UnitClass("player")
+    if issecretvalue and issecretvalue(class) then return 0.7, 0.7, 0.7 end
     local c = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class])
         or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
     if c then return c.r, c.g, c.b end
@@ -418,6 +421,35 @@ local function EntryForVersion()
         if entry.version == EraUI.version then return entry end
     end
     return UPDATES[1]
+end
+
+-- Whether version a is later than b ("1.10.0" after "1.9.2"; "1.7" is
+-- "1.7.0"). Anything that isn't a version number ("dev", "") is never later
+-- nor earlier.
+local function Parts(version)
+    if type(version) ~= "string" or not version:match("^%d+[%.%d]*$") then return nil end
+    local parts = {}
+    for n in version:gmatch("%d+") do parts[#parts + 1] = tonumber(n) end
+    return parts
+end
+function EraUI.NewerVersion(a, b)
+    local pa, pb = Parts(a), Parts(b)
+    if not (pa and pb) then return false end
+    for i = 1, math.max(#pa, #pb) do
+        local x, y = pa[i] or 0, pb[i] or 0
+        if x ~= y then return x > y end
+    end
+    return false
+end
+-- The release What's New shows (its title), and the newest release before
+-- the running version ("just added" counts from it when an account's last
+-- version is unknown: Core/Integration.lua).
+function EraUI.ReleaseVersion() return EntryForVersion().version end
+function EraUI.PreviousRelease()
+    for _, entry in ipairs(UPDATES) do
+        if EraUI.NewerVersion(EraUI.version, entry.version) then return entry.version end
+    end
+    return UPDATES[2] and UPDATES[2].version or ""
 end
 
 -- The current release and the couple before it, so an update that skipped a
@@ -525,8 +557,13 @@ local function Build()
         local width = math.min(560, math.max(1, UIParent:GetWidth() - 40))
         local contentWidth = math.max(1, width - 72)
         self:SetWidth(width)
-        -- On a narrow screen the question would run into Got it; the button stays.
-        if self.ask then self.ask:SetShown(width >= 520) end
+        -- Where the question would run into the buttons (a narrow screen, or
+        -- Show me there too) it goes; the buttons stay.
+        if self.ask then
+            local room = width - 28 - 120 - 8 - 88 - ((self.showMe and self.showMe:IsShown()) and (8 + 88) or 0)
+            local need = 28 + (self.ask.GetStringWidth and self.ask:GetStringWidth() or 170) + 12
+            self.ask:SetShown(need <= room)
+        end
         self.title:SetWidth(math.max(1, width - 56))
         content:SetWidth(contentWidth)
         local y = 0
@@ -578,8 +615,28 @@ local function Build()
     ask:SetPoint("BOTTOMLEFT", 28, 31)
     ask:SetText("Found a bug or have an idea?")
     window.ask = ask
+    -- Show me, beside Got it while the release has new options in /era:
+    -- What's New closes and /era walks you to each one (Core/SettingsTour.lua).
+    local showMe = CreateFrame("Button", nil, window, "BackdropTemplate")
+    showMe:SetSize(88, 34)
+    showMe:SetPoint("RIGHT", button, "LEFT", -8, 0)
+    showMe:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    local showLabel = showMe:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    showLabel:SetPoint("CENTER")
+    showLabel:SetText("Show me")
+    showMe.label = showLabel
+    showMe:SetScript("OnClick", function()
+        window:Hide()
+        local tour = EraUI.SettingsTour
+        if tour and tour.OpenNews then tour.OpenNews() end
+    end)
+    showMe:SetScript("OnEnter", Hover)
+    showMe:SetScript("OnLeave", Unhover)
+    showMe:Hide()
+    window.showMe = showMe
     local discord = CreateFrame("Button", nil, window, "BackdropTemplate")
-    discord:SetSize(96, 34)
+    discord:SetSize(88, 34)
     discord:SetPoint("RIGHT", button, "LEFT", -8, 0)
     discord:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
@@ -608,6 +665,16 @@ local function Show()
     window.button:SetBackdropBorderColor(r, g, b, 1)
     window.discord:SetBackdropColor(r * .2, g * .2, b * .2, 1)
     window.discord:SetBackdropBorderColor(r, g, b, 1)
+    -- Show me only when this release added options this character has; its
+    -- words in the class colour too, so it stands out from Got it.
+    local tour = EraUI.SettingsTour
+    local news = tour and tour.NewsCount and tour.NewsCount() or 0
+    window.showMe:SetShown(news > 0)
+    window.showMe:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    window.showMe:SetBackdropBorderColor(r, g, b, 1)
+    window.showMe.label:SetTextColor(r, g, b)
+    window.discord:ClearAllPoints()
+    window.discord:SetPoint("RIGHT", news > 0 and window.showMe or window.button, "LEFT", -8, 0)
     window:Show()
     window:Raise()
     window:LayoutNotes()

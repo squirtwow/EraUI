@@ -43,6 +43,8 @@ local function Session(db, char, classic, lateIdentity)
     local E={}
     assert(loadfile("Core/Init.lua"))("EraUI",E)
     assert(loadfile("Core/Persistence.lua"))("EraUI",E)
+    -- The release list: the release before this one, for "just added".
+    assert(loadfile("Core/Updates.lua"))("EraUI",E)
     E.Classic={DB_DEFAULTS={},TOGGLES={},db=classic or {
         erauiMigrated=true,erauiSettingsMenuMigrated=true,
     },OnForever=function() return true end,MirrorSave=function() end,QueueApply=function() end,
@@ -491,6 +493,44 @@ E:SetSetting("partyOutline",false);E:SaveSettings();flush()
 E,flush,fire=Session()
 equal(EraUIDB.partyOutline,false,"switched off again, the Raid-style Party Outline stays off when SavedVariables are lost")
 flush()
+-- Square Minimap (Map & Minimap): the same.
+equal(E.settingDefaults.squareMinimap,false,"Square Minimap off by default")
+equal(E.reloadSettings.squareMinimap,nil,"Square Minimap applies live, not on reload")
+E:SetSetting("squareMinimap",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(older.squareMinimap,nil,"a save from before Square Minimap")
+E,flush,fire=Session(older)
+equal(EraUIDB.squareMinimap,false,"an older save gets Square Minimap off")
+flush()
+E:SetSetting("squareMinimap",true);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.squareMinimap,true,"Square Minimap switched on survives missing SavedVariables")
+flush()
+E:SetSetting("squareMinimap",false);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.squareMinimap,false,"switched off again, Square Minimap stays off when SavedVariables are lost")
+flush()
+-- Square Size (under Square Minimap): a number, 100 by default, live.
+equal(E.settingDefaults.squareMinimapScale,100,"Square Size 100% by default")
+equal(E.reloadSettings.squareMinimapScale,nil,"Square Size applies live, not on reload")
+E:SetSetting("squareMinimapScale",nil);E:SaveSettings();flush()
+older=copy(EraUIDB)
+equal(older.squareMinimapScale,nil,"a save from before Square Size")
+E,flush,fire=Session(older)
+equal(EraUIDB.squareMinimapScale,100,"an older save gets 100%")
+flush()
+E:SetSetting("squareMinimap",true);E:SetSetting("squareMinimapScale",135);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(tostring(EraUIDB.squareMinimap).." "..tostring(EraUIDB.squareMinimapScale),"true 135","a moved Square Size survives missing SavedVariables")
+flush()
+E:SetSetting("squareMinimapScale","big");E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(EraUIDB.squareMinimapScale,100,"a broken size isn't backed up: 100% after SavedVariables are lost")
+flush()
+E:SetSetting("squareMinimap",false);E:SetSetting("squareMinimapScale",100);E:SaveSettings();flush()
+E,flush,fire=Session()
+equal(tostring(EraUIDB.squareMinimap).." "..tostring(EraUIDB.squareMinimapScale),"false 100","back to off and 100% stays so")
+flush()
 -- Cast Bar Colour (Casting): a choice and a hex colour, both strings, live.
 equal(E.settingDefaults.castBarColour.." "..E.settingDefaults.castBarCustomColour,"auto C7CCD6","Match look by default, Custom at the light grey")
 equal(E.reloadSettings.castBarColour or E.reloadSettings.castBarCustomColour,nil,"Cast Bar Colour applies live, not on reload")
@@ -738,10 +778,11 @@ do
     flush()
 end
 -- The grouped /era layout (sub-tabs, one row per option): a welcome card
--- (layoutWelcome 1) and "just added" after new options' names while the
--- version it came in runs (layoutPillsVersion), decided once per account by
--- the same signs as the old note, or a note still waiting; fresh installs 0
--- and ""; both backed up.
+-- (layoutWelcome 1) for accounts that knew an earlier layout, by the same
+-- signs as the old note, or a note still waiting; a new player's one-time
+-- offer of the walkthrough (tourOffer 1) for everyone else. Each decided
+-- once per account, both backed up. (The "just added" words per release:
+-- the block after next.)
 do
     local function Fresh()
         for k in pairs(cvars) do cvars[k]=nil end
@@ -752,22 +793,26 @@ do
         for k,v in pairs(extra or {}) do db[k]=v end
         return db
     end
+    local function Decided() return EraUIDB.layoutWelcome.." "..EraUIDB.tourOffer end
     Fresh();E,flush,fire=Session({},{},classic())
     equal(EraUIDB.layoutWelcome,0,"a fresh install gets no welcome card")
-    equal(EraUIDB.layoutPillsVersion,"","and no just added words")
+    equal(EraUIDB.tourOffer,1,"but is offered the walkthrough, once")
     flush()
     E,flush,fire=Session()
-    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","both stay decided when SavedVariables are lost")
+    equal(Decided(),"0 1","both stay decided when SavedVariables are lost")
+    flush()
+    E:SetSetting("tourOffer",2);E:SaveSettings();flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.tourOffer,2,"once offered, it stays offered, through lost SavedVariables too")
     flush()
     Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
     equal(EraUIDB.layoutWelcome,1,"an earlier EraUI's save gets the card once")
-    equal(EraUIDB.layoutPillsVersion,E.version,"and the labels for the version running now")
-    equal(type(E.version)=="string" and E.version~="",true,"a version to compare against")
+    equal(EraUIDB.tourOffer,0,"and is never offered the new player's walkthrough")
     equal(EraUIDB.afkScreenVersion.." "..EraUIDB.layoutNotice,"2 1","the AFK marker and the old note are decided as before")
     flush()
     E,flush,fire=Session()
     equal(EraUIDB.layoutWelcome,1,"a waiting card survives lost SavedVariables")
-    equal(EraUIDB.layoutPillsVersion,E.version,"and so does the labels' version, as text")
+    equal(EraUIDB.tourOffer,0,"and so does the decided offer, as a number")
     flush()
     E:SetSetting("layoutWelcome",0);E:SaveSettings();flush()
     E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.5.5"}))
@@ -775,27 +820,27 @@ do
     flush()
     E,flush,fire=Session()
     equal(EraUIDB.layoutWelcome,0,"not even when SavedVariables are lost")
-    equal(EraUIDB.layoutPillsVersion,E.version,"the labels' version is kept")
+    equal(EraUIDB.tourOffer,0,"the offer stays 0")
     flush()
     -- Each sign of an earlier EraUI on its own is enough.
     for label,extra in pairs({["update notes seen"]={updateNotesSeen="1.5.5"},["the welcome seen"]={erauiWelcomeSeen=true},
         ["setup finished on the account"]={erauiSetupComplete=true}}) do
         Fresh();E,flush,fire=Session({},{},classic(extra))
-        equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"1 "..E.version,label..": the card and the labels")
+        equal(Decided(),"1 0",label..": the card, no new player's offer")
         flush()
     end
     Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:110,2,2.5"
     E,flush,fire=Session({},{},classic())
-    equal(EraUIDB.layoutWelcome,1,"a character that finished setup before gets it")
+    equal(Decided(),"1 0","a character that finished setup before gets the card")
     flush()
     Fresh();cvars.EraUIOnboarding="Hunter-RealmOne:000,0,"
     E,flush,fire=Session({},{},classic())
-    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","a character record with nothing seen is a fresh install")
+    equal(Decided(),"0 1","a character record with nothing seen is a fresh install")
     flush()
     -- The old one-time note: still waiting, the card replaces it; put away
     -- before (an account that used EraUI), the card still comes.
     Fresh();E,flush,fire=Session({layoutNotice=1},{},classic())
-    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutNotice,"1 1","a waiting old note: the card comes (the note is put away with it)")
+    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutNotice.." "..EraUIDB.tourOffer,"1 1 0","a waiting old note: the card comes (the note is put away with it)")
     flush()
     Fresh();E,flush,fire=Session({layoutNotice=0},{},classic({updateNotesSeen="1.4.0"}))
     equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutNotice,"1 0","the old note put away: the card still comes, the note stays away")
@@ -803,18 +848,47 @@ do
     -- Installed since the old note (so it was decided 0), with only the AFK
     -- marker left to show EraUI ran before: it knew the old tabs too.
     Fresh();E,flush,fire=Session({layoutNotice=0,afkScreenVersion=2},{},classic())
-    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"1 "..E.version,"the AFK marker alone: the card and the labels")
+    equal(Decided(),"1 0","the AFK marker alone: the card, no offer")
     flush()
-    Fresh();E,flush,fire=Session({layoutWelcome=0,layoutPillsVersion="",afkScreenVersion=2},{},classic({updateNotesSeen="1.5.5"}))
-    equal(EraUIDB.layoutWelcome.." "..EraUIDB.layoutPillsVersion,"0 ","a decided 0 is never turned into 1")
+    Fresh();E,flush,fire=Session({layoutWelcome=0,afkScreenVersion=2},{},classic({updateNotesSeen="1.5.5"}))
+    equal(Decided(),"0 0","a decided 0 is never turned into 1")
+    flush()
+    Fresh();E,flush,fire=Session({tourOffer=1,layoutWelcome=0,afkScreenVersion=2},{},classic({updateNotesSeen="1.5.5"}))
+    equal(EraUIDB.tourOffer,1,"a decided offer is never decided again")
+    flush()
+    -- 1.6.0's single "just added" version is retired: cleared, and never
+    -- backed up again.
+    Fresh();E,flush,fire=Session({layoutWelcome=0,layoutPillsVersion="1.6.0",afkScreenVersion=2},{},classic({updateNotesSeen="1.6.0"}))
+    equal(EraUIDB.layoutPillsVersion,nil,"the retired layoutPillsVersion is cleared")
+    flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.layoutPillsVersion,nil,"and not brought back from the backup")
+    flush()
+    -- Show me what's new glows until the account opens the release's
+    -- walkthrough (Core/SettingsTour.lua saves that release as
+    -- newsTourSeen). Backed up as text, so lost SavedVariables never bring
+    -- the glow back; nothing at login decides or clears it.
+    Fresh();E,flush,fire=Session({},{},classic())
+    equal(EraUIDB.newsTourSeen,nil,"nothing opened on a new account")
+    flush()
+    E:SetSetting("newsTourSeen","1.7.0");E:SaveSettings();flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.newsTourSeen,"1.7.0","the opened release survives lost SavedVariables")
+    flush()
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.7.0"}))
+    equal(EraUIDB.newsTourSeen,"1.7.0","and is left as it is at the next login")
+    flush()
+    E:SetSetting("newsTourSeen",170);E:SaveSettings();flush()
+    E,flush,fire=Session()
+    equal(EraUIDB.newsTourSeen,nil,"only text is backed up")
     flush()
 end
 -- What's New with the version read from the .toc (Core/Init.lua). Releases
 -- 1.5.3 to 1.5.5 still called themselves 1.5.2, so every account that used
 -- them has its notes marked seen at "1.5.2". On the first login with the
 -- real number they see the newest notes once (What's New opens on the
--- running version's, with the two before), then not again for it; the
--- labels' version is the real one too.
+-- running version's, with the two before), then not again for it; "just
+-- added" is decided for the real one too.
 do
     local function Fresh()
         for k in pairs(cvars) do cvars[k]=nil end
@@ -839,7 +913,7 @@ do
     Fresh();Login({},"1.5.2")
     equal(E.version.." "..asked[1],"1.5.5 EraUI,Version","the version is the .toc's own")
     equal(shown.." "..E.Classic.db.updateNotesSeen,"1 1.5.5","an account last marked at the stuck 1.5.2 sees the newest notes once")
-    equal(EraUIDB.layoutPillsVersion,"1.5.5","and the new layout's words count from the real version")
+    equal(EraUIDB.justAddedVersion.." "..EraUIDB.justAddedFrom,"1.5.5 1.5.2","and \"just added\" counts from the version it updated from, to the real one")
     E.Classic.FirstRun();flush()
     equal(shown,1,"not twice in a session")
     Login(copy(EraUIDB),"1.5.5")
@@ -851,6 +925,91 @@ do
     C_AddOns.GetAddOnMetadata=function() return "@project-version@" end
     Fresh();Login({},"1.5.5")
     equal(E.version.." "..shown.." "..E.Classic.db.updateNotesSeen,"dev 2 dev","a development copy runs as dev and nothing breaks")
+    C_AddOns=nil
+end
+-- "just added" after new options' names, per release (Core/Integration.lua
+-- decides, Core/SettingsNav.lua reads): on the first load of each new
+-- version, the version the account ran before it (justAddedFrom) and the one
+-- it runs (justAddedVersion); a fresh install "" (no words). The version
+-- before comes from the last decision, else the last notes seen, else (an
+-- account that ran EraUI before, or "/era updates again") the release
+-- before this one. Both backed up as text; a development copy decides
+-- nothing.
+do
+    local function Fresh()
+        for k in pairs(cvars) do cvars[k]=nil end
+        character,realm="Hunter","RealmOne"
+    end
+    local classic=function(extra)
+        local db={erauiMigrated=true,erauiSettingsMenuMigrated=true}
+        for k,v in pairs(extra or {}) do db[k]=v end
+        return db
+    end
+    local version="1.8.0"
+    C_AddOns={GetAddOnMetadata=function(name,field) return name=="EraUI" and field=="Version" and version or nil end,
+        IsAddOnLoaded=function() return false end}
+    local function Decided() return tostring(EraUIDB.justAddedFrom).." > "..tostring(EraUIDB.justAddedVersion) end
+    -- An update: the notes last seen say where it came from.
+    Fresh();E,flush,fire=Session({},{},classic({updateNotesSeen="1.7.0",erauiWelcomeSeen=true}))
+    equal(E.version,"1.8.0","the version comes from the .toc")
+    equal(Decided(),"1.7.0 > 1.8.0","an update from 1.7.0: from 1.7.0 into 1.8.0")
+    flush()
+    -- Decided once: the next login (the notes now marked seen at 1.8.0)
+    -- keeps it, and so does a login that lost SavedVariables.
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.8.0"}))
+    equal(Decided(),"1.7.0 > 1.8.0","the next login keeps it")
+    flush()
+    -- (The notes, kept apart, say 1.8.0 by now, so only the backup can
+    -- bring back 1.7.0.)
+    E,flush,fire=Session(nil,nil,classic({updateNotesSeen="1.8.0"}))
+    equal(Decided(),"1.7.0 > 1.8.0","lost SavedVariables: back from the backup, as text")
+    equal(type(EraUIDB.justAddedFrom)..type(EraUIDB.justAddedVersion),"stringstring","both strings")
+    flush()
+    -- The next version counts from the version saved here, not the notes.
+    version="1.9.0"
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.5.5"}))
+    equal(Decided(),"1.8.0 > 1.9.0","the next update counts from the version it ran last")
+    flush()
+    -- A fresh install: nothing is "just added" (everything is new to it),
+    -- until its first update.
+    version="1.8.0"
+    Fresh();E,flush,fire=Session({},{},classic())
+    equal(Decided()," > 1.8.0","a fresh install: no from")
+    flush()
+    version="1.9.0"
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="1.8.0"}))
+    equal(Decided(),"1.8.0 > 1.9.0","its first update counts from the version it installed")
+    flush()
+    -- An account that ran EraUI before but whose last version is unknown
+    -- (its notes lost): the release before the one running.
+    version="1.8.0"
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
+    equal(Decided(),"1.7.0 > 1.8.0","an earlier EraUI, version unknown: from the release before this one")
+    flush()
+    version="1.7.0"
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
+    equal(Decided(),"1.6.0 > 1.7.0","the release before a release with notes is the one under it")
+    flush()
+    -- "/era updates again" (notes seen "0"): on the next load, as an update
+    -- from the release before; the version stays decided.
+    version="1.8.0"
+    Fresh();E,flush,fire=Session({},{},classic({updateNotesSeen="1.8.0",erauiWelcomeSeen=true}))
+    equal(Decided(),"1.8.0 > 1.8.0","already on 1.8.0's notes: nothing newer")
+    flush()
+    E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="0"}))
+    equal(Decided(),"1.7.0 > 1.8.0","/era updates again: as an update from 1.7.0")
+    flush()
+    -- "/era updates again" with the new version's first load still to come:
+    -- as an update from the release before, never from "0" (which would make
+    -- every earlier release's options "just added").
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic({updateNotesSeen="0"}))
+    equal(Decided(),"1.7.0 > 1.8.0","/era updates again before the first load of a new version: from 1.7.0")
+    flush()
+    -- A development copy decides nothing.
+    C_AddOns.GetAddOnMetadata=function() return "@project-version@" end
+    Fresh();E,flush,fire=Session({},{},classic({updateNotesSeen="1.7.0"}))
+    equal(E.version.." "..Decided(),"dev nil > nil","a development copy decides nothing")
+    flush()
     C_AddOns=nil
 end
 -- The Poison Reminders panel became the rogue's POISON! class reminder (after

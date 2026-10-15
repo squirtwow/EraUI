@@ -16,14 +16,26 @@ local found = setmetatable({}, {__mode = "k"})
 local Drawer = {order = {}, shown = {}, slots = {}}
 Module.drawer = Drawer
 
+-- Square Minimap is worn (Classic/Minimap.lua): the buttons go round the
+-- square's edge instead of the ring.
+local function Square()
+    local classic = EraUI.Classic
+    return type(classic) == "table" and type(classic.SquareMinimapOn) == "function" and classic.SquareMinimapOn() == true
+end
 -- A spot on the minimap's edge from a saved direction ({x, y}, any length),
--- or the default direction (x, y).
+-- or the default direction (x, y): on the ring 4 out from the map, or on
+-- the square 4 out (the corner for a diagonal).
 local function RingPoint(position, x, y)
     if type(position) == "table" and type(position.x) == "number" and type(position.y) == "number" then
         local length = math.sqrt(position.x * position.x + position.y * position.y)
         if length > 0 and length < math.huge then x, y = position.x / length, position.y / length end
     end
-    return x * (Minimap:GetWidth()/2 + 4), y * (Minimap:GetHeight()/2 + 4)
+    local w, h = Minimap:GetWidth()/2 + 4, Minimap:GetHeight()/2 + 4
+    if Square() then
+        local far = math.max(math.abs(x), math.abs(y))
+        if far > 0 then return x / far * w, y / far * h end
+    end
+    return x * w, y * h
 end
 -- The direction from the minimap's centre to the cursor, or nil.
 local function CursorDirection()

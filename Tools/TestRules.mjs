@@ -176,6 +176,30 @@ test('Edit Mode frames are only moved through their plain ...Base methods', () =
   assert.match(chat, /ChatFrame1\.ClearAllPointsBase or ChatFrame1\.ClearAllPoints/, 'and cleared with ClearAllPointsBase');
 });
 
+// The minimap cluster is an Edit Mode frame too. The round look (with Edit
+// Mode's Minimap Size) and Square Size rescale it, so Classic/Minimap.lua does
+// that only in RescaleCluster: Edit Mode's plain SetScaleBase, the anchors put
+// back with SetPointBase, never in a fight (EraUI's pass after it booked).
+// The plain SetScale is left only for a cluster that isn't an Edit Mode frame.
+// Tools/TestSquareMinimap.lua runs it against Edit Mode's overrides.
+test('the minimap cluster is only rescaled through its plain ...Base methods', () => {
+  const map = code['Classic/Minimap.lua'];
+  assert.deepEqual(where(/\bMinimapCluster:(?:SetPoint|SetScale|ClearAllPoints|SetAllPoints)\(/), [],
+    'no direct SetPoint, SetScale, ClearAllPoints or SetAllPoints on MinimapCluster');
+  assert.deepEqual(where(/\bns\.SetPointOnce\((?:MinimapCluster|cluster)\s*,/), [], 'nor ns.SetPointOnce on it');
+  const direct = [...map.matchAll(/^.*\bcluster:(?:SetPoint|SetScale|ClearAllPoints|SetAllPoints)\(.*$/gm)].map(m => m[0].trim());
+  assert.deepEqual(direct, ['if not base then cluster:SetScale(newScale) return end'],
+    "the cluster's own SetScale only when it has no SetScaleBase");
+  const rescale = map.match(/^local function RescaleCluster\(cluster, newScale\)\r?\n([\s\S]*?)^end\r?$/m)?.[1] ?? '';
+  assert.match(rescale, /if InCombatLockdown\(\) then\s+if ns\.ApplyAll then ns\.ApplyAll\(\) end\s+return\s+end/,
+    'never in a fight, the pass after it booked');
+  assert.match(rescale, /local base = cluster\.SetScaleBase/, 'rescaled with SetScaleBase');
+  assert.match(rescale, /local place = cluster\.SetPointBase or cluster\.SetPoint/, 'anchors put back with SetPointBase');
+  assert.match(rescale, /\* oldScale \/ newScale/, 'kept where they were on the screen');
+  assert.equal(count(map, /RescaleCluster\((?:cluster, size|MinimapCluster, EditModeSize\(MinimapCluster\))\)/g), 2,
+    'Layout and the restore rescale through it');
+});
+
 // The same report again after 1.6.0 (2026-10-11, at a level-up in a fight):
 // Match Focus Size ran the game's own FocusFrame:SetSmallSize from EraUI's
 // code, which moves the frame through Edit Mode's overrides, so the snap
@@ -383,4 +407,40 @@ test("Raid-style Party Outline writes only on EraUI's own tables and never acts 
   assert.match(outline, /function ns\.RefreshPartyOutline\(\)[\s\S]*?if InCombatLockdown\(\) then[\s\S]*?return false\s*end\s*local group = Group\(\)/,
     'a fight stops it before anything is touched');
   assert.match(code['Core/Appearance.lua'], /if ns\.RefreshPartyOutlineLine then ns\.RefreshPartyOutlineLine\(\) end/, 'the Darkness slider tones its line');
+});
+
+// Square Minimap (Map & Minimap, 2026-10-15): EraUI's own frame on the map,
+// its state in its own tables. The game's pieces get only the round look's
+// cosmetic setters (mask, anchors, shown) and the hybrid map's mask file.
+// GetMinimapShape, the addon convention minimap button libraries read, is
+// defined only while the square is worn and only when no other addon has,
+// and taken away only while it's still EraUI's. A switch in a fight changes
+// nothing. Tools/TestSquareMinimap.lua runs it on a mock of Forever's minimap.
+test("Square Minimap writes only on its own tables, never takes another addon's shape and never switches in a fight", () => {
+  const map = code['Classic/Minimap.lua'];
+  const section = map.slice(map.indexOf('local SQUARE_MASK'), map.indexOf('local eyeWatch'));
+  assert.ok(section.length > 2000, 'the square section found');
+  assert.equal(/GameTooltip|HookScript|SetScript|hooksecurefunc|SetOverrideBinding|SetBinding|EditMode/.test(section), false,
+    'no tooltip, hook, script, binding or Edit Mode in it');
+  const roots = [...section.matchAll(/^\s*([A-Za-z_]\w*)(?:\.[A-Za-z_]\w*|\[[^\]]+\])+\s*(?:,\s*[\w.]+\s*)*=(?!=)/gm)].map(m => m[1]);
+  assert.deepEqual([...new Set(roots)].sort(), ['_G', 'line', 'shell', 'square'], "keys written only on EraUI's own tables (and the shape)");
+  assert.match(section, /if current == nil then _G\.GetMinimapShape = SquareShape end/, 'the shape claimed only when no addon has');
+  assert.match(section, /elseif current == SquareShape then\s+_G\.GetMinimapShape = nil/, 'and given back only while it is still ours');
+  assert.equal(count(map, /_G\.GetMinimapShape\s*=/g), 2, 'set nowhere else in the file');
+  assert.deepEqual(where(/GetMinimapShape\s*=/), ['Classic/Minimap.lua'], 'no other file defines it');
+  assert.match(map, /function ns\.RefreshSquareMinimap\(\)[\s\S]*?if InCombatLockdown\(\) then[\s\S]*?return false\s*end\s*square\.on = wanted\s*square\.size = size/,
+    'a fight stops a switch or a new Square Size before anything changes');
+  // Square Size (2026-10-15): only the cluster's scale, which the round look
+  // already sets (Layout), and Edit Mode's size alone again on restore, both
+  // through RescaleCluster (Edit Mode's plain SetScaleBase; the test above).
+  assert.equal(count(map, /\bRescaleCluster\(/g), 3, "the cluster's scale set in Layout and on restore only");
+  assert.match(map, /local size = EditModeSize\(cluster\) \* \(square\.on and square\.size or 1\)\s+if cluster\.MinimapContainer[\s\S]{0,120}?\s+RescaleCluster\(cluster, size\)/,
+    'Square Size only while the square is worn');
+  assert.match(map, /if MinimapCluster then RescaleCluster\(MinimapCluster, EditModeSize\(MinimapCluster\)\) end/, "restore: Edit Mode's size alone");
+  assert.equal(count(map, /square\.size = /g), 2, "the size taken only by EraUI's pass and the refresh");
+  assert.match(code['Core/Settings.lua'],
+    /EraUI:SetSetting\("squareMinimapScale", value\)\s*local classic = EraUI\.Classic or \{\}\s*local done = true\s*if classic\.RefreshSquareMinimap then done = classic\.RefreshSquareMinimap\(\) ~= false end/,
+    'the slider goes through the same refresh as the switch');
+  assert.match(code['Core/Appearance.lua'], /if ns\.RefreshSquareMinimapLine then ns\.RefreshSquareMinimapLine\(\) end/, 'the Darkness slider tones its line');
+  assert.match(code['Modules/MinimapTools.lua'], /classic\.SquareMinimapOn\(\) == true/, "EraUI's own minimap buttons go round the square");
 });

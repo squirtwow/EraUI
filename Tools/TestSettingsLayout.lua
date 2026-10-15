@@ -35,7 +35,8 @@ local EXPECTED = {
     "classIconPortraitMine", "classIconPortraitOthers"}}}},
    {"plates", "Nameplates", {{"NAMEPLATES", {"friendlyNameplates", "enemyNameplates"}}}}}},
   {"map", "Map & Minimap", "The minimap and the world map.", {
-   {"main", nil, {{"MINIMAP", {"minimap", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns", "coordinates"}},
+   {"main", nil, {{"MINIMAP", {"minimap", "squareMinimap", "squareMinimapScale", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns",
+    "coordinates"}},
     {"WORLD MAP", {"mapQuestObjectives", "movableMap", "revealMap"}}}}}},
   {"windows", "Windows & Tooltips", "Classic frames for the game's windows, and tooltips.", {
    {"main", nil, {{"WINDOWS", {"gameMenu", "popups", "blizzardSettings", "mailSkin", "auctionHouse", "damageMeterSkin",
@@ -190,6 +191,10 @@ local PARENT = {
  -- Thick Frames' two ticks and its Frame Edge choice (Thick Frames itself is
  -- greyed by Unit Frames, on another page, and never indented).
  thickFrameRings = "thickFrames", thickFrameParty = "thickFrames", thickFrameEdge = "thickFrames",
+ -- Square Minimap reshapes Minimap's own look: under it, greyed while it's off.
+ -- Its Square Size slider shows only with it, laid out under Minimap at its
+ -- indent (GROUPS; checked in its own block below).
+ squareMinimap = "minimap", squareMinimapScale = "minimap",
 }
 local FOLDED = {
  cursorRing = {"cursorRingClassColour", "cursorRingSize", "cursorRingThickness"},
@@ -197,17 +202,37 @@ local FOLDED = {
  cursorTrail = {"cursorTrailClassColour", "cursorTrailSize", "cursorTrailOpacity", "cursorTrailLength", "cursorTrailColour"},
 }
 for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] = parent end end
--- Options new since 1.5.5 ("just added" for returning players this version)
--- and those not seen working in game yet ("experimental", always). Nothing
+-- The options each release added, written out here by hand (from the
+-- releases' notes), one per option: its own row. "just added" goes after
+-- them for an account that updated from before that release, while it runs
+-- the version it updated into; the rows under or shown with them (Black
+-- Pages under Dark Windows, Thick Frames' ticks and Edge, the Stat
+-- Tracker's options, Custom Cast Bar Colour, Icons per Row) go with them and
+-- never say it. Clean Minimap's Style and Cast Bar Colour have no room for
+-- both words before their buttons: only "experimental" (measured below).
+-- Then those not seen working in game yet ("experimental", always). Nothing
 -- says it moved any more.
--- (Thick Frames' two ticks and Frame Edge only "experimental": both words
--- don't fit an indented "Classic Party Frames", nor Frame Edge's buttons.)
-local NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
- roundedCastBars = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true, partyOutline = true}
+local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
+ ["1.7.0"] = {"thickFrames", "thickAuraBorders", "roundedCastBars", "partyOutline", "darkBagButtons", "upgradeSpellRanks",
+  "cleanMinimapStyle", "castBarColour", "statTracker"}}
+local TIGHT = {cleanMinimapStyle = true, castBarColour = true}
+-- The options saying "just added" for an account that updated from this version.
+local function NewSince(from)
+ local out = {}
+ for version, keys in pairs(LEADS) do
+  local a, b = {}, {}
+  for n in version:gmatch("%d+") do a[#a + 1] = tonumber(n) end
+  for n in from:gmatch("%d+") do b[#b + 1] = tonumber(n) end
+  local later = false
+  for i = 1, 3 do if (a[i] or 0) ~= (b[i] or 0) then later = (a[i] or 0) > (b[i] or 0); break end end
+  if later then for _, key in ipairs(keys) do if not TIGHT[key] then out[key] = true end end end
+ end
+ return out
+end
 local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
  flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true, castBarColour = true,
  darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true, thickFrameRings = true, thickFrameParty = true,
- thickFrameEdge = true, partyOutline = true}
+ thickFrameEdge = true, partyOutline = true, squareMinimap = true}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -1739,12 +1764,14 @@ end
 do
  local E, f = Session("DRUID")
  -- The cursor effects' folded options open, Clean Minimap's (with the
- -- Drawer style), Cast Bar Colour's (with Custom) and the Stat Tracker's
- -- (with Stat Name Colour's Custom), so every row shows.
+ -- Drawer style), Cast Bar Colour's (with Custom), the Stat Tracker's
+ -- (with Stat Name Colour's Custom) and Square Minimap's Square Size, so
+ -- every row shows.
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  E.settings.castBarColour = "custom"
  E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
+ E.settings.squareMinimap = true
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
  for g, group in ipairs(EXPECTED) do
@@ -1806,6 +1833,7 @@ do
  equal(#f.tabs, 14, "fourteen tabs")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
+ E.settings.squareMinimap = nil
  -- The class tab, per class (its page above); here its place and name.
  equal(Tab(f, "class") .. "," .. Tab(f, "casting"), "6,7", "your class is the sixth tab and Casting the seventh")
  -- Every option is on exactly one sub-page.
@@ -1831,10 +1859,12 @@ do
  -- Sub-options right after their parent, indented with their line, on
  -- every sub-page, with every fold open (the Stat Tracker's rows have no
  -- layout parent: each its own block, never indented, but Custom Stat Name
- -- Colour, under its choice).
+ -- Colour, under its choice; and Square Size, under Minimap at Square
+ -- Minimap's indent).
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = true, true, true, true
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
  E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
+ E.settings.squareMinimap = true
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
    f:SelectCategory(i, sub.id); Flush()
@@ -1852,6 +1882,10 @@ do
  Open(f, "character")
  equal(f.checks.statTrackerNameCustomColour.depth == 1 and f.checks.statTrackerNameCustomColour.connV:IsShown(), true,
   "Custom Stat Name Colour sits under Stat Name Colour")
+ Open(f, "map")
+ equal(f.checks.squareMinimapScale.depth == 1 and f.checks.squareMinimapScale.connV:IsShown()
+  and math.abs(f.checks.squareMinimapScale:GetLeft() - f.checks.squareMinimap:GetLeft()) < .01, true,
+  "Square Size sits under Minimap, at Square Minimap's indent")
  Open(f, "class")
  equal(f.checks.comboPointRed.depth == 1 and f.checks.comboPointRed.connV:IsShown(), true, "Red Combo Points sits under Floating Combo Points")
  E.settings.floatingComboPoints = false; f:RefreshDependencies()
@@ -1860,6 +1894,7 @@ do
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
+ E.settings.squareMinimap = nil
  -- Folds: hidden (not greyed) until their switch is on, open right after it
  -- at once keeping the scroll, and fold away again.
  local height = f:GetHeight()
@@ -1898,6 +1933,7 @@ do
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = true, true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = true, "drawer", "custom"
  E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
+ E.settings.squareMinimap = true
  local scrolls = {}
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
@@ -1911,6 +1947,7 @@ do
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
+ E.settings.squareMinimap = nil
  -- The viewport is pinned by two corners and sized; its content too.
  equal(#f.settingsScroll.points, 2, "the viewport is pinned by two corners")
  equal(f.settingsScroll:GetWidth() > 0 and f.settingsScroll:GetHeight() > 0 and f.settingsContent:GetWidth() > 0, true, "it and its content have a size")
@@ -2231,7 +2268,9 @@ for _, c in ipairs({"MAGE", "HUNTER"}) do
  local content = f.settingsContent:GetLeft()
  equal(N(minimap:GetHeight()) .. " " .. N(minimap:GetWidth()), "32 352", c .. " a row is 32 tall, 352 wide")
  equal(N(minimap:GetLeft() - content) .. " " .. N(clean:GetLeft() - content), "0 366", c .. " columns at 0 and 366")
- equal(N(coords:GetLeft() - content) .. " " .. N(minimap:GetBottom() - coords:GetTop()), "0 4", c .. " the next line 4 under")
+ local squared = f.checks.squareMinimap
+ equal(N(squared:GetLeft() - content) .. " " .. N(minimap:GetBottom() - squared:GetTop()), "22 4", c .. " the next line 4 under (Square Minimap, 22 in under Minimap)")
+ equal(N(coords:GetLeft() - content) .. " " .. N(squared:GetBottom() - coords:GetTop()), "0 4", c .. " and the one after it 4 under that")
  local box, fill, mark = minimap.tickBox, minimap.tickFill, minimap.tickMark
  equal(N(box:GetWidth()) .. "x" .. N(box:GetHeight()) .. " " .. N(box:GetLeft() - minimap:GetLeft()), "14x14 10", c .. " a 14 x 14 tick box, 10 in")
  equal(Colour(box.fill) .. " / " .. Colour(fill.fill), "0.300,0.320,0.360 / 0.059,0.063,0.075", c .. " grey edge, dark fill")
@@ -2269,10 +2308,12 @@ for _, c in ipairs({"MAGE", "HUNTER"}) do
  equal(Colour(minimap.borderColour), Colour({colour.r, colour.g, colour.b}), c .. " its edge in the class colour")
  equal(f.footerHelp:IsShown() and Has(M.Text(f.footerHelp:GetText()), "Minimap  The round Classic minimap"), true, c .. " its description in the footer")
  f.keys:Fire("OnTabPressed")
- equal(f.focusedRow == clean and not minimap.focused, true, c .. " Tab moves to the next row")
+ equal(f.focusedRow == squared and not minimap.focused, true, c .. " Tab moves to the next row (Square Minimap, under Minimap)")
  S.shift = true; f.keys:Fire("OnTabPressed"); S.shift = false
  equal(f.focusedRow, minimap, c .. " Shift-Tab moves back")
  f.keys:Fire("OnTabPressed"); f.keys:Fire("OnTabPressed")
+ equal(f.focusedRow, clean, c .. " then Clean Minimap")
+ f.keys:Fire("OnTabPressed")
  equal(f.focusedRow, coords, c .. " and on")
  f.keys:Fire("OnSpacePressed")
  equal(E.settings.coordinates, true, c .. " Space switches it")
@@ -2477,9 +2518,11 @@ do
  end
 end
 
--- The words after a row's name: "just added" (the game's gold) for players
--- who had the old layout, while they run the version it arrived in;
--- "experimental" (muted warm grey) always; never "moved"; never in setup.
+-- The words after a row's name: "just added" (the game's gold) for an
+-- account that updated, on the options added since the version it updated
+-- from, while it runs the version it updated into (none for a fresh
+-- install); "experimental" (muted warm grey) always; never "moved"; never
+-- in setup.
 -- Plain small lower-case words right after the name: no box, no border, no
 -- capitals, no spaced-out letters, on the name's line, inside the row.
 local WORDS = {NEW = {"just added", "1.000,0.820,0.000"}, TEST = {"experimental", "0.660,0.610,0.530"},
@@ -2505,32 +2548,99 @@ local function TagLook(row, label)
  end
  -- The name and its words fit the row (the glyph widths, never under the game's).
  equal(row.text:GetLeft() + width <= row:GetRight() - 4, true, label .. " name and words fit its row (" .. N(width) .. ")")
+ -- And stop short of the row's buttons (a choice's), never under them.
+ if row.buttons and row.buttons[1] and #row.tagIds > 0 then
+  equal(row.text:GetLeft() + width <= row.buttons[1]:GetLeft() - 4, true, label .. " name and words clear its first button")
+ end
+end
+-- Whether a choice row's name has room for "just added" and its other words
+-- before its first button, all measured with the glyph widths (never under
+-- the game's), the buttons too: each at least 80, else its label and 28.
+local function BothWordsFit(row)
+ local width = M.Glyphs(row.text:GetText(), 13) + 6 + M.Glyphs("just added", 10)
+ for _, id in ipairs(row.tagIds) do if id ~= "NEW" then width = width + 5 + M.Glyphs(WORDS[id][1], 10) end end
+ local buttons = 0
+ for i, button in ipairs(row.buttons) do buttons = buttons + math.max(80, M.Glyphs(button.label:GetText(), 13) + 28) + (i > 1 and 6 or 0) end
+ return row.text:GetLeft() + width <= row:GetRight() - 10 - buttons - 4
 end
 do
  local E, f = Session("ROGUE")
+ local Nav = E.SettingsNav
  local function Tags(key) return table.concat(f.checks[key].tagIds, ",") end
- local function Expect(show, label)
+ -- from: the version the account updated from (nil: no words at all).
+ local function Expect(from, label)
+  local new = from and NewSince(from) or {}
   for key in pairs(f.checks) do
    local want = {}
-   if show and NEW[key] then want[#want + 1] = "NEW" end
+   if new[key] then want[#want + 1] = "NEW" end
    if TESTING[key] then want[#want + 1] = "TEST" end
    if f.checks[key].unavailable then want[#want + 1] = "SOON" end
    equal(Tags(key), table.concat(want, ","), label .. " " .. key)
   end
  end
- Expect(false, "no version saved:")
- for _, version in ipairs({"9.9.9"}) do
-  E.settings.layoutPillsVersion = version; f:Hide(); f:Show(); Flush()
-  Expect(true, "the version the layout arrived in:")
+ local function Updated(from, into)
+  E.settings.justAddedFrom, E.settings.justAddedVersion = from, into
+  f:Hide(); f:Show(); Flush()
  end
+ -- The data: every option Nav says a release added is a row here, from a
+ -- release with notes, and its own rows are exactly the ones written out above.
+ local releases = {}
+ for _, version in ipairs({"1.6.0", "1.7.0"}) do releases[version] = true end
+ local leads = {}
+ for key, version in pairs(Nav.ADDED) do
+  equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
+  equal(releases[version], true, key .. ": added in a release with notes (" .. version .. ")")
+  if Nav.Lead(key) then leads[version] = leads[version] or {}; table.insert(leads[version], key) end
+ end
+ for version, keys in pairs(LEADS) do
+  local want = {}
+  for _, key in ipairs(keys) do want[#want + 1] = key end
+  table.sort(want); table.sort(leads[version] or {})
+  equal(table.concat(leads[version] or {}, ","), table.concat(want, ","), version .. "'s options, one row each")
+ end
+ equal(Nav.ADDED.statTrackerStrength .. " " .. Nav.ADDED.thickFrameEdge .. " " .. Nav.ADDED.castBarCustomColour .. " " .. Nav.ADDED.minimapDrawerColumns,
+  "1.7.0 1.7.0 1.7.0 1.7.0", "the rows under a new option carry its release too")
+ Expect(nil, "no version saved:")
+ Updated("1.5.5", "9.9.9")
+ Expect("1.5.5", "updated from 1.5.5:")
+ equal(Tags("darkWindows") .. " " .. Tags("blackPages") .. " " .. Tags("thickFrames") .. " " .. Tags("thickFrameRings"), "NEW,TEST TEST NEW,TEST TEST",
+  "for example: Dark Windows and Thick Frames say it, the ticks under them don't")
+ Updated("1.6.0", "9.9.9")
+ Expect("1.6.0", "updated from 1.6.0:")
+ equal(Tags("flatBars") .. " " .. Tags("statTracker"), "TEST NEW,TEST", "from 1.6.0 only 1.7.0's options say it")
+ Updated("1.7.0", "9.9.9")
+ Expect("1.7.0", "updated from 1.7.0 (nothing newer here):")
+ -- Never an option from a release after the one running (a copy of 1.6.0
+ -- with 1.7.0's rows in it): only up to the version it runs.
+ E.version = "1.6.0"
+ Updated("1.5.5", "1.6.0")
+ equal(Tags("darkWindows") .. " " .. Tags("thickFrames") .. " " .. Tags("statTracker"), "NEW,TEST TEST TEST", "running 1.6.0: its own options, not 1.7.0's")
+ E.version = "9.9.9"
+ Updated("1.5.5", "9.9.9")
  equal(Tags("darkWindows") .. " " .. Tags("darkAuraShadows") .. " " .. Tags("autoRepair") .. " " .. Tags("cursorRing"), "NEW,TEST TEST  ", "for example: nothing says it moved")
+ -- Clean Minimap's Style and Cast Bar Colour: both words wouldn't clear
+ -- their first button, so they're the TIGHT ones; every other option a
+ -- release added would have room.
+ E.settings.cleanMinimap = true
+ for key in pairs(Nav.ADDED) do
+  local row = f.checks[key]
+  if Nav.Lead(key) and row.buttons then
+   local home = f.rowHome[key]
+   f:SelectCategory(home.tab, home.sub); Flush()
+   local fits = BothWordsFit(row)
+   equal(Nav.TIGHT[key] == true, not fits, key .. (fits and ": room for both words" or ": no room for both words, so only experimental"))
+  end
+ end
+ for key in pairs(Nav.TIGHT) do equal(Nav.ADDED[key] ~= nil, true, key .. ": TIGHT only lists new options") end
+ E.settings.cleanMinimap = nil
  equal(E.SettingsNav.MOVED, nil, "no moved list any more")
  -- Every row with words, on its page, as it shows.
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
  E.settings.cleanMinimap = true
  local looked, worded = 0, 0
+ local saying = NewSince("1.5.5")
  for key, row in pairs(f.checks) do
-  if TESTING[key] or row.unavailable then worded = worded + 1 end
+  if TESTING[key] or row.unavailable or saying[key] then worded = worded + 1 end
   if #row.tagIds > 0 then
    local home = f.rowHome[key]
    f:SelectCategory(home.tab, home.sub); Flush()
@@ -2541,36 +2651,38 @@ do
  equal(looked == worded and looked >= 8, true, "every row with words checked (" .. looked .. ": the eight experimental ones and the coming soon ones)")
  -- Clean Minimap's Style row: its name and "experimental" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
- -- they show to returning players too.
- E.settings.layoutPillsVersion = "9.9.9"; f:Hide(); f:Show(); Flush()
+ -- they show to an account that updated too.
+ Updated("1.5.5", "9.9.9")
  Open(f, "map")
  local style = f.checks.cleanMinimapStyle
  local words = M.Glyphs(style.text:GetText(), 13)
  for i, id in ipairs(style.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(style.tags[i]:GetText(), 10) end
  equal(table.concat(style.tagIds, ",") .. " " .. tostring(style.text:GetLeft() + words <= style.buttons[1]:GetLeft() - 4), "TEST true",
   "Clean Minimap's Style: its name and experimental clear its Hover button")
- E.settings.layoutPillsVersion = nil; f:Hide(); f:Show(); Flush()
+ Updated(nil, nil)
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  E.settings.cleanMinimap = nil
  equal(table.concat(f.checks.contextMenus.tagIds, ","), "SOON", "Context Menus says coming soon")
- for _, version in ipairs({"1.0.0", "", false}) do
-  E.settings.layoutPillsVersion = version or nil; f:Hide(); f:Show(); Flush()
-  Expect(false, "another version (" .. tostring(version) .. "):")
+ -- A fresh install ("" from), or a version other than the one running
+ -- (the account's next update decides again), says nothing.
+ for _, case in ipairs({{"", "9.9.9"}, {"1.5.5", "1.7.0"}, {"1.5.5", ""}, {"1.5.5", nil}, {"dev", "9.9.9"}, {"9.9.9", "9.9.9"}}) do
+  Updated(case[1], case[2])
+  Expect(nil, "from " .. tostring(case[1]) .. " into " .. tostring(case[2]) .. ":")
  end
- E.settings.layoutPillsVersion = "9.9.9"; f:Hide(); f:Show(); Flush()
+ Updated("1.5.5", "9.9.9")
  f:SetSetupMode(true); Flush()
- Expect(false, "in setup:")
+ Expect(nil, "in setup:")
  f:SetSetupMode(false); Flush()
- Expect(true, "after setup:")
+ Expect("1.5.5", "after setup:")
  -- Search results carry the same words, after the option's name.
- M.Results(f, "black pages")
+ M.Results(f, "dark windows")
  local result = f.visibleRows[1]
- equal(table.concat(result.tagIds, ","), "NEW,TEST", "a result shows its option's words")
- TagLook(result, "the Black Pages result")
+ equal(result.target.settingKey .. " " .. table.concat(result.tagIds, ","), "darkWindows NEW,TEST", "a result shows its option's words")
+ TagLook(result, "the Dark Windows result")
  -- "experimental" finds the experimental options.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkBagButtons,darkDebuffLines,darkWindows,flatBars,partyOutline,roundedCastBars,statTracker,thickAuraBorders,thickFrameEdge,thickFrameParty,thickFrameRings,thickFrames,upgradeSpellRanks", "searching experimental finds them")
+ equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkBagButtons,darkDebuffLines,darkWindows,flatBars,partyOutline,roundedCastBars,squareMinimap,statTracker,thickAuraBorders,thickFrameEdge,thickFrameParty,thickFrameRings,thickFrames,upgradeSpellRanks", "searching experimental finds them")
  f.searchBox:SetText(""); Flush()
 end
 
@@ -2775,6 +2887,7 @@ do
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  E.settings.statTracker = true
+ E.settings.squareMinimap = true
  local sliders = 0
  for key, row in pairs(f.checks) do
   if row.rowKind == "slider" then
@@ -2790,11 +2903,12 @@ do
    sliders = sliders + 1
   end
  end
- equal(sliders, 12, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
-  .. " and Stats per Line)")
+ equal(sliders, 13, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
+  .. " and Stats per Line, Square Minimap's Square Size)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
  E.settings.statTracker = nil
+ E.settings.squareMinimap = nil
  Open(f, "quests")
  equal(f.checks.rewardProfile.text:GetText():find("^Reward Profile: ") ~= nil, true, "the reward profile row in Title Case")
 end
@@ -2868,7 +2982,7 @@ do
   LayoutDrawer = function() calls[#calls + 1] = "layout" end}
  local clean, style, columns = f.checks.cleanMinimap, f.checks.cleanMinimapStyle, f.checks.minimapDrawerColumns
  Open(f, "map")
- equal(Keys(f), "minimap,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap", "Clean Minimap off: its style and icons per row folded away")
+ equal(Keys(f), "minimap,squareMinimap,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap", "Clean Minimap off: its style and icons per row folded away")
  equal(style.rowKind .. " " .. style.labelText .. " " .. style.buttons[1].label:GetText() .. "/" .. style.buttons[2].label:GetText(), "choice Style Hover/Drawer",
   "the style is a choice row: Hover or Drawer")
  equal(columns.rowKind .. " " .. columns.labelText .. " " .. columns.info.low .. "-" .. columns.info.high, "slider Icons per Row 3-8", "icons per row: a slider from 3 to 8")
@@ -2879,14 +2993,14 @@ do
  equal(f.settingsScroll:GetVerticalScroll(), 10, "the page scrolled a little")
  clean:Click(); Flush()
  equal(E.settings.cleanMinimap, true, "Clean Minimap on")
- equal(Keys(f), "minimap,cleanMinimap,cleanMinimapStyle,coordinates,mapQuestObjectives,movableMap,revealMap", "its style opens right under it at once; icons per row waits for Drawer")
+ equal(Keys(f), "minimap,squareMinimap,cleanMinimap,cleanMinimapStyle,coordinates,mapQuestObjectives,movableMap,revealMap", "its style opens right under it at once; icons per row waits for Drawer")
  equal(style.selected, 1, "Hover chosen until Drawer is (as before)")
  equal(f.settingsScroll:GetVerticalScroll(), 10, "opening keeps the scroll")
  equal(style.depth == 1 and style.connV:IsShown() and style.dependencyDisabled == nil, true, "the style sits under Clean Minimap, never greyed")
  calls = {}
  style.buttons[2]:Click(); Flush()
  equal(E.settings.cleanMinimapStyle .. " " .. style.selected, "drawer 2", "Drawer chosen and saved")
- equal(Keys(f), "minimap,cleanMinimap,cleanMinimapStyle,minimapDrawerColumns,coordinates,mapQuestObjectives,movableMap,revealMap",
+ equal(Keys(f), "minimap,squareMinimap,cleanMinimap,cleanMinimapStyle,minimapDrawerColumns,coordinates,mapQuestObjectives,movableMap,revealMap",
   "Icons per Row opens under the style at once")
  equal(columns.depth, 1, "Icons per Row sits under Clean Minimap too")
  equal(table.concat(calls, ","), "discover,refresh", "the drawer applies at once (MinimapTools)")
@@ -2937,6 +3051,283 @@ do
  M.NoOverlaps(f, "walkthrough Map & Minimap with the drawer"); M.Fits(f, "walkthrough Map & Minimap with the drawer")
  f:SetSetupMode(false); Flush()
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
+end
+
+-- Square Minimap (Map & Minimap, experimental): a tick under Minimap,
+-- indented, greyed while Minimap is off (the footer says so); off by
+-- default, live, never a reload; applied at once through Classic/Minimap.lua
+-- with its own chat line (in a fight: the minimap changes when it ends;
+-- Minimap waiting for a reload: it shows once that's applied); its words,
+-- summary and search words; "experimental", and with "just added" too (once
+-- a release lists it) both fit its row; offered on the walkthrough's Map &
+-- Minimap page with Minimap on, left out with it off, like Show Gryphons.
+do
+ local E, f = Session("WARRIOR")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ equal(real.settingDefaults.squareMinimap, false, "Square Minimap off by default (Core/Init.lua)")
+ equal(real.reloadSettings.squareMinimap, nil, "it applies without a reload")
+ for key in pairs(real.reloadSettings) do E.reloadSettings[key] = true end
+ E.settingDefaults.squareMinimap = false
+ E.settings.minimap = true
+ f:RefreshDependencies()
+ Open(f, "map")
+ M.NoOverlaps(f, "Map & Minimap with Square Minimap"); M.Fits(f, "Map & Minimap with Square Minimap")
+ M.SubOptionsFollow(f, "Map & Minimap with Square Minimap", ParentOf(E))
+ local row = f.checks.squareMinimap
+ equal(row.text:GetText() .. " / " .. row.rowKind .. " / " .. tostring(row:IsVisible()) .. " / " .. tostring(row:GetChecked()) .. " / "
+  .. tostring(row.depth) .. " / " .. tostring(row.dependencyDisabled), "Square Minimap / tick / true / false / 1 / false",
+  "a tick row under Minimap, off, not greyed")
+ equal(Keys(f):find("^minimap,squareMinimap,cleanMinimap,") ~= nil, true, "right under Minimap, before Clean Minimap")
+ equal(table.concat(row.tagIds, ","), "TEST", "it says experimental")
+ TagLook(row, "Square Minimap")
+ local _, help, extras = M.Hover(f, row)
+ equal(help, "Square Minimap  A square map in a thin dark frame, the zone's name on top and the buttons on its edges. In Dark Mode its fine line follows the Darkness slider.",
+  "its words")
+ equal(M.LinesIn(help, 570, 12) <= 2, true, "two footer lines at most")
+ equal(extras, "Default: Off.", "no reload line, nothing to switch on first, off by default")
+ equal(row.summary, "A square map in a thin dark frame instead of the round border.", "its summary")
+ -- Live, with its own chat line.
+ local refreshes, waits, status = 0, false, nil
+ local realClassic, realStatus = E.Classic, E.Status
+ E.Classic = setmetatable({RefreshSquareMinimap = function() refreshes = refreshes + 1; return not waits end}, {__index = realClassic})
+ E.Status = function(_, m) status = m end
+ row:Click()
+ equal(tostring(E.settings.squareMinimap) .. " " .. refreshes .. " " .. status, "true 1 Square Minimap enabled.", "a click switches it on, live")
+ row:Click()
+ equal(tostring(E.settings.squareMinimap) .. " " .. refreshes .. " " .. status, "false 2 Square Minimap disabled.", "and off, live")
+ waits = true
+ row:Click()
+ equal(status, "Square Minimap enabled. The minimap changes when combat ends.", "in a fight: the minimap follows when it ends")
+ row:Click()
+ equal(status, "Square Minimap disabled. The minimap changes when combat ends.", "off in a fight: the same note")
+ waits = false
+ -- Minimap ticked but not applied yet (it waits for a reload).
+ local get = E.GetSetting
+ E.GetSetting = function(self, key) if key == "minimap" then return false end; return get(self, key) end
+ row:Click()
+ equal(status, "Square Minimap enabled. It shows once Minimap is applied.", "Minimap waiting for a reload: it shows once that's applied")
+ row:Click()
+ equal(status, "Square Minimap disabled.", "off: no note")
+ E.GetSetting = get
+ E.Classic = {}
+ row:Click()
+ equal(tostring(E.settings.squareMinimap) .. " " .. status, "true Square Minimap enabled.", "without Classic loaded the tick still saves")
+ row:Click()
+ E.Classic, E.Status = realClassic, realStatus
+ equal(tostring(E.settings.squareMinimap) .. " " .. refreshes, "false 6", "off again; each click with Classic loaded refreshed it once")
+ -- Minimap off: greyed, the footer names it.
+ E.settings.minimap = false
+ f:RefreshDependencies()
+ local _, _, grey = M.Hover(f, row)
+ equal(tostring(row.dependencyDisabled) .. " / " .. grey, "true / Switch on Minimap first.  Default: Off.", "Minimap off: greyed, its note names Minimap")
+ row:Click()
+ equal(tostring(E.settings.squareMinimap) .. " " .. tostring(row:GetChecked()) .. " " .. refreshes, "false false 6", "greyed: a click changes nothing")
+ E.settings.minimap = true
+ f:RefreshDependencies()
+ equal(row.dependencyDisabled, false, "Minimap back on: not greyed")
+ for _, query in ipairs({"square", "shape", "corners", "minimap frame", "darkness", "square minimap", "experimental"}) do
+  local found = M.Results(f, query)
+  local hit = false
+  for _, key in ipairs(found) do if key == "squareMinimap" then hit = true end end
+  equal(hit, true, "searching " .. query .. " finds Square Minimap")
+ end
+ f.searchBox:SetText(""); Flush()
+ -- Once a release lists it (Core/SettingsNav.lua ADDED), an account that
+ -- updated sees "just added" too, and both words fit.
+ local Nav = E.SettingsNav
+ Nav.ADDED.squareMinimap = "9.9.9"
+ E.settings.justAddedFrom, E.settings.justAddedVersion = "1.7.0", "9.9.9"
+ f:Hide(); f:Show(); Flush(); Open(f, "map")
+ equal(table.concat(row.tagIds, ","), "NEW,TEST", "listed in a release: just added and experimental")
+ TagLook(row, "Square Minimap, just added")
+ Nav.ADDED.squareMinimap = nil
+ E.settings.justAddedFrom, E.settings.justAddedVersion = nil, nil
+ f:Hide(); f:Show(); Flush()
+ -- The walkthrough.
+ for _, on in ipairs({true, false}) do
+  E.settings.minimap = on
+  f:SetSetupMode(false); Flush(); f:SetSetupMode(true); Flush(); f.setupPreset = "qol"
+  local shown = false
+  for page = 1, 40 do
+   f.setupPage = page; f:RenderSetup(); Flush()
+   if f.sectionTitle:GetText() == "Map & Minimap" then shown = true; break end
+  end
+  equal(shown, true, "the walkthrough has its Map & Minimap page")
+  equal(f.checks.squareMinimap:IsShown(), on, "the walkthrough's Map & Minimap page " .. (on and "offers it with Minimap on" or "leaves it out with Minimap off"))
+  M.NoOverlaps(f, "walkthrough Map & Minimap"); M.Fits(f, "walkthrough Map & Minimap")
+  M.SubOptionsFollow(f, "walkthrough Map & Minimap", ParentOf(E))
+ end
+ f:SetSetupMode(false); Flush()
+ E.settings.minimap = true
+end
+
+-- Square Size (Map & Minimap): a slider, 75% to 150% in fives, 100% by
+-- default (Core/Init.lua), never a reload. Hidden (not greyed) while Square
+-- Minimap is off; ticking it opens the slider right under it at its indent
+-- at once, keeping the scroll, and the page reflows with no gap or overlap
+-- either way. Each move saves and refreshes the minimap (Classic/Minimap.lua)
+-- at once; in a fight the minimap waits, said once a fight. Greyed with
+-- Square Minimap while Minimap is off: not dragged, a move puts it back. A
+-- saved value it can't read shows 100%; one beyond its ends, the nearest.
+-- The footer's words and default, search, a jump while it's hidden, no
+-- words after its name, the walkthrough.
+do
+ local E, f = Session("MAGE")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ equal(real.settingDefaults.squareMinimapScale, 100, "Square Size 100% by default (Core/Init.lua): nothing changes for anyone who never moves it")
+ equal(real.reloadSettings.squareMinimapScale, nil, "it applies without a reload")
+ for key in pairs(real.reloadSettings) do E.reloadSettings[key] = true end
+ E.settings.minimap = true
+ f:RefreshDependencies()
+ local square, size = f.checks.squareMinimap, f.checks.squareMinimapScale
+ local coords = f.checks.coordinates
+ Open(f, "map")
+ -- Off: hidden, not greyed, and nothing left where it would be.
+ equal(Keys(f), "minimap,squareMinimap,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap", "Square Minimap off: Square Size hidden")
+ equal(size:IsShown(), false, "the slider not on show")
+ equal(N(square:GetBottom() - coords:GetTop()), "4", "Coordinates' line right under Square Minimap, no gap")
+ equal(size.rowKind .. " " .. size.labelText .. " " .. size.info.low .. "-" .. size.info.high .. " " .. size.info.step .. " " .. tostring(size.wide),
+  "slider Square Size 75-150 5 nil", "a half-line slider row, 75 to 150 in fives")
+ equal(table.concat(size.tagIds, ","), "", "no words after its name: Square Minimap above it says experimental")
+ -- A short window, so the page scrolls; ticking opens it at once.
+ M.Resize(f, 340)
+ Open(f, "map")
+ f:SetSettingsScroll(10)
+ local calls, waits, status = 0, false, {}
+ local realClassic, realStatus = E.Classic, E.Status
+ E.Classic = setmetatable({RefreshSquareMinimap = function() calls = calls + 1; return not waits end}, {__index = realClassic})
+ E.Status = function(_, m) status[#status + 1] = m end
+ square:Click(); Flush()
+ equal(tostring(E.settings.squareMinimap) .. " " .. table.concat(status, "|"), "true Square Minimap enabled.", "Square Minimap on")
+ status = {}
+ equal(Keys(f), "minimap,squareMinimap,squareMinimapScale,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap",
+  "Square Size opens right under Square Minimap at once")
+ equal(f.settingsScroll:GetVerticalScroll(), 10, "opening keeps the scroll")
+ equal(size:IsVisible() and size.text:GetText(), "Square Size: 100%", "shown at 100%")
+ equal(size.depth == 1 and size.connV:IsShown() and math.abs(size:GetLeft() - square:GetLeft()) < .01 and math.abs(size:GetWidth() - square:GetWidth()) < .01, true,
+  "at Square Minimap's indent and width, joined by its line")
+ equal(N(square:GetBottom() - size:GetTop()) .. " " .. N(size:GetBottom() - coords:GetTop()), "4 4", "right under it, and Coordinates' line under it: no gap")
+ equal(size.dependencyDisabled == false and size.alpha == 1 and size.slider:IsMouseEnabled(), true, "with Minimap on: not greyed, dragged")
+ M.NoOverlaps(f, "Square Size open"); M.Fits(f, "Square Size open")
+ M.SubOptionsFollow(f, "Square Size open", ParentOf(E))
+ -- Each move saves and refreshes the minimap at once.
+ calls = 0
+ size.slider:SetValue(120)
+ equal(E.settings.squareMinimapScale .. " " .. size.text:GetText() .. " " .. calls, "120 Square Size: 120% 1", "a move saves and refreshes the minimap at once")
+ size.slider:SetValue(400)
+ equal(E.settings.squareMinimapScale .. " " .. size.text:GetText(), "150 Square Size: 150%", "never more than 150%")
+ size.slider:SetValue(10)
+ equal(E.settings.squareMinimapScale .. " " .. size.text:GetText(), "75 Square Size: 75%", "never less than 75%")
+ equal(#status, 0, "out of a fight: no chat line")
+ -- In a fight the minimap waits: said once a drag.
+ waits, calls = true, 0
+ size.slider:SetValue(90); size.slider:SetValue(95)
+ equal(E.settings.squareMinimapScale .. " " .. calls .. " " .. table.concat(status, "|"), "95 2 Square Size: the minimap changes when combat ends.",
+  "in a fight: saved, the minimap asked each time (it books the pass), said once a drag")
+ size.slider:Fire("OnMouseUp")
+ size.slider:SetValue(85)
+ equal(#status .. " " .. tostring(status[2]), "2 Square Size: the minimap changes when combat ends.", "the next drag in the fight: said again")
+ waits = false
+ size.slider:SetValue(100)
+ equal(#status, 2, "after the fight: done at once, nothing said")
+ waits = true
+ size.slider:SetValue(105)
+ equal(#status .. " " .. tostring(status[3]), "3 Square Size: the minimap changes when combat ends.", "the next fight: said again")
+ waits = false
+ size.slider:SetValue(100)
+ -- Without Classic loaded the slider still saves.
+ E.Classic = {}
+ size.slider:SetValue(110)
+ equal(E.settings.squareMinimapScale, 110, "without Classic loaded it still saves")
+ E.Classic = setmetatable({RefreshSquareMinimap = function() calls = calls + 1; return not waits end}, {__index = realClassic})
+ -- The footer: its words and its default.
+ local _, help, extras = M.Hover(f, size)
+ equal(help, "Square Size  How big the square minimap is, its frame and buttons too, from 75% to 150%. It works on top of Edit Mode's Minimap Size.",
+  "its words")
+ equal(M.LinesIn(help, 570, 12) <= 2 and not Has(help, EM), true, "two footer lines at most, no em dash")
+ equal(extras, "Default: 100%.", "100% by default, no reload line")
+ -- Minimap off: greyed with Square Minimap; not dragged, a move puts it back.
+ E.settings.minimap = false
+ f:RefreshDependencies()
+ equal(tostring(size.dependencyDisabled) .. " " .. size.alpha .. " " .. tostring(size.slider:IsMouseEnabled()), "true 0.45 false",
+  "Minimap off: greyed, its slider not dragged")
+ _, _, extras = M.Hover(f, size)
+ equal(extras, "Switch on Minimap first.  Default: 100%.", "its note names Minimap, up the chain")
+ calls = 0
+ size.slider:SetValue(140)
+ equal(E.settings.squareMinimapScale .. " " .. size.text:GetText() .. " " .. size.slider:GetValue() .. " " .. calls, "110 Square Size: 110% 110 0",
+  "a move while greyed: nothing saved, the slider back, the minimap untouched")
+ E.settings.minimap = true
+ f:RefreshDependencies()
+ equal(tostring(size.dependencyDisabled) .. " " .. size.alpha .. " " .. tostring(size.slider:IsMouseEnabled()), "false 1 true", "Minimap on again: free")
+ -- A saved value it can't read: 100%; one beyond its ends: the nearest.
+ for _, case in ipairs({{"big", "100%"}, {0 / 0, "100%"}, {math.huge, "100%"}, {400, "150%"}, {-5, "75%"}, {nil, "100%"}}) do
+  E.settings.squareMinimapScale = case[1]
+  size:SetChecked()
+  equal(size.text:GetText(), "Square Size: " .. case[2], "saved " .. tostring(case[1]) .. ": shows " .. case[2])
+ end
+ equal(E.settings.squareMinimapScale, nil, "showing it saves nothing over it")
+ -- Unticked: it folds away at once, keeping the scroll, the page closing up.
+ f:SetSettingsScroll(10)
+ square:Click(); Flush()
+ equal(E.settings.squareMinimap, false, "Square Minimap off")
+ equal(size:IsShown(), false, "Square Size folds away at once")
+ equal(Keys(f), "minimap,squareMinimap,cleanMinimap,coordinates,mapQuestObjectives,movableMap,revealMap", "the page without it")
+ equal(N(square:GetBottom() - coords:GetTop()), "4", "Coordinates' line back right under Square Minimap: no gap")
+ equal(f.settingsScroll:GetVerticalScroll(), 10, "closing keeps the scroll")
+ M.NoOverlaps(f, "Square Size folded"); M.Fits(f, "Square Size folded")
+ E.Classic, E.Status = realClassic, realStatus
+ -- With Clean Minimap's drawer open beside it: no overlap either.
+ E.settings.squareMinimap, E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, true, "drawer"
+ Open(f, "map")
+ M.NoOverlaps(f, "Square Size with the drawer rows"); M.Fits(f, "Square Size with the drawer rows")
+ M.SubOptionsFollow(f, "Square Size with the drawer rows", ParentOf(E))
+ E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
+ M.Resize(f, 650)
+ -- Search finds it, hidden or not; a jump while hidden lands on Square Minimap.
+ E.settings.squareMinimap = false
+ for _, query in ipairs({"size", "scale", "bigger", "smaller", "square size", "minimap size"}) do
+  local found = M.Results(f, query)
+  local hit = false
+  for _, key in ipairs(found) do if key == "squareMinimapScale" then hit = true end end
+  equal(hit, true, "searching " .. query .. " finds Square Size")
+ end
+ -- Its result, hovered while Square Minimap is off, names that switch.
+ M.Results(f, "square size")
+ local result
+ for _, row in ipairs(f.visibleRows or {}) do if row.target == size then result = row end end
+ f:RefreshDependencies()
+ local _, _, waitsFor = M.Hover(f, result)
+ equal(waitsFor, "Switch on Square Minimap first.  Default: 100%.", "its search result, Square Minimap off: switch that on first")
+ f.searchBox:SetText(""); Flush()
+ equal(f:JumpTo("squareMinimapScale"), square, "a jump to Square Size lands on Square Minimap while it's off")
+ E.settings.squareMinimap = true
+ equal(f:JumpTo("squareMinimapScale"), size, "and on the slider itself while it's on")
+ -- The walkthrough's Map & Minimap page: right under Square Minimap with
+ -- Minimap on, left out with it off.
+ for _, on in ipairs({true, false}) do
+  E.settings.minimap = on
+  f:SetSetupMode(false); Flush(); f:SetSetupMode(true); Flush(); f.setupPreset = "qol"
+  local shown = false
+  for page = 1, 40 do
+   f.setupPage = page; f:RenderSetup(); Flush()
+   if f.sectionTitle:GetText() == "Map & Minimap" then shown = true; break end
+  end
+  equal(shown, true, "the walkthrough has its Map & Minimap page")
+  equal(size:IsShown(), on, "the walkthrough's Map & Minimap page " .. (on and "offers Square Size" or "leaves Square Size out with Minimap off"))
+  if on then
+   equal(Keys(f):find("squareMinimap,squareMinimapScale,", 1, true) ~= nil, true, "after Square Minimap: " .. Keys(f))
+   -- Minimap itself (reload-only) is left off the walkthrough, so the
+   -- slider goes under Square Minimap, one level in, still in its column.
+   equal(f.checks.minimap:IsShown(), false, "the walkthrough leaves Minimap out")
+   equal((square.depth or 0) .. " " .. size.depth .. " " .. N(size:GetLeft() - square:GetLeft()) .. " " .. N(square:GetBottom() - size:GetTop())
+    .. " " .. tostring(size.connV:IsShown()), "0 1 22 4 true", "right under Square Minimap, one level in, joined by its line")
+  end
+  M.NoOverlaps(f, "walkthrough Map & Minimap with Square Size"); M.Fits(f, "walkthrough Map & Minimap with Square Size")
+  M.SubOptionsFollow(f, "walkthrough Map & Minimap with Square Size", ParentOf(E))
+ end
+ f:SetSetupMode(false); Flush()
+ E.settings.minimap, E.settings.squareMinimap, E.settings.squareMinimapScale = true, nil, nil
 end
 
 -- Cast Bar Colour (Casting, experimental): a whole line under its own Colour

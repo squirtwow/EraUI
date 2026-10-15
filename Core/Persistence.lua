@@ -31,7 +31,10 @@ local function SettingType(key)
     if key == "afkScreenVersion" then return "number" end -- the one-time AFK Screen switch-on
     if key == "layoutNotice" then return "number" end -- the one-time new /era layout note
     if key == "layoutWelcome" then return "number" end -- the grouped layout's one-time welcome card
-    if key == "layoutPillsVersion" then return "string" end -- the version its "just added" words show in
+    if key == "tourOffer" then return "number" end -- a new player's one-time offer of the walkthrough
+    if key == "justAddedVersion" then return "string" end -- the version "just added" was decided for
+    if key == "justAddedFrom" then return "string" end -- and the version that account updated from
+    if key == "newsTourSeen" then return "string" end -- the release whose walkthrough of what's new was opened
     local default = E.settingDefaults[key]
     if default ~= nil then return type(default) end
     local prefix, class = key:match("^(reminder%w*)_([A-Z]+)_[%w]+$")

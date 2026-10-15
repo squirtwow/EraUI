@@ -34,6 +34,17 @@ and Custom Cast Bar Colour, a colour swatch that shows only with Custom.
 Appearance > Dark Mode has Darkness, Borders and Bars and windows: Dark Menu
 Bar beside Dark Bag Buttons, then Dark Windows with Black Pages under it; all
 of them greyed while Dark Mode is off.
+Map & Minimap has Square Minimap right under Minimap (2026-10-15),
+indented under it and greyed while it's off ("Switch on Minimap first."):
+it reshapes that look, and like Show Gryphons it's left out of the setup
+walkthrough while the look it needs is off. Its Square Size slider (75% to
+150%, 100% by default) shows only while Square Minimap is ticked, right
+under it at the same indent (laid out under Minimap through `GROUPS`; a
+fold under Square Minimap would sit two levels in, too narrow for the
+slider), greyed with it while Minimap is off (`DEPENDS`; a greyed slider
+isn't dragged). In the setup walkthrough, which leaves Minimap out, it goes
+one level under Square Minimap instead (a row shown with a switch whose
+layout parent isn't on the page sits under that switch).
 Action Bars ends with Upgrade Spell Ranks, after Hide Macro Names: it works
 with any bars, so the Classic Action Bars look being off never greys it.
 Character & Spells ends with the Stat Tracker (2026-10-14): a Stat tracker
@@ -58,8 +69,12 @@ and resources" for druids, "Resource bars" for the rest) and Timers; rows not
 for your class (`classAllowed`) and sections left empty are left out.
 
 The search box sits at the top of the tab list, "Take the tour" at its foot.
-The window keeps its size (984 x 650, FitToScreen), its dark chrome, close
-button and Escape (UISpecialFrames).
+"Show me what's new" (26 tall, in the class colour: edge and fill like Take
+the tour's, and its words) sits at the top right, 8 left of the X, while the
+release has new options for this character, never in setup, with a soft
+glow round it until its walkthrough is opened (see What's new below). The
+window keeps its size (984 x 650,
+FitToScreen), its dark chrome, close button and Escape (UISpecialFrames).
 
 ### Rows
 
@@ -83,20 +98,43 @@ muted warm grey (.66, .61, .53) for options not seen working in game yet
 (`EXPERIMENTAL` in Core/Settings.lua: Aura Shadows, Thin Debuff Colours,
 Dark Windows, Black Pages, Character Item Levels, Flat Bars, Thick Aura
 Borders, Rounded Cast Bars, Dark Bag Buttons, Upgrade Spell Ranks, Stat Tracker, Thick Frames, Portrait Rings,
-Classic Party Frames, Edge, Raid-style Party Outline, Clean Minimap's Style, Cast Bar Colour; the last
-two have no "just added", which wouldn't fit before their buttons, nor do
-Portrait Rings, Classic Party Frames and Edge: indented, "Classic Party Frames" and
-both words don't fit, nor Edge's buttons, and Thick Frames above them says it), "coming soon" and "log
+Classic Party Frames, Edge, Raid-style Party Outline, Clean Minimap's Style, Cast Bar Colour, Square Minimap), "coming soon" and "log
 out to apply" (a new damage font, after the font button) in the muted grey.
-"just added" shows only to players who had the old layout and only while
-they run the version the new layout arrived in (`EraUIDB.layoutPillsVersion`,
-the name kept so saved values stay), never in the setup walkthrough: Thin
-Debuff Colours, Black Pages, Dark Windows, Flat Bars, Thick Aura Borders,
-Rounded Cast Bars, Dark Bag Buttons, Upgrade Spell Ranks, Stat Tracker, Thick Frames, Raid-style Party Outline (new since 1.5.5). Nothing says an
-option moved any more (the user, 2026-10-11: the boxed capital labels
-"looked too AI generated"). Search results carry the same words, and
-searching "experimental" finds those options. The class box's Click to apply
-poisons says "experimental" the same way.
+
+"just added" is per release. `ADDED` in `Core/SettingsNav.lua` says which
+release brought each option (1.6.0: Flat Bars, Dark Windows, Black Pages,
+Thin Debuff Colours; 1.7.0: Thick Frames and its ticks and Edge, Thick Aura
+Borders, Rounded Cast Bars, Raid-style Party Outline, Dark Bag Buttons,
+Upgrade Spell Ranks, Clean Minimap's Style and Icons per Row, Cast Bar Colour
+and its custom swatch, Stat Tracker and all its rows). Every row of a new
+option is listed; only the option's own row (`Nav.Lead`: not under, or shown
+with, an option of the same release) says it, so Black Pages (under Dark
+Windows), Thick Frames' ticks and Edge, the Stat Tracker's rows, Custom Cast
+Bar Colour and Icons per Row never do. `Nav.TIGHT` (Clean Minimap's Style,
+Cast Bar Colour) have no room for both words before their buttons, measured
+with glyph widths for the buttons too, so they say only "experimental"
+(TestSettingsLayout checks TIGHT is exactly those). The rule: an account
+that updated sees "just added" on the options added after the version it
+updated from (`EraUIDB.justAddedFrom`) up to the one running, while it runs
+the version it updated into (`EraUIDB.justAddedVersion`). Skipping a release
+still shows that release's options. A fresh install has no "from": nothing
+says it, as everything is new to it. Never in the setup walkthrough.
+`Core/Integration.lua` decides both on the first load of each new version
+(the version before: the one it decided last time, else the last notes seen;
+unknown on an account that ran EraUI before, or after "/era updates again",
+the release before this one from `Core/Updates.lua`). A development copy
+("dev") decides nothing. Both backed up. 1.6.0's single
+`layoutPillsVersion` is retired (cleared once, no longer backed up). The next
+release: add its new options' keys to `ADDED` with its number (and to
+`LEADS` in TestSettingsLayout, with its notes in Core/Updates.lua). Waiting
+for the next release's number: Square Minimap (`squareMinimap`, a tick with
+room for both words, checked by TestSettingsLayout) and its Square Size
+(`squareMinimapScale`, which goes with it and never says it).
+
+Nothing says an option moved any more (the user, 2026-10-11: the boxed
+capital labels "looked too AI generated"). Search results carry the same
+words, and searching "experimental" finds those options. The class box's
+Click to apply poisons says "experimental" the same way.
 
 A slider row shows "Name: value" in 194 (12 to 206; the slider from 214), so
 the longest, "Cast Ring Opacity (%): 100", fits whole; the wide sliders keep
@@ -150,7 +188,10 @@ switch, keeping the scroll; search lists them while hidden and a jump to one
 lands on the switch. Custom Stat Name Colour is both: hidden while the Stat
 Tracker is off, then folded under Stat Name Colour until Custom is chosen
 (`Folded` checks the switch first, then the fold); a jump to it lands on Stat
-Name Colour, or on the switch while that's off.
+Name Colour, or on the switch while that's off. Square Size shows only with
+Square Minimap the same way, but is laid out under Minimap (`GROUPS`), so it
+sits right under Square Minimap at its indent; a jump to it while hidden
+lands on Square Minimap.
 
 ### Greying and hand-overs
 
@@ -224,29 +265,76 @@ one before it takes text) and holds at most one letter, cleared at once.
 ### Welcome card and walkthrough
 
 `Core/Integration.lua` decides once per account, after every saved copy has
-loaded: `layoutWelcome` 1 and `layoutPillsVersion` = the running version
-(`EraUI.version`, read from the .toc's Version as the addon loads, "dev" for
-a copy without a number; it used to be typed into Init.lua and sat at 1.5.2
-through 1.5.5) for
-accounts that used an earlier EraUI (the same signs as the old one-time note:
-update notes, welcome or setup seen, the AFK marker, or that note still
-waiting), 0 and "" for fresh installs. Both are backed up. The first /era
-open shows a centred card over a dimmed window ("Settings have a new
-layout", Not now, Show me around); either button, or closing /era, puts it
-away for good (and the old note with it). Not now leaves "You can take the
+loaded: `layoutWelcome` 1 for accounts that used an earlier EraUI (the same
+signs as the old one-time note: update notes, welcome or setup seen, the AFK
+marker, or that note still waiting), 0 for fresh installs; and `tourOffer` 1
+for a fresh install (a new player), 0 for the rest. Both are backed up. The
+first /era open shows a centred card over a dimmed window: for a returning
+account "Settings have a new layout"; for a new player, once the first-run
+welcome or setup is behind this character (welcome seen, skipped or setup
+finished), "Find your way around" ("Your options sit in tabs on the left,
+busy pages have sub-tabs, and each option is a single row." / "A one-minute
+walkthrough shows how it all works."). Both have Not now and Show me around;
+either button, or closing /era, puts it away for good (the layout card takes
+the old note with it; the offer becomes 2). Not now leaves "You can take the
 tour any time: Take the tour, at the bottom of the list." in the footer. The
 card never shows during setup or when a class tool opens /era at its
-controls, and opens Appearance first rather than cover the class tab.
+controls, and opens Appearance first rather than cover the class tab. When
+setup finishes into settings without a reload, the offer comes right then
+(the window was already open); after "Reload & explore" it comes as settings
+open. A new player who takes the tour from its button first isn't offered it
+after.
 
 The walkthrough (Show me around, or Take the tour any time) has six steps:
 Grouped tabs (the tab list), Sub-tabs (Appearance > Dark Mode's strip), One
 row per option (the rows), Descriptions (the footer), Search (the box) and
-Nothing lost (the rows). A layer over the window dims all but the step's part
+Nothing lost (the rows). For a new player's account (`tourOffer` 1 or 2) the
+first says "Your tabs sit under four headings" and the last is "Any time"
+("Take the tour again any time from the bottom of the list, and /era opens
+this window."). A layer over the window dims all but the step's part
 (outlined in the class colour, 4 round it) and takes the mouse and wheel; a
 300 wide card sits beside the part where there's room (right, left, below,
 above), inside the window. Skip or Back, Next or Done; Escape or closing /era
 ends it. The old "New layout" banner is gone; `layoutNotice` is still decided
 and backed up.
+
+### What's new
+
+What's New (`Core/Updates.lua`) has Show me beside Got it (Discord moves left
+of it; the bug question on the left goes when it wouldn't clear the buttons)
+while the release it shows has new options for this character, and /era has
+Show me what's new at its top right. Either runs the same walkthrough over
+the release's new options: one step per option's own row (`Nav.Lead`), those
+`ADDED` with the release's number that exist for this class and aren't coming
+soon, in tab order, then page order (1.7.0: Thick Frames, Thick Aura Borders,
+Rounded Cast Bars, Raid-style Party Outline, Dark Bag Buttons, Upgrade Spell
+Ranks, Clean Minimap's Style, Cast Bar Colour, Stat Tracker). Each step opens
+the option's tab and sub-tab, centres its row and outlines it (inside the
+page's viewport); the card says "3 of 9 just added in 1.7.0", the option's
+name (a short one under an older option on its page with that option's:
+"Clean Minimap: Style") and its one-line summary. Greyed: outlined greyed,
+with what it waits for ("Switch on Cast Bars first (Casting)."). Folded, or
+shown only with its switch: the switch it shows under, "Shows once Clean
+Minimap is on." On the class tab: the tab itself, "On your Hunter tab.", so
+no class box or conjure button sits under the dim layer. Back, Next, Done,
+Skip, the keyboard and Escape as the layout walkthrough; in combat too
+(nothing secure). What's New closes first; /era opens if closed, never over
+the setup walkthrough, and a card due on that open waits for the next. A
+release without new options: no Show me, no button in /era.
+
+Both buttons stand out in the class colour (What's New's Show me: class edge
+and fill like Got it's, and class-coloured words; grey when the class can't
+be read, a secret value never being used as a key). /era's also glows while
+the release's walkthrough hasn't been opened: three 2-pixel bands of EraUI's
+flat texture in the class colour just outside its edge (alpha .5, .24, .1
+outwards; no Blizzard art or template, so Dark Mode and Dark Windows leave
+it alone), on a frame of its own that takes no mouse and whose alpha
+breathes from full down to .35 and back about every 2.4 seconds (OnUpdate,
+which stops when hidden; each show starts at full). Opening the walkthrough
+by either button saves the release as `EraUIDB.newsTourSeen` (typed and
+backed up in `Core/Persistence.lua`) and the glow stops, in a fight too;
+another release's walkthrough leaves it alone, and the next release with
+new options glows again.
 
 ### Setup walkthrough
 
@@ -412,13 +500,22 @@ square class-colour tick boxes and no tracks, nothing overlapping, inside
 the box, the hint under the options, the rogue's and mage's arrangement),
 the portrait switches and the mage's secure overlays as before.
 TestSettingsTour checks the welcome card (who, when, its words, its
-buttons, the keyboard) and the six walkthrough steps (targets, the card's
-place, Skip, Back, Next, Done, Escape, closing; none mentions moving).
-`Tools/TestReminderClicks.lua` checks the reminders box's places (two
-columns, Advanced's grid) with the module alone. `Tools/TestPersistence.lua`
-checks who gets the card and the words, that both are backed up, and What's
-New with the version from the .toc (an account marked at the stuck 1.5.2
-sees the newest notes once). `Tools/TestVersion.mjs` loads Core/Init.lua
+buttons, the keyboard), a new player's offer (only with the first run behind
+them, never during setup, once, its words, as setup hands over, in combat)
+and the six walkthrough steps (targets, the card's place, Skip, Back, Next,
+Done, Escape, closing; none mentions moving), and the walkthrough of what's
+new (exactly the release's options, in tab order, each on its tab and
+sub-tab with its row outlined, greyed and folded ones, the class tab, the
+button in /era, What's New's Show me opening /era, combat).
+TestSettingsLayout checks `ADDED` (every key a row, from a release with
+notes, the option rows per release as written out by hand), the "just
+added" rule per version and `TIGHT`. TestUpdates checks Show me and the
+version order. `Tools/TestReminderClicks.lua` checks the reminders box's
+places (two columns, Advanced's grid) with the module alone.
+`Tools/TestPersistence.lua` checks who gets the card and the offer, the
+"just added" versions decided per release, that all are backed up, and
+What's New with the version from the .toc (an account marked at the stuck
+1.5.2 sees the newest notes once). `Tools/TestVersion.mjs` loads Core/Init.lua
 with the .toc's Version answered by the game's metadata calls (and "dev"
 for a copy without a number); `Tools/TestRules.mjs` checks no version is
 typed into Init.lua.

@@ -226,6 +226,40 @@ P:Apply("classic")
 Equal(saved.partyOutline, true, "the Classic look keeps a switched-on Raid-style Party Outline")
 saved.partyOutline = nil
 Equal(P:Current(), "classic", "and off, still the Classic look")
+-- Square Minimap is one too: it reshapes the Classic minimap, in Classic or
+-- Dark Mode, and Quality of Life only switches that minimap off.
+inExtras = false
+for _, key in ipairs(P.LOOK_EXTRAS) do if key == "squareMinimap" then inExtras = true end end
+Equal(inExtras, true, "Square Minimap is an optional look")
+saved.squareMinimap = true
+Equal(P:Changes("classic").squareMinimap, nil, "the Classic look leaves Square Minimap alone")
+Equal(P:Changes("qol").squareMinimap, false, "Quality of Life only switches Square Minimap off")
+P:Apply("qol")
+Equal(tostring(saved.squareMinimap) .. " " .. tostring(saved.minimap), "false false", "Square Minimap off after Quality of Life only, with the Classic minimap")
+P:Apply("classic")
+Equal(tostring(saved.squareMinimap) .. " " .. tostring(saved.minimap), "false true", "the Classic look brings the minimap back, Square Minimap as chosen")
+saved.squareMinimap = true
+Equal(P:Current(), "classic", "Square Minimap on is still the Classic look")
+P:Apply("classic")
+Equal(saved.squareMinimap, true, "the Classic look keeps a switched-on Square Minimap")
+saved.squareMinimap = nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
+-- Its Square Size is left as chosen by both, like Thick Frames' own ticks:
+-- it does nothing while the square is off, and never changes the preset.
+for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do
+    for _, key in ipairs(list) do Equal(key ~= "squareMinimapScale", true, "Square Size is not a look (" .. key .. ")") end
+end
+for _, case in ipairs({ { true, 140 }, { false, 80 }, { true, 100 } }) do
+    saved.squareMinimap, saved.squareMinimapScale = case[1], case[2]
+    Equal(P:Changes("qol").squareMinimapScale, nil, "Quality of Life only leaves Square Size alone (" .. case[2] .. ")")
+    Equal(P:Changes("classic").squareMinimapScale, nil, "the Classic look leaves Square Size alone (" .. case[2] .. ")")
+    P:Apply("qol")
+    Equal(saved.squareMinimapScale, case[2], "Square Size kept after Quality of Life only (" .. case[2] .. ")")
+    P:Apply("classic")
+    Equal(saved.squareMinimapScale, case[2], "and after the Classic look (" .. case[2] .. ")")
+    Equal(P:Current(), "classic", "Square Size never changes the preset (" .. case[2] .. ")")
+end
+saved.squareMinimap, saved.squareMinimapScale = nil, nil
 Equal(saved.bagItemLevels, true, "Bag Item Levels kept after the Classic look")
 Equal(saved.characterItemLevels, true, "Character Item Levels kept after the Classic look")
 Equal(saved.darkAuraBorders, true, "Dark Aura Borders kept after the Classic look")

@@ -73,7 +73,8 @@ local TABS = {
         }},
     map = {name = "Map & Minimap", icon = "Interface\\Icons\\INV_Misc_Map_01",
         about = "The minimap and the world map.", sections = {
-            S("Minimap", {"minimap", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns", "coordinates"}),
+            S("Minimap", {"minimap", "squareMinimap", "squareMinimapScale", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns",
+                "coordinates"}),
             S("World map", {"mapQuestObjectives", "movableMap", "revealMap"})}},
     windows = {name = "Windows & Tooltips", icon = "Interface\\Icons\\INV_Misc_Gear_01",
         about = "Classic frames for the game's windows, and tooltips.", sections = {
@@ -148,18 +149,63 @@ Nav.RESOURCES = {ROGUE = "Combo points and energy", DRUID = "Combo points and re
 Nav.WIDE = {appearanceChoice = true, presets = true, darkModeDarkness = true, classReminders = true,
     damageFont = true, damageTextScale = true, afkScreen = true, moreFECM = true, moreFEC = true, moreFECP = true,
     castBarColour = true, statTrackerShow = true, statTrackerScale = true, statTrackerPerLine = true, statTrackerNameColour = true}
--- "just added" after the name, for players who had the old layout, while
--- they run the version the new layout came in (EraUIDB.layoutPillsVersion):
--- the options not released before. Thick Frames' two ticks and its Edge
--- choice, indented under it, say only "experimental": "Classic Party Frames"
--- and both words don't fit an indented row (nor Edge's name, tag and two
--- buttons), and the tick they sit under already says it's new.
-Nav.NEW = {darkDebuffLines = true, blackPages = true, darkWindows = true, flatBars = true, thickAuraBorders = true,
-    roundedCastBars = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true,
-    partyOutline = true}
+-- The release each option came in (only options added since the grouped
+-- layout, 1.6.0). It drives the quiet "just added" after a name
+-- (Nav.JustAdded) and What's New's Show me walkthrough, one step per new
+-- option of the release (Core/SettingsTour.lua). A new option in the next
+-- release: add its key here with that release's number, every row of it.
+local ADDED = {}
+local function Added(version, keys) for _, key in ipairs(keys) do ADDED[key] = version end end
+Added("1.6.0", {"flatBars", "darkWindows", "blackPages", "darkDebuffLines"})
+Added("1.7.0", {"thickFrames", "thickFrameRings", "thickFrameParty", "thickFrameEdge", "thickAuraBorders", "roundedCastBars",
+    "partyOutline", "darkBagButtons", "upgradeSpellRanks", "cleanMinimapStyle", "minimapDrawerColumns", "castBarColour",
+    "castBarCustomColour", "statTracker", "statTrackerLayout", "statTrackerShow", "statTrackerScale", "statTrackerPerLine",
+    "statTrackerGains", "statTrackerTitle", "statTrackerNameColour", "statTrackerNameCustomColour", "statTrackerStrength",
+    "statTrackerAgility", "statTrackerStamina", "statTrackerIntellect", "statTrackerSpirit", "statTrackerAttackPower",
+    "statTrackerCrit", "statTrackerHit", "statTrackerSpellPower", "statTrackerSpellCrit", "statTrackerArmor", "statTrackerDodge",
+    "statTrackerParry", "statTrackerBlock", "statTrackerSpeed", "statTrackerDurability"})
+-- Waiting for the next release's number (no version yet): "squareMinimap",
+-- "squareMinimapScale" (its Square Size slider, which goes with it).
+Nav.ADDED = ADDED
+-- Rows with no room for both words between their name and their buttons
+-- (Tools/TestSettingsLayout measures every row that says "just added"): they
+-- say only "experimental"; the walkthrough still takes you to them.
+Nav.TIGHT = {cleanMinimapStyle = true, castBarColour = true}
 
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end
+
+-- The option a row sits under or shows with: a stat tick with Stat Tracker,
+-- Icons per Row with Clean Minimap's Style, a tick under Thick Frames with
+-- Thick Frames, Clean Minimap's Style with Clean Minimap.
+local function Owner(key)
+    local rules = Rules()
+    local choice = rules.FOLD_CHOICES and rules.FOLD_CHOICES[key]
+    return (rules.SHOWN_WITH and rules.SHOWN_WITH[key]) or (choice and choice[1]) or rules.GroupParent(key)
+end
+Nav.Owner = Owner
+-- A new option's own row: not under, or shown with, an option that came in
+-- the same release. Only it says "just added" and gets a walkthrough step;
+-- the rows under it go with it.
+function Nav.Lead(key)
+    local added = ADDED[key]
+    if not added then return false end
+    local owner = Owner(key)
+    return not (owner and ADDED[owner] == added)
+end
+-- "just added" after an option's name, for an account that updated: on the
+-- options added after the version it updated from (EraUIDB.justAddedFrom)
+-- up to the one it runs, while it runs the version it updated into
+-- (EraUIDB.justAddedVersion). Core/Integration.lua decides both on the first
+-- load of each new version; a fresh install has no "from", so no words, as
+-- everything is new to it. Lead rows only, never the TIGHT ones.
+function Nav.JustAdded(key)
+    local added = ADDED[key]
+    if not added or Nav.TIGHT[key] or not Nav.Lead(key) then return false end
+    local newer, from = E.NewerVersion, E:GetSavedSetting("justAddedFrom")
+    if not newer or type(from) ~= "string" or from == "" or E:GetSavedSetting("justAddedVersion") ~= E.version then return false end
+    return newer(added, from) and not newer(added, E.version)
+end
 
 -- Where a row lives, as "Tab > Sub-tab" ("Tab" on a tab without sub-tabs).
 function Nav.Crumb(frame, home)
@@ -478,11 +524,16 @@ local function Blocks(frame, keys, skip, extra, out)
         Add(key)
         if extra and extra[key] then Add(extra[key]) end
     end
-    local GroupParent = Rules().GroupParent
+    local GroupParent, SHOWN_WITH = Rules().GroupParent, Rules().SHOWN_WITH or {}
     local current, before = nil, #out
     for _, row in ipairs(list) do
         local key = row.settingKey
         local parent = GroupParent(key)
+        -- Its layout parent left off this page (the walkthrough leaves the
+        -- reload-only Minimap out): a row shown with a switch sits under
+        -- that switch instead (Square Size under Square Minimap).
+        local with = SHOWN_WITH[key]
+        if parent and with and current and current.has[parent] == nil and current.has[with] ~= nil then parent = with end
         if row.wide then
             out[#out + 1] = {rows = {row}, depth = {[row] = 0}, wide = true}
             -- Its sub-options (if any) follow in the next block, which
@@ -622,19 +673,19 @@ end
 
 -- The words after a row's name ----------------------------------------------
 
--- "just added" only for players who had the old layout, while they run the
--- version it arrived in, and never in the setup walkthrough; "experimental",
--- "coming soon" and "log out to apply" always.
+-- "just added" for an account that updated (Nav.JustAdded), never in the
+-- setup walkthrough; "experimental", "coming soon" and "log out to apply"
+-- always.
 local function TagsFor(frame, key, row, show)
     local list = {}
-    if show and Nav.NEW[key] then list[#list + 1] = "NEW" end
+    if show and Nav.JustAdded(key) then list[#list + 1] = "NEW" end
     if Rules().NeedsTesting(key) then list[#list + 1] = "TEST" end
     if row.unavailable then list[#list + 1] = "SOON" end
     if row.logoutPending then list[#list + 1] = "LOGOUT" end
     return list
 end
 local function RefreshTags(frame)
-    local show = not frame.setupMode and E:GetSavedSetting("layoutPillsVersion") == E.version
+    local show = not frame.setupMode
     frame.showNewTags = show
     local R = Rows()
     for key, row in pairs(frame.checks) do R.SetTags(row, TagsFor(frame, key, row, show)) end
@@ -931,6 +982,7 @@ function Nav.Build(frame, className, classToken, classCoords)
     frame.ApplySearch, frame.ResetSearch, frame.JumpTo = ApplySearch, ResetSearch, JumpTo
     frame.FocusRow, frame.MoveFocus, frame.ClearRowFocus = FocusRow, MoveFocus, ClearRowFocus
     frame.SetViewportTop, frame.SetNavShown, frame.ActivateRow = SetViewportTop, SetNavShown, Activate
+    frame.ScrollToRow = ScrollTo
 end
 
 -- Once every row exists: where each lives (rowHome), each row's tab and

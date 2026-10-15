@@ -688,6 +688,8 @@ function ns.RefreshDarkness()
     if ns.RefreshThickFrameLines then ns.RefreshThickFrameLines() end
     -- The Raid-style Party Outline's fine line (Classic/PartyOutline.lua).
     if ns.RefreshPartyOutlineLine then ns.RefreshPartyOutlineLine() end
+    -- Square Minimap's fine line (Classic/Minimap.lua).
+    if ns.RefreshSquareMinimapLine then ns.RefreshSquareMinimapLine() end
     -- The Stat Tracker's edge (Modules/StatTracker.lua).
     local stats = EraUI.modules.StatTracker
     if stats and stats.Paint then stats:Paint() end

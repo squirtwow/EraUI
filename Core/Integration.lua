@@ -186,6 +186,15 @@ local function CharacterWelcome()
     EraUIClassicCharDB.onboarding = EraUIClassicCharDB.onboarding or {}
     return EraUIClassicCharDB.onboarding
 end
+-- Signs this account ran an earlier EraUI: notes seen, the welcome or setup
+-- done (on the account or this character), the AFK marker, or the old
+-- layout note waiting. Read once every saved copy has loaded.
+local function RanBefore()
+    local state = CharacterWelcome()
+    return (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
+        or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
+        or type(EraUIDB.afkScreenVersion) == "number" or EraUIDB.layoutNotice == 1
+end
 -- The Forever client does not reliably restore per-character SavedVariables,
 -- so the onboarding state (welcome seen, setup complete) is mirrored into a
 -- CVar keyed by character and read back at load.
@@ -490,19 +499,46 @@ loader:SetScript("OnEvent",function(_,event,name)
         EraUI:SaveSettings()
     end
     -- The grouped /era layout (sub-tabs, one row per option): a welcome card
-    -- on the next /era open (layoutWelcome 1) and "just added" after new options
-    -- while the version it arrived in runs (layoutPillsVersion), both only
-    -- for accounts that knew an earlier layout, by the same signs as above.
-    -- An account still waiting on the old note gets the card instead. Fresh
-    -- installs start with the new layout (0 and ""). Decided once, after
-    -- every saved copy has loaded; both values are backed up.
+    -- on the next /era open (layoutWelcome 1), only for accounts that knew
+    -- an earlier layout, by the same signs as above. An account still
+    -- waiting on the old note gets the card instead. Fresh installs start
+    -- with the new layout (0). Decided once, after every saved copy has
+    -- loaded; backed up.
     if type(EraUIDB.layoutWelcome) ~= "number" then
-        local state = CharacterWelcome()
-        local returning = (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
-            or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
-            or type(EraUIDB.afkScreenVersion) == "number" or EraUIDB.layoutNotice == 1
-        EraUIDB.layoutWelcome = returning and 1 or 0
-        EraUIDB.layoutPillsVersion = returning and EraUI.version or ""
+        EraUIDB.layoutWelcome = RanBefore() and 1 or 0
+        EraUI:SaveSettings()
+    end
+    -- A new player (no sign of an earlier EraUI) is offered the walkthrough
+    -- once (tourOffer 1), the first time /era opens with the first-run
+    -- welcome or setup behind them (Core/SettingsTour.lua makes it 2 once
+    -- shown or taken). Everyone else 0. Decided once; backed up.
+    if type(EraUIDB.tourOffer) ~= "number" then
+        EraUIDB.tourOffer = RanBefore() and 0 or 1
+        EraUI:SaveSettings()
+    end
+    -- "just added" after new options' names, per release
+    -- (Core/SettingsNav.lua): on the first load of each new version, the
+    -- version this account ran before it (justAddedFrom) and the one it runs
+    -- now (justAddedVersion). The words show on options added after the
+    -- first, up to the second, while the second runs. The version before is
+    -- the one saved here last time, else the last notes seen; when neither
+    -- is known on an account that ran EraUI before, or after "/era updates
+    -- again" ("0"), the release before this one. A fresh install: "", no
+    -- words (everything is new to it). A development copy decides nothing.
+    -- Both backed up. 1.6.0's single layoutPillsVersion is retired: the
+    -- options it covered carry their own version now.
+    if EraUIDB.layoutPillsVersion ~= nil then EraUIDB.layoutPillsVersion = nil end
+    local running, seen = EraUI.version, ns.db.updateNotesSeen
+    if running ~= "dev" and EraUIDB.justAddedVersion ~= running then
+        local from = EraUIDB.justAddedVersion
+        if type(from) ~= "string" or from == "" then from = seen end
+        if type(from) ~= "string" or from == "" or from == "0" then
+            from = RanBefore() and EraUI.PreviousRelease and EraUI.PreviousRelease() or ""
+        end
+        EraUIDB.justAddedFrom, EraUIDB.justAddedVersion = from, running
+        EraUI:SaveSettings()
+    elseif running ~= "dev" and seen == "0" and EraUI.PreviousRelease then
+        EraUIDB.justAddedFrom = EraUI.PreviousRelease()
         EraUI:SaveSettings()
     end
     -- 1.3.0 saved AFK Screen off for everyone while it was Coming soon, so nobody
