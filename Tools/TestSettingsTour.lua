@@ -406,7 +406,13 @@ end
 do
  local E, f = Session("ROGUE")
  local Nav, T = E.SettingsNav, E.SettingsTour
- equal(T.Release(), "1.7.0", "the release What's New shows (the newest notes for a version without its own)")
+ equal(T.Release(), "1.7.1", "the release What's New shows (the newest notes for a version without its own)")
+ -- 1.7.0's nine new options make the longest walkthrough, so this runs as
+ -- 1.7.0 (1.7.1's one step is checked in the next block).
+ local realRelease = E.ReleaseVersion
+ E.ReleaseVersion = function() return "1.7.0" end
+ f:Hide(); f:Show(); Flush()
+ equal(T.Release(), "1.7.0", "running as 1.7.0")
  -- Exactly the release's options: each option Nav says 1.7.0 added that is
  -- its own row (not under or shown with another new one), in tab order.
  local keys = T.NewsKeys(f)
@@ -545,13 +551,49 @@ do
  equal(EraUIRogueTools == nil or not EraUIRogueTools:IsShown(), true, "no rogue tools window over it")
  f.keys:Fire("OnEscapePressed")
  -- A release with nothing new for this character: no Show me what's new.
- local release = E.ReleaseVersion
  E.ReleaseVersion = function() return "1.5.5" end
  f:Hide(); f:Show(); Flush()
  equal(news:IsShown() or T.NewsCount() ~= 0, false, "nothing new: no button, no steps")
  equal(T.StartNews(f), false, "and nothing starts")
  equal(f.touring, false, "no walkthrough")
- E.ReleaseVersion = release
+ E.ReleaseVersion = realRelease
+ f:Hide(); f:Show(); Flush()
+end
+
+-- 1.7.1's walkthrough: Square Minimap alone. Its Square Size slider shows
+-- only with it (SHOWN_WITH), so it goes with it: no step of its own.
+do
+ local E, f = Session("ROGUE")
+ local Nav, T = E.SettingsNav, E.SettingsTour
+ equal(table.concat(T.NewsKeys(f), ","), "squareMinimap", "1.7.1: one new option, Square Minimap")
+ equal(Nav.ADDED.squareMinimapScale .. " " .. tostring(Nav.Lead("squareMinimapScale")), "1.7.1 false", "Square Size came with it, no step of its own")
+ equal(T.NewsCount(), 1, "What's New's Show me: one step")
+ local row = f.checks.squareMinimap
+ E.settings.minimap = true
+ f:Hide(); f:Show(); Flush()
+ Open(f, "quests")
+ equal(f.newsButton:IsShown(), true, "Show me what's new on show")
+ f.newsButton:Click(); Flush()
+ local tour = f.tour
+ equal(f.touring and f.tourStep, 1, "it starts")
+ equal(tour.step:GetText(), "1 of 1 just added in 1.7.1", "one step, and the release")
+ equal(tour.title:GetText(), "Minimap: Square Minimap", "its name, under Minimap on the same page")
+ equal(tour.text:GetText(), row.summary, "its one-line summary")
+ equal(tour.note:IsShown(), false, "Minimap on: no note")
+ equal(f.selectedCategory .. " " .. f.selectedSub[f.selectedCategory], Tab(f, "map") .. " main", "on Map & Minimap")
+ equal(row:IsVisible(), true, "its row on show")
+ Outlines(f, row, "Square Minimap's step")
+ equal(tour.back.label:GetText() .. " " .. tour.nextButton.label:GetText(), "Skip Done", "one step: Skip and Done")
+ tour.nextButton:Click(); Flush()
+ equal(f.touring, false, "Done ends it")
+ -- Minimap off: greyed, outlined, saying what it waits for.
+ E.settings.minimap = false
+ f:Hide(); f:Show(); Flush()
+ f.newsButton:Click(); Flush()
+ equal(row.dependencyDisabled == true and tour.note:IsShown() and tour.note:GetText(), "Switch on Minimap first.", "Minimap off: greyed, the note names Minimap")
+ Outlines(f, row, "the greyed step")
+ f.keys:Fire("OnEscapePressed")
+ E.settings.minimap = true
  f:Hide(); f:Show(); Flush()
 end
 
@@ -562,7 +604,7 @@ do
  local T = E.SettingsTour
  f:Hide()
  equal(T.OpenNews(), true, "Show me with /era closed")
- equal(f:IsShown() and f.touring and f.tourStep == 1 and f.tour.step:GetText(), "1 of 9 just added in 1.7.0", "/era opens at the first new option")
+ equal(f:IsShown() and f.touring and f.tourStep == 1 and f.tour.step:GetText(), "1 of 1 just added in 1.7.1", "/era opens at the first new option")
  f.keys:Fire("OnEscapePressed")
  equal(T.OpenNews() and f:IsShown() and f.tourStep, 1, "with /era open too")
  f.keys:Fire("OnEscapePressed")
@@ -578,7 +620,7 @@ do
  equal(f.setupMode == true and f.touring ~= true, true, "setup carries on")
  f:SetSetupMode(false); Flush()
  f:Hide(); f:SetSetupMode(true); f:Hide(); Flush()
- equal(T.NewsCount(), 9, "setup left closed: What's New's Show me is back")
+ equal(T.NewsCount(), 1, "setup left closed: What's New's Show me is back")
  equal(T.OpenNews() and f.setupMode == false and f.touring, true, "setup left closed: settings open and it starts")
  f.keys:Fire("OnEscapePressed")
 end
@@ -646,8 +688,14 @@ do
  for _, b in ipairs(actions) do b.shown = false end
  Open(f, "class")
  f.newsButton:Click(); Flush()
- for n = 1, 9 do equal(f.tourStep, n, "combat step " .. n); f.tour.nextButton:Click(); Flush() end
+ equal(f.tourStep .. " " .. f.tour.step:GetText(), "1 1 of 1 just added in 1.7.1", "combat: 1.7.1's step")
+ f.tour.nextButton:Click(); Flush()
  equal(f.touring, false, "the walkthrough of what's new runs in combat")
+ -- And 1.7.0's nine, across every tab they're on.
+ Open(f, "class")
+ E.SettingsTour.StartNews(f, "1.7.0"); Flush()
+ for n = 1, 9 do equal(f.tourStep, n, "combat step " .. n); f.tour.nextButton:Click(); Flush() end
+ equal(f.touring, false, "1.7.0's walkthrough runs in combat too")
  f:Hide()
  equal(E.SettingsTour.OpenNews() and f:IsShown() and f.tourStep, 1, "and Show me opens /era in combat")
  f.keys:Fire("OnEscapePressed")
@@ -762,7 +810,7 @@ do
  -- Opening the walkthrough: seen, saved at once, and the glow stops.
  news:Click(); Flush()
  equal(f.touring and f.tourStep, 1, "Show me what's new starts the walkthrough")
- equal(E.settings.newsTourSeen .. " " .. saves, "1.7.0 1", "this release's walkthrough saved as opened, at once")
+ equal(E.settings.newsTourSeen .. " " .. saves, "1.7.1 1", "this release's walkthrough saved as opened, at once")
  equal(glow:IsShown(), false, "the glow stops")
  f.keys:Fire("OnEscapePressed")
  equal(news:IsShown() and not glow:IsShown(), true, "Show me what's new stays, without the glow")
@@ -773,22 +821,22 @@ do
  -- Skipped at once still counts as opened.
  E.settings.newsTourSeen = nil; Reopen()
  news:Click(); Flush(); f.tour.back:Click()
- equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.0 false", "Skip on step 1: opened all the same")
+ equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.1 false", "Skip on step 1: opened all the same")
  -- One release at a time: an older release seen, this one still glows;
  -- another release's walkthrough leaves it be.
- E.settings.newsTourSeen = "1.6.0"; Reopen()
- equal(glow:IsShown(), true, "1.6.0's walkthrough seen: 1.7.0's still glows")
+ E.settings.newsTourSeen = "1.7.0"; Reopen()
+ equal(glow:IsShown(), true, "1.7.0's walkthrough seen: 1.7.1's still glows")
  E.settings.newsTourSeen = nil
- T.StartNews(f, "1.6.0"); Flush()
- equal(f.touring == true and tostring(E.settings.newsTourSeen) .. " " .. tostring(glow:IsShown()), "nil true", "1.6.0's walkthrough marks nothing: 1.7.0's still glows")
+ T.StartNews(f, "1.7.0"); Flush()
+ equal(f.touring == true and tostring(E.settings.newsTourSeen) .. " " .. tostring(glow:IsShown()), "nil true", "1.7.0's walkthrough marks nothing: 1.7.1's still glows")
  f.keys:Fire("OnEscapePressed")
  -- What's New's Show me opens it too.
  f:Hide()
  equal(T.OpenNews(), true, "What's New's Show me")
- equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.0 false", "counts as opening it: the glow stops")
+ equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.1 false", "counts as opening it: the glow stops")
  f.keys:Fire("OnEscapePressed")
- T.StartNews(f, "1.6.0"); Flush()
- equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.0 false", "an older release's walkthrough afterwards never brings it back")
+ T.StartNews(f, "1.7.0"); Flush()
+ equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.1 false", "an older release's walkthrough afterwards never brings it back")
  f.keys:Fire("OnEscapePressed")
  -- The next release with new options glows again, until its own opens.
  E.SettingsNav.ADDED.trainer = "1.8.0"
@@ -804,7 +852,7 @@ do
  S.combat = true
  glow:Fire("OnUpdate", .3)
  news:Click(); Flush()
- equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.0 false", "in a fight: opened, saved, and the glow stops")
+ equal(E.settings.newsTourSeen .. " " .. tostring(glow:IsShown()), "1.7.1 false", "in a fight: opened, saved, and the glow stops")
  f.keys:Fire("OnEscapePressed")
  S.combat = false
  -- A class that can't be read (a secret value, never used as a key, as the

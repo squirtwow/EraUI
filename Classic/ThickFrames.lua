@@ -1,9 +1,9 @@
 -- EraUI Thick Frames.
--- Appearance > Style > Frame Style (experimental, off unless ticked; needs
--- Unit Frames). The unit frames in EraUI's look (Classic/UnitFrames.lua) can
--- wear a thick look instead of the Classic art: a near-black plate with
--- round corners round each frame's name and bars, so the frame stands out
--- from the world behind it. The name sits straight on the plate over the
+-- Appearance > Style > Frame Style (off unless ticked; needs Unit Frames).
+-- The unit frames in EraUI's look (Classic/UnitFrames.lua) can wear a thick
+-- look instead of the Classic art: a near-black plate with round corners
+-- round each frame's name and bars, so the frame stands out from the world
+-- behind it. The name sits straight on the plate over the
 -- bars (no lighter strip behind it, so an empty bar never reads as a table
 -- row), the bars are taller, the bar text (still the game's own) sits at the
 -- bar's end away from the portrait (a "Dead" too), and the level sits in a

@@ -1,6 +1,6 @@
 local _, EraUI = ...
 
--- Upgrade Spell Ranks (/era > Action Bars, experimental). Forever keeps a
+-- Upgrade Spell Ranks (/era > Action Bars). Forever keeps a
 -- spell on its old rank when you train a new one. With this on, the rank you
 -- just outgrew moves up to the new one wherever it sits on your bars: every
 -- action slot the game's bars use (action bar addons use the same ones) and

@@ -235,11 +235,11 @@ local function LookOf(bar)
 end
 
 -- Rounded Cast Bars -------------------------------------------------------------
--- Appearance > Style > Frame Style (experimental, off unless ticked; needs
--- Cast Bars). The player's, pet's, target's and focus's bars in EraUI's look
--- get a thick near-black shell with soft corners round the bar and the
--- spell's icon, which sits in a square tile of its own at the shell's left.
--- The spell's name goes to the left of the bar and the time left to its
+-- Appearance > Style > Frame Style (off unless ticked; needs Cast Bars).
+-- The player's, pet's, target's and focus's bars in EraUI's look get a thick
+-- near-black shell with soft corners round the bar and the spell's icon,
+-- which sits in a square tile of its own at the shell's left. The spell's
+-- name goes to the left of the bar and the time left to its
 -- right; a fine line runs just inside the shell: muted bronze in Classic,
 -- the Darkness grey in Dark Mode, or the player's class colour with
 -- Class-coloured Cast Border (Modules/ClassAccents.lua sets it). The Classic

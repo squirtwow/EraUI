@@ -23,17 +23,17 @@ or off in the settings.
   with the original art and bars, Classic debuff borders and aura hover boxes
 - Dark Mode: darker decorative artwork, with thin dark borders round your buff
   and debuff icons, and optional soft shadows behind them. Dark Bag Buttons
-  (experimental) turn your bag icons a darker grey, all alike
-- Frame Style (Classic or Dark Mode): Flat Bars, and experimental Thick Frames
-  (thick dark frames with round corners and taller bars, with portrait rings,
-  Classic party frames and a fine class-colour edge if you like), Thick Aura
-  Borders, Rounded Cast Bars and a Raid-style Party Outline for the game's
-  raid-style party frames
+  turn your bag icons a darker grey, all alike
+- Frame Style (Classic or Dark Mode): Flat Bars, Thick Frames (thick dark
+  frames with round corners and taller bars, with portrait rings, Classic
+  party frames and a fine class-colour edge if you like), Thick Aura Borders,
+  Rounded Cast Bars and an experimental Raid-style Party Outline for the
+  game's raid-style party frames
 - Tooltips: translucent dark backgrounds and thin, bevelled grey borders
   with softened corners, including linked items and item comparisons, and
   optional class colours on player tooltips
 - Cast bars and mirror timers: player, pet, target and focus cast bars, with
-  Cast Bar Colour (experimental) for your own bar (yellow, grey, your class
+  Cast Bar Colour for your own bar (yellow, grey, your class
   colour or any colour you pick); classic breath and fatigue timers
 - Minimap and nameplates: the round classic minimap with its zone name and old
   tracking, and 1.x-style nameplates
@@ -59,7 +59,7 @@ or off in the settings.
 - Vendor prices, bag-space counter, quest levels and map quest objectives
 - Auto-sell junk and auto-repair at vendors
 - Class colours in chat, optional secondary names, highest-rank spell filtering
-- Upgrade Spell Ranks (experimental): a new rank you learn replaces the old one
+- Upgrade Spell Ranks: a new rank you learn replaces the old one
   on your action bars
 - Damage and healing text: choose the font of the numbers, your own heals
   included (Pepsi by default, or thirteen others), and their size, with a
@@ -71,7 +71,7 @@ or off in the settings.
   your details and a famous Classic line for your class while you're away
 - Bag Item Levels (optional): item levels in quality colours, upgrade arrows and
   a red icon on gear you can't equip
-- Stat Tracker (experimental): a small panel of the stats you pick, updating
+- Stat Tracker: a small panel of the stats you pick, updating
   live, with gains in green; drag it anywhere
 - Energy, rage, mana and druid resource bars, swing timers and a ranged swing timer
 - Advanced cast bar with ticks and latency display
@@ -104,7 +104,8 @@ or off in the settings.
   is tooltip styling.
   Existing saved choices are respected; change either option in `/era` and reload.
 - Coordinates, clean minimap (addon buttons hidden until you hover, or tucked
-  into one drawer button, experimental), cursor ring, draggable chat and more
+  into one drawer button), a square minimap you can resize, cursor ring,
+  draggable chat and more
 - A screen-fitting, scrollable "what's new" window after each update, in your class colour
 - More from Squirt: a tab at the bottom of `/era` listing my other addons
 

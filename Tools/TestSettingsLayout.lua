@@ -208,14 +208,18 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- the version it updated into; the rows under or shown with them (Black
 -- Pages under Dark Windows, Thick Frames' ticks and Edge, the Stat
 -- Tracker's options, Custom Cast Bar Colour, Icons per Row) go with them and
--- never say it. Clean Minimap's Style and Cast Bar Colour have no room for
--- both words before their buttons: only "experimental" (measured below).
--- Then those not seen working in game yet ("experimental", always). Nothing
--- says it moved any more.
+-- never say it. A row with no room for "just added" and its other words
+-- before its buttons would say only those (TIGHT, measured below): none now.
+-- Clean Minimap's Style and Cast Bar Colour were, while they said
+-- "experimental"; seen working in game (2026-10-15), they have room.
+-- Then those not seen working in game yet ("experimental", always): since
+-- the user's check in game on 2026-10-15, only the Raid-style Party Outline.
+-- Nothing says it moved any more.
 local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
  ["1.7.0"] = {"thickFrames", "thickAuraBorders", "roundedCastBars", "partyOutline", "darkBagButtons", "upgradeSpellRanks",
-  "cleanMinimapStyle", "castBarColour", "statTracker"}}
-local TIGHT = {cleanMinimapStyle = true, castBarColour = true}
+  "cleanMinimapStyle", "castBarColour", "statTracker"},
+ ["1.7.1"] = {"squareMinimap"}}
+local TIGHT = {}
 -- The options saying "just added" for an account that updated from this version.
 local function NewSince(from)
  local out = {}
@@ -229,10 +233,11 @@ local function NewSince(from)
  end
  return out
 end
-local TESTING = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true, characterItemLevels = true,
- flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true, castBarColour = true,
- darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, thickFrames = true, thickFrameRings = true, thickFrameParty = true,
- thickFrameEdge = true, partyOutline = true, squareMinimap = true}
+local TESTING = {partyOutline = true}
+-- The eighteen the user saw working in game on 2026-10-15: no "experimental".
+local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
+ "flatBars", "thickAuraBorders", "roundedCastBars", "thickFrames", "thickFrameRings", "thickFrameParty", "thickFrameEdge",
+ "castBarColour", "cleanMinimapStyle", "squareMinimap", "upgradeSpellRanks", "statTracker"}
 
 -- Every class: the pages its rows sit on, the Dark Mode options and their
 -- greying chains, live applying, class colours, item levels, AFK Screen,
@@ -260,7 +265,7 @@ for _, c in ipairs(CLASSES) do
   end
   equal(aura.text:GetText() .. "/" .. shade.text:GetText() .. "/" .. lines.text:GetText() .. "/" .. bags.text:GetText() .. "/"
    .. windows.text:GetText() .. "/" .. black.text:GetText(),
-   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Bag Buttons/Dark Windows/Black Pages", c .. " plain labels (experimental is a small word after the name)")
+   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Bag Buttons/Dark Windows/Black Pages", c .. " plain labels (any words are small ones after the name)")
   Open(f, "appearance", "dark")
   M.NoOverlaps(f, c .. " Appearance > Dark Mode")
   M.Fits(f, c .. " Appearance > Dark Mode")
@@ -330,7 +335,7 @@ for _, c in ipairs(CLASSES) do
   equal(card:GetTop() == window:GetTop() and card:GetLeft() > window:GetLeft() and (card.depth or 0) == 0, true,
    c .. " Character Item Levels right after Character Window, beside it, not indented")
   equal(card.dependencyDisabled, nil, c .. " needs no other option")
-  equal(table.concat(card.tagIds, ","), "TEST", c .. " says experimental after its name")
+  equal(table.concat(card.tagIds, ","), "", c .. " no words after its name (seen working in game, not in a release's list)")
  end
  -- AFK Screen on Screen & Cursor > AFK Screen, its eight options under it.
  do
@@ -566,7 +571,7 @@ do
  _, help, extras = M.Hover(f, shade)
  equal(extras, "Switch on Dark Aura Borders first.  Default: On.", "Aura Shadows names Dark Aura Borders (same sub-tab, no place)")
  equal(help, "Aura Shadows  A soft shadow round your own buff and debuff icons, just outside the dark border. It never covers the next icon.",
-  "Aura Shadows help: what it does (experimental is the word after its name, not in its help)")
+  "Aura Shadows help: what it does, no experimental or Needs testing words")
  E.settings.darkMode = nil; f:RefreshDependencies()
  _, _, extras = M.Hover(f, shade)
  equal(extras, "Switch on Dark Mode first (Appearance > Style).  Default: On.", "with Dark Mode off too, Dark Mode first")
@@ -1320,8 +1325,8 @@ do
  end
  -- Edge (Frame Edge): a choice row (Dark, Class colour) indented under Thick
  -- Frames after its ticks, Dark chosen, greyed while it's off; its name (one
- -- short word: there's room for no more) and "experimental" clear its
- -- buttons, each button holds its word, in the row.
+ -- short word) clears its buttons with no words after it ("just added" goes
+ -- with Thick Frames above it), each button holds its word, in the row.
  local edgeRow = f.checks.thickFrameEdge
  local edgeNames = {}
  for i, button in ipairs(edgeRow.buttons) do edgeNames[i] = button.label:GetText() end
@@ -1331,8 +1336,8 @@ do
   "Frame Edge: a choice row, Dark or Class colour, indented under Thick Frames, greyed while it's off, Dark chosen")
  local edgeWords = M.Glyphs(edgeRow.text:GetText(), 13)
  for i in ipairs(edgeRow.tagIds) do edgeWords = edgeWords + (i == 1 and 6 or 5) + M.Glyphs(edgeRow.tags[i]:GetText(), 10) end
- equal(table.concat(edgeRow.tagIds, ",") .. " " .. tostring(edgeRow.text:GetLeft() + edgeWords <= edgeRow.buttons[1]:GetLeft() - 4), "TEST true",
-  "Frame Edge: only experimental (just added doesn't fit an indented choice), its name and tag clear Dark")
+ equal(#edgeRow.tagIds .. " " .. tostring(edgeRow.text:GetLeft() + edgeWords <= edgeRow.buttons[1]:GetLeft() - 4), "0 true",
+  "Frame Edge: no words after its name (seen working in game), its name clears Dark")
  for i, button in ipairs(edgeRow.buttons) do
   equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= edgeRow:GetRight() + .01, true, edgeNames[i] .. " fits its button, in the row")
   if i > 1 then equal(edgeRow.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, edgeNames[i - 1] .. " clear of " .. edgeNames[i]) end
@@ -2585,7 +2590,7 @@ do
  -- The data: every option Nav says a release added is a row here, from a
  -- release with notes, and its own rows are exactly the ones written out above.
  local releases = {}
- for _, version in ipairs({"1.6.0", "1.7.0"}) do releases[version] = true end
+ for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
   equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
@@ -2598,47 +2603,68 @@ do
   table.sort(want); table.sort(leads[version] or {})
   equal(table.concat(leads[version] or {}, ","), table.concat(want, ","), version .. "'s options, one row each")
  end
- equal(Nav.ADDED.statTrackerStrength .. " " .. Nav.ADDED.thickFrameEdge .. " " .. Nav.ADDED.castBarCustomColour .. " " .. Nav.ADDED.minimapDrawerColumns,
-  "1.7.0 1.7.0 1.7.0 1.7.0", "the rows under a new option carry its release too")
+ equal(Nav.ADDED.statTrackerStrength .. " " .. Nav.ADDED.thickFrameEdge .. " " .. Nav.ADDED.castBarCustomColour .. " " .. Nav.ADDED.minimapDrawerColumns
+  .. " " .. Nav.ADDED.squareMinimapScale, "1.7.0 1.7.0 1.7.0 1.7.0 1.7.1", "the rows under a new option carry its release too")
+ equal(tostring(Nav.Lead("squareMinimap")) .. " " .. tostring(Nav.Lead("squareMinimapScale")), "true false",
+  "Square Size goes with Square Minimap (shown only with it): one lead for 1.7.1")
  Expect(nil, "no version saved:")
+ -- Only the Raid-style Party Outline says experimental; the eighteen the
+ -- user saw working in game (2026-10-15) don't, here or in a release.
+ local seen = {}
+ for _, key in ipairs(SEEN_WORKING) do
+  equal(f.checks[key] ~= nil and E.SettingsRules.NeedsTesting(key) == false and TESTING[key] == nil, true, key .. ": seen working, not experimental")
+  if Tags(key) == "" then seen[#seen + 1] = key end
+ end
+ equal(#seen .. " " .. Tags("partyOutline") .. " " .. tostring(E.SettingsRules.NeedsTesting("partyOutline")), "18 TEST true",
+  "the eighteen say nothing, the Raid-style Party Outline still says experimental")
  Updated("1.5.5", "9.9.9")
  Expect("1.5.5", "updated from 1.5.5:")
- equal(Tags("darkWindows") .. " " .. Tags("blackPages") .. " " .. Tags("thickFrames") .. " " .. Tags("thickFrameRings"), "NEW,TEST TEST NEW,TEST TEST",
-  "for example: Dark Windows and Thick Frames say it, the ticks under them don't")
+ equal(Tags("darkWindows") .. " " .. Tags("blackPages") .. " " .. Tags("thickFrames") .. " " .. Tags("thickFrameRings") .. " " .. Tags("partyOutline"),
+  "NEW  NEW  NEW,TEST", "for example: Dark Windows and Thick Frames say it, the ticks under them don't; the Party Outline says experimental too")
  Updated("1.6.0", "9.9.9")
  Expect("1.6.0", "updated from 1.6.0:")
- equal(Tags("flatBars") .. " " .. Tags("statTracker"), "TEST NEW,TEST", "from 1.6.0 only 1.7.0's options say it")
+ equal(Tags("flatBars") .. " " .. Tags("statTracker") .. " " .. Tags("castBarColour"), " NEW NEW", "from 1.6.0 only 1.7.0's options say it")
  Updated("1.7.0", "9.9.9")
- Expect("1.7.0", "updated from 1.7.0 (nothing newer here):")
+ Expect("1.7.0", "updated from 1.7.0:")
+ equal(Tags("statTracker") .. " " .. Tags("squareMinimap") .. " " .. Tags("squareMinimapScale"), " NEW ", "from 1.7.0 only 1.7.1's Square Minimap says it, not its Square Size")
+ Updated("1.7.1", "9.9.9")
+ Expect("1.7.1", "updated from 1.7.1 (nothing newer here):")
  -- Never an option from a release after the one running (a copy of 1.6.0
  -- with 1.7.0's rows in it): only up to the version it runs.
  E.version = "1.6.0"
  Updated("1.5.5", "1.6.0")
- equal(Tags("darkWindows") .. " " .. Tags("thickFrames") .. " " .. Tags("statTracker"), "NEW,TEST TEST TEST", "running 1.6.0: its own options, not 1.7.0's")
+ equal(Tags("darkWindows") .. " " .. Tags("thickFrames") .. " " .. Tags("statTracker") .. " " .. Tags("partyOutline"), "NEW   TEST",
+  "running 1.6.0: its own options, not 1.7.0's")
  E.version = "9.9.9"
  Updated("1.5.5", "9.9.9")
- equal(Tags("darkWindows") .. " " .. Tags("darkAuraShadows") .. " " .. Tags("autoRepair") .. " " .. Tags("cursorRing"), "NEW,TEST TEST  ", "for example: nothing says it moved")
- -- Clean Minimap's Style and Cast Bar Colour: both words wouldn't clear
- -- their first button, so they're the TIGHT ones; every other option a
- -- release added would have room.
+ equal(Tags("darkWindows") .. " " .. Tags("darkAuraShadows") .. " " .. Tags("autoRepair") .. " " .. Tags("cursorRing"), "NEW   ", "for example: nothing says it moved")
+ -- An option a release added with buttons after its name is TIGHT exactly
+ -- when "just added" and its other words wouldn't clear its first button.
+ -- None is now: Clean Minimap's Style and Cast Bar Colour were, while they
+ -- said experimental too.
  E.settings.cleanMinimap = true
+ local measured = {}
  for key in pairs(Nav.ADDED) do
   local row = f.checks[key]
   if Nav.Lead(key) and row.buttons then
    local home = f.rowHome[key]
    f:SelectCategory(home.tab, home.sub); Flush()
    local fits = BothWordsFit(row)
-   equal(Nav.TIGHT[key] == true, not fits, key .. (fits and ": room for both words" or ": no room for both words, so only experimental"))
+   measured[key] = fits
+   equal(Nav.TIGHT[key] == true, not fits, key .. (fits and ": room for just added and its other words" or ": no room for just added and its other words, so only those"))
   end
  end
  for key in pairs(Nav.TIGHT) do equal(Nav.ADDED[key] ~= nil, true, key .. ": TIGHT only lists new options") end
+ equal(tostring(measured.cleanMinimapStyle) .. " " .. tostring(measured.castBarColour) .. " " .. tostring(next(Nav.TIGHT)), "true true nil",
+  "Clean Minimap's Style and Cast Bar Colour measured: room for just added now, so nothing is TIGHT")
  E.settings.cleanMinimap = nil
  equal(E.SettingsNav.MOVED, nil, "no moved list any more")
  -- Every row with words, on its page, as it shows.
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
  E.settings.cleanMinimap = true
- local looked, worded = 0, 0
+ local looked, worded, newCount = 0, 0, 0
  local saying = NewSince("1.5.5")
+ for _ in pairs(saying) do newCount = newCount + 1 end
  for key, row in pairs(f.checks) do
   if TESTING[key] or row.unavailable or saying[key] then worded = worded + 1 end
   if #row.tagIds > 0 then
@@ -2648,17 +2674,18 @@ do
    looked = looked + 1
   end
  end
- equal(looked == worded and looked >= 8, true, "every row with words checked (" .. looked .. ": the eight experimental ones and the coming soon ones)")
- -- Clean Minimap's Style row: its name and "experimental" stop short of its
+ equal(newCount, 13, "updated from 1.5.5: the thirteen options of 1.6.0, 1.7.0 and 1.7.1 say just added")
+ equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the thirteen just added, the Party Outline also experimental, and the coming soon ones)")
+ -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
- -- they show to an account that updated too.
+ -- they show to an account that updated.
  Updated("1.5.5", "9.9.9")
  Open(f, "map")
  local style = f.checks.cleanMinimapStyle
  local words = M.Glyphs(style.text:GetText(), 13)
  for i, id in ipairs(style.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(style.tags[i]:GetText(), 10) end
- equal(table.concat(style.tagIds, ",") .. " " .. tostring(style.text:GetLeft() + words <= style.buttons[1]:GetLeft() - 4), "TEST true",
-  "Clean Minimap's Style: its name and experimental clear its Hover button")
+ equal(table.concat(style.tagIds, ",") .. " " .. tostring(style.text:GetLeft() + words <= style.buttons[1]:GetLeft() - 4), "NEW true",
+  "Clean Minimap's Style: its name and just added clear its Hover button")
  Updated(nil, nil)
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  E.settings.cleanMinimap = nil
@@ -2677,12 +2704,17 @@ do
  -- Search results carry the same words, after the option's name.
  M.Results(f, "dark windows")
  local result = f.visibleRows[1]
- equal(result.target.settingKey .. " " .. table.concat(result.tagIds, ","), "darkWindows NEW,TEST", "a result shows its option's words")
+ equal(result.target.settingKey .. " " .. table.concat(result.tagIds, ","), "darkWindows NEW", "a result shows its option's words")
  TagLook(result, "the Dark Windows result")
- -- "experimental" finds the experimental options.
+ M.Results(f, "raid-style party outline")
+ result = nil
+ for _, shown in ipairs(f.visibleRows) do if shown.target and shown.target.settingKey == "partyOutline" then result = shown end end
+ equal(result and (result.target.settingKey .. " " .. table.concat(result.tagIds, ",")), "partyOutline NEW,TEST", "the Party Outline's result: just added and experimental")
+ TagLook(result, "the Raid-style Party Outline result")
+ -- "experimental" finds the experimental option, only it.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "blackPages,castBarColour,characterItemLevels,cleanMinimapStyle,darkAuraShadows,darkBagButtons,darkDebuffLines,darkWindows,flatBars,partyOutline,roundedCastBars,squareMinimap,statTracker,thickAuraBorders,thickFrameEdge,thickFrameParty,thickFrameRings,thickFrames,upgradeSpellRanks", "searching experimental finds them")
+ equal(table.concat(found, ","), "partyOutline", "searching experimental finds the Raid-style Party Outline alone")
  f.searchBox:SetText(""); Flush()
 end
 
@@ -2963,7 +2995,7 @@ do
  UnitClass = oldClass
 end
 
--- Clean Minimap's style (Hover or Drawer, experimental) and the drawer's
+-- Clean Minimap's style (Hover or Drawer) and the drawer's
 -- Icons per Row: folded under Clean Minimap, Icons per Row only with Drawer
 -- chosen, opening and folding at once keeping the scroll; each choice saved
 -- and applied through Modules/MinimapTools.lua at once; the footer's
@@ -3053,14 +3085,15 @@ do
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
 end
 
--- Square Minimap (Map & Minimap, experimental): a tick under Minimap,
+-- Square Minimap (Map & Minimap): a tick under Minimap,
 -- indented, greyed while Minimap is off (the footer says so); off by
 -- default, live, never a reload; applied at once through Classic/Minimap.lua
 -- with its own chat line (in a fight: the minimap changes when it ends;
 -- Minimap waiting for a reload: it shows once that's applied); its words,
--- summary and search words; "experimental", and with "just added" too (once
--- a release lists it) both fit its row; offered on the walkthrough's Map &
--- Minimap page with Minimap on, left out with it off, like Show Gryphons.
+-- summary and search words; no words after its name (seen working in game,
+-- 2026-10-15), and "just added" (once a release lists it) fits its row;
+-- offered on the walkthrough's Map & Minimap page with Minimap on, left out
+-- with it off, like Show Gryphons.
 do
  local E, f = Session("WARRIOR")
  local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
@@ -3078,7 +3111,7 @@ do
   .. tostring(row.depth) .. " / " .. tostring(row.dependencyDisabled), "Square Minimap / tick / true / false / 1 / false",
   "a tick row under Minimap, off, not greyed")
  equal(Keys(f):find("^minimap,squareMinimap,cleanMinimap,") ~= nil, true, "right under Minimap, before Clean Minimap")
- equal(table.concat(row.tagIds, ","), "TEST", "it says experimental")
+ equal(table.concat(row.tagIds, ","), "", "no words after its name: seen working in game, not in a release's list yet")
  TagLook(row, "Square Minimap")
  local _, help, extras = M.Hover(f, row)
  equal(help, "Square Minimap  A square map in a thin dark frame, the zone's name on top and the buttons on its edges. In Dark Mode its fine line follows the Darkness slider.",
@@ -3129,18 +3162,17 @@ do
   local found = M.Results(f, query)
   local hit = false
   for _, key in ipairs(found) do if key == "squareMinimap" then hit = true end end
-  equal(hit, true, "searching " .. query .. " finds Square Minimap")
+  equal(hit, query ~= "experimental", "searching " .. query .. (query ~= "experimental" and " finds Square Minimap" or " no longer finds Square Minimap"))
  end
  f.searchBox:SetText(""); Flush()
- -- Once a release lists it (Core/SettingsNav.lua ADDED), an account that
- -- updated sees "just added" too, and both words fit.
+ -- 1.7.1 lists it (Core/SettingsNav.lua ADDED): an account that updated
+ -- from 1.7.0 sees "just added", and it fits.
  local Nav = E.SettingsNav
- Nav.ADDED.squareMinimap = "9.9.9"
+ equal(Nav.ADDED.squareMinimap, "1.7.1", "added in 1.7.1")
  E.settings.justAddedFrom, E.settings.justAddedVersion = "1.7.0", "9.9.9"
  f:Hide(); f:Show(); Flush(); Open(f, "map")
- equal(table.concat(row.tagIds, ","), "NEW,TEST", "listed in a release: just added and experimental")
+ equal(table.concat(row.tagIds, ","), "NEW", "listed in a release: just added")
  TagLook(row, "Square Minimap, just added")
- Nav.ADDED.squareMinimap = nil
  E.settings.justAddedFrom, E.settings.justAddedVersion = nil, nil
  f:Hide(); f:Show(); Flush()
  -- The walkthrough.
@@ -3188,7 +3220,7 @@ do
  equal(N(square:GetBottom() - coords:GetTop()), "4", "Coordinates' line right under Square Minimap, no gap")
  equal(size.rowKind .. " " .. size.labelText .. " " .. size.info.low .. "-" .. size.info.high .. " " .. size.info.step .. " " .. tostring(size.wide),
   "slider Square Size 75-150 5 nil", "a half-line slider row, 75 to 150 in fives")
- equal(table.concat(size.tagIds, ","), "", "no words after its name: Square Minimap above it says experimental")
+ equal(table.concat(size.tagIds, ","), "", "no words after its name (it goes with Square Minimap above it)")
  -- A short window, so the page scrolls; ticking opens it at once.
  M.Resize(f, 340)
  Open(f, "map")
@@ -3330,9 +3362,10 @@ do
  E.settings.minimap, E.settings.squareMinimap, E.settings.squareMinimapScale = true, nil, nil
 end
 
--- Cast Bar Colour (Casting, experimental): a whole line under its own Colour
--- heading with Match look, Yellow, Grey, Class and Custom, its name and
--- "experimental" clear of the first button; greyed while Cast Bars is off
+-- Cast Bar Colour (Casting): a whole line under its own Colour
+-- heading with Match look, Yellow, Grey, Class and Custom, its name (and
+-- "just added", for an account that updated) clear of the first button;
+-- greyed while Cast Bars is off
 -- (a click changes nothing), never indented under it; each choice saved and
 -- applied at once (Classic/CastBars.lua ns.RefreshCastColours); Custom opens
 -- the colour picker and Custom Cast Bar Colour under it (folded until then),
@@ -3363,13 +3396,22 @@ do
  equal(tostring(row.wide) .. " " .. N(row:GetWidth()) .. " " .. (row.depth or 0) .. " " .. tostring(row.connV:IsShown()), "true 718 0 false",
   "a whole line, never indented under Cast Bars")
  equal(row.selected .. " " .. tostring(row.dependencyDisabled) .. " " .. row.alpha, "1 false 1", "Match look chosen, available with Cast Bars on")
- -- Its name and "experimental" stop short of the first button (the glyph
- -- widths, never under the game's); each button holds its name, in the row,
- -- clear of the next.
- local words = M.Glyphs(row.text:GetText(), 13)
- for i, id in ipairs(row.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(row.tags[i]:GetText(), 10) end
- equal(table.concat(row.tagIds, ",") .. " " .. tostring(row.text:GetLeft() + words <= row.buttons[1]:GetLeft() - 4), "TEST true",
-  "its name and experimental clear Match look")
+ -- Its name, and "just added" for an account that updated from before
+ -- 1.7.0, stop short of the first button (the glyph widths, never under the
+ -- game's); each button holds its name, in the row, clear of the next.
+ local function Clears()
+  local words = M.Glyphs(row.text:GetText(), 13)
+  for i in ipairs(row.tagIds) do words = words + (i == 1 and 6 or 5) + M.Glyphs(row.tags[i]:GetText(), 10) end
+  return table.concat(row.tagIds, ",") .. " " .. tostring(row.text:GetLeft() + words <= row.buttons[1]:GetLeft() - 4)
+ end
+ equal(Clears(), " true", "no words after its name (seen working in game), its name clears Match look")
+ E.settings.justAddedFrom, E.settings.justAddedVersion = "1.6.0", "9.9.9"
+ f:Hide(); f:Show(); Flush(); Open(f, "casting")
+ equal(Clears(), "NEW true", "updated from 1.6.0: its name and just added clear Match look")
+ TagLook(row, "Cast Bar Colour, just added")
+ E.settings.justAddedFrom, E.settings.justAddedVersion = nil, nil
+ f:Hide(); f:Show(); Flush(); Open(f, "casting")
+ equal(Clears(), " true", "and with no version saved, no words again")
  for i, button in ipairs(row.buttons) do
   equal(M.Glyphs(button.label:GetText(), 13) <= button:GetWidth() - 8 and button:GetRight() <= row:GetRight() + .01, true, names[i] .. " fits its button, in the row")
   if i > 1 then equal(row.buttons[i - 1]:GetRight() <= button:GetLeft() - 5.99, true, names[i - 1] .. " clear of " .. names[i]) end
@@ -3459,7 +3501,7 @@ do
  E.settings.castBarColour, E.settings.castBarCustomColour, E.settings.castBars = nil, nil, nil
 end
 
--- Upgrade Spell Ranks (Action Bars, experimental): a tick after Hide Macro
+-- Upgrade Spell Ranks (Action Bars): a tick after Hide Macro
 -- Names, off by default, applying at once through Modules/SpellRanks.lua
 -- with its own chat line. It works with any bars, so the Classic Action Bars
 -- look being off never greys it. Its footer words, and search finds it.
@@ -3473,7 +3515,7 @@ do
  equal(Keys(f), "actionBars,gryphons,hideEmptyActionSlots,hideKeybindText,hideMacroText,upgradeSpellRanks", "last on Action Bars, after Hide Macro Names")
  local row = f.checks.upgradeSpellRanks
  equal(row.text:GetText() .. " / " .. tostring(row:IsVisible()) .. " / " .. tostring(row:GetChecked()) .. " / " .. tostring(row.wide)
-  .. " / " .. table.concat(row.tagIds, ","), "Upgrade Spell Ranks / true / false / nil / TEST", "a tick row, off, saying experimental")
+  .. " / " .. table.concat(row.tagIds, ","), "Upgrade Spell Ranks / true / false / nil / ", "a tick row, off, no words after its name (seen working in game)")
  local _, help, extras = M.Hover(f, row)
  equal(help, "Upgrade Spell Ranks  A new rank you learn replaces the rank it outgrew on your action bars, after any fight. Lower ranks you placed, macros and items stay.",
   "its words")
@@ -3506,7 +3548,7 @@ do
  E.settings.upgradeSpellRanks = nil
 end
 
--- Stat Tracker (Character & Spells, experimental): its own Stat tracker
+-- Stat Tracker (Character & Spells): its own Stat tracker
 -- section under Spellbook. Off, only its switch shows and the page fits.
 -- Switched on (live, through Modules/StatTracker.lua, with a chat line),
 -- its rows open at once, keeping the scroll, none indented and none greyed:
@@ -3562,8 +3604,8 @@ do
   "off: its switch alone, the groups folded away with their headings")
  equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), true, "off: Character & Spells fits without scrolling")
  M.NoOverlaps(f, "Stat Tracker off"); M.Fits(f, "Stat Tracker off")
- equal(tracker.rowKind .. " " .. tracker.text:GetText() .. " " .. tostring(tracker:GetChecked()) .. " " .. table.concat(tracker.tagIds, ","), "tick Stat Tracker false TEST",
-  "a tick row, off, saying experimental")
+ equal(tracker.rowKind .. " " .. tracker.text:GetText() .. " " .. tostring(tracker:GetChecked()) .. " " .. table.concat(tracker.tagIds, ","), "tick Stat Tracker false ",
+  "a tick row, off, no words after its name (seen working in game)")
  local _, help, extras = M.Hover(f, tracker)
  equal(help, "Stat Tracker  A small panel of the stats you tick, updating as buffs, gear and levels change them. Drag it anywhere; it stays on screen.", "its words")
  equal(M.LinesIn(help, 570, 12) <= 2 and extras == "Default: Off.", true, "two footer lines, off by default: " .. extras)

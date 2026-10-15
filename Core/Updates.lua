@@ -6,6 +6,22 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.7.1",
+        sections = {
+            { "Added", {
+                "Square Minimap (Map & Minimap), with a Square Size slider.",
+                "Show me what's new walks you to each new option in /era, and glows in your class colour until you've looked.",
+                "First-time players are offered a quick tour of /era.",
+            } },
+            { "Changed", {
+                "Options that have been tested are no longer marked experimental. Only Raid-style Party Outline still is.",
+            } },
+            { "Fixed", {
+                "\"just added\" shows next to new options again after an update.",
+            } },
+        },
+    },
+    {
         version = "1.7.0",
         sections = {
             { "Added", {

@@ -160,8 +160,10 @@ check(not N("dev","1.0.0") and not N("1.0.0","dev") and not N("","1.0.0") and no
 check(N("1.0.0","0"),"\"0\" is before every release")
 E.version="1.7.0"
 check(E.ReleaseVersion()=="1.7.0" and E.PreviousRelease()=="1.6.0","1.7.0: its own notes, and 1.6.0 before it")
+E.version="1.7.1"
+check(E.ReleaseVersion()=="1.7.1" and E.PreviousRelease()=="1.7.0","1.7.1: its own notes, and 1.7.0 before it")
 E.version="1.8.0"
-check(E.ReleaseVersion()=="1.7.0" and E.PreviousRelease()=="1.7.0","a version newer than every note: the newest notes, and they're the release before")
+check(E.ReleaseVersion()=="1.7.1" and E.PreviousRelease()=="1.7.1","a version newer than every note: the newest notes, and they're the release before")
 E.version="1.5.5"
 check(E.ReleaseVersion()=="1.5.5" and E.PreviousRelease()=="1.5.4","an older release: its own, and the one under it")
 E.version="dev"

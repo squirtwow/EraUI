@@ -38,7 +38,7 @@ local function BuildRing()
 end
 
 -- Square Minimap ----------------------------------------------------------------
--- Map & Minimap > Square Minimap (experimental, off unless ticked; it needs
+-- Map & Minimap > Square Minimap (off unless ticked; it needs
 -- Minimap, this look). The map goes square in a thin dark frame of EraUI's
 -- own: a near-black edge with the Frame Style's fine line just inside it
 -- (muted bronze in the Classic look, the Darkness grey in Dark Mode, live

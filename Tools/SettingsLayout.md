@@ -26,8 +26,8 @@ that is off, and never indented under it (they're on different pages).
 Thick Frames needs Unit Frames the same way ("Switch on Unit Frames first
 (Frames & Nameplates > Unit Frames)."); its two ticks and Edge are greyed
 while it's off ("Switch on Thick Frames first."). Edge is named with one
-short word: indented, with "experimental" and its Dark and Class colour
-buttons, "Frame Edge" doesn't fit.
+short word: indented, with its Dark and Class colour buttons, "Frame Edge"
+didn't fit beside the "experimental" it had until 2026-10-15.
 Casting has Cast bars (Cast Bars, the Advanced Cast Bar and its options) and,
 under it, Colour: Cast Bar Colour (Match look, Yellow, Grey, Class, Custom)
 and Custom Cast Bar Colour, a colour swatch that shows only with Custom.
@@ -95,27 +95,33 @@ Right after a row's name, a small plain word or two (10 point, lower case,
 no box, no border, no capitals; 5 apart, 6 after the name, on the name's
 line): "just added" in the game's gold (1, .82, 0), "experimental" in a
 muted warm grey (.66, .61, .53) for options not seen working in game yet
-(`EXPERIMENTAL` in Core/Settings.lua: Aura Shadows, Thin Debuff Colours,
-Dark Windows, Black Pages, Character Item Levels, Flat Bars, Thick Aura
-Borders, Rounded Cast Bars, Dark Bag Buttons, Upgrade Spell Ranks, Stat Tracker, Thick Frames, Portrait Rings,
-Classic Party Frames, Edge, Raid-style Party Outline, Clean Minimap's Style, Cast Bar Colour, Square Minimap), "coming soon" and "log
-out to apply" (a new damage font, after the font button) in the muted grey.
+(`EXPERIMENTAL` in Core/Settings.lua: only the Raid-style Party Outline,
+which needs a party to check; the user saw the other eighteen working in game
+on 2026-10-15 and they lost the word: Aura Shadows, Thin Debuff Colours,
+Dark Windows, Black Pages, Dark Bag Buttons, Character Item Levels, Flat
+Bars, Thick Aura Borders, Rounded Cast Bars, Thick Frames, Portrait Rings,
+Classic Party Frames, Edge, Cast Bar Colour, Clean Minimap's Style, Square
+Minimap, Upgrade Spell Ranks, Stat Tracker), "coming soon" and "log out to
+apply" (a new damage font, after the font button) in the muted grey.
 
 "just added" is per release. `ADDED` in `Core/SettingsNav.lua` says which
 release brought each option (1.6.0: Flat Bars, Dark Windows, Black Pages,
 Thin Debuff Colours; 1.7.0: Thick Frames and its ticks and Edge, Thick Aura
 Borders, Rounded Cast Bars, Raid-style Party Outline, Dark Bag Buttons,
 Upgrade Spell Ranks, Clean Minimap's Style and Icons per Row, Cast Bar Colour
-and its custom swatch, Stat Tracker and all its rows). Every row of a new
+and its custom swatch, Stat Tracker and all its rows; 1.7.1: Square Minimap
+and its Square Size slider). Every row of a new
 option is listed; only the option's own row (`Nav.Lead`: not under, or shown
 with, an option of the same release) says it, so Black Pages (under Dark
 Windows), Thick Frames' ticks and Edge, the Stat Tracker's rows, Custom Cast
-Bar Colour and Icons per Row never do. `Nav.TIGHT` (Clean Minimap's Style,
-Cast Bar Colour) have no room for both words before their buttons, measured
-with glyph widths for the buttons too, so they say only "experimental"
-(TestSettingsLayout checks TIGHT is exactly those). The rule: an account
-that updated sees "just added" on the options added after the version it
-updated from (`EraUIDB.justAddedFrom`) up to the one running, while it runs
+Bar Colour and Icons per Row never do. `Nav.TIGHT` lists the options with no
+room for "just added" and their other words before their buttons, measured
+with glyph widths for the buttons too, which then say only the others
+(TestSettingsLayout checks TIGHT is exactly those). It is empty now: Clean
+Minimap's Style and Cast Bar Colour were in it while they said
+"experimental" too; since 2026-10-15 they say "just added" like the rest.
+The rule: an account that updated sees "just added" on the options added
+after the version it updated from (`EraUIDB.justAddedFrom`) up to the one running, while it runs
 the version it updated into (`EraUIDB.justAddedVersion`). Skipping a release
 still shows that release's options. A fresh install has no "from": nothing
 says it, as everything is new to it. Never in the setup walkthrough.
@@ -126,15 +132,16 @@ the release before this one from `Core/Updates.lua`). A development copy
 ("dev") decides nothing. Both backed up. 1.6.0's single
 `layoutPillsVersion` is retired (cleared once, no longer backed up). The next
 release: add its new options' keys to `ADDED` with its number (and to
-`LEADS` in TestSettingsLayout, with its notes in Core/Updates.lua). Waiting
-for the next release's number: Square Minimap (`squareMinimap`, a tick with
-room for both words, checked by TestSettingsLayout) and its Square Size
-(`squareMinimapScale`, which goes with it and never says it).
+`LEADS` in TestSettingsLayout, with its notes in Core/Updates.lua). 1.7.1's
+one lead is Square Minimap (`squareMinimap`, a tick with room for "just
+added", checked by TestSettingsLayout); its Square Size
+(`squareMinimapScale`, shown only with it) goes with it and never says it.
 
 Nothing says an option moved any more (the user, 2026-10-11: the boxed
 capital labels "looked too AI generated"). Search results carry the same
-words, and searching "experimental" finds those options. The class box's
-Click to apply poisons says "experimental" the same way.
+words, and searching "experimental" finds the option that says it. The class
+box's Click to apply poisons says "experimental" the same way (its own tag,
+`T.TickTag` in Modules/ClassReminders.lua, not the `EXPERIMENTAL` list).
 
 A slider row shows "Name: value" in 194 (12 to 206; the slider from 214), so
 the longest, "Cast Ring Opacity (%): 100", fits whole; the wide sliders keep

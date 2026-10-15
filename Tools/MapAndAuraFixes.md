@@ -86,7 +86,7 @@ aura type, aura data or geometry is read, no native region is changed and no
 key is written on the buttons, so the same path runs in combat. A protected button (not how Forever builds them)
 would wait for `PLAYER_REGEN_ENABLED`.
 
-Aura Shadows (`darkAuraShadows`, on by default, Needs testing, depends on
+Aura Shadows (`darkAuraShadows`, on by default, seen working in game 2026-10-15, depends on
 `darkAuraBorders`) adds a soft shadow past the dark edge, built like Forever
 Enhanced Cooldown Manager's icon shadow: three one-unit rings of black at 45%,
 25% and 10%, from two to five units outside the icon. Five units is Edit

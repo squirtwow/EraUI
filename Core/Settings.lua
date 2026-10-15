@@ -408,11 +408,9 @@ settingHelp.damageTextScale = "How big the damage and healing numbers over your 
 local HELP_KEY = {appearanceChoice = "darkMode"}
 
 -- Not seen working in game yet: the row says "experimental" after its name
--- (Core/SettingsRows.lua), so its description doesn't have to.
-local EXPERIMENTAL = {darkAuraShadows = true, darkDebuffLines = true, darkWindows = true, blackPages = true,
-    characterItemLevels = true, flatBars = true, thickAuraBorders = true, roundedCastBars = true, cleanMinimapStyle = true,
-    thickFrames = true, thickFrameRings = true, thickFrameParty = true, thickFrameEdge = true, partyOutline = true,
-    castBarColour = true, darkBagButtons = true, upgradeSpellRanks = true, statTracker = true, squareMinimap = true}
+-- (Core/SettingsRows.lua), so its description doesn't have to. The user
+-- checked the rest in game on 2026-10-15 and they lost the tag.
+local EXPERIMENTAL = {partyOutline = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -899,8 +897,8 @@ local function BuildLookRows(frame)
     rings.searchText = rings.searchText .. " portrait ring rings round circle thick frames frame style"
     -- Edge (the thick frames' edges): Dark or Class colour, applied at once,
     -- in a fight too (only EraUI's own textures change:
-    -- Classic/ThickFrames.lua). Named short: indented, "experimental" and its
-    -- two buttons leave room for one short word.
+    -- Classic/ThickFrames.lua). Named short: indented, its two buttons leave
+    -- room for one short word.
     local edge
     edge = Rows.Choice(frame, "thickFrameEdge", "Edge", {"Dark", "Class colour"}, function(index)
         if edge.dependencyDisabled then edge:SetChecked(); return end

@@ -164,13 +164,15 @@ Added("1.7.0", {"thickFrames", "thickFrameRings", "thickFrameParty", "thickFrame
     "statTrackerAgility", "statTrackerStamina", "statTrackerIntellect", "statTrackerSpirit", "statTrackerAttackPower",
     "statTrackerCrit", "statTrackerHit", "statTrackerSpellPower", "statTrackerSpellCrit", "statTrackerArmor", "statTrackerDodge",
     "statTrackerParry", "statTrackerBlock", "statTrackerSpeed", "statTrackerDurability"})
--- Waiting for the next release's number (no version yet): "squareMinimap",
--- "squareMinimapScale" (its Square Size slider, which goes with it).
+-- Square Size shows only with Square Minimap (SHOWN_WITH), so it goes with it.
+Added("1.7.1", {"squareMinimap", "squareMinimapScale"})
 Nav.ADDED = ADDED
--- Rows with no room for both words between their name and their buttons
--- (Tools/TestSettingsLayout measures every row that says "just added"): they
--- say only "experimental"; the walkthrough still takes you to them.
-Nav.TIGHT = {cleanMinimapStyle = true, castBarColour = true}
+-- Rows with no room for "just added" and their other words between their
+-- name and their buttons (Tools/TestSettingsLayout measures every row that
+-- says "just added"): they say only the others; the walkthrough still takes
+-- you to them. None now: Clean Minimap's Style and Cast Bar Colour were while
+-- they said "experimental" too, and "just added" alone fits them.
+Nav.TIGHT = {}
 
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end

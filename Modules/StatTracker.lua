@@ -1,6 +1,6 @@
 local _, EraUI = ...
 
--- Stat Tracker (/era > Character & Spells, experimental): a small panel of
+-- Stat Tracker (/era > Character & Spells): a small panel of
 -- the stats you tick, updating as buffs, gear, levels and repairs change
 -- them. It sits on its own, over the game's usual windows (HIGH, under /era
 -- and pop-ups): first at the right of the screen a little above the middle,

@@ -984,11 +984,15 @@ do
     -- (its notes lost): the release before the one running.
     version="1.8.0"
     Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
-    equal(Decided(),"1.7.0 > 1.8.0","an earlier EraUI, version unknown: from the release before this one")
+    equal(Decided(),"1.7.1 > 1.8.0","an earlier EraUI, version unknown: from the release before this one")
     flush()
     version="1.7.0"
     Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
     equal(Decided(),"1.6.0 > 1.7.0","the release before a release with notes is the one under it")
+    flush()
+    version="1.7.1"
+    Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic())
+    equal(Decided(),"1.7.0 > 1.7.1","1.7.1: the release under it is 1.7.0")
     flush()
     -- "/era updates again" (notes seen "0"): on the next load, as an update
     -- from the release before; the version stays decided.
@@ -997,13 +1001,13 @@ do
     equal(Decided(),"1.8.0 > 1.8.0","already on 1.8.0's notes: nothing newer")
     flush()
     E,flush,fire=Session(copy(EraUIDB),nil,classic({updateNotesSeen="0"}))
-    equal(Decided(),"1.7.0 > 1.8.0","/era updates again: as an update from 1.7.0")
+    equal(Decided(),"1.7.1 > 1.8.0","/era updates again: as an update from 1.7.1")
     flush()
     -- "/era updates again" with the new version's first load still to come:
     -- as an update from the release before, never from "0" (which would make
     -- every earlier release's options "just added").
     Fresh();E,flush,fire=Session({afkScreenVersion=2},{},classic({updateNotesSeen="0"}))
-    equal(Decided(),"1.7.0 > 1.8.0","/era updates again before the first load of a new version: from 1.7.0")
+    equal(Decided(),"1.7.1 > 1.8.0","/era updates again before the first load of a new version: from 1.7.1")
     flush()
     -- A development copy decides nothing.
     C_AddOns.GetAddOnMetadata=function() return "@project-version@" end
