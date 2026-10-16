@@ -278,6 +278,9 @@ function M.Session(c, ready, soon, char, setup)
  -- The real release list: What's New's release (1.7.0 here, the newest, as
  -- "9.9.9" has no notes of its own) and version order for "just added".
  assert(loadfile("Core/Updates.lua"))("EraUI", E)
+ -- A test can pin What's New's release instead (MOCK_RELEASE): the tour's
+ -- walkthroughs run as the newest release that added options.
+ if MOCK_RELEASE then E.ReleaseVersion = function() return MOCK_RELEASE end end
  -- In the .toc's order.
  assert(loadfile("Core/SettingsRows.lua"))("EraUI", E)
  assert(loadfile("Core/SettingsNav.lua"))("EraUI", E)

@@ -5,6 +5,15 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
+-- 1.7.2 (the newest notes) added no options, so it has no walkthrough and
+-- no Show me what's new button. The checks below run as 1.7.1, the newest
+-- release that added one.
+do
+ local E, f = Session("ROGUE")
+ equal(E.SettingsTour.Release() .. " " .. #E.SettingsTour.NewsKeys(f) .. " " .. tostring(f.newsButton:IsShown()),
+  "1.7.2 0 false", "1.7.2: nothing new to show, so no Show me what's new")
+end
+MOCK_RELEASE = "1.7.1"
 local function Has(text, part) return text:find(part, 1, true) ~= nil end
 local function Under(frame, ancestor)
  while frame do if frame == ancestor then return true end; frame = frame.parent end
@@ -406,7 +415,7 @@ end
 do
  local E, f = Session("ROGUE")
  local Nav, T = E.SettingsNav, E.SettingsTour
- equal(T.Release(), "1.7.1", "the release What's New shows (the newest notes for a version without its own)")
+ equal(T.Release(), "1.7.1", "the release What's New shows (pinned to 1.7.1 at the top)")
  -- 1.7.0's nine new options make the longest walkthrough, so this runs as
  -- 1.7.0 (1.7.1's one step is checked in the next block).
  local realRelease = E.ReleaseVersion
