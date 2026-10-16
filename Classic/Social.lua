@@ -213,6 +213,18 @@ local function HideRowMenu()
     if rowMenu and rowMenu:IsShown() then rowMenu:Hide() end
 end
 
+-- /who results to this page, not to chat. The game's own Who list switches
+-- that off as it closes, and since build 70425 it opens on every result.
+local function WhoToPage()
+    if C_FriendList and C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
+end
+
+local function SendWho(text)
+    if not (C_FriendList and C_FriendList.SendWho) then return end
+    WhoToPage()
+    pcall(C_FriendList.SendWho, text or "")
+end
+
 local function CloseClientWhoWindow()
     local who = _G["LFGWhoListFrame"]
     local parent = _G["LFGParentFrame"]
@@ -221,6 +233,7 @@ local function CloseClientWhoWindow()
         local first = _G["LFGParentFrameTab1_OnClick"]
         if type(first) == "function" then pcall(first) end
         ns.HidePanel(parent)
+        if panel and panel:IsShown() then WhoToPage() end
     end
 end
 
@@ -290,9 +303,7 @@ local function Build()
     panel.refresh = ns.PanelButton(panel, REFRESH or "Refresh", 112)
     panel.refresh:SetPoint("RIGHT", panel.add, "LEFT", 1.5, 0)
     panel.refresh:SetScript("OnClick", function()
-        if C_FriendList and C_FriendList.SendWho then
-            pcall(C_FriendList.SendWho, panel.query and panel.query:GetText() or "")
-        end
+        SendWho(panel.query and panel.query:GetText() or "")
     end)
     panel.add:SetScript("OnClick", function()
         local entry = SelectedEntry()
@@ -417,7 +428,7 @@ local function Build()
     panel.query:SetMaxLetters(60)
     panel.query:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     panel.query:SetScript("OnEnterPressed", function(self)
-        if C_FriendList and C_FriendList.SendWho then pcall(C_FriendList.SendWho, self:GetText() or "") end
+        SendWho(self:GetText() or "")
         self:ClearFocus()
     end)
 
@@ -442,7 +453,7 @@ local function Build()
     for i = 1, 30 do panel.rows[i] = CreateRow(list, i) end
 
     panel:SetScript("OnShow", function()
-        if C_FriendList and C_FriendList.SetWhoToUi then pcall(C_FriendList.SetWhoToUi, true) end
+        WhoToPage()
         Refresh()
     end)
     panel:SetScript("OnHide", function()

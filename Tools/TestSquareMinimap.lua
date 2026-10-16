@@ -265,6 +265,7 @@ GetCursorPosition = function() return cursor[1], cursor[2] end
 CreateFrame = function(kind, name, parent) return New(kind, name, parent or UIParent, false) end
 CreateFont = function() return { SetFontObject = function() end, SetTextColor = function() end } end
 STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
+GameFontNormal = { GetFont = function() return "Fonts\\FRIZQT__.TTF", 12, "" end }
 local timers = {}
 C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
 local function RunTimers()
@@ -276,7 +277,8 @@ local function RunTimers()
 end
 local rotate = false
 C_CVar = { GetCVarBool = function(name) return name == "rotateMinimap" and rotate end }
-C_DateAndTime = { GetCurrentCalendarTime = function() return { monthDay = 15 } end }
+local monthDay = 15
+C_DateAndTime = { GetCurrentCalendarTime = function() return { monthDay = monthDay } end }
 C_Map = {}
 Enum = { EditModeMinimapSetting = { Size = 1 } }
 hooksecurefunc = function(t, key, fn)
@@ -380,6 +382,27 @@ local function Button(name, parent, w, h, label, atlas)
     end
     return b
 end
+-- Forever's header buttons since build 70425 (Camelot/MinimapZoneTextButton,
+-- MinimapTrackingButton and GameTimeFrame): no normal, pushed or highlight
+-- art, but a StateTexture whose atlas OnButtonStateChanged sets again on
+-- every hover and click, and an additive AddTexture (hidden at first) it
+-- shows at 0.1 on hover and 0.2 on a click, setting its alpha and shown
+-- state each time, never its art. hovered[button]: the mouse state the
+-- next OnButtonStateChanged reads ("over", "down" or nil).
+local hovered = {}
+local function StateArt(b, atlas, layer)
+    local label = S[b].label
+    local state = Put(b, "StateTexture", G("Texture", nil, b, 0, 0, label .. ".StateTexture", layer))
+    local add = Put(b, "AddTexture", G("Texture", nil, b, 0, 0, label .. ".AddTexture", layer))
+    S[state].atlas, S[add].atlas, S[add].shown = atlas, atlas, false
+    Put(b, "OnButtonStateChanged", function(self)
+        self.StateTexture:SetAtlas(atlas, true)
+        local alpha = hovered[self] == "down" and .2 or hovered[self] == "over" and .1 or 0
+        self.AddTexture:SetShown(alpha > 0)
+        self.AddTexture:SetAlpha(alpha)
+    end)
+    return b
+end
 
 -- Forever's minimap cluster (Blizzard_Minimap Mainline/Minimap.xml and the
 -- Camelot day/night frame), as the game builds it before EraUI.
@@ -412,16 +435,19 @@ local function Build(opts)
     Put(cluster, "Layout", function() end)
     Put(cluster, "SetRotateMinimap", function(_, on) rotate = on and true or false end)
     Put(cluster, "GetSettingValue", function() return opts.size or 100 end)
-    local border = Put(cluster, "BorderTop", G("Frame", nil, cluster, 175, 16, "BorderTop"))
-    border:SetPoint("TOP", cluster, "TOP", 15, -4)
-    local zone = Put(cluster, "ZoneTextButton", G("Button", nil, cluster, 135, 12, "ZoneTextButton"))
-    zone:SetPoint("LEFT", border, "LEFT", 4, 0)
-    local zoneText = G("FontString", "MinimapZoneText", zone, 130, 12)
-    zoneText:SetPoint("CENTER", zone, "CENTER", 0, 1)
+    -- Since build 70425 the header bar is the zone button's own art (no
+    -- BorderTop), its name in the small font, coloured for the zone's PvP.
+    local zone = Put(cluster, "ZoneTextButton", StateArt(G("Button", nil, cluster, 152, 23, "ZoneTextButton"),
+        "ui-hud-minimap-header-button", "BACKGROUND"))
+    zone:SetPoint("TOP", cluster, "TOP", 10, 0)
+    local zoneText = G("FontString", "MinimapZoneText", zone, 110, 12)
+    zoneText:SetPoint("LEFT", zone, "LEFT", 8, -1)
+    S[zoneText].font, S[zoneText].textColour = "Fonts\\FRIZQT__.TTF,10,", C(1, .1, .1)
     local tracking = Put(cluster, "Tracking", G("Frame", nil, cluster, 17, 17, "Tracking"))
-    tracking:SetPoint("RIGHT", border, "LEFT", -2, 0)
+    tracking:SetPoint("RIGHT", zone, "LEFT", 0, 0)
     Put(tracking, "Background", G("Texture", nil, tracking, 17, 17, "Tracking.Background", "BACKGROUND"))
-    local trackButton = Put(tracking, "Button", Button(nil, tracking, 13, 14, "Tracking.Button", "ui-hud-minimap-tracking"))
+    local trackButton = Put(tracking, "Button", StateArt(G("Button", nil, tracking, 23, 23, "Tracking.Button"),
+        "ui-hud-minimap-tracking-button", "ARTWORK"))
     trackButton:SetPoint("CENTER", tracking, "CENTER", 0, 0)
     local indicator = Put(cluster, "IndicatorFrame", G("Frame", nil, cluster, 20, 15, "IndicatorFrame"))
     indicator:SetPoint("TOPRIGHT", tracking, "BOTTOMRIGHT", 0, 0)
@@ -434,6 +460,9 @@ local function Build(opts)
     crafting:SetPoint("TOPLEFT", indicator, "TOPLEFT", 20, 0)
     local container = Put(cluster, "MinimapContainer", G("Frame", nil, cluster, 215, 226, "MinimapContainer"))
     container:SetPoint("TOP", cluster, "TOP", 10, -30)
+    -- Edit Mode's size on the container (Mainline SetEditModeScale).
+    local editScale = (opts.size or 100) / 100
+    S[container].scale = editScale
     local map = G("Minimap", "Minimap", container, 198, 198)
     Put(container, "Minimap", map)
     map:SetPoint("CENTER", container, "CENTER", 0, 0)
@@ -458,17 +487,37 @@ local function Build(opts)
     local landing = Button("ExpansionLandingPageMinimapButton", backdrop, 53, 53, "ExpansionLandingPageMinimapButton")
     landing:SetPoint("TOPLEFT", backdrop, "TOPLEFT", -3, -150)
     Put(landing, "UpdateIcon", function() end)
+    -- The event-link button (build 70425, Shared/ExternalEventURLMinimapButton;
+    -- Camelot/Minimap.lua places it once): unnamed, shown only with a link.
+    local event = Put(backdrop, "ExternalEventURLButton", G("Button", nil, backdrop, 32, 32, "ExternalEventURLButton"))
+    event:SetPoint("TOPLEFT", backdrop, "TOPLEFT", 9, -110)
+    S[event].shown = false
     local coords = Put(container, "PlayerCoords", G("Frame", nil, container, 90, 10, "PlayerCoords"))
     coords:SetPoint("BOTTOM", map, "BOTTOM", 0, -18)
-    local difficulty = Put(cluster, "InstanceDifficulty", G("Frame", nil, cluster, 30, 30, "InstanceDifficulty"))
-    difficulty:SetPoint("TOPRIGHT", border, "TOPRIGHT", 0, -15)
-    local diel = Put(cluster, "DielFrame", G("Frame", nil, cluster, 40, 40, "DielFrame"))
+    -- (Camelot has no InstanceDifficulty since build 70425.)
+    -- Day and night (Camelot/Diel.lua, build 70425): on the container, set
+    -- against its scale (1 over it) by the game's SetEditModeScale wrapper.
+    local diel = Put(cluster, "DielFrame", G("Frame", nil, container, 40, 40, "DielFrame"))
     S[diel].level = 5
-    diel:SetPoint("CENTER", cluster, "CENTER", 63, 72)
+    local function DielTransform(scale)
+        diel:SetScale(1 / scale)
+        diel:ClearAllPoints()
+        diel:SetPoint("CENTER", container, "CENTER", 55 * scale, 86 * scale)
+    end
+    DielTransform(editScale)
+    Put(cluster, "SetEditModeScale", function(_, scale)
+        container:SetScale(scale)
+        DielTransform(container:GetScale())
+    end)
     Put(diel, "Background", G("Texture", nil, diel, 30, 30, "DielFrame.Background", "BACKGROUND"))
     G("Texture", nil, diel, 40, 40, "DielFrame.Border", "OVERLAY"):SetAllPoints(diel)
-    local calendar = Button("GameTimeFrame", cluster, 40, 40, "GameTimeFrame")
-    calendar:SetPoint("TOPRIGHT", cluster, "TOPRIGHT", -10, -40)
+    -- The calendar (Camelot/GameTimeFrameTemplate.xml, build 70425): the day
+    -- set through its own SetDate (the old global only calls that).
+    local calendar = StateArt(G("Button", "GameTimeFrame", cluster, 23, 23, "GameTimeFrame"), "ui-hud-minimap-calendar-button", "ARTWORK")
+    calendar:SetPoint("TOPLEFT", zone, "TOPRIGHT", -4, 0)
+    S[G("Texture", "GameTimeCalendarInvitesTexture", calendar, 28, 32, nil, "ARTWORK")].shown = false
+    Put(calendar, "SetDate", function(self) self:OnButtonStateChanged() end)
+    GameTimeFrame_SetDate = function() GameTimeFrame:SetDate() end
     local clock = G("Button", "TimeManagerClockButton", cluster, 60, 28)
     clock:SetPoint("TOP", map, "BOTTOM", 0, 0)
     G("Texture", nil, clock, 60, 28, "TimeManagerClockButton.Art"):SetAllPoints(clock)
@@ -520,8 +569,8 @@ local function Build(opts)
     GetMinimapShape = opts.shape
     game = { cluster = cluster, map = map, backdrop = backdrop, zone = zone, zoneText = zoneText, tracking = tracking,
         mail = mail, calendar = calendar, clock = clock, eye = eye, zin = zin, zout = zout, compass = compass, diel = diel,
-        coords = coords, hybrid = hybrid, hybridMask = hybridMask, lib = lib, libButton = libButton, border = border,
-        neighbour = neighbour }
+        coords = coords, hybrid = hybrid, hybridMask = hybridMask, lib = lib, libButton = libButton, event = event,
+        container = container, trackButton = trackButton, neighbour = neighbour }
 end
 
 -- What the game's pieces look like now, every one, as text: place, size,
@@ -562,6 +611,7 @@ local function Session(extra, opts)
     settings = { enabled = true, darkModeDarkness = 58, minimap = true }
     for k, v in pairs(extra or {}) do settings[k] = v end
     combat, rotate, timers, cursor = false, false, {}, { 0, 0 }
+    monthDay, hovered = 15, {}
     Build(opts)
     UISpecialFrames = {}
     ns, modules, booked = {}, {}, 0
@@ -1215,5 +1265,150 @@ S[watch].scripts.OnEvent(watch, "CVAR_UPDATE", "rotateMinimap", "1")
 equal(#timers, 0, "with the square off nothing is booked")
 RunTimers()
 equal(S[game.map].mask, GAME_MASK, "with the square off it leaves the mask alone")
+
+-- Forever's build 70425 header -----------------------------------------------------------------
+-- The zone bar, tracking and the calendar are header buttons now: Forever's
+-- art (the StateTexture, its atlas set again on every hover and click)
+-- faded, its additive hover and click glow (the AddTexture, shown at 0.1 and
+-- 0.2) left without art, on the ring and the square, through the game's own
+-- passes; the zone's name in the classic 12pt font again, its PvP colour
+-- kept; the classic glass the tracking button's own normal and pushed art,
+-- no poll; the calendar's day from its own SetDate (loading screens, invites)
+-- and the old global; the day and night indicator at the cluster's size
+-- whatever Edit Mode's Minimap Size, live; the event-link button on the
+-- ring's upper left or the square's left edge, clear of every control and
+-- the zone's name, shown and clickable as the game has it. Minimap's
+-- restore gives the zone bar back. No key written on any of them.
+local function Hover(button, how)
+    hovered[button] = how
+    button:OnButtonStateChanged()
+end
+local function Blank(button)
+    local state, add = S[rawget(button, "StateTexture")], S[rawget(button, "AddTexture")]
+    return state.alpha == 0 and add.texture == nil and add.atlas == nil
+end
+local NEW_PIECES = { "ZoneTextButton", "Tracking.Button", "GameTimeFrame", "DielFrame", "ExternalEventURLButton", "MinimapZoneText" }
+local function WritesOnNewPieces()
+    local out = {}
+    for _, w in ipairs(writes) do
+        for _, label in ipairs(NEW_PIECES) do
+            if w:sub(1, #label + 1) == label .. "." then out[#out + 1] = w end
+        end
+    end
+    return table.concat(out, ",")
+end
+for _, look in ipairs({ "round", "square" }) do
+    Session(look == "square" and { squareMinimap = true } or nil)
+    for _, button in ipairs({ game.zone, game.trackButton, game.calendar }) do
+        local label = S[button].label
+        equal(Blank(button), true, look .. ": " .. label .. ": Forever's art hidden")
+        for _, how in ipairs({ "over", "down" }) do
+            Hover(button, how)
+            equal(Blank(button), true, look .. ": " .. label .. " " .. how .. ": no Forever art or glow")
+        end
+        Hover(button, nil)
+        game.cluster:Layout()
+        equal(Blank(button), true, look .. ": " .. label .. " after the game's Layout: still hidden")
+    end
+    -- The zone's name.
+    equal(S[game.zoneText].font, "Fonts\\FRIZQT__.TTF,12,", look .. ": the zone's name in the classic 12pt font")
+    equal(S[game.zoneText].textColour .. " " .. tostring(S[game.zoneText].fontObject), C(1, .1, .1) .. " nil",
+        look .. ": its PvP colour kept (face and size only, no font object)")
+    -- Tracking's classic glass.
+    local normal, pushed = S[game.trackButton].Normal, S[game.trackButton].Pushed
+    equal(normal ~= nil and pushed ~= nil, true, look .. ": the tracking button has normal and pushed art again")
+    equal(S[normal].texture .. " " .. S[pushed].texture, (ns.TexPath("trackingNone")) .. " " .. (ns.TexPath("trackingNone")),
+        look .. ": both the classic magnifying glass")
+    equal(Spot(normal) .. " " .. BoxText(normal) .. " | " .. Spot(pushed), "-80,11 -90,1,-70,21 | -78,9",
+        look .. ": 20 across in the ring, pushed a little down and right")
+    local polls = 0
+    for _, o in ipairs(made) do if S[o].parent == game.tracking and S[o].scripts.OnUpdate then polls = polls + 1 end end
+    equal(polls, 0, look .. ": no poll for the glass")
+    -- The calendar's day.
+    equal(GameTimeFrame:GetText(), 15, look .. ": the calendar shows today")
+    monthDay = 16
+    GameTimeFrame:SetDate()
+    equal(GameTimeFrame:GetText(), 16, look .. ": the next day from the calendar's own SetDate (a loading screen)")
+    monthDay = 17
+    GameTimeFrame_SetDate()
+    equal(GameTimeFrame:GetText(), 17, look .. ": and through the old global")
+    -- The event-link button.
+    local event = game.event
+    equal(Spot(event), look == "square" and "-78,50" or "-62,52",
+        look .. ": the event-link button " .. (look == "square" and "on the square's left edge" or "on the ring's upper left"))
+    equal(#S[event].points .. " " .. tostring(S[event].shown) .. " " .. tostring(event:IsMouseEnabled()), "1 false true",
+        look .. ": one anchor, shown only when the game shows it, clickable")
+    local ex, ey = Spot(event):match("([^,]+),(.+)")
+    ex, ey = tonumber(ex), tonumber(ey)
+    local others = { { game.tracking, 16 }, { game.mail, 16 }, { game.calendar, 14 }, { game.zin, 11 }, { game.zout, 11 },
+        { game.eye, 16 }, { Tools().button, 16 }, { game.libButton, 15 }, { game.diel, 14 } }
+    for _, other in ipairs(others) do
+        local ox, oy = Spot(other[1]):match("([^,]+),(.+)")
+        -- Its ring is 42 across.
+        equal(math.sqrt((ex - tonumber(ox)) ^ 2 + (ey - tonumber(oy)) ^ 2) >= 21 + other[2], true,
+            look .. ": the event-link button's ring clear of " .. tostring(S[other[1]].label or "EraUI's button"))
+    end
+    local drawerX, drawerY = 52.33, 52.33
+    if look == "square" then drawerX, drawerY = 74, 74 end
+    equal(math.sqrt((ex + drawerX) ^ 2 + (ey + drawerY) ^ 2) >= 21 + 16, true, look .. ": clear of the drawer button's default spot")
+    local cl, cb, cr, ct = Box(game.clock)
+    local nx, ny = math.max(cl, math.min(ex, cr)), math.max(cb, math.min(ey, ct))
+    equal(math.sqrt((ex - nx) ^ 2 + (ey - ny) ^ 2) >= 21, true, look .. ": clear of the clock")
+    local _, zb = Box(game.zoneText)
+    equal(ey + 21 <= zb, true, look .. ": its ring under the zone's name")
+    equal(Within(event, game.cluster), true, look .. ": it draws over the frame (the cluster's child)")
+    equal(WritesOnNewPieces(), "", look .. ": no key written on the header buttons, the day and night frame or the event-link button")
+end
+-- The event-link button follows the square on and off live.
+Session()
+settings.squareMinimap = true; ns.RefreshSquareMinimap()
+equal(Spot(game.event), "-78,50", "switched on: the event-link button on the square's edge")
+settings.squareMinimap = false; ns.RefreshSquareMinimap()
+equal(Spot(game.event), "-62,52", "switched off: back on the ring")
+-- Day and night at Edit Mode's Minimap Size: Forever sets it to 1 over the
+-- container's scale; the container stays at 1 here, so it goes back to 1.
+for _, size in ipairs({ 80, 100, 125, 150 }) do
+    Session(nil, { size = size })
+    equal(N(S[game.diel].scale) .. " " .. N(Eff(game.diel)) .. " " .. N(Eff(game.map)), "1 " .. N(size / 100) .. " " .. N(size / 100),
+        "Edit Mode's " .. size .. ": day and night at the minimap's size")
+    equal(Spot(game.diel) .. " | " .. BoxText(game.diel), "70,48 | 50,28,90,68", "Edit Mode's " .. size .. ": where it was, 40 across in the map's units")
+end
+-- Edit Mode's slider moved: the game's SetEditModeScale, then its Layout pass.
+Session()
+Put(game.cluster, "GetSettingValue", function() return 75 end)
+game.cluster:SetEditModeScale(.75)
+equal(N(S[game.diel].scale), N(1 / .75), "Edit Mode's 75: the game sets day and night to 1 over it")
+game.cluster:Layout()
+equal(N(S[game.diel].scale) .. " " .. N(Eff(game.diel)) .. " " .. N(Eff(game.map)) .. " " .. Spot(game.diel), "1 0.75 0.75 70,48",
+    "and the Layout pass after puts it back at the minimap's size, in its place")
+-- Square Size on top: with the rest of the square.
+Session({ squareMinimap = true, squareMinimapScale = 150 }, { size = 80 })
+equal(N(Eff(game.diel)) .. " " .. N(Eff(game.map)) .. " " .. Spot(game.diel), "1.2 1.2 70,48", "Square Size 150% with Edit Mode's 80: day and night with it")
+-- Minimap's restore: Forever's zone bar and its glow back.
+for _, extra in ipairs({ {}, { squareMinimap = true } }) do
+    Session(extra)
+    -- The game's passes after login hide them again first: the art kept
+    -- from the first one is what comes back.
+    game.cluster:Layout()
+    game.cluster:Layout()
+    modules.minimap.restore()
+    local zoneArt, zoneGlow = S[game.zone.StateTexture], S[game.zone.AddTexture]
+    equal(N(zoneArt.alpha) .. " " .. tostring(zoneGlow.atlas), "1 ui-hud-minimap-header-button", "Minimap's restore: Forever's zone bar back")
+    Hover(game.zone, "over")
+    equal(N(zoneGlow.alpha) .. " " .. tostring(zoneGlow.shown) .. " " .. tostring(zoneGlow.atlas), "0.1 true ui-hud-minimap-header-button",
+        "and its hover glow")
+    game.cluster:Layout()
+    equal(N(zoneArt.alpha) .. " " .. tostring(zoneGlow.atlas), "1 ui-hud-minimap-header-button", "the game's Layout after it leaves them")
+    equal(WritesOnNewPieces(), "", "Minimap's restore writes no key on them")
+end
+-- Minimap off: Forever's header exactly as the game has it.
+Session({ minimap = false })
+equal(N(S[game.zone.StateTexture].alpha) .. " " .. tostring(S[game.zone.AddTexture].atlas) .. " " .. S[game.zoneText].font,
+    "1 ui-hud-minimap-header-button Fonts\\FRIZQT__.TTF,10,", "Minimap off: Forever's zone bar and its small font left as the game has them")
+do
+    local point, rel, relPoint, x, y = game.event:GetPoint(1)
+    equal(table.concat({ point, tostring(rel == game.backdrop), relPoint, N(x), N(y), N(S[game.diel].scale) }, " "),
+        "TOPLEFT true TOPLEFT 9 -110 1", "Minimap off: the event-link button on the game's own anchor, day and night as the game set it")
+end
 
 print("Square Minimap checks passed: " .. checks .. " assertions.")

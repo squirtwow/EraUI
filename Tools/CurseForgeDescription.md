@@ -62,7 +62,7 @@
 - All reminders hide while you're on a flight path and come back a moment after you land
 - Optional **PET LOW HEALTH!** for hunters and warlocks shows below 35% by default (20 to 60%), in combat too with Show during combat. With Clickable reminders, clicking it out of combat casts Mend Pet or Health Funnel
 - Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
-- Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range; party-only buffs check your raid subgroup
+- Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range
 - Soulstone application checks whether a checked member is protected, rather than requiring it on everyone
 - Alerts are silent and hidden during combat by default. **Show during combat** enables informational alerts; click actions always stay disabled during combat
 

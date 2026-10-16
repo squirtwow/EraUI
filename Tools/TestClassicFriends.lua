@@ -913,4 +913,63 @@ combat = false
 Fire("PLAYER_REGEN_ENABLED")
 Equal(#blocked, 0, "the game refused none of its own opens")
 
+-- 16. /who results with the game's group finder loaded (Forever 70425). Its
+-- Who list (LFGWhoListMixin) answers every WHO_LIST_UPDATE by opening the
+-- group finder on its Who tab; its OnShow sends /who results to a window and
+-- its OnHide back to chat. EraUI's driver hears the event first, then the
+-- game's window opens and EraUI's watcher closes it. The Who page stays open,
+-- so its next searches must still come back to it.
+local whoToUi, sent = false, {}
+C_FriendList.SetWhoToUi = function(on) whoToUi = on end
+C_FriendList.SendWho = function(text) sent[#sent + 1] = tostring(text) .. "|" .. tostring(whoToUi) end
+local finder = Blizzard("Frame", "LFGParentFrame", UIParent)
+pushable[finder] = 7
+local listing = Blizzard("Frame", "LFGListingFrame", finder)
+local finderWho = Blizzard("Frame", "LFGWhoListFrame", finder)
+local finderTab = 1
+local function FinderTab(index)
+    finderTab = index
+    listing:SetShown(index == 1)
+    finderWho:SetShown(index == 3)
+end
+finder:SetScript("OnShow", function() FinderTab(finderTab) end)
+finderWho:SetScript("OnShow", function() C_FriendList.SetWhoToUi(true) end)
+finderWho:SetScript("OnHide", function() C_FriendList.SetWhoToUi(false) end)
+function LFGParentFrameTab1_OnClick() FinderTab(1) end
+local function WhoResult()
+    Fire("WHO_LIST_UPDATE")
+    -- LFGWhoListMixin:UpdateWhoList, the game's own event handler.
+    Dispatch(function()
+        finderTab = 3
+        if finder:IsShown() then FinderTab(3) else ShowUIPanel(finder) end
+    end)
+    whoPanel.driver:Fire("OnUpdate", 0)
+    NextFrame()
+end
+local writesBefore = #writes
+Press(function() ns.OpenWhoList() end)
+Equal(whoPanel:IsShown() and whoToUi, true, "the Who page sends /who results to a window")
+WhoResult()
+Equal(tostring(finder:IsShown()) .. "|" .. tostring(whoPanel:IsShown()), "false|true",
+    "a /who result: the game's group finder closed again, the Who page open")
+Equal(whoToUi, true, "the group finder's close leaves results going to the Who page")
+Equal(finderTab, 1, "the group finder is left on its first tab")
+Press(function() whoPanel.refresh:Click() end)
+Equal(sent[#sent], "|true", "Refresh searches with results going to the Who page")
+WhoResult()
+whoToUi = false -- anything else switching results to chat, e.g. the game's Who tab closing
+whoPanel.query:SetText("Squirt")
+Press(function() whoPanel.query:Fire("OnEnterPressed") end)
+Equal(sent[#sent], "Squirt|true", "a search from the box switches results back to the Who page first")
+WhoResult()
+Equal(tostring(finder:IsShown()) .. "|" .. tostring(whoToUi), "false|true", "and its result still lands on the Who page")
+Equal(#sent, 2, "no search sent by EraUI on its own")
+Press(ToggleFriendsFrame)
+Equal(State() .. "|" .. tostring(whoToUi), "-|-|false", "closing the window hands /who back to chat")
+for i = writesBefore + 1, #writes do
+    local k = writes[i]:match("%.(.+)$")
+    assert(k == "fcuiPad" or k == "fcuiWhoHidden", "no key written on the game's frames: " .. writes[i])
+end
+checks = checks + 1
+
 print("Classic friends checks passed: " .. checks .. " assertions.")

@@ -17,7 +17,9 @@ local _,E=...
 --   choices   pick which spell is tracked (Advanced cycle button)
 --   wide      its /era switch takes a whole line, with its choice or Below
 --             button in it
---   subgroup  party-only effects do not check other raid subgroups
+--   subgroup  party-only effects do not check other raid subgroups (none
+--             since build 1.60.1.70425 made Battle Shout and Trueshot Aura
+--             raid-wide)
 --   mana      skip warriors and rogues, including when druids are shapeshifted
 --   anyTarget one protected group member satisfies this reminder
 --   missingOnly leave dead hunter pets to their separate Revive Pet reminder
@@ -34,21 +36,22 @@ local _,E=...
 -- Spell IDs are Forever's own (same build); Tools/TestClassReminders.lua audits
 -- them. Forever is level 60 content, so later pets and totems (Water Elemental,
 -- Felguard, Fire and Earth Elemental Totem) and Blessing of Sanctuary, which it
--- lacks, are left out.
+-- lacks, are left out. Since build 1.60.1.70425 Salvation and Mass Salvation
+-- (1038, 25895) go on top of a blessing, so they are not one: BLESSING! never
+-- counts them, and a click never casts them on a tank.
 E.ReminderSpells={
  WARRIOR={
-   {key="battleShout",text="BATTLE SHOUT!",kind="aura",group=true,subgroup=true,power="rage",ids={6673,5242,6192,11549,11550,11551,25289}},
+   {key="battleShout",text="BATTLE SHOUT!",kind="aura",group=true,power="rage",ids={6673,5242,6192,11549,11550,11551,25289}},
  },
  PALADIN={
   {key="blessing",text="BLESSING!",kind="aura",group=true,choiceLabel="Blessing",
-   ids={19740,19834,19835,19836,19837,19838,25291,25782,25916,19742,19850,19852,19853,19854,25290,25894,25918,20217,25898,1038,25895,19977,19978,19979,25890},
-   reagentIds={25782,25916,25894,25918,25898,25895,25890},
+   ids={19740,19834,19835,19836,19837,19838,25291,25782,25916,19742,19850,19852,19853,19854,25290,25894,25918,20217,25898,19977,19978,19979,25890},
+   reagentIds={25782,25916,25894,25918,25898,25890},
    choices={
     {key="any",name="Any blessing"},
     {key="might",name="Blessing of Might",ids={19740,19834,19835,19836,19837,19838,25291,25782,25916}},
      {key="wisdom",name="Blessing of Wisdom",mana=true,ids={19742,19850,19852,19853,19854,25290,25894,25918}},
     {key="kings",name="Blessing of Kings",ids={20217,25898}},
-    {key="salvation",name="Blessing of Salvation",ids={1038,25895}},
     {key="light",name="Blessing of Light",ids={19977,19978,19979,25890}},
    }},
   -- Seals and auras are choices like blessings: every id belongs to one
@@ -92,7 +95,7 @@ E.ReminderSpells={
     {key="beast",name="Aspect of the Beast",ids={13161,1299445,1299446,1299447}},
     {key="wild",name="Aspect of the Wild",ids={20043,20190}},
    }},
-   {key="trueshot",text="TRUESHOT AURA!",kind="aura",group=true,subgroup=true,ids={1299346,1299348,19506,20905,20906}},
+   {key="trueshot",text="TRUESHOT AURA!",kind="aura",group=true,ids={1299346,1299348,19506,20905,20906}},
    -- Mend Pet ranks. Listed last: in combat its row may be drawn unseen, and
    -- last in the stack it never pushes the other alerts down.
    {key="petHealth",text="PET LOW HEALTH!",kind="petHealth",off=true,wide=true,color={1,.36,.3},icon="Interface\\Icons\\Ability_Hunter_MendPet",ids={136,3111,3661,3662,13542,13543,13544}},

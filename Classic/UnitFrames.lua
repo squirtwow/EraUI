@@ -219,6 +219,36 @@ local function AttachOverlays(source, bar, mask)
     end
 end
 
+-- The game's health bar sits faded under ours, pinned to it (SkinPlayer,
+-- SkinTarget): the incoming heal and absorb pieces AttachOverlays moves onto
+-- our bar are drawn from that bar's own fill. Since build 70425 the game
+-- puts the bar back in its own spot on every target or focus change and on
+-- the player's form or vehicle art (UpdateHealthBarVisuals), which leaves
+-- those pieces a few pixels off our fill, so the keepers pin it back when it
+-- has moved. A protected bar waits for the fight's end (ns.HeldInFight).
+local function HealthPinned(blizz, bar)
+    local n = blizz:GetNumPoints()
+    if (issecretvalue and issecretvalue(n)) or n ~= 2 then return false end
+    for i = 1, 2 do
+        local point, relativeTo, relativePoint, x, y = blizz:GetPoint(i)
+        if issecretvalue and (issecretvalue(point) or issecretvalue(relativeTo) or issecretvalue(relativePoint)
+            or issecretvalue(x) or issecretvalue(y)) then
+            return false
+        end
+        if (point ~= "TOPLEFT" and point ~= "BOTTOMRIGHT") or relativeTo ~= bar or relativePoint ~= point
+            or math.abs(x or 0) > 0.01 or math.abs(y or 0) > 0.01 then
+            return false
+        end
+    end
+    return true
+end
+
+local function PinHealth(blizz, bar)
+    if not blizz or not bar or ns.HeldInFight(blizz) or HealthPinned(blizz, bar) then return end
+    ns.SetPointOnce(blizz, "TOPLEFT", bar, "TOPLEFT", 0, 0)
+    blizz:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+end
+
 local function FadePvpCircle(frame)
     for _, key in ipairs({ "PlayerFrameContentMain", "PlayerFrameContentContextual", "TargetFrameContentMain", "TargetFrameContentContextual" }) do
         local content = frame.PlayerFrameContent or frame.TargetFrameContent
@@ -616,6 +646,8 @@ KeepPlayerAnchors = function()
         if PlayerName then ns.SetPointOnce(PlayerName, "TOPLEFT", host, "TOPLEFT", 97, -30) end
         if PlayerLevelText then ns.SetPointOnce(PlayerLevelText, "CENTER", host, "TOPLEFT", 36, -71) end
     end
+    local entry = frames.player
+    PinHealth(ns.Path(PlayerFrame, "PlayerFrameContent", "PlayerFrameContentMain", "HealthBarsContainer", "HealthBar"), entry and entry.health)
     KeepPlayerLevelColour()
     if PlayerName then
         -- The client can blank the player's own name or show "Unknown", and
@@ -876,6 +908,7 @@ local function SkinTarget(frame, unit)
         local main = ns.Path(frame, "TargetFrameContent", "TargetFrameContentMain")
         local contextual = ns.Path(frame, "TargetFrameContent", "TargetFrameContentContextual")
         local host = Mine(frame, "host")
+        PinHealth(ns.Path(main, "HealthBarsContainer", "HealthBar"), frames[frame].health)
         -- The client re-colours the target name when you target yourself but
         -- never re-writes the text, so the previous target's name lingers in
         -- your class colour. Re-assert the name on every target change.
@@ -1090,6 +1123,26 @@ local function KeepPet()
     if undone or undone == nil then SkinPet() end
 end
 
+-- The party role icon, at the portrait's foot. Since build 70425 Forever's
+-- party art (a roster, member, connection or vehicle change, in fights too)
+-- adds its own TOPRIGHT point to the icon without clearing ours, which
+-- stretches it across the frame. A texture, so the party keeper puts it back
+-- on every pass, in fights too.
+local ROLE_X, ROLE_Y = 7, -41
+local function KeepRoleIcon(frame)
+    local icon = ns.Path(frame, "PartyMemberOverlay", "RoleIcon")
+    if not icon then return end
+    local n = icon:GetNumPoints()
+    local point, relativeTo, relativePoint, x, y = icon:GetPoint(1)
+    local hidden = issecretvalue and (issecretvalue(n) or issecretvalue(point) or issecretvalue(relativeTo)
+        or issecretvalue(relativePoint) or issecretvalue(x) or issecretvalue(y))
+    if not hidden and n == 1 and point == "TOPLEFT" and relativeTo == frame and relativePoint == "TOPLEFT"
+        and math.abs((x or 0) - ROLE_X) < 0.5 and math.abs((y or 0) - ROLE_Y) < 0.5 then
+        return
+    end
+    ns.SetPointOnce(icon, "TOPLEFT", frame, "TOPLEFT", ROLE_X, ROLE_Y)
+end
+
 local function SkinPartyMember(frame)
     if Busy() then return end
     if frame.Texture then
@@ -1153,7 +1206,7 @@ local function SkinPartyMember(frame)
             overlay.LeaderIcon:SetSize(16, 16)
             ns.SetPointOnce(overlay.LeaderIcon, "TOPLEFT", frame, "TOPLEFT", 0, -8)
         end
-        if overlay.RoleIcon then ns.SetPointOnce(overlay.RoleIcon, "TOPLEFT", frame, "TOPLEFT", 7, -41) end
+        KeepRoleIcon(frame)
         if overlay.PVPIcon then ns.SetPointOnce(overlay.PVPIcon, "TOPLEFT", frame, "TOPLEFT", -9, -23) end
     end
     if frame.Flash then
@@ -1216,6 +1269,7 @@ local function KeepParty()
             end
             if undone and not Busy() then SkinPartyMember(frame) end
         end
+        if frames[frame] then KeepRoleIcon(frame) end
     end
 end
 

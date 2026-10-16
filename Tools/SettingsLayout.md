@@ -457,7 +457,7 @@ end (a choice button 176 there), a plain switch whose name needs more than
 132 (over 17 capitals, or wider as the game measures it: CREATE HEALTHSTONE!,
 SHADOW PROTECTION!) fills a column too, and a switch with a choice button
 beside it keeps the two in one column. A choice button shows just the
-choice ("Any blessing  >", "Blessing of Salvation  >"): its switch's name
+choice ("Any blessing  >", "Blessing of Wisdom  >"): its switch's name
 before it says what it picks. The test measures the box's names, buttons and
 every choice a button can show with the glyph widths (`M.Glyphs`), not the
 mock's six a letter. `T.SubLayout` lays the

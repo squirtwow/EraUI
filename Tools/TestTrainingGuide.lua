@@ -116,6 +116,57 @@ equal(saves,saved,"disabled guide does not collect")
 options={};settings.trainingGuide=true;rows,s=M:Collect()
 equal(s.unknown,1,"new character does not inherit trainer quote")
 equal(s.all,0,"new character has no stale training costs")
+-- A quote joins its spell's row by spell ID when the name changed (build
+-- 1.60.1.70425 renamed Blessing of Salvation to Salvation), so a renamed
+-- spell is one row under its current name and counted once.
+local function Arcane()
+ local n,row=0;for _,r in ipairs(rows)do if r.data.spellID==3 then n=n+1;row=r.data end end;return n,row
+end
+options={trainingGuide={entries={["Arcane Strike\031Rank 2"]={name="Arcane Strike",rank="Rank 2",level=12,trainer=true,cost=300,spellID=3}}}}
+rows,s=M:Collect()
+local n,arcane=Arcane()
+equal(n,1,"a quote under an old name joins its spell's row by ID")
+equal(arcane.name,"Arcane Shot","under the spell's current name")
+equal(arcane.cost,300,"with the quote's price");equal(arcane.reference,false,"as a recorded quote")
+equal(s.all,300,"counted once");equal(s.unknown,0,"and no longer unknown")
+options.trainingGuide.entries["Arcane Shot\031Rank 2"]={name="Arcane Shot",rank="Rank 2",level=12,trainer=true,cost=240,spellID=3}
+rows,s=M:Collect();n,arcane=Arcane()
+equal(n,1,"old and current names quoted: still one row")
+equal(arcane.cost,240,"the current name's quote wins");equal(s.all,240,"and is the only one counted")
+options={trainingGuide={entries={["Old Spell\031"]={name="Old Spell",rank="",level=12,trainer=true,cost=50},
+ ["Gone Spell\031"]={name="Gone Spell",rank="",level=12,trainer=true,cost=70,spellID=999}}}}
+rows,s=M:Collect()
+equal(#rows,3,"a quote without a spell ID, or for a spell no row has, keeps its own row")
+equal(s.all,120,"and is counted")
+-- Quotes from another client build are dropped, as a patch can move levels,
+-- prices and names. Caches from before the build was saved go once.
+do
+ local build="70425"
+ GetBuildInfo=function()return "1.60.1",build,"Oct 15 2026",16001 end
+ options={trainingGuide={entries={["Arcane Strike\031Rank 2"]={name="Arcane Strike",rank="Rank 2",level=12,trainer=true,cost=300,spellID=3}},
+  trainer="Old teacher",updated="2026-10-01"}}
+ local before=saves
+ rows,s=M:Collect()
+ equal(next(options.trainingGuide.entries),nil,"a cache with no build is cleared")
+ equal(options.trainingGuide.build,"70425","and stamped with the client build")
+ equal(options.trainingGuide.trainer==nil and options.trainingGuide.updated==nil,true,"with its trainer and date")
+ equal(saves,before+1,"the cleared cache is saved")
+ equal(s.all,0,"its old prices are gone");equal(s.unknown,1,"so the spell is unknown again")
+ Fire("TRAINER_SHOW");Flush();rows,s=M:Collect()
+ equal(s.all,240,"the next trainer visit records quotes again")
+ equal(options.trainingGuide.build,"70425","on the same build")
+ before=saves;rows,s=M:Collect()
+ equal(s.all,240,"the same build keeps its quotes");equal(saves,before,"and saves nothing")
+ build="70500";rows,s=M:Collect()
+ equal(next(options.trainingGuide.entries),nil,"a new client build clears them");equal(options.trainingGuide.build,"70500","and is saved")
+ options.trainingGuide.entries["Arcane Shot\031Rank 2"]={name="Arcane Shot",rank="Rank 2",level=12,trainer=true,cost=240,spellID=3}
+ for _,answer in ipairs({function()error("unavailable")end,function()return "1.60.1",nil end,function()return "1.60.1",""end})do
+  GetBuildInfo=answer;rows,s=M:Collect()
+  equal(s.all,240,"no build answer clears nothing")
+ end
+ GetBuildInfo=nil;Fire("TRAINER_CLOSED");Flush()
+end
+options={}
 -- Real bundled data populates without a trainer visit, for every class.
 assert(loadfile("Modules/TrainingData.lua"))("EraUI",E)
 local total=0

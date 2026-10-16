@@ -743,6 +743,17 @@ local SKILL_COORDS, REP_COORDS = { 0, 1, 0, 0.5 }, { 0, 1, 0, 1 }
 local SKILL_LIST_SCALE = 20 / 33
 local REP_LIST_SCALE = 0.76
 
+-- Each skinned bar's fill share (0 to 1) as Blizzard last set it, kept off its
+-- frames. Since build 70425 Blizzard sizes the fill against a track 12 narrower
+-- than the bar (FillArea); ours runs the bar's own width, so it is redone here.
+local fillShare = setmetatable({}, { __mode = "k" })
+
+local function FitFill(bar)
+    local share = fillShare[bar]
+    if share == nil or not bar.Fill then return end
+    bar.Fill:SetWidth(share * math.max(0, (bar:GetWidth() or 0) - (bar.fcuiInset or 0)))
+end
+
 local function SkinListEntry(row, barKey)
     local content = row.Content
     local bar = content and barKey and content[barKey]
@@ -758,6 +769,13 @@ local function SkinListEntry(row, barKey)
         for _, region in ipairs({ content.BackgroundHighlight:GetRegions() }) do region:SetAlpha(0) end
     end
     if content.AccountWideIcon then content.AccountWideIcon:SetAlpha(0) end
+    local fill = bar.Fill
+    -- Not hooked yet: Blizzard's share is only in the fill, against the track
+    -- it was sized on, so it is read before the bar changes size.
+    if fill and not bar.fcuiFill then
+        local full = (bar.FillArea or bar):GetWidth()
+        if full and full > 0 then fillShare[bar] = math.min(1, math.max(0, (fill:GetWidth() or 0) / full)) end
+    end
     bar:ClearAllPoints()
     if skills then
         bar:SetPoint("LEFT", row, "LEFT", 20, 0)
@@ -767,7 +785,6 @@ local function SkinListEntry(row, barKey)
         bar:SetSize(BAR_W, BAR_H)
         bar:SetPoint("LEFT", row, "LEFT", 130, 0)
     end
-    local fill = bar.Fill
     if fill then
         if bar.Mask and fill.RemoveMaskTexture then pcall(fill.RemoveMaskTexture, fill, bar.Mask) end
         ns.SetTex(fill, "skillsBar")
@@ -792,8 +809,15 @@ local function SkinListEntry(row, barKey)
                 self.Fill:SetTexCoord(unpack(self.fcuiCoords))
             end)
             if bar.SetFillPercent then
-                hooksecurefunc(bar, "SetFillPercent", function(self) self.Fill:SetTexCoord(unpack(self.fcuiCoords)) end)
+                hooksecurefunc(bar, "SetFillPercent", function(self, percent)
+                    if not (issecretvalue and issecretvalue(percent)) and type(percent) == "number" then
+                        fillShare[self] = math.min(1, math.max(0, percent))
+                        FitFill(self)
+                    end
+                    self.Fill:SetTexCoord(unpack(self.fcuiCoords))
+                end)
             end
+            bar:HookScript("OnSizeChanged", FitFill)
             if skills and bar.UpdateBarColor then
                 hooksecurefunc(bar, "UpdateBarColor", function(self) self.Fill:SetVertexColor(SKILL_BLUE[1], SKILL_BLUE[2], SKILL_BLUE[3]) end)
             end
@@ -805,7 +829,11 @@ local function SkinListEntry(row, barKey)
         end
         fill:SetTexCoord(unpack(bar.fcuiCoords))
         if skills then fill:SetVertexColor(SKILL_BLUE[1], SKILL_BLUE[2], SKILL_BLUE[3]) end
-        fill:SetWidth(math.max(0, math.min(fill:GetWidth(), bar:GetWidth() - bar.fcuiInset)))
+        if fillShare[bar] ~= nil then
+            FitFill(bar)
+        else
+            fill:SetWidth(math.max(0, math.min(fill:GetWidth(), bar:GetWidth() - bar.fcuiInset)))
+        end
     end
     local name = ns.OwnFontString(bar, "name", "OVERLAY", skills and "GameFontNormalSmall" or "GameFontHighlightSmall")
     name:SetFontObject(skills and "GameFontNormalSmall" or "GameFontHighlightSmall")
@@ -1068,6 +1096,7 @@ local function SkinSkillDetail()
         detail.RankBar:ClearAllPoints()
         detail.RankBar:SetPoint("TOPLEFT", detail, "TOPLEFT", 46, -12)
         detail.RankBar:SetPoint("RIGHT", detail, "RIGHT", -70, 0)
+        FitFill(detail.RankBar)
     end
 
     local box = ns.OwnTexture(detail, "descBox", "BACKGROUND", 1)

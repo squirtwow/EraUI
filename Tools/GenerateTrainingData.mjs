@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import {trainingLevel} from './TrainingLevelRules.mjs';
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const cache=process.argv[2];assert(cache,'Pass a cache directory');await mkdir(cache,{recursive:true});
-const build='1.60.1.70170',sources=[];
+const build='1.60.1.70425',sources=[];
+// Cached by file name, so pass an empty cache directory for each new build.
 async function download(name,url){
  let text;try{text=await readFile(join(cache,name),'utf8');}catch(e){if(e.code!=='ENOENT')throw e;
   const r=await fetch(url);assert(r.ok,`${url}: ${r.status}`);text=await r.text();await writeFile(join(cache,name),text);}
@@ -24,14 +25,29 @@ function csv(text){
  return rows.filter(r=>r.length>1).map(r=>{assert.equal(r.length,header.length,'CSV width');return Object.fromEntries(header.map((h,i)=>[h,r[i]]));});
 }
 async function table(name){return csv(await download(`${name}.csv`,`https://wago.tools/db2/${name}/csv?build=${build}`));}
-const names=['SkillLine','SkillLineAbility','SkillRaceClassInfo','SpellLevels','SpellName','Spell','SpellMisc','SpellEffect','Talent'];
+const names=['SkillLine','SkillLineAbility','SkillRaceClassInfo','SpellLevels','SpellName','Spell','SpellMisc','SpellEffect','Talent',
+ 'SkillLineXTraitTree','TraitNode','TraitNodeXTraitNodeEntry','TraitNodeEntry','TraitDefinition'];
 const tables={};for(const name of names)tables[name]=await table(name);
 const by=(name,key='ID')=>new Map(tables[name].map(r=>[+r[key],r]));
 const skills=by('SkillLine'),spellNames=by('SpellName'),spells=by('Spell');
 const levels=new Map(tables.SpellLevels.filter(r=>+r.DifficultyID===0).map(r=>[+r.SpellID,r]));
 const misc=new Map(tables.SpellMisc.filter(r=>+r.DifficultyID===0).map(r=>[+r.SpellID,r]));
 const talents=new Set(tables.Talent.flatMap(r=>Object.entries(r).filter(([k,v])=>(k==='SpellID'||k.startsWith('SpellRank_'))&&+v>0).map(([,v])=>+v)));
+// Forever's class talents are trait trees, which the Classic Talent table
+// doesn't list. A spell defined in a class's tree (SkillLineXTraitTree) is a
+// talent even where SkillLineAbility files it like a trainer spell (Arcane
+// Wrath, Lava Burst rank 1); its trained higher ranks are not in the tree.
+const classTrees=new Set(tables.SkillLineXTraitTree.map(r=>+r.TraitTreeID));
+const treeNodes=new Set(tables.TraitNode.filter(r=>classTrees.has(+r.TraitTreeID)).map(r=>+r.ID));
+const treeEntries=new Set(tables.TraitNodeXTraitNodeEntry.filter(r=>treeNodes.has(+r.TraitNodeID)).map(r=>+r.TraitNodeEntryID));
+const treeDefinitions=new Set(tables.TraitNodeEntry.filter(r=>treeEntries.has(+r.ID)).map(r=>+r.TraitDefinitionID));
+const treeTalents=new Set(tables.TraitDefinition.filter(r=>treeDefinitions.has(+r.ID)&&+r.SpellID>0).map(r=>+r.SpellID));
+assert(classTrees.size===9&&treeTalents.size>400,'nine class talent trees');
 const teaching=new Set(tables.SpellEffect.filter(r=>+r.Effect===36).map(r=>+r.SpellID));
+// Taught with another trainer spell, never bought on its own: Revoke comes
+// with Salvation (trainer spell 1912 teaches 1038 and 1325499). By ID only: a
+// rule for every second taught spell would also drop Call Pet, Growl, Prowl...
+const learnedWithAnother=new Set([1325499]);
 const classes={WARRIOR:1,PALADIN:2,HUNTER:4,ROGUE:8,PRIEST:16,SHAMAN:64,MAGE:128,WARLOCK:256,DRUID:1024};
 const legacy=new Map(),references=new Map();
 for(const c of Object.keys(classes)){
@@ -56,7 +72,7 @@ for(const a of tables.SkillLineAbility){
  levelAudit.push({id,name:spellNames.get(id)?.Name_lang,classMask:+a.ClassMask,baseLevel:+level?.BaseLevel||0,
   spellLevel:+level?.SpellLevel||0,reference:references.get(id),...decision});
  if(!required){exclusions.push(id);continue;}
- if(talents.has(id)||teaching.has(id)||!spells.get(id)?.Description_lang||!level||required<1||required>60||!m||(+m.Attributes_0&128)){
+ if(talents.has(id)||treeTalents.has(id)||learnedWithAnother.has(id)||teaching.has(id)||!spells.get(id)?.Description_lang||!level||required<1||required>60||!m||(+m.Attributes_0&128)){
   exclusions.push(id);continue;
  }
  const n=spellNames.get(id)?.Name_lang,rank=spells.get(id)?.NameSubtext_lang||'';
@@ -103,5 +119,5 @@ for(const [className,rawRows]of Object.entries(output)){
 lua+='}}\n';
 await writeFile(join(root,'Modules/TrainingData.lua'),lua);
 await writeFile(join(root,'Tools/TrainingDataSources.json'),JSON.stringify({build,sources,summary,excluded:exclusions,levelAudit,skillLevelAudit,
- note:'Levels require an explicit Forever BaseLevel, a non-seasonal Classic reference corroborating a non-default level or priced starter ability, or class-specific SkillRaceClassInfo. Uncorroborated seasonal/default level-one records are not assumed trainable. Prices are non-seasonal Classic base-price references, not verified Forever quotes.'},null,2)+'\n');
+ note:'Levels require an explicit Forever BaseLevel, a non-seasonal Classic reference corroborating a non-default level or priced starter ability, or class-specific SkillRaceClassInfo. Uncorroborated seasonal/default level-one records are not assumed trainable. Talents (the Classic Talent table and spells defined in the class trait trees) and Revoke 1325499, taught with Salvation, are excluded. Prices are non-seasonal Classic base-price references, not verified Forever quotes.'},null,2)+'\n');
 console.log(JSON.stringify(summary,null,2));

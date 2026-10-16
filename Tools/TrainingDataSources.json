@@ -1,94 +1,114 @@
 {
-  "build": "1.60.1.70170",
+  "build": "1.60.1.70425",
   "sources": [
     {
-      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70170",
-      "sha256": "7eb6f42784f7174b4465256f477d8e83705ce23d112a6736d1a848ea26148049"
+      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70425",
+      "sha256": "72715f0f750d222f5e907e84b91dd81f85999a2e901489946b8db1e4adfaaae7"
     },
     {
-      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70170",
-      "sha256": "821ec6661b41f3e6a6eb77151bc644fffeffc62981af3ddcbe6fd3631c70d1a3"
+      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70425",
+      "sha256": "9880b28c0e09f79aa7c7da992635441231c0046131fcfa438eebf326d4d88d02"
     },
     {
-      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70170",
+      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70425",
       "sha256": "2193908c90f65d38fa9bc68907217fd759c132ccdc9f882cd3bc5acecabba322"
     },
     {
-      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70170",
-      "sha256": "da19f8391c5c6f72fe858d4e35e91ba82d335a53c06530cad6477d28a81cb721"
+      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70425",
+      "sha256": "cb378d6c2d4bd020295d294777bfeaecdc4274d99f2c8c5c092b420b435e465c"
     },
     {
-      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70170",
-      "sha256": "b0afb64d7d256bdb5be7ba5fdc594ca7e93959579d0a1259faff454de7c47d21"
+      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70425",
+      "sha256": "2eaea379c49908494e90799e6c96d9e59b7ca6fd38e73ce14111e6e72d9b1231"
     },
     {
-      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70170",
-      "sha256": "24ac370c86e0cad3036e775691630c0161aa89c56a1b33d4193bf07ab20b8354"
+      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70425",
+      "sha256": "0deeeb6d70041cc0acf7f3519bd1f1140912903be04d9f6cebfea178417c2520"
     },
     {
-      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70170",
-      "sha256": "f49b251f2f15b06f10f575edeb3eeab917a0d152088e10eaed2efee9dd6ddca8"
+      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70425",
+      "sha256": "80acf9664ff641e36ad7327774118a6782a99f2625ef9b5633aac8235b6ca8b3"
     },
     {
-      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70170",
-      "sha256": "4df9522a8c8ae84ff3454642b5d2925124974b700ece2d13053ad90405a02416"
+      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70425",
+      "sha256": "d60b11da7422296f2c918af16a72e2fc03dce367f0b4c0a213356a33cbc7632c"
     },
     {
-      "url": "https://wago.tools/db2/Talent/csv?build=1.60.1.70170",
+      "url": "https://wago.tools/db2/Talent/csv?build=1.60.1.70425",
       "sha256": "ef5518c5a3aaa7458e074a7e41e87837f8a1c74da00938244019e2e8c0428b4a"
     },
     {
+      "url": "https://wago.tools/db2/SkillLineXTraitTree/csv?build=1.60.1.70425",
+      "sha256": "e6774240ba1fda84bef060fda0d0b23e42d5ae9b4d8ae3323f7ccb31f38c5760"
+    },
+    {
+      "url": "https://wago.tools/db2/TraitNode/csv?build=1.60.1.70425",
+      "sha256": "91cfe5c15581a798e694c71f50fcad6f8e16a3a009b3ceca281d1f075d9426e3"
+    },
+    {
+      "url": "https://wago.tools/db2/TraitNodeXTraitNodeEntry/csv?build=1.60.1.70425",
+      "sha256": "03a24b38fcf86b7b4409ec0460567529b8b67a8f6e36bea80f257b2d401619c3"
+    },
+    {
+      "url": "https://wago.tools/db2/TraitNodeEntry/csv?build=1.60.1.70425",
+      "sha256": "7df2f5497532ae57dbfe0c0d0efd94a04db52aee2c3bfadefc11dd0af4ccb264"
+    },
+    {
+      "url": "https://wago.tools/db2/TraitDefinition/csv?build=1.60.1.70425",
+      "sha256": "72a94874e399a6e64691599e1ac7db0c1568f648d8fa84a3b4962aa54fdf6aa3"
+    },
+    {
       "url": "https://www.wowhead.com/classic/spells/abilities/warrior",
-      "sha256": "8cf6d54639940d5676cc732550f49187ccb72e8068d7308a889af668ecfdb16f"
+      "sha256": "c2b29b08f254467f2d6a02b986bebd245f92800c3178292f1d26e13f2ec15d27"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/paladin",
-      "sha256": "9af6ca745b9b9e3bf1ac42c25d0e025b4dcbc719848c1e908a633246ec8a8c07"
+      "sha256": "6046b0b90d861b57baf9de84251aab8372a84e843fbc24350a415942e9efc3d5"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/hunter",
-      "sha256": "9ba6e2c03b95c0af9a44458cfe3fc63aca9a6be5846291c4350af17f845d2605"
+      "sha256": "e72d6cb6aa7a1d8cf21eadfdbff72c08d900c539175dad854ff12dd02c077b09"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/rogue",
-      "sha256": "3f38caeb7efc9e6b45bd0b8ec64f7ef37d7eb3dc3da04aecfd6f335a16f4a865"
+      "sha256": "0cfb87eea531d253db662cad3ec1a207ff05699dab7972abf716922d7dd0834e"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/priest",
-      "sha256": "3dc744b06ae063c1ddf4ef52f79349d6373df43662b683e21348a8b17d9b4daf"
+      "sha256": "c2c566469221cfe9588aaddeba64080c6fde3b8aa58fb64dd050c1bae89dfc0f"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/shaman",
-      "sha256": "f47dfd4f7609053872399db7d697a092d6e6ab3266d6d26bf821acc211e07d82"
+      "sha256": "f09ecc3e9fecc4dc1f3074365cca034dc08ddc20895763be41dd691dbb999b65"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/mage",
-      "sha256": "bbca97c87d0973d9fcf4b040aca3f39ac6f1a4b3f616e2cefdd18018049eab4a"
+      "sha256": "1661b414fc69e4b1e8be8c34240b7b255984170804b57215d2a15a1c73f14b18"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/warlock",
-      "sha256": "6cf046853bc2ec34f095d3c6f350bdfe84c80f350583cd775764e6dbc55bd9b4"
+      "sha256": "05e312951fb5dee306a247fa8369bde91db84fbc1de79e891d3c1af9a95b5e5c"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/druid",
-      "sha256": "6e80f2b5b7fbf3e8e356be5a44b4b1a54c06fa8c487873b61c09243b1e6ccd28"
+      "sha256": "27df6499db15ae2d2c94bf361f234aef4fa9572863ecddfd2b209354493663cc"
     }
   ],
   "summary": {
     "WARRIOR": {
-      "spells": 108,
+      "spells": 107,
       "basePrices": 86
     },
     "PALADIN": {
-      "spells": 148,
+      "spells": 145,
       "basePrices": 117
     },
     "HUNTER": {
-      "spells": 117,
+      "spells": 115,
       "basePrices": 100
     },
     "ROGUE": {
-      "spells": 91,
+      "spells": 89,
       "basePrices": 82
     },
     "PRIEST": {
@@ -100,15 +120,15 @@
       "basePrices": 149
     },
     "MAGE": {
-      "spells": 184,
+      "spells": 185,
       "basePrices": 142
     },
     "WARLOCK": {
-      "spells": 157,
+      "spells": 153,
       "basePrices": 127
     },
     "DRUID": {
-      "spells": 199,
+      "spells": 196,
       "basePrices": 161
     }
   },
@@ -130,6 +150,7 @@
     11722,
     3137,
     11958,
+    5502,
     11115,
     11367,
     11368,
@@ -269,7 +290,6 @@
     17877,
     17937,
     17962,
-    2943,
     18220,
     18265,
     16857,
@@ -368,11 +388,6 @@
     24443,
     19575,
     19306,
-    13797,
-    14298,
-    14299,
-    14300,
-    14301,
     24858,
     17007,
     24943,
@@ -495,8 +510,17 @@
     29447,
     29442,
     30160,
+    1310703,
+    400574,
+    402174,
+    1316697,
+    412758,
+    1310911,
     407669,
+    408120,
+    408490,
     425336,
+    408521,
     409580,
     409552,
     436956,
@@ -507,11 +531,13 @@
     437032,
     435984,
     415423,
+    401937,
     415076,
     468766,
     469145,
     1221404,
     409541,
+    407995,
     22571,
     1238074,
     1238075,
@@ -531,11 +557,29 @@
     1263850,
     1263893,
     1263894,
+    1238122,
+    1293241,
+    1293817,
     5570,
     1299445,
     1299446,
     1299447,
+    1225228,
+    1310222,
+    1310707,
+    1310994,
+    1312002,
+    401859,
     1314103,
+    1317257,
+    1325499,
+    1326079,
+    13797,
+    14298,
+    14299,
+    14300,
+    14301,
+    2943,
     28377,
     28378,
     28379,
@@ -1413,14 +1457,14 @@
       "id": 5221,
       "name": "Shred",
       "classMask": 1024,
-      "baseLevel": 22,
-      "spellLevel": 22,
+      "baseLevel": 20,
+      "spellLevel": 20,
       "reference": {
         "level": 22,
         "season": 0,
         "cost": 3000
       },
-      "level": 22,
+      "level": 20,
       "source": "forever-base-level"
     },
     {
@@ -10347,13 +10391,12 @@
       "name": "Sense Undead",
       "classMask": 2,
       "baseLevel": 0,
-      "spellLevel": 20,
+      "spellLevel": 0,
       "reference": {
         "level": 20,
         "season": 0
       },
-      "level": 20,
-      "source": "corroborated-classic-ability"
+      "reason": "unverified-learning-level"
     },
     {
       "id": 4987,
@@ -10455,7 +10498,7 @@
     },
     {
       "id": 1038,
-      "name": "Blessing of Salvation",
+      "name": "Salvation",
       "classMask": 2,
       "baseLevel": 26,
       "spellLevel": 26,
@@ -10580,7 +10623,7 @@
     },
     {
       "id": 11078,
-      "name": "Wake of Fire",
+      "name": "Improved Fire Blast",
       "classMask": 128,
       "baseLevel": 1,
       "spellLevel": 1,
@@ -14724,9 +14767,9 @@
       "id": 16190,
       "name": "Mana Tide Totem",
       "classMask": 64,
-      "baseLevel": 40,
-      "spellLevel": 40,
-      "level": 40,
+      "baseLevel": 1,
+      "spellLevel": 1,
+      "level": 1,
       "source": "forever-base-level"
     },
     {
@@ -15049,18 +15092,18 @@
       "id": 17354,
       "name": "Mana Tide Totem",
       "classMask": 64,
-      "baseLevel": 48,
-      "spellLevel": 48,
-      "level": 48,
+      "baseLevel": 38,
+      "spellLevel": 38,
+      "level": 38,
       "source": "forever-base-level"
     },
     {
       "id": 17359,
       "name": "Mana Tide Totem",
       "classMask": 64,
-      "baseLevel": 58,
-      "spellLevel": 58,
-      "level": 58,
+      "baseLevel": 48,
+      "spellLevel": 48,
+      "level": 48,
       "source": "forever-base-level"
     },
     {
@@ -15953,14 +15996,14 @@
       "id": 18499,
       "name": "Berserker Rage",
       "classMask": 1,
-      "baseLevel": 32,
-      "spellLevel": 32,
+      "baseLevel": 30,
+      "spellLevel": 30,
       "reference": {
         "level": 32,
         "season": 0,
         "cost": 14000
       },
-      "level": 32,
+      "level": 30,
       "source": "forever-base-level"
     },
     {
@@ -19209,7 +19252,7 @@
     },
     {
       "id": 13797,
-      "name": "Immolation Trap Effect",
+      "name": "Immolation Trap",
       "classMask": 4,
       "baseLevel": 16,
       "spellLevel": 16,
@@ -19218,7 +19261,7 @@
     },
     {
       "id": 14298,
-      "name": "Immolation Trap Effect",
+      "name": "Immolation Trap",
       "classMask": 4,
       "baseLevel": 26,
       "spellLevel": 26,
@@ -19227,7 +19270,7 @@
     },
     {
       "id": 14299,
-      "name": "Immolation Trap Effect",
+      "name": "Immolation Trap",
       "classMask": 4,
       "baseLevel": 36,
       "spellLevel": 36,
@@ -19236,7 +19279,7 @@
     },
     {
       "id": 14300,
-      "name": "Immolation Trap Effect",
+      "name": "Immolation Trap",
       "classMask": 4,
       "baseLevel": 46,
       "spellLevel": 46,
@@ -19245,7 +19288,7 @@
     },
     {
       "id": 14301,
-      "name": "Immolation Trap Effect",
+      "name": "Immolation Trap",
       "classMask": 4,
       "baseLevel": 56,
       "spellLevel": 56,
@@ -19837,7 +19880,7 @@
     },
     {
       "id": 25895,
-      "name": "Greater Blessing of Salvation",
+      "name": "Mass Salvation",
       "classMask": 2,
       "baseLevel": 60,
       "spellLevel": 60,
@@ -21246,13 +21289,13 @@
       "id": 408490,
       "name": "Lava Burst",
       "classMask": 64,
-      "baseLevel": 40,
-      "spellLevel": 40,
+      "baseLevel": 30,
+      "spellLevel": 30,
       "reference": {
         "level": 1,
         "season": 2
       },
-      "level": 40,
+      "level": 30,
       "source": "forever-relevelled-seasonal"
     },
     {
@@ -21668,18 +21711,18 @@
       "id": 1238299,
       "name": "Lava Burst",
       "classMask": 64,
-      "baseLevel": 50,
-      "spellLevel": 50,
-      "level": 50,
+      "baseLevel": 40,
+      "spellLevel": 40,
+      "level": 40,
       "source": "forever-base-level"
     },
     {
       "id": 1238300,
       "name": "Lava Burst",
       "classMask": 64,
-      "baseLevel": 60,
-      "spellLevel": 60,
-      "level": 60,
+      "baseLevel": 50,
+      "spellLevel": 50,
+      "level": 50,
       "source": "forever-base-level"
     },
     {
@@ -22427,9 +22470,9 @@
       "id": 20163,
       "name": "Seal of Fury",
       "classMask": 2,
-      "baseLevel": 25,
-      "spellLevel": 25,
-      "level": 25,
+      "baseLevel": 26,
+      "spellLevel": 26,
+      "level": 26,
       "source": "forever-base-level"
     },
     {
@@ -22595,6 +22638,37 @@
       "source": "forever-base-level"
     },
     {
+      "id": 1240827,
+      "name": "Prayer of Mending",
+      "classMask": 16,
+      "baseLevel": 60,
+      "spellLevel": 60,
+      "level": 60,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1240826,
+      "name": "Prayer of Mending",
+      "classMask": 16,
+      "baseLevel": 50,
+      "spellLevel": 50,
+      "level": 50,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 401859,
+      "name": "Prayer of Mending",
+      "classMask": 16,
+      "baseLevel": 40,
+      "spellLevel": 40,
+      "reference": {
+        "level": 1,
+        "season": 2
+      },
+      "level": 40,
+      "source": "forever-relevelled-seasonal"
+    },
+    {
       "id": 1314103,
       "name": "Improved Seal of Fury",
       "classMask": 2,
@@ -22632,6 +22706,69 @@
       },
       "level": 1,
       "source": "forever-base-level"
+    },
+    {
+      "id": 1325256,
+      "name": "Mana Tide Totem",
+      "classMask": 64,
+      "baseLevel": 58,
+      "spellLevel": 58,
+      "level": 58,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1325499,
+      "name": "Revoke",
+      "classMask": 2,
+      "baseLevel": 26,
+      "spellLevel": 26,
+      "level": 26,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1326047,
+      "name": "Lava Burst",
+      "classMask": 64,
+      "baseLevel": 60,
+      "spellLevel": 60,
+      "level": 60,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1326053,
+      "name": "Frost Blast",
+      "classMask": 128,
+      "baseLevel": 24,
+      "spellLevel": 24,
+      "level": 24,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1326054,
+      "name": "Frost Blast",
+      "classMask": 128,
+      "baseLevel": 36,
+      "spellLevel": 36,
+      "level": 36,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1326055,
+      "name": "Frost Blast",
+      "classMask": 128,
+      "baseLevel": 48,
+      "spellLevel": 48,
+      "level": 48,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1326079,
+      "name": "Arcane Wrath",
+      "classMask": 128,
+      "baseLevel": 25,
+      "spellLevel": 25,
+      "level": 25,
+      "source": "forever-base-level"
     }
   ],
   "skillLevelAudit": [
@@ -22657,5 +22794,5 @@
       "source": "forever-class-skill-level"
     }
   ],
-  "note": "Levels require an explicit Forever BaseLevel, a non-seasonal Classic reference corroborating a non-default level or priced starter ability, or class-specific SkillRaceClassInfo. Uncorroborated seasonal/default level-one records are not assumed trainable. Prices are non-seasonal Classic base-price references, not verified Forever quotes."
+  "note": "Levels require an explicit Forever BaseLevel, a non-seasonal Classic reference corroborating a non-default level or priced starter ability, or class-specific SkillRaceClassInfo. Uncorroborated seasonal/default level-one records are not assumed trainable. Talents (the Classic Talent table and spells defined in the class trait trees) and Revoke 1325499, taught with Salvation, are excluded. Prices are non-seasonal Classic base-price references, not verified Forever quotes."
 }

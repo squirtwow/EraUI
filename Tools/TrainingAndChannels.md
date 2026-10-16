@@ -21,10 +21,13 @@ raises in combat has nothing clickable over the guide.
 entries. `C_Spell.GetSpellLevelLearned` supplies the future entries' levels.
 `Tools/GenerateTrainingData.mjs` independently bundles exact-build SkillLine,
 SkillLineAbility, SkillRaceClassInfo, SpellLevels, SpellName, Spell, SpellMisc,
-SpellEffect and Talent exports. SHA-256 hashes and URLs are recorded in
-`Tools/TrainingDataSources.json`. Class spellbook lines exclude pet skill lines,
-direct talent purchases, hidden/descriptionless implementation spells and
-teaching wrappers. Skill-granted passives use their class-specific skill level.
+SpellEffect, Talent and class trait tree (SkillLineXTraitTree, TraitNode,
+TraitNodeXTraitNodeEntry, TraitNodeEntry, TraitDefinition) exports. SHA-256
+hashes and URLs are recorded in `Tools/TrainingDataSources.json`. Class
+spellbook lines exclude pet skill lines, direct talent purchases (the Classic
+Talent table and every spell defined in a class's trait tree), hidden or
+descriptionless implementation spells, teaching wrappers and Revoke (1325499),
+which Salvation's trainer spell teaches with it. Skill-granted passives use their class-specific skill level.
 Duplicate same-name/rank/level/race helpers are collapsed into a single entry.
 Race masks are combined across duplicate spell records and filtered at runtime.
 
@@ -45,6 +48,24 @@ Bite ranks 1-4 (407995, 1238069, 1238070, 1238073; levels 25/36/48/60) as
 trainer-learned. Primal Bite has no Classic price reference, so it shows as an
 unknown price until a trainer visit records one.
 
+Data build: 1.60.1.70425 (regenerated 2026-10-16 from an empty cache; the
+Wowhead price pages were fetched again and give the same prices). Forever's
+talents are trait trees, not the Classic Talent table, so 20 talents had been
+listed as trainer spells (Spearing Strike, Swift Judgement, Light's Vigil,
+Summon Hawk, Strider Kick, Mutilate, Venom, Binding Heal, Penance, Lava Burst
+and Riptide rank 1, Arcane Blast and Ice Lance rank 1, Bane of Havoc,
+Conflagrate, Incinerate, Wrack, Feral Charge, Primal Bite rank 1 and Wild
+Growth); they are gone, and the new Arcane Wrath (1326079) and Prayer of
+Mending rank 1 (401859) talents never appear. Their trained higher ranks stay.
+Changes from the build: Shred rank 1 at 20, Seal of Fury rank 3 at 26,
+Berserker Rage at 30, Mana Tide Totem ranks 2-4 at 38/48/58 (1325256 new),
+Lava Burst ranks 2-4 at 40/50/60 (1326047 new), Frost Blast ranks 1-3
+(1326053-1326055) at 24/36/48, Prayer of Mending ranks 2-3 (1240826/1240827)
+now trainer-taught at 50/60, and 1038/25895 renamed Salvation and Mass
+Salvation. Sense Undead (5502) drops out: its SpellLevel is now 0 and it comes
+from quest 1652 or Libram item 5676, never a trainer. New spells have no price
+reference yet, so they show as unknown until a trainer visit.
+
 Known entries are checked separately, with exact rank keys and higher-rank
 recognition for hidden lower ranks. Future entries are not treated as learned.
 
@@ -64,6 +85,12 @@ non-seasonal Wowhead class-ability records. These are labelled references, not v
 quotes. Missing prices are not extrapolated from character level. Captured prices
 reflect the last visit for each offer, including then-current discounts, and can
 refine the bundled references. Visits are optional, not needed for population.
+The cache saves the client build (`GetBuildInfo`) it was recorded on and is
+cleared when the build changes, since a patch can move levels, prices and
+names; caches from before this was saved are cleared once. A quote whose name
+and rank match no row joins the row with its spell ID instead, under the
+current name, so a renamed spell (Blessing of Salvation to Salvation in
+70425) is listed and counted once.
 
 The UI separates current and all-listed-unlearned totals. Unknown prices have
 an explicit question-mark count rather than becoming zero-cost offers. Learning

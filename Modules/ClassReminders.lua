@@ -1052,7 +1052,7 @@ local function AnyName(def)
 end
 -- The choice cycle button. Its switch's name, just before it, already says
 -- what it picks, so it shows just the choice ("Any blessing  >", "Blessing
--- of Salvation  >"): half a column beside a half-column switch, or 176 at the
+-- of Wisdom  >"): half a column beside a half-column switch, or 176 at the
 -- end of a wide reminder's line, room for "Shadow Resistance Aura  >".
 local ADV_UNIT=160 -- an Advanced switch or choice button: half a column
 local function ChoiceButton(parent,def,switch)

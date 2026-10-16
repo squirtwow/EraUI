@@ -8,6 +8,22 @@ SpellItemEnchantment only edits effect columns (Flametongue ranks, SoD-style
 weapon enchants) and moves row 7567; its CreatureFamily only changes Fox's pet
 skill line. The demon families, coating IDs and audited spells are unaffected.
 
+Rechecked on 1.60.1.70425 (2026-10-16, wago.tools SpellName, Spell and
+SpellEffect against 70374): no reminder ID changed, but three things did.
+- Battle Shout's seven ranks went from party to raid targeting (ImplicitTarget
+  20 to 56) and Trueshot Aura's five IDs from a party to a raid area aura
+  (Effect 35 to 65), so neither keeps `subgroup`: a raid check now covers
+  every subgroup.
+- 1038 and 25895 are renamed "Salvation" and "Mass Salvation" and no longer
+  take the paladin's one blessing slot (the "one Blessing per Paladin" line
+  left their descriptions). BLESSING! no longer lists them in its ids,
+  reagentIds or choices, so someone with only Salvation still needs a
+  blessing, and casting Salvation is never remembered as the blessing a click
+  casts (it could land on a tank). A saved Salvation pick or last cast reads
+  as Any; nothing needs migrating.
+- Revoke (1325499, learned with Salvation) removes Salvation. No reminder or
+  choice uses it.
+
 ## Sources
 
 - `https://wago.tools/db2/SpellItemEnchantment/csv?build=1.60.1.70009`
@@ -105,8 +121,8 @@ skill line. The demon families, coating IDs and audited spells are unaffected.
   check means at least one active totem; the optional Windfury check requires
   the player's active Windfury Totem, by spell ID or localized name.
 - Group checks exclude duplicate player tokens and members known to be dead,
-  offline, hostile or out of range. Party-only effects restrict raid checks to
-  the player's subgroup. Intellect, Spirit and selected Wisdom skip warriors and rogues, while
+  offline, hostile or out of range. A raid check covers every subgroup (the
+  `subgroup` flag, for party-only effects, has no users since 70425). Intellect, Spirit and selected Wisdom skip warriors and rogues, while
   druids remain eligible in animal forms. Unknown aura data never counts as an
   active buff. Group caches clear on aura/roster/world/combat-exit events.
 - On a flight path (`UnitOnTaxi("player")`) every alert hides and clicks are

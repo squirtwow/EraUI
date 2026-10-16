@@ -7,10 +7,24 @@ local window,book,trainerOpen,scanning,queued
 local function Public(v)return not(issecretvalue and issecretvalue(v))end
 local function Number(v)return Public(v)and type(v)=="number"end
 local function Key(name,rank)return name.."\031"..(rank or "")end
+-- The client build trainer quotes were recorded on. A patch can move levels,
+-- prices and names (build 1.60.1.70425 renamed Blessing of Salvation), so
+-- quotes from another build are dropped and the next trainer visit records
+-- them again.
+local function ClientBuild()
+ if not GetBuildInfo then return nil end
+ local ok,_,build=pcall(GetBuildInfo)
+ if ok and Public(build)and type(build)=="string"and build~=""then return build end
+end
 local function Cache()
  local options=T.Options()
  if type(options.trainingGuide)~="table"then options.trainingGuide={entries={}}end
  local cache=options.trainingGuide
+ local build=ClientBuild()
+ if build and cache.build~=build then
+  cache.entries={};cache.trainer=nil;cache.updated=nil;cache.build=build
+  E:SaveSettings()
+ end
  cache.entries=cache.entries or{}
  return cache
 end
@@ -100,13 +114,24 @@ function M:Collect()
  local known,labels,ranks,future,_,ids=self:BookData()
  local merged=self:Catalog()
  for k,row in pairs(future)do if not merged[k]then merged[k]=row end end
- for k,row in pairs(Cache().entries)do
+ -- A quote joins its spell's row by name and rank, or else by spell ID, so a
+ -- spell the game renamed stays one row under its current name, and a quote
+ -- for a name already quoted is not counted twice.
+ local byID,quoted,later={},{},{}
+ for k,row in pairs(merged)do if Number(row.spellID)then byID[row.spellID]=k end end
+ local function Quote(k,row,rename)
   local base=merged[k]
-  if base then
-   local quote={};for field,value in pairs(base)do quote[field]=value end
-   for field,value in pairs(row)do quote[field]=value end
-   quote.reference=false;merged[k]=quote
-  else merged[k]=row end
+  local quote={};for field,value in pairs(base)do quote[field]=value end
+  for field,value in pairs(row)do quote[field]=value end
+  if rename then quote.name,quote.rank=base.name,base.rank end
+  quote.reference=false;merged[k]=quote;quoted[k]=true
+ end
+ for k,row in pairs(Cache().entries)do
+  if merged[k]then Quote(k,row)else later[k]=row end
+ end
+ for k,row in pairs(later)do
+  local at=Number(row.spellID)and byID[row.spellID]
+  if not at then merged[k]=row elseif not quoted[at]then Quote(at,row,true)end
  end
  for _,row in pairs(merged)do
   if Learned(row,known,ranks)then

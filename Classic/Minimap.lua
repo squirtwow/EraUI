@@ -75,6 +75,10 @@ local BRONZE = { .55, .46, .27 }
 -- places it.
 local SQUARE_ZOOM = { zoomIn = { 78, -20 }, zoomOut = { 78, -44 } }
 local EYE_ROUND, EYE_SQUARE = { 38.5, -116.5 }, { 27, -112 }
+-- The game's event-link button (shown only while Forever has an event link
+-- to open), from the map's centre: on the ring's upper left above tracking,
+-- or on the square's left edge above it. The game's own spot is on the eye.
+local EVENT_ROUND, EVENT_SQUARE = { -62, 52 }, { -78, 50 }
 -- Square Size (/era, under Square Minimap), in percent: the whole square
 -- (map, frame, zone strip and buttons) on top of Edit Mode's Minimap Size.
 local SIZE_MIN, SIZE_MAX, SIZE_DEFAULT = 75, 150, 100
@@ -307,6 +311,31 @@ local function DarkDiel(diel)
     end
 end
 
+-- Forever's header buttons (the zone bar, tracking, the calendar) draw their
+-- art in a StateTexture, whose atlas the game sets again on every hover and
+-- click but whose alpha it leaves, and an additive AddTexture it shows on
+-- hover and click, setting its alpha and shown state each time but never its
+-- art. So the first is faded and the second has its art taken away (the
+-- atlas kept here, never on the game's frames, for the restore).
+local stateArt = setmetatable({}, { __mode = "k" })
+local function HideStateArt(button)
+    if button.StateTexture then ns.Fade(button.StateTexture) end
+    local add = button.AddTexture
+    if not add or not add.SetTexture then return end
+    local atlas = add.GetAtlas and add:GetAtlas()
+    if atlas then stateArt[add] = atlas end
+    add:SetTexture(nil)
+end
+local function ShowStateArt(button)
+    if button.StateTexture then ns.Unfade(button.StateTexture) end
+    local add = button.AddTexture
+    local atlas = add and stateArt[add]
+    if atlas then
+        stateArt[add] = nil
+        add:SetAtlas(atlas, true)
+    end
+end
+
 -- Edit Mode's Minimap Size as a scale (1 when it can't be read).
 local function EditModeSize(cluster)
     if cluster.GetSettingValue and Enum and Enum.EditModeMinimapSetting and Enum.EditModeMinimapSetting.Size then
@@ -355,10 +384,8 @@ local function Layout()
         cluster.MinimapContainer:SetScale(1)
     end
     RescaleCluster(cluster, size)
-    if cluster.BorderTop then cluster.BorderTop:SetScale(1) end
     if cluster.ZoneTextButton then cluster.ZoneTextButton:SetScale(1) end
     cluster:SetSize(CLUSTER, CLUSTER)
-    if cluster.BorderTop then ns.Fade(cluster.BorderTop) end
     if cluster.MinimapContainer then
         cluster.MinimapContainer:SetSize(MAP, MAP)
         ns.SetPointOnce(cluster.MinimapContainer, "CENTER", cluster, "TOP", 9, -92)
@@ -388,17 +415,24 @@ local function Layout()
     if cluster.fcuiNorth then cluster.fcuiNorth:SetShown(not rotate) end
 
     -- The zone's name across the top: on the stone bar, or centred on the
-    -- square's top strip.
+    -- square's top strip. Forever's header gives it a smaller font: the
+    -- classic 12pt back, face and size only (the game's PvP colour stays).
     local zoneTo, zoneX, zoneY = cluster, 0, -12
     if square.on then zoneTo, zoneY = map, 2 + (EDGE + HEAD - 2) / 2 end
     if MinimapZoneText then
         MinimapZoneText:SetSize(MAP, 12)
         MinimapZoneText:SetJustifyH("CENTER")
+        local face, points, flags
+        if GameFontNormal and GameFontNormal.GetFont then face, points, flags = GameFontNormal:GetFont() end
+        if face and points then MinimapZoneText:SetFont(face, points, flags or "") end
         ns.SetPointOnce(MinimapZoneText, "CENTER", zoneTo, "TOP", zoneX, zoneY)
     end
+    -- Its button carries Forever's gold header bar and hover glow, over the
+    -- stone bar and the square's strip: both hidden.
     if cluster.ZoneTextButton then
         cluster.ZoneTextButton:SetSize(MAP, 12)
         ns.SetPointOnce(cluster.ZoneTextButton, "CENTER", zoneTo, "TOP", zoneX, zoneY)
+        HideStateArt(cluster.ZoneTextButton)
     end
 
     local above = map:GetFrameLevel() + 5
@@ -453,34 +487,18 @@ local function Layout()
             button:SetSize(32, 32)
             button:SetFrameLevel(above + 1)
             ns.SetPointOnce(button, "TOPLEFT", tracking, "TOPLEFT", 0, 0)
+            -- Forever's own tracking art hidden; the classic magnifying
+            -- glass is the button's normal and pushed art (the game no
+            -- longer sets either), pushed a little down and right.
+            HideStateArt(button)
             for _, state in ipairs({ "Normal", "Pushed" }) do
-                local tex = button["Get" .. state .. "Texture"](button)
+                local tex = ns.SetButtonTex(button, state, "trackingNone")
                 if tex then
+                    tex:SetTexCoord(0, 1, 0, 1)
                     tex:SetSize(20, 20)
                     tex:ClearAllPoints()
                     tex:SetPoint("TOPLEFT", tracking, "TOPLEFT", state == "Pushed" and 8 or 6, state == "Pushed" and -8 or -6)
                 end
-            end
-            local function OldGlass()
-                for _, state in ipairs({ "Normal", "Pushed" }) do
-                    local tex = button["Get" .. state .. "Texture"](button)
-                    if tex and tex.GetAtlas and tex:GetAtlas() then
-                        ns.SetTex(tex, "trackingNone")
-                        tex:SetTexCoord(0, 1, 0, 1)
-                        tex:SetSize(20, 20)
-                    end
-                end
-            end
-            OldGlass()
-            if not tracking.fcuiGlassWatch then
-                local watch = CreateFrame("Frame", nil, tracking)
-                tracking.fcuiGlassWatch = watch
-                watch:SetScript("OnUpdate", function(self, elapsed)
-                    self.since = (self.since or 0) + elapsed
-                    if self.since < 0.2 then return end
-                    self.since = 0
-                    if active then OldGlass() end
-                end)
             end
             ns.SetButtonTex(button, "Highlight", "zoomHighlight")
             local hl = button:GetHighlightTexture()
@@ -513,7 +531,11 @@ local function Layout()
         end
     end
 
+    -- Day and night: Forever sizes it against Edit Mode's size on the
+    -- game's container (1 over that size), which stays at 1 here, so it goes
+    -- back to 1 and takes the cluster's size with the rest.
     if cluster.DielFrame then
+        cluster.DielFrame:SetScale(1)
         ns.SetPointOnce(cluster.DielFrame, "TOPRIGHT", map, "TOPRIGHT", 20, -2)
         DarkDiel(cluster.DielFrame)
     end
@@ -562,6 +584,14 @@ local function Layout()
             end)
         end
     end
+    -- The game's event-link button (unnamed, on the backdrop; the game
+    -- places it once, when it's made): its own spot, off the eye. Kept as
+    -- the game has it otherwise, shown only with a link and clickable.
+    local event = backdrop.ExternalEventURLButton
+    if event then
+        local spot = square.on and EVENT_SQUARE or EVENT_ROUND
+        ns.SetPointOnce(event, "CENTER", map, "CENTER", spot[1], spot[2])
+    end
     if cluster.InstanceDifficulty then
         ns.SetPointOnce(cluster.InstanceDifficulty, "TOPLEFT", cluster, "TOPLEFT", 22, -17)
     end
@@ -592,6 +622,9 @@ function ns.SkinCalendar()
     if normal then normal:SetTexCoord(0, 0.390625, 0, 0.78125); normal:ClearAllPoints(); normal:SetAllPoints(button); normal:SetDrawLayer("BACKGROUND") end
     if pushed then pushed:SetTexCoord(0.5, 0.890625, 0, 0.78125); pushed:ClearAllPoints(); pushed:SetAllPoints(button); pushed:SetDrawLayer("BACKGROUND") end
     if hl then hl:SetTexCoord(0, 1, 0, 1); hl:ClearAllPoints(); hl:SetAllPoints(button); hl:SetBlendMode("ADD") end
+    -- Forever's calendar art and its hover glow, which the game shows again
+    -- on every hover (the fade below alone wouldn't hold it).
+    HideStateArt(button)
     for _, region in ipairs({ button:GetRegions() }) do
         if region:IsObjectType("Texture") and region ~= normal and region ~= pushed and region ~= hl then region:SetAlpha(0) end
     end
@@ -651,7 +684,14 @@ local function Apply()
         if AddonCompartmentFrame then
             ns.HookMethod(AddonCompartmentFrame, "UpdateDisplay", function(self) if active then self:Hide() end end)
         end
-        ns.HookGlobal("GameTimeFrame_SetDate", ns.SkinCalendar)
+        -- The day on the calendar: Forever sets it through the calendar's
+        -- own SetDate (loading screens, invites); the old global only
+        -- where that's missing.
+        if GameTimeFrame and type(GameTimeFrame.SetDate) == "function" then
+            ns.HookMethod(GameTimeFrame, "SetDate", ns.SkinCalendar)
+        else
+            ns.HookGlobal("GameTimeFrame_SetDate", ns.SkinCalendar)
+        end
         if ExpansionLandingPageMinimapButton then
             ns.HookMethod(ExpansionLandingPageMinimapButton, "UpdateIcon", function(self)
                 if active then self:SetAlpha(0); self:EnableMouse(false) end
@@ -714,7 +754,8 @@ local function Restore()
     if MinimapBackdrop and MinimapBackdrop.fcui then
         for _, tex in pairs(MinimapBackdrop.fcui) do tex:Hide() end
     end
-    if MinimapCluster and MinimapCluster.BorderTop then ns.Unfade(MinimapCluster.BorderTop) end
+    -- Forever's zone bar back (the rest comes back with the reload).
+    if MinimapCluster and MinimapCluster.ZoneTextButton then ShowStateArt(MinimapCluster.ZoneTextButton) end
     ns.needsReload = true
 end
 

@@ -339,12 +339,29 @@ units.party3={exists=true,class="DRUID"};auras.party3={1459}
 equal(check("intellect"),false,"intellect skips warriors and rogues")
 auras.party3={};event("UNIT_AURA");equal(check("intellect"),true,"druid still needs intellect in animal form")
 
+-- Build 1.60.1.70425 made Battle Shout and Trueshot Aura raid-wide, so every
+-- raid subgroup is checked, not only your own.
 E,check,defs,event=Session("WARRIOR")
 raid=true;n=3;auras.player={6673}
 units.raid1={exists=true,player=true,group=1};units.raid2={exists=true,group=1};units.raid3={exists=true,group=2}
 auras.raid2={6673}
-equal(check("battleShout"),false,"party-only shout skips other raid subgroup")
+equal(defs.battleShout.subgroup,nil,"Battle Shout is not party-only")
+missing,detail=check("battleShout")
+equal(missing,true,"raid-wide shout checks other raid subgroups");equal(detail,"Missing on raid3","names the member in the other subgroup")
+auras.raid3={6673};event("UNIT_AURA");equal(check("battleShout"),false,"every subgroup shouted")
 auras.raid2={};event("UNIT_AURA");equal(check("battleShout"),true,"own subgroup still checked")
+E,check,defs,event=Session("HUNTER")
+known[20906]=true;raid=true;n=3;auras.player={20906}
+units.raid1={exists=true,player=true,group=1};units.raid2={exists=true,group=1};units.raid3={exists=true,group=2}
+auras.raid2={20906}
+equal(defs.trueshot.subgroup,nil,"Trueshot Aura is not party-only")
+missing,detail=check("trueshot")
+equal(missing,true,"raid-wide Trueshot Aura checks other raid subgroups");equal(detail,"Missing on raid3","names the member in the other subgroup")
+auras.raid3={1299346};event("UNIT_AURA");equal(check("trueshot"),false,"another hunter's rank 1 there counts")
+auras.raid2={};event("UNIT_AURA");equal(check("trueshot"),true,"own subgroup still checked")
+for _,c in ipairs({"WARRIOR","PALADIN","HUNTER","ROGUE","PRIEST","SHAMAN","MAGE","WARLOCK","DRUID"})do
+ for _,def in ipairs(E.ReminderSpells[c])do equal(def.subgroup,nil,c.." "..def.key.." checks the whole raid")end
+end
 
 E,check,defs,event=Session("PALADIN")
 known[19742]=true;EraUIDB.reminderChoice_PALADIN_blessing=19742
@@ -354,6 +371,41 @@ units.party2.class="MAGE";equal(check("blessing"),true,"selected Wisdom checks m
 auras.party2={25918};event("UNIT_AURA");equal(check("blessing"),false,"Greater Blessing of Wisdom counts as Wisdom")
 EraUIDB.reminderChoice_PALADIN_blessing=0;auras.player={25916};auras.party1={25782};event("UNIT_AURA")
 equal(check("blessing"),false,"on Any, Greater Blessings count as a blessing")
+-- Since build 1.60.1.70425 Salvation and Mass Salvation go on top of a
+-- blessing, so they are not one: someone with only Salvation still needs a
+-- blessing, and casting it never becomes what a click casts.
+E,check,defs,event=Session("PALADIN")
+for _,choice in ipairs(defs.blessing.choices)do equal(choice.key~="salvation",true,"no Salvation choice: "..choice.key)end
+for _,field in ipairs({"ids","reagentIds"})do
+ for _,id in ipairs(defs.blessing[field])do equal(id~=1038 and id~=25895,true,"blessing "..field.." leave out Salvation: "..id)end
+end
+n=1;units.party1={exists=true,class="WARRIOR",name="Tank"};auras.player={19740}
+for _,id in ipairs({1038,25895})do
+ auras.party1={id};event("UNIT_AURA")
+ missing,detail=check("blessing")
+ equal(missing,true,"on Any, Salvation "..id.." alone is not a blessing");equal(detail,"Missing on Tank","the member is named")
+end
+auras.party1={1038,19740};event("UNIT_AURA");equal(check("blessing"),false,"Salvation on top of a blessing: blessed")
+do
+ local casts=assert(up(E.modules.ClassReminders.Refresh,"ClickSpell"))
+ local choiceOf=assert(up(E.modules.ClassReminders.Refresh,"ChoiceOf"))
+ local function Cast(id)frames[#frames].scripts.OnEvent(nil,"UNIT_SPELLCAST_SUCCEEDED","player",nil,id)end
+ known[19740]=true;known[19742]=true;known[1038]=true;known[25895]=true
+ equal(casts(defs.blessing),nil,"Might and Wisdom known, none cast: no click")
+ Cast(1038);Cast(25895)
+ equal(EraUIDB.reminderLast_PALADIN_blessing,nil,"casting Salvation or Mass Salvation is not remembered as a blessing")
+ equal(casts(defs.blessing),nil,"so a click still casts nothing")
+ Cast(19742)
+ equal(EraUIDB.reminderLast_PALADIN_blessing,19742,"a real blessing is")
+ Cast(1038)
+ equal(EraUIDB.reminderLast_PALADIN_blessing,19742,"Salvation after it changes nothing")
+ equal(casts(defs.blessing),19742,"a click casts Wisdom, never Salvation")
+ -- Old saved settings need nothing: a saved Salvation pick or last cast reads as Any.
+ EraUIDB.reminderChoice_PALADIN_blessing=1038
+ equal(choiceOf(defs.blessing),nil,"a saved Salvation pick reads as Any")
+ EraUIDB.reminderChoice_PALADIN_blessing=0;EraUIDB.reminderLast_PALADIN_blessing=1038
+ equal(casts(defs.blessing),nil,"a saved last Salvation is ignored")
+end
 
 -- Reagent group versions (Greater Blessings, Prayer of Fortitude, Arcane
 -- Brilliance, Gift of the Wild) count as the buff, but a click never casts one.
@@ -385,7 +437,7 @@ for _,c in ipairs(classes)do
   if want[c]and want[c][def.key]then equal(id,want[c][def.key],c.." "..def.key.." clicks the highest single-target rank")end
  end
 end
-equal(reagents,14,"every reagent group version is listed")
+equal(reagents,13,"every reagent group version is listed")
 -- With its reagent in your bags a group version is cast again; paladins never
 -- get Greater Blessings, reagent or not.
 E,check,defs,event=Session("PRIEST")
