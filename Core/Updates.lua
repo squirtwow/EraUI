@@ -11,7 +11,6 @@ local UPDATES = {
             { "Fixed", {
                 "Minimap: no gold bar behind the zone name, the classic tracking glass is back, the calendar date and glow are fixed, the game's new event button gets its own spot, and the day/night icon scales with the minimap.",
                 "The Who list keeps filling after a /who.",
-                "Skill and reputation bars fill to the end when full.",
                 "Incoming heal and shield bars line up with the health bar again.",
                 "Button cooldowns stay dark after a cast with No cast animation on buttons.",
                 "Party role icons no longer stretch after a group change mid-fight.",
