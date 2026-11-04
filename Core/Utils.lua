@@ -1,0 +1,150 @@
+local _, EraUI = ...
+
+EraUI.Media = {
+    gold = {0.93, 0.75, 0.32, 1},
+    parchment = {0.82, 0.68, 0.42, 1},
+    dark = {0.08, 0.07, 0.06, 0.94},
+}
+
+-- Forever names have a surname and no realm. UnitName("player") gives the
+-- first name and the surname as two values, but the guild roster, /who,
+-- whispers and addon messages call you "First Surname" (confirmed in game
+-- 2026-09-29), so a name is never compared with the first name alone.
+local function Hidden(v) return issecretvalue and issecretvalue(v) end
+local function Joined(fn)
+    if type(fn) ~= "function" then return end
+    local ok, first, surname = pcall(fn, "player")
+    if not ok or Hidden(first) or type(first) ~= "string" or first == "" then return end
+    if Hidden(surname) or type(surname) ~= "string" or surname == "" then return first end
+    local sep = Constants and Constants.CharacterNameSeparatorConsts
+    sep = sep and sep.CHARACTERNAME_SURNAME_SEPARATOR
+    if type(sep) ~= "string" or sep == "" then sep = " " end
+    if first:sub(-#sep - #surname) == sep .. surname then return first end -- already whole
+    return first .. sep .. surname
+end
+
+-- Your whole name as other players see it: "First Surname", or the first
+-- name alone on a character without a surname.
+function EraUI:PlayerFullName() return Joined(UnitName) end
+
+-- Whether a roster, /who, chat or addon-message name, or a GUID, is you.
+-- A matching GUID settles it; otherwise the whole name has to match.
+function EraUI:IsPlayer(name, guid)
+    if guid ~= nil and not Hidden(guid) and UnitGUID then
+        local ok, mine = pcall(UnitGUID, "player")
+        if ok and not Hidden(mine) and type(mine) == "string" and mine == guid then return true end
+    end
+    if Hidden(name) or type(name) ~= "string" or name == "" then return false end
+    if Ambiguate then
+        local ok, short = pcall(Ambiguate, name, "none")
+        if ok and not Hidden(short) and type(short) == "string" then name = short end
+    end
+    return name == Joined(UnitName) or name == Joined(UnitNameUnmodified)
+end
+
+-- "Made with <heart> by Squirt" for the window footers, the heart and the
+-- name in your class colour (a rogue's yellow, a druid's orange); grey when
+-- the game doesn't say your class.
+local HEART = "Interface\\AddOns\\EraUI\\Media\\Heart"
+function EraUI:Signature()
+    local r, g, b = .7, .7, .7
+    local ok, _, class = pcall(UnitClass, "player")
+    if ok and not Hidden(class) and type(class) == "string" then
+        local colour = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class]) or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
+        if colour then r, g, b = colour.r, colour.g, colour.b end
+    end
+    local function Byte(v) return math.max(0, math.min(255, math.floor(v * 255 + .5))) end
+    return ("Made with |T%s:10:10:0:0:32:32:0:32:0:32:%d:%d:%d|t by |cff%02x%02x%02xSquirt|r"):format(HEART,
+        Byte(r), Byte(g), Byte(b), Byte(r), Byte(g), Byte(b))
+end
+
+-- Forever Enhanced Nameplates, Squirt's nameplate addon, takes the nameplates
+-- over while it is loaded: EraUI's nameplate look, plate class colours,
+-- simplified plate setting and plate cast outlines step aside, and their
+-- options are greyed. Asked each time, never kept. Anything that can't be
+-- read counts as not loaded, so EraUI works as before.
+EraUI.NAMEPLATES_ADDON = "ForeverEnhancedNameplates"
+function EraUI:NamePlatesHandedOver()
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded
+    if type(loaded) ~= "function" then return false end
+    local ok, yes = pcall(loaded, EraUI.NAMEPLATES_ADDON)
+    if not ok or Hidden(yes) then return false end
+    return yes and true or false
+end
+
+-- Another addon showing the world map's unexplored areas: EraUI's Reveal
+-- World Map steps aside while one is loaded with its own reveal on, so the
+-- map isn't drawn over twice, and its card says so. Each entry is a folder
+-- name and how that addon saves its reveal switch (on unless saved off, as
+-- each starts). Asked each time, never kept; anything that can't be read
+-- counts as not revealing, so EraUI works as before.
+local MAP_REVEALERS = {
+    { "Leatrix_Maps", function() local db = _G.LeaMapsDB return not (type(db) == "table" and db.RevealMap == "Off") end },
+    { "MapUtils", function() local db = _G.MAUTTAB return not (type(db) == "table" and db.REVEALMAP == false) end },
+}
+function EraUI:MapRevealHandedOver()
+    local loaded = C_AddOns and C_AddOns.IsAddOnLoaded
+    if type(loaded) ~= "function" then return false end
+    for _, entry in ipairs(MAP_REVEALERS) do
+        local ok, yes = pcall(loaded, entry[1])
+        if ok and not Hidden(yes) and yes then
+            local readOk, on = pcall(entry[2])
+            if readOk and on == true then return true end
+        end
+    end
+    return false
+end
+
+function EraUI:SafeHide(frame)
+    if not frame then return end
+    if InCombatLockdown and InCombatLockdown() and frame.IsProtected and frame:IsProtected() then
+        return false
+    end
+    frame:Hide()
+    return true
+end
+
+function EraUI:StripRetailBackdrop(frame)
+    if not frame then return end
+    if frame.NineSlice and frame.NineSlice.SetAlpha then
+        frame.NineSlice:SetAlpha(0)
+    end
+    if frame.Border and frame.Border.SetAlpha then
+        frame.Border:SetAlpha(0)
+    end
+end
+
+function EraUI:AddClassicBackdrop(frame, inset)
+    if not frame or frame.__EraUIBackdrop then return frame and frame.__EraUIBackdrop end
+    inset = inset or 2
+    local bg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    bg:SetPoint("TOPLEFT", frame, "TOPLEFT", -inset, inset)
+    bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", inset, -inset)
+    bg:SetFrameLevel(math.max(0, frame:GetFrameLevel() - 1))
+    bg:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true,
+        tileSize = 32,
+        edgeSize = 24,
+        insets = { left = 6, right = 6, top = 6, bottom = 6 },
+    })
+    bg:SetBackdropColor(0.16, 0.12, 0.08, 0.96)
+    -- Dark Windows darkens the box in Dark Mode (Core/Appearance.lua, loaded
+    -- after this file; reached through EraUI.Classic when a box is made).
+    local classic = self.Classic
+    if classic and classic.DarkBackdrop then classic.DarkBackdrop(bg, { 0.16, 0.12, 0.08, 0.96 }) end
+    frame.__EraUIBackdrop = bg
+    return bg
+end
+
+function EraUI:CreateLabel(parent, text, size)
+    local fs = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fs:SetText(text)
+    if size then
+        local font, _, flags = fs:GetFont()
+        if font then fs:SetFont(font, size, flags) end
+    end
+    fs:SetTextColor(unpack(self.Media.parchment))
+    return fs
+end

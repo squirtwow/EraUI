@@ -1,0 +1,21 @@
+# OS junk
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Private release notes (kept locally, never pushed)
+Tools/ReleaseAudit-*.md
+Tools/ReleasePreview.md
+
+# Plain-language specs for the Classic rewrite (working notes, never pushed)
+Tools/ClassicSpecs/
+
+# Local checks (kept on this machine, never pushed)
+Tools/TestRules.mjs
+Tools/TestOriginality.mjs
+Tools/TestFocusTaint.lua
+Tools/TestClassicOptions.lua

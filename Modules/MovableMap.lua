@@ -1,0 +1,392 @@
+local _,E=...
+local M={};E:RegisterModule("MovableMap",M)
+local frame,border,dragHandle
+local grips={}
+local interaction,restoring,queued,placing
+local Restore,StopInteraction
+-- Resizing scales the whole window. Blizzard owns the map's width, height,
+-- viewport anchors, canvas fit, zoom and pins: refitting them from addon code
+-- taints the zoom and scroll data that in-combat pin updates read, and the
+-- client then blocks those updates. Its viewport stops at the quest list, so
+-- the art always fits the map part of the window. (A viewport stretched under
+-- the list was wider than the art; Blizzard centred the art in it, leaving a
+-- gap at the left and the art's right side under the list.)
+local MIN_SCALE=.5
+
+local function Enabled()return E:GetSetting("enabled") and E:GetSetting("movableMap")end
+
+local function Expanded()return frame.IsMaximized and frame:IsMaximized()end
+local function Ratio()return frame:GetEffectiveScale()/UIParent:GetEffectiveScale()end
+-- Blizzard widens the normal window by the quest list's width on the right.
+-- Positions are kept for the map part, so the map stays put and the list
+-- opens to its right.
+local function ListWidth()
+ local list=frame.QuestLog
+ if Expanded()or not(list and list:IsShown())then return 0 end
+ return tonumber(frame.questLogWidth)or 0
+end
+local function Record(key)
+ local all=E:GetSetting(key)
+ if type(all)~="table"then return end
+ if Expanded()then
+  if type(all.expanded)=="table"then return all.expanded end
+   if not all.version or all.version<2 then return all end -- Earlier builds shared one record for both modes.
+  return nil
+ end
+ return all
+end
+local function Store(key,value)
+ local old=E:GetSetting(key)
+ local all={};for k,v in pairs(type(old)=="table"and old or{})do all[k]=v end
+ if Expanded()then all.expanded=value
+ else for k,v in pairs(value)do all[k]=v end end
+ E:SetSetting(key,all)
+end
+local function SavePosition()
+ local x,y=frame:GetCenter();local cx,cy=UIParent:GetCenter();local ratio=Ratio()
+ if not x or not y then return end
+ Store("mapPosition",{x=(x-ListWidth()/2)*ratio-cx,y=y*ratio-cy,version=2})
+ Store("mapSize",{scale=frame:GetScale(),version=4})
+end
+-- The world map is not a protected frame, so it may be placed in combat too;
+-- geometry writes carry no taint into Blizzard's Lua.
+local function Movable()return frame and not frame:IsProtected()end
+
+local function FixPinButton()
+ local pin=frame and frame.WorldMapTrackingPinButton
+ if not pin or InCombatLockdown()then return end
+ -- Forever's AdjustOverlayFrames places this 32px button at the top left.
+ pin:ClearAllPoints();pin:SetPoint("TOPLEFT",frame.ScrollContainer,"TOPLEFT",3,0)
+ pin:SetSize(32,32);pin:SetHitRectInsets(0,0,0,0)
+ local highlight=pin:GetHighlightTexture()
+ if highlight then highlight:ClearAllPoints();highlight:SetAllPoints(pin)end
+end
+-- Scales that keep the whole window on screen.
+local function ScaleLimits()
+ local w,h=frame:GetWidth(),frame:GetHeight()
+ if not w or not h or w<=0 or h<=0 then return MIN_SCALE,1 end
+ local maxS=math.min((UIParent:GetWidth()-16)/w,(UIParent:GetHeight()-16)/h)
+ return math.min(MIN_SCALE,maxS),maxS
+end
+local function ClampScale(scale)
+ local minS,maxS=ScaleLimits()
+ return math.max(minS,math.min(maxS,scale))
+end
+-- Saved as a scale since version 4; older records saved the window width.
+local function SavedScale()
+ local size=Record("mapSize")
+ if type(size)~="table"then return nil end
+ if size.version==4 and tonumber(size.scale)then return tonumber(size.scale)end
+ local w=tonumber(size.w)
+ if w and w>0 and frame:GetWidth()>0 then return w/frame:GetWidth()end
+end
+-- No saved scale means Blizzard's own size, including the maximised map,
+-- whose size Blizzard computes for scale 1.
+local function ApplySavedScale()
+ local scale=ClampScale(SavedScale()or 1)
+ if math.abs(frame:GetScale()-scale)>.001 then frame:SetScale(scale)end
+end
+local function PlaceSaved()
+ local pos=Record("mapPosition")
+ if not(pos and tonumber(pos.x)and tonumber(pos.y))then return end
+ local ratio=Ratio()
+ placing=true
+ frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",pos.x/ratio+ListWidth()/2,pos.y/ratio)
+ placing=false
+end
+local function QueueRestore()
+ if queued or restoring or interaction or not frame or not frame:IsShown()or not Enabled()then return end
+ queued=true
+ C_Timer.After(0,function()
+  queued=false
+  if frame and frame:IsShown()and not interaction then Restore()end
+ end)
+end
+local function ResizeTick()
+ local s=interaction
+ if not s or not Movable()then return end
+ if s.kind=="drag"then
+  local x,y=GetCursorPosition();x=x/frame:GetEffectiveScale();y=y/frame:GetEffectiveScale()
+  frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"BOTTOMLEFT",s.cx+x-s.x,s.cy+y-s.y)
+  return
+ end
+ -- Resizes work in screen (UIParent) units, keeping the opposite top corner
+ -- fixed while the window's scale changes.
+ local u=UIParent:GetEffectiveScale()
+ local x,y=GetCursorPosition();x,y=x/u,y/u
+ local dx=(x-s.x)*(s.left and -1 or 1);local dy=s.y-y
+ local a=s.aspect
+ local delta
+ if s.edge=="BOTTOM"then delta=dy*a
+ elseif s.edge=="LEFT"or s.edge=="RIGHT"then delta=dx
+ else delta=(dx+dy/a)/(1+1/(a*a))end
+ local scale=ClampScale((s.width+delta)/frame:GetWidth())
+ frame:SetScale(scale)
+ frame:ClearAllPoints();frame:SetPoint(s.left and "TOPRIGHT"or "TOPLEFT",UIParent,"BOTTOMLEFT",s.anchorX/scale,s.top/scale)
+end
+local function BeginResize(edge)
+ if not Enabled()or not Movable()then return end
+ local u=UIParent:GetEffectiveScale()
+ local x,y=GetCursorPosition()
+ local scale=frame:GetScale()
+ local w,h=frame:GetWidth(),frame:GetHeight()
+ if not w or not h or w<=0 or h<=0 then return end
+ local left=edge=="LEFT"or edge=="BOTTOMLEFT"
+ interaction={kind="resize",edge=edge,left=left,x=x/u,y=y/u,width=w*scale,aspect=w/h,
+  anchorX=(left and frame:GetRight()or frame:GetLeft())*scale,top=frame:GetTop()*scale}
+ frame:ClearAllPoints();frame:SetPoint(left and "TOPRIGHT"or "TOPLEFT",UIParent,"BOTTOMLEFT",interaction.anchorX/scale,interaction.top/scale)
+end
+StopInteraction=function()
+ if not interaction then return end
+ if not Movable()then interaction=nil;return end
+ ResizeTick()
+ interaction=nil
+ local x,y=frame:GetCenter();local cx,cy=UIParent:GetCenter();local ratio=Ratio()
+ if not x or not y then return end
+ placing=true
+ frame:ClearAllPoints();frame:SetPoint("CENTER",UIParent,"CENTER",x-cx/ratio,y-cy/ratio)
+ placing=false
+ SavePosition()
+end
+Restore=function()
+ if not frame or not Enabled()or restoring or interaction or not Movable()then return end
+ restoring=true
+ ApplySavedScale()
+ PlaceSaved()
+ FixPinButton()
+ -- Remember the layout in the current format, including the initial one.
+ local size=Record("mapSize")
+ if type(size)~="table"or size.version~=4 then SavePosition()end
+ restoring=false
+end
+
+local function Grip(point,sizing,ox,oy,glyph)
+ local g=CreateFrame("Frame",nil,border)
+ g:SetSize(18,18);g:SetPoint(point,border,point,ox or 0,oy or 0)
+ g:EnableMouse(true)
+ g:SetScript("OnMouseDown",function(_,button)if button=="LeftButton"then BeginResize(sizing)end end)
+ g:SetScript("OnMouseUp",function(_,button)if button=="LeftButton"then StopInteraction()end end)
+ if glyph then
+  local tex=g:CreateTexture(nil,"ARTWORK")
+  tex:SetTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
+  tex:SetSize(16,16)
+  tex:SetAlpha(0.85)
+  if glyph=="left" then
+   tex:SetPoint("BOTTOMLEFT",g,"BOTTOMLEFT",-1,1)
+   tex:SetTexCoord(1,0,0,1)
+  else
+   tex:SetPoint("BOTTOMRIGHT",g,"BOTTOMRIGHT",1,1)
+  end
+ end
+ grips[#grips+1]=g
+end
+
+-- This size-based candidate is used only in the diagnostic report.
+local function CanvasNode()
+ local sc=frame and frame.ScrollContainer
+ if not sc then return nil end
+ local best,bw,bh
+ for _,child in ipairs({sc:GetChildren()})do
+  local w,h=child:GetWidth(),child:GetHeight()
+  if w and h and w>1 and h>1 then
+   if not bw or w*h>bw*bh then best,bw,bh=child,w,h end
+  end
+ end
+ return best
+end
+
+function M:Dump()
+ if not frame then E:Print("World map has not been opened yet. Open it once, then run this again.")return end
+ local function line(...)
+  local parts={}
+  for _,v in ipairs({...})do parts[#parts+1]=tostring(v)end
+  E:Print(table.concat(parts," "))
+ end
+ line("map",frame:GetWidth(),"x",frame:GetHeight())
+ local sc=frame.ScrollContainer
+ if not sc then line("no ScrollContainer")return end
+ line("scroll",sc:GetWidth(),"x",sc:GetHeight(),"points",sc:GetNumPoints())
+ if sc.GetCanvas then local ok,v=pcall(sc.GetCanvas,sc);line("GetCanvas",ok and v or "error")end
+ line("fields Canvas",sc.Canvas,"MapCanvas",sc.MapCanvas,"CanvasContainer",rawget(sc,"CanvasContainer"),"ScrollChild",rawget(sc,"ScrollChild"))
+ for i,child in ipairs({sc:GetChildren()})do
+  line("child",i,child:GetName(),child.GetObjectType and child:GetObjectType(),child:GetWidth(),"x",child:GetHeight(),child:IsShown()and "shown"or "hidden")
+ end
+ local regions={sc.GetRegions and sc:GetRegions()}
+ for i=1,#regions do
+  local r=regions[i]
+  line("region",i,r:GetObjectType(),r.GetTexture and r:GetTexture(),r.GetWidth and r:GetWidth(),"x",r.GetHeight and r:GetHeight())
+ end
+end
+function M:DumpText()
+ local lines={}
+ local function add(s)lines[#lines+1]=s end
+ local function px(v)return tostring(v and math.floor(v)or 0)end
+ if not frame then add("Open the world map once, then run this again.")return table.concat(lines,"\n")end
+ add("window "..px(frame:GetWidth()).." x "..px(frame:GetHeight()).." strata "..tostring(frame:GetFrameStrata()))
+ local kids={frame:GetChildren()}
+ add("window children "..#kids)
+ for i=1,math.min(#kids,22)do
+  local c=kids[i]
+  add("w"..i.." "..tostring(c:GetName()).." "..tostring(c.GetObjectType and c:GetObjectType()).." "..px(c:GetWidth()).." x "..px(c:GetHeight())..(c:IsShown()and" shown"or" hidden"))
+ end
+ local sc=frame.ScrollContainer
+ local wregions={frame:GetRegions()}
+ add("window regions "..#wregions)
+ for i=1,math.min(#wregions,24)do
+  local r=wregions[i]
+  if r.GetObjectType and r:GetObjectType()=="Texture"then
+   add("t"..i.." "..tostring(r.GetTexture and r:GetTexture()).." "..px(r.GetWidth and r:GetWidth()or 0).." x "..px(r.GetHeight and r:GetHeight()or 0).." a="..tostring(r.GetAlpha and math.floor((r:GetAlpha()or 0)*100)or"?").." p="..tostring(r.GetDrawLayer and r:GetDrawLayer()or"?"))
+  end
+ end
+ if sc then
+  add("scroll "..px(sc:GetWidth()).." x "..px(sc:GetHeight()))
+  local skids={sc:GetChildren()}
+  for i=1,#skids do
+   local c=skids[i]
+   add("s"..i.." "..tostring(c:GetName()).." "..tostring(c.GetObjectType and c:GetObjectType()).." "..px(c:GetWidth()).." x "..px(c:GetHeight()))
+   local gkids={c.GetChildren and c:GetChildren()}
+   for j=1,math.min(#gkids,8)do
+    local g=gkids[j]
+    add("  s"..i.."."..j.." "..tostring(g:GetName()).." "..tostring(g.GetObjectType and g:GetObjectType()).." "..px(g:GetWidth()).." x "..px(g:GetHeight()))
+   end
+  end
+ end
+ add("mapID field "..tostring(frame.mapID))
+ if frame.GetMapID then local ok,id=pcall(frame.GetMapID,frame);add("GetMapID "..tostring(ok and id or"error"))end
+ if C_Map and C_Map.GetBestMapForUnit then local ok,z=pcall(C_Map.GetBestMapForUnit,"player");add("player zone "..tostring(ok and z or"error"))end
+ if C_Map and C_Map.GetMapInfo then
+  local id=tonumber(frame.mapID)
+  if id then local ok,info=pcall(C_Map.GetMapInfo,id);add("shown name "..tostring(ok and info and info.name or"?"))end
+ end
+ if C_Map and C_Map.GetMapArtLayers then
+  local id=tonumber(frame.mapID)
+  if id then
+   local ok,layers=pcall(C_Map.GetMapArtLayers,id)
+   if ok and type(layers)=="table"then
+    add("layers "..#layers)
+    for i=1,math.min(#layers,6)do
+     local info=layers[i]
+     if info then add("layer "..i.." tile "..tostring(info.tileWidth).."x"..tostring(info.tileHeight).." map "..tostring(info.mapID))end
+    end
+   end
+   if C_Map.GetMapArtLayerTextures then
+    for i=1,4 do
+     local ok2,files=pcall(C_Map.GetMapArtLayerTextures,id,i)
+     if ok2 and type(files)=="table"then add("layerTextures "..i.." count "..#files)end
+    end
+   end
+   local canvas=CanvasNode()
+    if canvas then add("canvas candidate "..px(canvas:GetWidth()).." x "..px(canvas:GetHeight()))end
+  end
+ end
+ if frame.GetMap then
+  local ok,m=pcall(frame.GetMap,frame)
+  add("GetMap "..tostring(ok and"ok"or m))
+  if ok and m then
+   if m.GetMapID then local o,id=pcall(m.GetMapID,m);add("mapID "..tostring(o and id or"error"))
+    if o and id and C_MapExplorationInfo and C_MapExplorationInfo.GetExploredMapTextures then
+     local o2,t=pcall(C_MapExplorationInfo.GetExploredMapTextures,id)
+     if o2 and type(t)=="table"then
+      add("explored tiles "..#t)
+      local one=t[1]
+      if one then add("  offset "..tostring(one.offsetX)..","..tostring(one.offsetY).." size "..tostring(one.textureWidth).."x"..tostring(one.textureHeight).." files "..tostring(one.fileDataIDs and#one.fileDataIDs or 0))end
+     else add("explored error")end
+    end
+   end
+   if m.GetCanvasContainer then
+    local o,cc=pcall(m.GetCanvasContainer,m)
+    add("canvasContainer "..tostring(o and cc or"error"))
+    if o and cc then
+     if cc.GetCanvas then local o3,cv=pcall(cc.GetCanvas,cc);add("  canvas "..tostring(o3 and cv or"error"));if o3 and cv then add("  canvas size "..px(cv:GetWidth()).." x "..px(cv:GetHeight()))end end
+     if cc.GetCurrentLayerIndex then local o4,li=pcall(cc.GetCurrentLayerIndex,cc);add("  layer "..tostring(o4 and li or"error"))end
+    end
+   end
+  end
+ end
+  local reveal=E.modules.MapReveal
+  if reveal then add(reveal:DumpText())end
+  return table.concat(lines,"\n")
+end
+function M:Apply()
+ if not frame then return end
+ local on=Enabled()
+ if not on then
+  StopInteraction()
+  -- Back to Blizzard's own size; its next window layout places the map, and
+  -- its next open refits the canvas.
+  if Movable()and frame:GetScale()~=1 then frame:SetScale(1)end
+ end
+ for _,g in ipairs(grips)do g:SetShown(on)end
+ if dragHandle then dragHandle:EnableMouse(on)end
+ if on then QueueRestore()end
+end
+
+function M:Setup()
+ if self.ready or InCombatLockdown()then return end
+ frame=_G.WorldMapFrame;border=frame and frame.BorderFrame
+ if not frame or not border then return end
+ self.ready=true
+ frame:SetMovable(true);frame:SetClampedToScreen(true)
+ -- Drag only from the header strip, so the map itself keeps its own
+ -- right-click zoom and zone clicks. The strip stops short of the
+ -- maximize and close buttons.
+ dragHandle=CreateFrame("Frame",nil,border)
+ dragHandle:SetHeight(34)
+ dragHandle:SetPoint("TOPLEFT",border,"TOPLEFT",0,0)
+ local sizer=border.MaximizeMinimizeFrame
+ if sizer then
+  dragHandle:SetPoint("RIGHT",sizer,"LEFT",-2,0)
+ else
+  dragHandle:SetPoint("TOPRIGHT",border,"TOPRIGHT",-80,0)
+ end
+ dragHandle:EnableMouse(true)
+ dragHandle:RegisterForDrag("LeftButton")
+ dragHandle:SetScript("OnDragStart",function()
+  if Enabled()and Movable()then
+   local x,y=GetCursorPosition();local cx,cy=frame:GetCenter();local scale=frame:GetEffectiveScale()
+   interaction={kind="drag",x=x/scale,y=y/scale,cx=cx,cy=cy}
+  end
+ end)
+ dragHandle:SetScript("OnDragStop",StopInteraction)
+ frame:HookScript("OnShow",QueueRestore)
+ frame:HookScript("OnHide",StopInteraction)
+ frame:HookScript("OnUpdate",function()
+  if interaction then
+   if IsMouseButtonDown and not IsMouseButtonDown("LeftButton")then StopInteraction()else ResizeTick()end
+  end
+ end)
+ -- Blizzard's window manager re-anchors the map whenever windows are laid
+ -- out, in combat too. Put it straight back, before the next frame is drawn.
+ hooksecurefunc(frame,"SetPoint",function()
+  if placing or restoring or interaction or not Enabled()or not Movable()then return end
+  ApplySavedScale()
+  PlaceSaved()
+ end)
+ -- Normal and maximised maps keep separate scales and positions.
+ for _,method in ipairs({"Maximize","Minimize"})do
+  if frame[method]then hooksecurefunc(frame,method,QueueRestore)end
+ end
+ if frame.AdjustOverlayFrames then hooksecurefunc(frame,"AdjustOverlayFrames",function()if Enabled()then FixPinButton()end end)end
+ local events=CreateFrame("Frame")
+ for _,event in ipairs({"PLAYER_REGEN_ENABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED"})do events:RegisterEvent(event)end
+ events:SetScript("OnEvent",QueueRestore)
+ -- Bottom and side grips; the top edge stays for dragging (the close and
+ -- maximize buttons live up there).
+ Grip("BOTTOMLEFT","BOTTOMLEFT",3,-3,"left")
+ Grip("BOTTOMRIGHT","BOTTOMRIGHT",-3,-3,"right")
+ Grip("BOTTOM","BOTTOM")
+ Grip("LEFT","LEFT",3,0)
+ Grip("RIGHT","RIGHT",-3,0)
+ self:Apply()
+ QueueRestore()
+end
+
+function M:Initialize()
+ if _G.WorldMapFrame and not InCombatLockdown()then M:Setup()return end
+ local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED");f:RegisterEvent("PLAYER_REGEN_ENABLED")
+ f:SetScript("OnEvent",function()
+  if _G.WorldMapFrame and not InCombatLockdown()then
+   M:Setup();f:SetScript("OnEvent",nil);f:UnregisterEvent("ADDON_LOADED");f:UnregisterEvent("PLAYER_REGEN_ENABLED")
+  end
+ end)
+end

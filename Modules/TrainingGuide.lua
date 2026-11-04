@@ -1,0 +1,462 @@
+-- Original, embedded spellbook training tab. Bundled game metadata populates
+-- immediately; optional live trainer quotes refine the reference base prices.
+local _,E=...
+local M={};E:RegisterModule("TrainingGuide",M)
+local T=E.ClassTools
+local window,book,trainerOpen,scanning,queued
+local function Public(v)return not(issecretvalue and issecretvalue(v))end
+local function Number(v)return Public(v)and type(v)=="number"end
+local function Key(name,rank)return name.."\031"..(rank or "")end
+-- Whether the running client has this spell at all. The list can be a build
+-- ahead of it (a rank it hasn't got), so such a row stays out, and a rank naming
+-- one as the rank before it doesn't wait for it.
+local function ClientHas(id)
+ local has=C_Spell and C_Spell.DoesSpellExist
+ if not has then return true end
+ local ok,yes=pcall(has,id)
+ return not ok or not Public(yes)or yes~=false
+end
+-- The client build trainer quotes were recorded on. A patch can move levels,
+-- prices and names (build 1.60.1.70425 renamed Blessing of Salvation), so
+-- quotes from another build are dropped and the next trainer visit records
+-- them again.
+local function ClientBuild()
+ if not GetBuildInfo then return nil end
+ local ok,_,build=pcall(GetBuildInfo)
+ if ok and Public(build)and type(build)=="string"and build~=""then return build end
+end
+local function Cache()
+ local options=T.Options()
+ if type(options.trainingGuide)~="table"then options.trainingGuide={entries={}}end
+ local cache=options.trainingGuide
+ local build=ClientBuild()
+ if build and cache.build~=build then
+  cache.entries={};cache.trainer=nil;cache.updated=nil;cache.build=build
+  E:SaveSettings()
+ end
+ cache.entries=cache.entries or{}
+ return cache
+end
+function M:Enabled()return E:GetSetting("enabled")and E:GetSetting("trainingGuide")end
+
+-- Read actual ranks, including hidden lower ranks. Future spells are kept out
+-- of the known set; their client level is useful even before a trainer visit.
+function M:BookData()
+ local known,labels,ranks,future,categories,ids={},{},{},{},{},{}
+ local class=UnitClass("player");if class then categories[class]=true end
+ local api=C_SpellBook
+ if not api or not api.GetNumSpellBookSkillLines then return known,labels,ranks,future,categories,ids end
+ local bank=Enum.SpellBookSpellBank.Player
+ for line=1,api.GetNumSpellBookSkillLines()do
+  local info=api.GetSpellBookSkillLineInfo(line)
+  if info and not info.shouldHide and not info.isGuild and(not info.offSpecID or info.offSpecID==0)then
+   if line>1 then categories[info.name]=true end
+   for slot=info.itemIndexOffset+1,info.itemIndexOffset+info.numSpellBookItems do
+    local item=api.GetSpellBookItemInfo(slot,bank)
+    if item and Public(item.name)and type(item.name)=="string"and Public(item.subName)and Public(item.itemType)then
+     local rank=item.subName or ""
+     if item.itemType==Enum.SpellBookItemType.FutureSpell then
+      local level=C_Spell and C_Spell.GetSpellLevelLearned and C_Spell.GetSpellLevelLearned(item.spellID)
+      if Number(level)and level>1 and level<=60 then
+       future[Key(item.name,rank)]={name=item.name,rank=rank,level=level,spellID=item.spellID,icon=item.iconID}
+      end
+     elseif item.itemType==Enum.SpellBookItemType.Spell then
+      if Number(item.spellID)then ids[item.spellID]=true end
+      known[Key(item.name,rank)]=true;labels[item.name]=true
+      labels[item.name.." ("..rank..")"]=true;labels[item.name.." "..rank]=true
+      local n=tonumber(rank:match("%d+"))
+      if n then ranks[item.name]=math.max(ranks[item.name]or 0,n)end
+     end
+    end
+   end
+  end
+ end
+ return known,labels,ranks,future,categories,ids
+end
+-- Whether a row's race mask lets your race in. It names races by bit (race ID - 1),
+-- 0 or every bit for all of them. The two Skyborne don't fit that: 95 is the
+-- Alliance's and 96 the Horde's, on the game's bits 32 and 33, and the list keeps
+-- only the lower 32. So a race above 30 takes a row naming it, or one at least two
+-- races of its own side have (a mage's teleports), never one race's own.
+local SKYBORNE_BITS={[95]=32,[96]=33}
+local SIDE_BITS={Alliance={0,2,3,6},Horde={1,4,5,7}} -- Human, Dwarf, Night Elf, Gnome; Orc, Undead, Tauren, Troll
+local function HasBit(mask,bit)return math.floor(mask/2^bit)%2==1 end
+local function RaceFits(mask,race,side)
+ if mask==0 or mask==-1 or not race then return true end
+ if mask<0 then mask=mask+4294967296 end
+ if race<=30 then return HasBit(mask,race-1)end
+ if SKYBORNE_BITS[race]and HasBit(mask,SKYBORNE_BITS[race])then return true end
+ local count=0
+ for _,bit in ipairs(SIDE_BITS[side]or{})do
+  if HasBit(mask,bit)then count=count+1 end
+ end
+ return count>=2
+end
+M.RaceFits=RaceFits
+function M:Catalog()
+ local _,class=UnitClass("player")
+ local race=UnitRace and select(3,UnitRace("player"))
+ local side=UnitFactionGroup and UnitFactionGroup("player")
+ if not Public(side)then side=nil end
+ local entries={}
+ for _,data in ipairs(E.TrainingData and E.TrainingData.classes[class]or{})do
+  if RaceFits(data[4],race,side)and ClientHas(data[1])then
+   local name,icon
+   if T.Spell then name,icon=T.Spell(data[1])end
+   local rank=data[7]
+   if C_Spell and C_Spell.GetSpellSubtext then rank=C_Spell.GetSpellSubtext(data[1])or rank end
+   local row={spellID=data[1],level=data[2],previous=ClientHas(data[3])and data[3]or 0,cost=data[5],name=name or data[6],rank=rank,
+    icon=icon,trainer=true,reference=true}
+   entries[Key(row.name,row.rank)]=row
+  end
+ end
+ return entries
+end
+local function Learned(row,known,ranks)
+ if row.learned or known[Key(row.name,row.rank)]then return true end
+ local rank=tonumber((row.rank or ""):match("%d+"))
+ if rank and ranks[row.name]and ranks[row.name]>=rank then return true end
+ if row.spellID then return T.Known(row.spellID)end
+ return false
+end
+-- Spells a class quest teaches rather than a trainer: the quest for your race
+-- and faction, from EraUI's class quest list. Most go by race, the Skyborne of
+-- each faction have their own, and a few go by faction alone. A spell a
+-- trainer has offered you is taught there, whatever the list says.
+local function QuestList(row)
+ local quests=row and row.spellID and E.ClassQuests and E.ClassQuests[row.spellID]
+ if quests and not(row.trainer and not row.reference)then return quests end
+end
+local function QuestFor(row)
+ local quests=QuestList(row)
+ if not quests then return nil end
+ local race=UnitRace and select(2,UnitRace("player"))
+ local faction=UnitFactionGroup and UnitFactionGroup("player")
+ return(race and faction and quests[race..":"..faction])or(race and quests[race])or(faction and quests[faction])
+end
+M.QuestFor=QuestFor
+-- Where a quest's chain starts, for its tooltip.
+local function QuestStart(quest)
+ local place=quest.where and(quest.spot and(quest.spot..", "..quest.where)or quest.where)
+ local at=place and(" in "..place)or ""
+ if quest.first then return "The chain starts with \""..quest.first.."\""..(quest.npc and(", from "..quest.npc)or "")..at.."."end
+ if quest.npc then return "Given by "..quest.npc..at.."."end
+ if place then return "It starts in "..place.."."end
+end
+M.QuestStart=QuestStart
+local CHAIN_LIMIT=32 -- far more than any spell's ranks: it stops a loop in the data
+-- Rank 1s no trainer sells that the class quest list doesn't have yet: a priest's
+-- racial spells and two book ranks. The ranks above them wait, as for a quest's.
+-- A trainer that has quoted one sells it.
+local NOT_SOLD={[2652]=true,[9035]=true,[10797]=true,[13908]=true,[2944]=true,[13896]=true,[18137]=true,[1277370]=true,[1277462]=true,[21562]=true,[21849]=true}
+function M:Collect()
+ local known,labels,ranks,future,_,ids=self:BookData()
+ local merged=self:Catalog()
+ -- Trainers stopped teaching a few spells the client data still lists (a
+ -- server change), so the book can still say they are coming. They stay out
+ -- unless a trainer offers one: its recorded quote adds it back below.
+ local notTaught={}
+ for _,id in ipairs(E.TrainingData and E.TrainingData.notTaught or{})do notTaught[id]=true end
+ for k,row in pairs(future)do
+  if not merged[k]and not(Number(row.spellID)and notTaught[row.spellID])then merged[k]=row end
+ end
+ -- A quote joins its spell's row by name and rank, or else by spell ID, so a
+ -- spell the game renamed stays one row under its current name, and a quote
+ -- for a name already quoted is not counted twice.
+ local byID,quoted,later={},{},{}
+ for k,row in pairs(merged)do if Number(row.spellID)then byID[row.spellID]=k end end
+ local function Quote(k,row,rename)
+  local base=merged[k]
+  local quote={};for field,value in pairs(base)do quote[field]=value end
+  for field,value in pairs(row)do quote[field]=value end
+  if rename then quote.name,quote.rank=base.name,base.rank end
+  quote.reference=false;merged[k]=quote;quoted[k]=true
+ end
+ for k,row in pairs(Cache().entries)do
+  if merged[k]then Quote(k,row)else later[k]=row end
+ end
+ for k,row in pairs(later)do
+  local at=Number(row.spellID)and byID[row.spellID]
+  if not at then merged[k]=row elseif not quoted[at]then Quote(at,row,true)end
+ end
+ -- What's still to learn, by spell ID and by the names a trainer's requirement
+ -- can use, so a rank can look at the one it needs first.
+ local waiting={}
+ for _,row in pairs(merged)do
+  if Learned(row,known,ranks)then
+   labels[row.name]=true
+   if row.spellID then ids[row.spellID]=true end
+   labels[row.name.." ("..row.rank..")"]=true;labels[row.name.." "..row.rank]=true
+  else
+   if Number(row.spellID)then waiting[row.spellID]=row end
+   waiting[row.name.." ("..row.rank..")"]=row;waiting[row.name.." "..row.rank]=row
+   local lowest=waiting[row.name]
+   if not lowest or row.level<lowest.level then waiting[row.name]=row end
+  end
+ end
+ local rows,summary={},{now=0,all=0,unknown=0,nowUnknown=0,count=0,nowCount=0}
+ local level=UnitLevel("player")or 1
+ -- What a rank needs first may be learned, or on sale on the same trainer visit:
+ -- rank 2, then rank 3. Not a quest's spell (the list may not have your race),
+ -- one no trainer sells, one above your level or one missing a step itself, so
+ -- all above those wait.
+ local blocked,Missing={}
+ local function OnSale(row,depth)
+  return row and row.trainer and row.level<=level and not QuestList(row)
+   and not(row.reference and NOT_SOLD[row.spellID])and not Missing(row,depth+1)
+ end
+ function Missing(row,depth)
+  if blocked[row]~=nil then return blocked[row]end
+  if depth>CHAIN_LIMIT then return true end
+  local answer=row.skillBlocked and true or false
+  local previous=row.previous
+  if previous and previous>0 and not ids[previous]and not T.Known(previous)and not OnSale(waiting[previous],depth)then answer=true end
+  for name,met in pairs(row.requirements or{})do
+   if not met and not labels[name]and not OnSale(waiting[name],depth)then answer=true end
+  end
+  blocked[row]=answer
+  return answer
+ end
+ for _,row in pairs(merged)do
+  if not Learned(row,known,ranks)then
+   local missing=Missing(row,0)
+   local ready=row.trainer and row.level<=level and not missing
+   -- The tooltip names the rank it needs first, even one on sale on the same visit.
+   local needsPrevious=row.previous and row.previous>0 and not ids[row.previous]and not T.Known(row.previous)
+   local group=row.level>level and(row.level<=level+2 and 3 or 4)or(missing and 2 or 1)
+   -- A quest teaches it for free, so there's no trainer price to find.
+   local quest=QuestFor(row)
+   local result={data=row,ready=ready==true,group=group,quest=quest,needsPrevious=needsPrevious==true}
+   rows[#rows+1]=result;summary.count=summary.count+1
+   if Number(row.cost)then summary.all=summary.all+row.cost elseif not quest then summary.unknown=summary.unknown+1 end
+   if ready then
+    summary.nowCount=summary.nowCount+1
+    if Number(row.cost)then summary.now=summary.now+row.cost elseif not quest then summary.nowUnknown=summary.nowUnknown+1 end
+   end
+  end
+ end
+ table.sort(rows,function(a,b)
+  if a.group~=b.group then return a.group<b.group end
+  a,b=a.data,b.data
+  if a.level~=b.level then return a.level<b.level end
+  if a.name~=b.name then return a.name<b.name end
+  return (tonumber((a.rank or ""):match("%d+"))or 0)<(tonumber((b.rank or ""):match("%d+"))or 0)
+ end)
+ return rows,summary
+end
+
+function M:Capture()
+ if scanning or not trainerOpen or not self:Enabled()or InCombatLockdown()then return end
+ if not C_Trainer or C_Trainer.GetTrainerType()~=Enum.TrainerType.General then return end
+ if not GetNumTrainerServices or not GetTrainerServiceInfo then return end
+ scanning=true
+ local filters={}
+ local ok,result=pcall(function()
+  -- Service indices are filtered by the client. Read every state, then put all
+  -- three filters back before returning, including when an API call fails.
+  for _,kind in ipairs({"available","unavailable","used"})do
+   if GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter then
+    filters[kind]=GetTrainerServiceTypeFilter(kind)
+    SetTrainerServiceTypeFilter(kind,true)
+   end
+  end
+  local _,_,_,_,categories=self:BookData()
+  local entries,matchedClass={},false
+  for index=1,GetNumTrainerServices()do
+   local name,kind,icon,level,rank,category=GetTrainerServiceInfo(index)
+   if Public(name)and type(name)=="string"and Public(category)
+    and Number(level)and(kind=="available"or kind=="unavailable"or kind=="used")then
+    local cost,profession=GetTrainerServiceCost(index)
+    if not profession then
+     if categories[category]then matchedClass=true end
+     rank=type(rank)=="string"and rank or ""
+     local row={name=name,rank=rank,icon=icon,level=level,trainer=true,learned=kind=="used"}
+     if Number(cost)and cost>=0 then row.cost=cost end
+     local link=GetTrainerServiceItemLink and GetTrainerServiceItemLink(index)
+     if Public(link)and type(link)=="string"then row.spellID=tonumber(link:match("spell:(%d+)"))end
+     if GetTrainerServiceSkillReq then
+      local skill,_,has=GetTrainerServiceSkillReq(index)
+      if skill and not has then row.skillBlocked=true;row.skill=skill end
+     end
+     if GetTrainerServiceNumAbilityReq and GetTrainerServiceAbilityReq then
+      for reqIndex=1,GetTrainerServiceNumAbilityReq(index)do
+       local ability,has=GetTrainerServiceAbilityReq(index,reqIndex)
+       if type(ability)=="string"then
+        row.requirements=row.requirements or{}
+        row.requirements[ability]=has==true
+       end
+      end
+     end
+     entries[Key(name,rank)]=row
+    end
+   end
+  end
+  return matchedClass and entries or{}
+ end)
+ for kind,value in pairs(filters)do pcall(SetTrainerServiceTypeFilter,kind,value)end
+ scanning=false
+ if not ok then self.lastError="Trainer data could not be read. Reopen your class trainer to retry.";return end
+ if not next(result)then return end
+ local cache=Cache()
+ for key,row in pairs(result)do cache.entries[key]=row end
+ cache.trainer=UnitName("npc")or "Class trainer"
+ cache.updated=date and date("%Y-%m-%d")or ""
+ self.lastError=nil
+ E:SaveSettings()
+ self:Refresh()
+end
+
+local function Money(n)
+ if GetMoneyString then return GetMoneyString(n,true)end
+ return string.format("%dg %ds %dc",math.floor(n/10000),math.floor(n/100)%100,n%100)
+end
+local function Total(n,unknown)
+ return Money(n)..(unknown>0 and(" + "..unknown.." ?")or "")
+end
+local function Build(owner)
+ if window then return end
+ window=CreateFrame("Frame","EraUITrainingGuide",owner,"BackdropTemplate")
+ -- Clear the spellbook's round portrait and its surrounding frame artwork.
+ window:SetPoint("TOPLEFT",owner,"TOPLEFT",22,-76)
+ window:SetPoint("BOTTOMRIGHT",owner,"BOTTOMRIGHT",-38,86)
+ window:SetFrameLevel(owner:GetFrameLevel()+8);T.Skin(window);window:EnableMouse(true)
+ window.search=CreateFrame("EditBox",nil,window,"InputBoxTemplate")
+ window.search:SetPoint("TOPLEFT",10,-9);window.search:SetSize(292,20);window.search:SetAutoFocus(false)
+ window.search:SetMaxLetters(60)
+ local hint=T.Text(window.search,"Search training",11);hint:SetPoint("LEFT",3,0);hint:SetTextColor(.55,.55,.55)
+ window.search:SetScript("OnTextChanged",function(self)
+  hint:SetShown((self:GetText()or "")=="")
+  if window.scroll then window.scroll:SetVerticalScroll(0);M:Refresh()end
+ end)
+ window.search:SetScript("OnEscapePressed",function(self)self:SetText("");self:ClearFocus()end)
+ window.search:SetScript("OnEnterPressed",function(self)self:ClearFocus()end)
+ window.now=T.Text(window,"",10);window.now:SetPoint("BOTTOMLEFT",8,34)
+ window.total=T.Text(window,"",10);window.total:SetPoint("BOTTOMLEFT",8,20)
+ window.note=T.Text(window,"Reference prices; ? = unverified. Hover for details.",9)
+ window.note:SetPoint("BOTTOMLEFT",8,6);window.note:SetTextColor(.65,.65,.65)
+ local scroll=CreateFrame("ScrollFrame",nil,window,"UIPanelScrollFrameTemplate")
+ scroll:SetPoint("TOPLEFT",5,-36);scroll:SetPoint("BOTTOMRIGHT",-25,55)
+ local content=CreateFrame("Frame",nil,scroll);content:SetSize(290,1);scroll:SetScrollChild(content)
+ window.scroll,window.content,window.rows=scroll,content,{}
+ window:Hide()
+end
+local ROW,QUEST_ROW=22,36 -- a spell a class quest teaches has that quest on a second line
+
+local groups={"Available Now","Available but Missing Requirements","Coming Soon","Not Yet Available"}
+local colours={{.2,1,.2},{1,.55,.1},{.35,.7,1},{1,.2,.2}}
+function M:Refresh()
+ if not self:Enabled()then if window then window:Hide()end;return end
+ if not window or not book or not book.trainingShown or not window:IsShown()then return end
+ local rows,s=self:Collect()
+ window.now:SetText("Now: "..Total(s.now,s.nowUnknown))
+ window.total:SetText("All unlearned: "..Total(s.all,s.unknown))
+ local query=(window.search:GetText()or ""):lower()
+ local display,lastGroup={}
+ for _,result in ipairs(rows)do
+  if query==""or(result.data.name.." "..result.data.rank):lower():find(query,1,true)then
+   if lastGroup~=result.group then display[#display+1]={header=groups[result.group],group=result.group};lastGroup=result.group end
+   display[#display+1]=result
+  end
+ end
+ if #display==0 then display[1]={header=query~=""and "No matching spells"or "All listed spells learned",group=1}end
+ local top=0
+ for index,result in ipairs(display)do
+  local row=window.rows[index]
+  if not row then
+   row=CreateFrame("Frame",nil,window.content);row:SetSize(290,22)
+   row.icon=row:CreateTexture(nil,"ARTWORK");row.icon:SetPoint("TOPLEFT",0,-3);row.icon:SetSize(16,16)
+   row.title=T.Text(row,"",11);row.title:SetPoint("TOPLEFT",20,-1);row.title:SetWidth(216);row.title:SetHeight(20)
+   row.level=T.Text(row,"",10);row.level:SetPoint("TOPRIGHT",-2,-5);row.level:SetJustifyH("RIGHT")
+   -- Under a spell a class quest teaches: that quest and where it starts.
+   row.questText=T.Text(row,"",10);row.questText:SetPoint("TOPLEFT",20,-19);row.questText:SetWidth(266);row.questText:SetWordWrap(false)
+   row:EnableMouse(true)
+   row:SetScript("OnEnter",function(self)
+    local data=self.data;if not data then return end
+    GameTooltip:SetOwner(self,"ANCHOR_RIGHT")
+    if data.spellID and GameTooltip.SetSpellByID then GameTooltip:SetSpellByID(data.spellID)
+    else GameTooltip:SetText(data.name..(data.rank~=""and(" ("..data.rank..")")or ""))end
+    GameTooltip:AddLine("Required level: "..data.level,1,.82,0)
+    local quest=self.quest
+    if quest then
+     -- Taught by a quest, so there's no trainer price.
+     GameTooltip:AddLine(quest.accept and "You learn it as you accept the quest \""..quest.name.."\", not from a trainer."
+      or "Learned from the quest \""..quest.name.."\", not a trainer.",1,.82,.29,true)
+     local start=QuestStart(quest)
+     if start then GameTooltip:AddLine(start,.85,.85,.85,true)end
+    else
+     GameTooltip:AddLine(Number(data.cost)and((data.reference and "Classic base-price reference: "or "Recorded trainer quote: ")..Money(data.cost))or "Price not verified for this Forever spell.",.8,.8,.8,true)
+     if data.reference then GameTooltip:AddLine("Reference prices may differ on Forever and exclude discounts.",.65,.65,.65,true)end
+    end
+    -- Only while the rank before it isn't known, with that rank's number.
+    if self.needsPrevious then
+     local prev=T.Spell(data.previous)or tostring(data.previous)
+     local rank=C_Spell and C_Spell.GetSpellSubtext and C_Spell.GetSpellSubtext(data.previous)
+     GameTooltip:AddLine("Requires previous rank: "..prev..((rank and rank~="")and(" ("..rank..")")or ""),1,.55,.1,true)
+    end
+    for name in pairs(data.requirements or{})do GameTooltip:AddLine("Requires: "..name,.85,.85,.85,true)end
+    if data.skill then GameTooltip:AddLine("Requires: "..data.skill,.85,.85,.85,true)end
+    GameTooltip:Show()
+   end)
+   row:SetScript("OnLeave",function()GameTooltip:Hide()end)
+   window.rows[index]=row
+  end
+  local data,quest=result.data,result.quest;row.data,row.quest,row.needsPrevious=data,quest,result.needsPrevious;row:SetPoint("TOPLEFT",0,-top)
+  row:SetHeight(quest and QUEST_ROW or ROW);top=top+(quest and QUEST_ROW or ROW)
+  row.questText:SetShown(quest~=nil)
+  if quest then row.questText:SetText("|cffffd24aQuest:|r "..quest.name..(quest.where and("  |cffaaaaaa"..quest.where.."|r")or ""))end
+  row.icon:SetShown(data~=nil);row.level:SetShown(data~=nil)
+  if data then
+   row.icon:SetTexture(data.icon or "Interface\\Icons\\INV_Misc_Book_09")
+   row.title:SetText(data.name..(data.rank~=""and(" |cffaaaaaa("..data.rank..")|r")or ""))
+   row.title:SetTextColor(1,.82,0);row.title:SetJustifyH("LEFT")
+   row.level:SetText("Lv "..data.level);row.level:SetTextColor(unpack(colours[result.group]))
+  else
+   row.title:SetText(result.header);row.title:SetTextColor(unpack(colours[result.group]));row.title:SetJustifyH("CENTER")
+  end
+  row:Show()
+ end
+ for index=#display+1,#window.rows do window.rows[index]:Hide()end
+ window.content:SetHeight(math.max(1,top))
+ window.scroll:SetVerticalScroll(math.min(window.scroll:GetVerticalScroll(),math.max(0,top-window.scroll:GetHeight())))
+end
+function M:Toggle(owner)
+ if not self:Enabled()or not owner or InCombatLockdown()then return end
+ book=owner;Build(owner)
+ if not book.trainingShown then
+  book.trainingShown=true;window.previous={}
+  local hide={book.Search,book.Ranks,book.PageText,book.PrevPage,book.NextPage}
+  for _,b in ipairs(book.Buttons or{})do hide[#hide+1]=b end
+  for _,f in ipairs(hide)do window.previous[f]=f:IsShown();f:Hide()end
+  book:SetLayer(false)
+ end
+ for _,tab in ipairs(book.SkillTabs)do tab:SetChecked(false)end
+ book.TrainTab:SetChecked(true);book.Title:SetText("Training Guide")
+ if book.BookTabs and book.BookTabs[1]then book.BookTabs[1]:SetEnabled(true)end
+ window:Show();self:Refresh()
+end
+function M:Close()
+ if not book or not book.trainingShown or InCombatLockdown()then return end
+ book.trainingShown=false;window:Hide()
+ for f,shown in pairs(window.previous or{})do f:SetShown(shown)end
+ book.TrainTab:SetChecked(false);book:SetLayer(book:IsShown());book:Refresh()
+end
+function M:BindBook(owner)
+ book=owner
+end
+function M:Initialize()
+ local events=CreateFrame("Frame")
+ for _,event in ipairs({"TRAINER_SHOW","TRAINER_CLOSED","TRAINER_UPDATE","TRAINER_SERVICE_INFO_NAME_UPDATE",
+  "SPELLS_CHANGED","LEARNED_SPELL_IN_SKILL_LINE","PLAYER_LEVEL_UP","PLAYER_ENTERING_WORLD","PLAYER_REGEN_ENABLED"})do events:RegisterEvent(event)end
+ -- The level-up event can come before the new level is in; this one comes after.
+ pcall(events.RegisterEvent,events,"PLAYER_LEVEL_CHANGED")
+ events:SetScript("OnEvent",function(_,event)
+  if event=="TRAINER_SHOW"then trainerOpen=true elseif event=="TRAINER_CLOSED"then trainerOpen=false end
+  if scanning or queued then return end
+  queued=true
+  C_Timer.After(0,function()
+   queued=false
+   if trainerOpen then M:Capture()end
+   M:Refresh()
+  end)
+ end)
+end

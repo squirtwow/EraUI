@@ -1,0 +1,119 @@
+> **Old draft, not kept up to date.** This Markdown copy was last brought in
+> line at 1.4.0. The live CurseForge description is
+> `Tools/CurseForgeDescription.html`; see the
+> [CurseForge page](https://www.curseforge.com/wow/addons/eraui) for the
+> current one.
+
+# ⚔️ EraUI: Classic WoW, restored.
+
+[![Join the EraUI Discord community](https://img.shields.io/badge/Discord-Join%20EraUI-5865F2?logo=discord&logoColor=white)](https://discord.gg/FVfcDWJncr)
+
+💬 **Support, bugs & ideas:** join our Discord to get help, report issues, suggest features and share your UI.
+
+*The 2004 interface you remember, rebuilt for World of Warcraft: Forever, with the quality-of-life you'd miss. Every feature is optional.*
+
+---
+
+## ✦ Highlights
+
+- 🖼️ **The real classic look**: action bar, unit frames, cast bars, minimap, nameplates and classic-styled windows
+- 🗺️ **Movable world map**: drag it by the header and resize proportionally from the corners or edges; normal and expanded layouts are remembered separately, and the quest list overlays the right side without squeezing the map artwork
+- 🌍 **Reveal World Map**: show supported unexplored terrain with darker shading, while explored areas keep their normal colours
+- 💤 **AFK Screen**: when you go AFK, the EraUI banner in your class colour, your character, your details and a famous Classic line for your class. On by default
+- 🎒 **Bag Item Levels**: item levels in quality colours, upgrade arrows and a red icon on gear you can't equip (optional)
+- 🔔 **Class reminders**: class-coloured, draggable alerts for missing buffs, pets, weapon coatings and supplies
+- 📖 **Training Guide**: an optional tab inside the spellbook, populated immediately with unlearned spells, required levels, availability groups and reference cost totals
+- 🔴 **Combo points your way**: floating orbs in gold or red
+- 🧰 **Quality of life everywhere**: vendor prices, bag space, auto-repair, swing timers, class tools and more
+- 📣 **"What's new" after each update**: a class-coloured, screen-fitting window with scrollable release notes, mouse-wheel support and an always-visible **Got it** button
+
+---
+
+## 🎨 The classic look
+
+- **Action bar**: the stone band with gryphons, page arrows, micro menu, bag buttons and the XP bar in their original spots
+- **Unit frames**: player, target, target of target, focus, pet and party frames, with Classic player debuff borders and dark, grey-bordered buff/debuff hover boxes
+- **Dark Mode**: darker decorative artwork, with thin dark borders round your buff and debuff icons, and optional soft shadows behind them
+- **Tooltips**: translucent dark backgrounds and thin, bevelled grey borders with softened corners on item, spell, unit and map-control hover boxes, including linked items and item comparisons. Enabled by default for fresh settings and resets; existing saved choices are respected. Toggle Tooltips in `/era` and reload to apply. Optional **Class-coloured Tooltips** show a player's border, name and class in their class colour
+- **Cast bars & timers**: player, pet, target and focus cast bars; classic breath and fatigue timers
+- **Minimap & nameplates**: the round classic minimap and 1.x-style nameplates
+- **Windows**: character sheet, spellbook, talents, professions, trade skills, trainers, quest log & tracker, bags & bank, game menu, settings, Who list, guild roster and group finder
+- **Questie integration**: quest-log clicks open the selected quest in EraUI's Classic quest log when enabled; objective and map-icon clicks keep their map navigation. Blizzard's tracker stays hidden while Questie replaces it, both in and out of combat, and returns when Questie's tracker is disabled. Questie's Show Blizzard Timer preference is respected
+- **Map quest details**: parchment and scrolling quest descriptions fit the panel's available height, with quest action buttons at the bottom
+- **Combo points**: floating orbs in gold or red, draggable and resizable
+
+## ⚙️ Quality of life
+
+- Vendor prices · bag-space counter · quest levels · map quest objectives
+- Auto-sell junk · auto-repair at vendors
+- Chat class colours · hide secondary names · highest-rank spell filtering
+- Energy/rage/mana/druid resource bars · swing timer · ranged swing timer
+- Advanced cast bar with ticks and latency display
+- Movable, resizable world map with optional unexplored terrain reveal
+- Class tools: hunter feeding, mage supplies, rogue poisons
+- Searchable Training Guide with bundled Forever spell levels and reference training costs
+- Coordinates · clean minimap · cursor ring · draggable chat
+
+## 🔔 Class reminders & buffs
+
+- Open your class tab in `/era`, enable **Class Reminders & Buffs**, and use the options directly below it
+- Drag each alert independently, choose Small, Normal or Large, and reset positions when needed
+- Use **Show all reminders** to preview and arrange applicable alerts
+- Pick a preferred aspect, blessing, seal, aura, shaman weapon imbue or warlock demon under **Advanced**
+- Hunters have separate **SUMMON PET!** and **PET DEAD!** reminders, using Call Pet and Revive Pet icons; each can be toggled under **Advanced**. Selected warlock demons are checked by demon family
+- Optional **Clickable reminders (outside combat)** starts off. Enable it to left-click supported reminder icons to cast their spell, including Call Pet and Revive Pet; drag the text to reposition. Preview alerts never cast
+- Hunters and warlocks can also turn on **Click pet reminders in combat** to click SUMMON PET!, PET DEAD! and PET LOW HEALTH! mid-fight
+- On **Any**, clicking a blessing, shaman imbue or warlock demon reminder casts the only one you know, or the one you cast last; pick one under **Advanced** to always cast that one. `/era discord` gives the Discord invite for bugs and ideas. Targetable group buffs use your friendly living target, otherwise yourself; reminders without an associated spell remain informational
+- Weapon reminders distinguish the main and off hand, skip empty slots and shields, and check known poison or imbue types
+- All reminders hide while you're on a flight path and come back a moment after you land
+- Optional **PET LOW HEALTH!** for hunters and warlocks shows below 35% by default (20 to 60%), in combat too with Show during combat. With Clickable reminders, clicking it out of combat casts Mend Pet or Health Funnel
+- Shamans can enable a separate **Windfury Totem** reminder under Advanced; the general totem reminder checks whether any totem is active
+- Optional party/raid checks skip duplicate player entries and members known to be dead, offline or out of range
+- Soulstone application checks whether a checked member is protected, rather than requiring it on everyone
+- Alerts are silent and hidden during combat by default. **Show during combat** enables informational alerts; click actions always stay disabled during combat
+
+## 🐾 Hunter feeding
+
+- Enable **Pet Feeding** in `/era` under Hunter; a feeding button appears outside combat when Feed Pet is learned and your living pet's happiness is low
+- Configure food preferences in the Hunter tab
+- Right-click the icon to unlock, drag it to move, scroll to resize and left-click to lock
+- Once locked, left-click feeds your pet with the selected food
+- **Move / resize feeding button** opens a positioning preview, including before Feed Pet is learned
+- The floating icon stays hidden while browsing settings; the Hunter panel explains pet-related visibility conditions
+
+## 🧙 Class-tool settings
+
+- Expanded class options and search results scroll within the settings window, keeping the footer accessible
+- Mage food and water suggestions include one-click conjuring outside combat and configurable trade stack counts
+- Mage conjure buttons hide during combat; settings navigation, scrolling and closing remain available
+
+## 📖 Training Guide
+
+- **Training Guide** is enabled by default for fresh settings and resets; existing saved choices are respected. Its tab appears below the class icons and displays inside the Classic spellbook, which must also be enabled. Toggle Training Guide in `/era` and reload to apply
+- Bundled spell metadata for all nine Forever classes populates the list immediately, without visiting a trainer
+- Unverified seasonal/default learning levels are excluded rather than displayed as level-1 training
+- Search unlearned spells and ranks, with groups for **Available Now**, **Available but Missing Requirements**, **Coming Soon** and **Not Yet Available**
+- See required levels and separate reference totals for current and all listed unlearned spells
+- Cost references use Classic base prices and may differ on Forever; unverified prices are marked **?** and excluded from the priced subtotal
+- Optional trainer visits update recorded quotes, including discounts, per character and realm
+- Learned spells disappear from the list; return to a class tab to use the normal spellbook
+
+---
+
+## 💬 Commands
+
+- `/era` opens the settings window
+- `/era setup` replays the guided first-run setup
+- `/era welcome` shows the welcome screen again
+- `/era updates` shows the latest update notes again
+- `/era reminders` opens class-reminder settings
+- `/era status` opens a selectable diagnostics report
+- `/era audit` runs the addon audit report
+- `/era mapdebug` opens map diagnostics
+- `/era reset` restores default settings and reloads automatically; use it outside combat
+
+---
+
+*Most options apply immediately; the panel marks the few that need a reload. General settings and reminder layouts are shared across your characters. Swing toggles and class-tool preferences are remembered per character and realm. Settings and supplementary panels use your class colour. Quiet Mode is on by default.*
+
+**Created by Squirt. Built for World of Warcraft: Forever.**

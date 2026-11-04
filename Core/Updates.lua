@@ -1,0 +1,774 @@
+-- EraUI "What's new" notes.
+-- Shown once after the addon version changes: what's new, what changed,
+-- what was fixed, and what's coming. Styled like the other EraUI windows,
+-- with the player's class colour on the stripe, title and button.
+local _, EraUI = ...
+
+local UPDATES = {
+    {
+        version = "1.8.0",
+        sections = {
+            { "Added", {
+                "Quest Item Sparkles: lootable quest items sparkle so they're easy to spot. On by default; the game's outlines are off while it's on.",
+                "Herb and Ore Sparkles: the nearest herb or ore sparkles as you get close. (experimental)",
+                "Flight mini-games: Whack-a-Gnome (Whack-a-Peon for the Alliance) and Azeroth Blast, in /era > Screen & Cursor > Mini-games. (experimental)",
+                "The Legacy window (Y) in the 1.x look.",
+                "Remember Minimap Zoom: keeps your minimap zoom between logins.",
+                "A small seal on voiced quests in the classic quest log, with a quest voice addon that supports it.",
+                "Hide Surnames can cover player tooltips too. (experimental)",
+                "Key Bindings for the Classic Talents, Spellbook and Quest Log, and a one-time offer to set N for talents. (experimental)",
+            } },
+            { "Changed", {
+                "The Classic look is rebuilt from the ground up. It looks and works the same, and your settings are kept.",
+                "The Training Guide matches Forever's launch data.",
+                "The spellbook and quest log keys open the game's own windows; the menu buttons still open the classic ones.",
+                "The guild key works without changing your key bindings.",
+                "The classic quest log remembers where you drag it.",
+                "Combat Spell Dragging is off unless you turn it on. (experimental)",
+                "The Professions window's side tabs are gone. Close and reopen it to get back from a profession's page.",
+                "Nameplates, Class Reminders, Empty Slots and more do much less work in the background.",
+                "Gryphons are lighter in Dark Mode.",
+            } },
+            { "Fixed", {
+                "Your portrait's crowd control icon shows on Forever's launch client (no countdown there).",
+                "The combined bag's empty slots, the profession book's spell buttons and the scoreboard's close button keep EraUI's look.",
+                "Training Guide: missing trainer spells, High Order mage teleports and portals, and ranks you can buy on the same visit.",
+                "The shaman totem bar no longer sits on the Classic action bars.",
+                "Settings no longer slip back after a /reload, and swing timers stay on after a restart.",
+                "No \"set up EraUI\" line at every login, and the welcome waits for the game's intro on a new character.",
+                "Ticking Advanced Cast Bar turns on its tick marks and latency zone.",
+                "Tooltip IDs show on comparison and quest reward tooltips every time.",
+                "With Hide Surnames off, the game's My surname box keeps your choice.",
+                "/eraui-classic reset no longer brings back What's New and the set up line, or switches windows back on after a restart.",
+                "The queue eye goes straight back beside the minimap after Edit Mode changes.",
+                "No dark strip above the Professions window.",
+                "Small fixes to help text, /era search and the status report.",
+            } },
+        },
+    },
+    {
+        version = "1.7.3",
+        sections = {
+            { "Added", {
+                "Craft Batch Countdown on the Advanced Cast Bar: crafting a batch shows which one you're on (4 / 133) and the time left for them all.",
+            } },
+            { "Changed", {
+                "Update Notice now hears of a newer EraUI from far more players, not just your guild and group.",
+            } },
+            { "Fixed", {
+                "Movable World Map: opening the quest list no longer shifts the map out of its window.",
+                "The target of target's name lines up under its bars again.",
+                "Skill and reputation bars fill to the end when full.",
+            } },
+        },
+    },
+    {
+        version = "1.7.2",
+        sections = {
+            { "Fixed", {
+                "Minimap: no gold bar behind the zone name, the classic tracking glass is back, the calendar date and glow are fixed, the game's new event button gets its own spot, and the day/night icon scales with the minimap.",
+                "The Who list keeps filling after a /who.",
+                "Incoming heal and shield bars line up with the health bar again.",
+                "Button cooldowns stay dark after a cast with No cast animation on buttons.",
+                "Party role icons no longer stretch after a group change mid-fight.",
+                "BLESSING! no longer counts Salvation as a blessing.",
+            } },
+            { "Changed", {
+                "Battle Shout and Trueshot Aura reminders check the whole raid, since both buffs now reach everyone.",
+                "Training Guide spells and levels match Forever's latest patch, and old trainer prices reset after a game update.",
+            } },
+        },
+    },
+    {
+        version = "1.7.1",
+        sections = {
+            { "Added", {
+                "Square Minimap (Map & Minimap), with a Square Size slider.",
+                "Show me what's new walks you to each new option in /era, and glows in your class colour until you've looked.",
+                "First-time players are offered a quick tour of /era.",
+            } },
+            { "Changed", {
+                "Options that have been tested are no longer marked experimental. Only Raid-style Party Outline still is.",
+            } },
+            { "Fixed", {
+                "\"just added\" shows next to new options again after an update.",
+            } },
+        },
+    },
+    {
+        version = "1.7.0",
+        sections = {
+            { "Added", {
+                "Thick Frames: thick dark unit frames with round corners and taller bars, plus Portrait Rings, Classic Party Frames and a class-colour Edge (experimental).",
+                "Stat Tracker: a small panel of the stats you pick, updating live; drag it anywhere (Character & Spells, experimental).",
+                "Upgrade Spell Ranks: a new rank you learn replaces the old one on your bars (Action Bars, experimental).",
+                "Rounded Cast Bars: thick soft-cornered cast bars with the spell icon in its own tile (experimental).",
+                "Thick Aura Borders: thick dark borders round your own buffs and debuffs (experimental).",
+                "Raid-style Party Outline: flat bars and one thick dark outline round raid-style party frames (experimental).",
+                "Cast Bar Colour: your cast bar in yellow, grey, your class colour or a colour you pick (experimental).",
+                "Clean Minimap: a new Drawer style tucks your addon buttons into one minimap button, in a grid you can arrange (experimental).",
+                "Dark Bag Buttons: in Dark Mode, darker grey bag icons, all alike, and a dark line on an open bag (experimental).",
+            } },
+            { "Changed", {
+                "In Dark Mode your cast bar is now light grey; pick Yellow under Cast Bar Colour for the old look.",
+                "Dark Windows also darkens the game's red buttons (Release Spirit, quest, mail, trade and more) and red X close buttons (experimental).",
+                "With Match Focus Size, the focus frame shows only debuffs unless Use Larger Frame is ticked for it in Edit Mode.",
+            } },
+            { "Fixed", {
+                "No more \"blocked\" message from the focus frame after levelling up in a fight.",
+                "The target of target shows the right name when it becomes you, and Hide Surnames works there too.",
+            } },
+        },
+    },
+    {
+        version = "1.6.0",
+        sections = {
+            { "Added", {
+                "A new settings layout: grouped tabs, sub-tabs and one row per option, with a short walkthrough. Your settings are kept.",
+                "Flat Bars: a plain, solid fill on unit-frame and cast bars (experimental).",
+                "Dark Windows: in Dark Mode, EraUI's red buttons and pop-ups, the game menu, help tips, the spellbook and Professions go dark with the Darkness slider (experimental).",
+                "Black Pages: black Spellbook and Professions pages (experimental).",
+                "Thin Debuff Colours: your debuffs get the dark border with a thin line in their colour (experimental).",
+                "More from Squirt lists Forever Enhanced Cursor and Forever Enhanced Cooldown Pulse.",
+            } },
+            { "Changed", {
+                "Clean Minimap also hides the minimap buttons of Squirt's other addons until you hover the map.",
+                "Reveal World Map steps aside while another map addon is already revealing the map.",
+            } },
+            { "Fixed", {
+                "The target frame shows all five combo points again.",
+                "No more \"blocked\" message after fights with a focus or target.",
+                "With Friends & Guild on, the friends key opens the classic Friends List instead of the game's new social window.",
+                "The sort bags button shows on the combined bag again.",
+                "Trainer descriptions are no longer cut off.",
+                "Switching Dark Menu Bar on or off applies at once.",
+                "What's New and the update notice show the right version.",
+            } },
+        },
+    },
+    {
+        version = "1.5.5",
+        sections = {
+            { "Added", {
+                "In Dark Mode, light + and - on the minimap zoom buttons, and a dark ring on the day/night button.",
+                "The heart and name in the \"Made with love by Squirt\" footer show in your class colour.",
+            } },
+            { "Changed", {
+                "Dark Aura Borders give Boosted Rest the dark border instead of a red debuff ring.",
+            } },
+            { "Fixed", {
+                "Hide Aggro Highlight keeps the aggro flash and your status glow hidden.",
+            } },
+        },
+    },
+    {
+        version = "1.5.4",
+        sections = {
+            { "Added", {
+                "Dark Menu Bar: in Dark Mode the menu bar buttons' frames darken with the Darkness slider (Action Bars page).",
+            } },
+            { "Changed", {
+                "Dark Aura Borders: the grey line darkens with the Darkness slider, and icons are trimmed so their bright rim doesn't show.",
+                "Tooltip borders darken with the Darkness slider in Dark Mode. Class-coloured borders keep their colour.",
+            } },
+        },
+    },
+    {
+        version = "1.5.3",
+        sections = {
+            { "Added", {
+                "Darkness slider for Dark Mode, from light grey to near black.",
+                "Darken class colours too: class-coloured unit borders darken with the slider.",
+            } },
+            { "Changed", {
+                "Dark Mode also darkens the minimap ring, zoom buttons, clock, reputation bar frame and latency bar.",
+                "More from Squirt shows Forever Enhanced Cooldown Manager's new logo.",
+            } },
+            { "Fixed", {
+                "Escape closes EraUI's windows without changing your key bindings.",
+                "The Presets window closes when you change tab or close /era.",
+            } },
+        },
+    },
+    {
+        version = "1.5.2",
+        sections = {
+            { "Added", {
+                "Character Item Levels: item levels on your worn gear in the character window (off by default).",
+                "Rogues: click POISON! to apply poisons, left-click main hand, right-click off hand (Needs testing, off by default).",
+            } },
+            { "Changed", {
+                "Rogues: POISON! replaces the Poison Reminders panel, and stays on if you used it.",
+                "/era reset, Reset toggles and /eraui-classic reset now ask before resetting.",
+                "/era search shows just the cards, with no option boxes or gaps. Click a result's tab name to go there.",
+            } },
+            { "Fixed", {
+                "Poison Supplies works again on Forever's new patch.",
+                "Character window: Melee and Ranged Attack show your weapon skill again.",
+                "Debuff borders show their type colour again (Magic, Curse, Poison, Disease) instead of always red.",
+                "Spellbook and profession shift-click links, and Whisper in the Guild and Who lists, updated for Forever's new patch.",
+                "Clickable reminders no longer leave an invisible click spot on screen in combat.",
+                "Mage Conjure buttons no longer float over other cards.",
+            } },
+        },
+    },
+    {
+        version = "1.5.1",
+        sections = {
+            { "Changed", {
+                "Boss cast bars switch to Forever Enhanced Cooldown Manager's look when its Raid Timers option is ticked.",
+                "Bag Space now uses the game's new Show Free Bag Space switch.",
+                "Training Guide updated for the level 30 patch (druids get Primal Bite).",
+            } },
+            { "Fixed", {
+                "Opening Professions from the spellbook works with the new patch.",
+                "The backpack no longer shows your arrow count.",
+                "Group Finder: the new Play Style choice has the Classic look, and the line under the role icons no longer sticks out.",
+                "Training Guide and Talents show your new level straight after a level-up.",
+                "The PvP icon updates straight away.",
+            } },
+        },
+    },
+    {
+        version = "1.5.0",
+        sections = {
+            { "Added", {
+                "Class Icon Portraits: two switches under Frames & Nameplates show class icons instead of faces. Mine is for your own unit frame, Others for other players'. They're the game's own options from Options > Interface, so both always match, and they change at once. Not in combat.",
+            } },
+            { "Changed", {
+                "The /era window is streamlined: every option now lives with its topic, so things are easier to find. Can't spot something? Search still finds it all.",
+                "The /era tabs are now Appearance, your class, Action Bars, Frames & Nameplates, Casting, Map & Minimap, Quests, Character & Spells, Bags & Vendors, Chat & Names, Group & Invites, Windows & Tooltips, Screen & Cursor and More from Squirt, each with a line under its title saying what's on it.",
+                "Search also finds cards by their old names (some are shorter now, like Discard Junk When Full and Hide Surnames), and the Classic / Dark Mode choice and Update Notice. It takes colour or color and grey or gray, and shows each result's tab.",
+                "Cursor Ring, Cast Progress Ring and Cursor Trail: their options show once you switch them on.",
+                "Setup walkthrough: its pages follow the new tabs, and every option it offered is still there.",
+                "Updating from an earlier EraUI? A one-time note at the top of /era points you to Search. It shows once.",
+                "Class-coloured Unit Borders is greyed out until Dark Mode is on, as well as Unit Frames.",
+            } },
+            { "Fixed", {
+                "Spellbook: your spellbook key (P) closes the spellbook from the Training Guide tab too (in combat, press it twice). In combat, the spells under the Training Guide can no longer be clicked through it.",
+                "More from Squirt: the card's text no longer runs under its CurseForge button.",
+            } },
+        },
+    },
+    {
+        version = "1.4.0",
+        sections = {
+            { "Added", {
+                "AFK Screen, on by default: when you go AFK your interface and minimap fade away and EraUI shows its banner in your class colour, your character standing still, a card with your name, level, guild, zone, time away and the clock, and a famous World of Warcraft Classic line for your class. Move or press a key to come back. Its options are under Screen & Cursor.",
+                "Bag Item Levels: the item level of the gear in your bags as a big number in the item's quality colour, a green or red arrow for upgrades, and a red icon on gear you can't equip. Off by default.",
+                "Class reminders: Click pet reminders in combat, for hunters and warlocks. SUMMON PET!, PET DEAD! and PET LOW HEALTH! can be clicked mid-fight (Call Pet, Revive Pet, your demon, Mend Pet, Health Funnel). Off by default, and it needs Clickable reminders on.",
+                "Aura Shadows (Needs testing): a soft shadow behind your buff and debuff icons, with Dark Aura Borders in Dark Mode.",
+                "The EraUI logo in your addon list now matches the one on CurseForge.",
+            } },
+            { "Changed", {
+                "The AFK Screen is switched on once for everyone updating. If you switch it off, it stays off.",
+            } },
+        },
+    },
+    {
+        version = "1.3.0",
+        sections = {
+            { "Added", {
+                "Class reminders: PET LOW HEALTH! for hunters (click: Mend Pet) and warlocks (click: Health Funnel), in combat too. It shows below 35% by default, adjustable from 20 to 60%. Off by default.",
+                "Class reminders: Seal and Aura choices under Advanced, like Blessing. The alert names the one you picked.",
+                "Class-coloured Tooltips: a player's tooltip border, name and class in their class colour. Off by default.",
+                "Dark Aura Borders: a dark ring round your buff and debuff icons, on with Dark Mode.",
+                "Coming soon in /era: AFK Screen and Bag Item Levels.",
+            } },
+            { "Fixed", {
+                "Guild roster and /who: your own line no longer offers whisper, invite, promote or remove on yourself, and you can edit your own guild note.",
+                "The update notice only trusts a whisper from your full name.",
+                "/era Turn off recognises your character correctly.",
+            } },
+        },
+    },
+    {
+        version = "1.2.2",
+        sections = {
+            { "Added", {
+                "More from Squirt: Forever Enhanced Cooldown Manager is out, and its card gives you its CurseForge and GitHub links.",
+                "Class reminders: Summon Incubus can be picked as your demon.",
+            } },
+            { "Changed", {
+                "Class reminders: all reminders, the Poison Reminders panel too, hide while you're on a flight path and come back a moment after you land.",
+                "Class reminders: Forever's own spell ranks are recognised: Trueshot ranks 1 and 2, Seal of Righteousness, Wisdom, Command and Fury, Retribution and the resistance auras, Ice Armor and Aspect of the Beast.",
+            } },
+            { "Removed", {
+                "Class reminders for spells WoW Forever doesn't have: Summon Water Elemental (mage), Fire and Earth Elemental Totem (shaman), and the Blessing of Sanctuary and Felguard choices.",
+            } },
+        },
+    },
+    {
+        version = "1.2.1",
+        sections = {
+            { "Added", {
+                "Discord: a Discord button in the /era footer beside Changelog and at the bottom of What's New, and /era discord. Found a bug or have an idea? It gives you the invite to copy.",
+                "Class reminders: on Any, clicking a blessing, weapon imbue or demon reminder casts the only one you know, or the one you cast last. Until you've cast one, hovering the reminder says what to do.",
+            } },
+            { "Changed", {
+                "Class reminders: blessings are always click-cast as the normal blessing, never a Greater Blessing that needs Symbol of Kings. Priests, mages and druids click-cast a group buff (Prayer of Fortitude, Arcane Brilliance, Gift of the Wild) only while carrying its reagent.",
+                "Class reminders: a warrior's Battle Shout says \"Not enough rage\", with its own \"Say when you're out of rage\" option.",
+                "Update notice: only believes a version from your guild, party, raid or instance group, or a whisper from yourself.",
+                "More from Squirt: Forever Enhanced Cooldown Manager has its own icon and opens with /ccm.",
+                "Clean minimap also tucks away Forever Enhanced Cooldown Manager's minimap button, and no longer fades an addon's minimap button while you drag it.",
+            } },
+            { "Fixed", {
+                "Setup: the \"log out now?\" question for a new damage font and its \"Yes, log out\" button no longer stay on screen after you leave setup, or come back after a fight.",
+            } },
+        },
+    },
+    {
+        version = "1.2.0",
+        sections = {
+            { "Added", {
+                "Damage text font: pick the font of the damage and healing numbers, your own heals included. Pepsi by default, plus Bangers, Luckiest Guy, Lilita One, Titan One, Black Ops One, Russo One, Bungee, Permanent Marker and Press Start 2P, and the game's Skurri, Morpheus, Friz Quadrata and Arial Narrow. /era > Text & Camera. A new font shows after you log out and back in.",
+                "Damage text size slider, with a sample number that grows and shrinks as you drag. The size applies straight away.",
+                "Setup: a new Damage & healing text page. If you pick a new font, the last page offers to log out so you can see it.",
+                "Training Guide: spells you learn from a class quest (Bear Form, Teleport: Moonglade, warrior stances, hunter pet skills, shaman totems, warlock demons and more) show the quest's name and where it starts, for your race and faction, including Skyborne. Hover to see who gives it.",
+                "Click Links Again to Close: click an item or spell link in chat again to close its tooltip. /era > Quality of Life, on by default.",
+                "Class reminders: \"Not enough mana\" shows under a reminder until you can cast it. Option \"Say when you're out of mana\", on by default.",
+                "Update notice: tells you in chat when someone in your guild or group has a newer EraUI. The tick under the Presets button in /era, on by default.",
+                "More from Squirt: a new tab at the bottom of /era with my other addons. Forever Enhanced Cooldown Manager is coming soon.",
+            } },
+            { "Changed", {
+                "Class reminders: clicking a reminder for a buff you're missing now casts it on you, even with someone else targeted.",
+                "Training Guide: quest spells no longer count as unknown trainer prices in the totals.",
+                "The Changelog button now sits in the middle of the /era footer.",
+            } },
+            { "Fixed", {
+                "A Lua error after phasing or changing zones.",
+            } },
+        },
+    },
+    {
+        version = "1.1.0",
+        sections = {
+            { "Added", {
+                "Presets: Classic + Quality of Life, Classic look only, or Quality of Life only (keeps Blizzard's modern interface). The first page of /era setup, or use the Presets button in /era, which shows your current preset. Your Quality of Life choices are never changed.",
+                "Classic Damage Meter: optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown. /era > Interface, off by default.",
+                "Quest tracker choice: with Questie installed, choose the Classic Tracker or Questie's own tracker, in /era setup or when turning Quest Tracker on. Questie's tracker currently lists no quests on WoW Forever, so the Classic Tracker is recommended.",
+                "Other Windows: a switch for the Classic look on windows without one of their own (trade, taxi, macros, calendar, achievements, collections and more). /era > Interface, on by default.",
+            } },
+            { "Changed", {
+                "Important Debuffs on Portraits works in combat, using the game's own secure display. Enemy targets show stuns first, then fears, silences and roots. Friendly units show any crowd control, and your portrait shows what is controlling you. The icon covers the level badge while shown.",
+                "Movable World Map: resizing scales the whole map window. Your saved size carries over.",
+                "Options that need a Classic piece (for example Training Guide needs the Classic Spellbook) are greyed out while it is off.",
+                "\"QoL\" is now spelled out as Quality of Life.",
+                "Lighter player power bar updates.",
+            } },
+            { "Fixed", {
+                "The world map no longer jumps to its default spot in combat, and no longer causes blocked map messages.",
+                "Level-up \"tainted by EraUI\" error when using Questie's tracker.",
+                "Important Debuffs on Portraits error from 1.0.6.",
+            } },
+            { "Removed", {
+                "Trainer troubleshooting text from the status window.",
+            } },
+        },
+    },
+    {
+        version = "1.0.6",
+        sections = {
+            { "Added", {
+                "Cast Progress Ring: class/custom colours, size and opacity controls. Fills during casts, drains during channels, with no interruption flash.",
+                "Cursor Trail: independent toggle, class/custom colours, size, opacity and fade controls.",
+                "Discard Cheapest Junk: frees the lowest-value grey stack on the initial right-click of a known lootable corpse when bags are full. Falls back to the next loot click when loot rights are unavailable. Includes Shift bypass, a chat receipt and one-stack-per-loot-window limit.",
+                "Important Debuffs on Portraits: crowd-control icons and countdowns on player, target, focus and party portraits, marked Needs testing.",
+                "Changelog button in /era.",
+                "Discord button in the status window.",
+                "All new gameplay/cursor options default off.",
+            } },
+            { "Fixed", {
+                "Player cast bar jumping vertically.",
+                "XP/status bar jumping to the screen top.",
+                "Train-button hover highlighting while preserving purchases and profession confirmations.",
+                "Class-tool navigation closing settings.",
+                "Quest-level labels causing tracker rebuilds or recursive layout, with prefixes respecting available space.",
+                "Added a centred scroll hint when more settings are below the viewport.",
+            } },
+            { "Changed", {
+                "Removed redundant Configure shortcuts for Druid, Warrior, Paladin, Shaman, Priest and Warlock.",
+                "Clearly labelled Hunter feeding and Mage conjuring/trade sections.",
+                "Hidden ineffective Rogue/Shaman group-reminder options and unsupported Rogue reminder clicking.",
+                "Prevented duplicate Rogue missing-poison alerts while preserving saved choices and supply tools.",
+            } },
+        },
+    },
+    {
+        version = "1.0.5",
+        sections = {
+            { "New", {
+                "Optional Clickable reminders (outside combat): enable it in your class-reminder options, then click supported icons to cast. It starts off; drag the text to move alerts. Preview alerts never cast.",
+                "Hunters have a separate PET DEAD! reminder with Revive Pet, configurable under Advanced. SUMMON PET! now covers missing pets without duplicating the death alert.",
+                "Questie's quest-log actions open the selected quest in the Classic quest log when enabled. Objective and map-icon clicks keep their map navigation.",
+            } },
+            { "Changed", {
+                "Reminder icons use a subtle hover highlight without a tooltip. Choose a blessing, imbue or demon under Advanced for its click action. Targetable group buffs use your friendly living target, otherwise yourself.",
+                "/era reset restores default settings and reloads automatically. Use it outside combat; a failed reset request keeps your settings and does not reload.",
+            } },
+            { "Fixed", {
+                "Compact Classic trainers use Blizzard's native selection and purchase controls, with pet levels and training-point costs. Opening, empty-filter messages and combat presentation are improved.",
+                "Questie tracker compatibility is included in EraUI: duplicate Blizzard tracking stays hidden in and out of combat and returns when Questie's tracker is disabled. Show Blizzard Timer is respected.",
+                "Map quest descriptions and rewards scroll within the full available panel height, above the bottom action buttons.",
+                "Map Reveal waits for native zoom data before refreshing, preventing an early-login map error.",
+                "Player debuff borders no longer calculate with restricted icon dimensions, preventing secret-number errors.",
+                "Reset keeps live settings valid until reload and prevents queued or logout saves from bringing old choices back. Clickable-reminder preferences are included in settings recovery.",
+            } },
+        },
+    },
+    {
+        version = "1.0.4",
+        sections = {
+            { "New", {
+                "Training Guide is a searchable tab inside the Classic spellbook. Bundled Forever spell levels populate immediately, with availability groups and reference cost totals (? marks unverified prices).",
+                "Class Reminders rebuilt: big class-coloured alerts with the spell icon, shown while something is missing.",
+                "Pick which aspect, blessing, imbue or demon to track, and the alert uses that name.",
+                "Class reminders cover learned buffs, pets, supplies and weapon coatings. Shaman Advanced options include a separate Windfury Totem reminder.",
+            } },
+            { "Changed", {
+                "Tooltips and Training Guide now default to enabled for fresh settings and resets. Existing saved choices are respected; change either option in /era and reload.",
+                "Reminder options sit below Class Reminders & Buffs in your class tab, with individual reminders under Advanced.",
+                "Drag any alert to move it, pick Small, Normal or Large, and reset positions any time. Alerts stay hidden in combat by default.",
+            } },
+            { "Fixed", {
+                "What's New fits within the screen, with scrollable notes and a fixed title and Got it button.",
+                "The quest sidebar overlays the full-width map, keeping its window steady without squeezing the artwork into empty bands.",
+                "Player channel progress keeps one clock and a stable scale when damage changes the remaining time.",
+                "Map artwork resizes with its border. Normal and expanded layouts are remembered separately, and the Map Pin hover highlight stays on its button.",
+                "Player level text stays gold after leveling. Player debuff borders and aura hover boxes now use Classic styling. Tooltips applies the same dark, grey-bordered style to regular tooltips.",
+                "Expanded class options and search results scroll above the footer. Mage conjure controls hide during combat while settings remain usable.",
+                "Reminders detect dead pets, selected demons and imbues, and the correct off-hand coating. Group checks filter unavailable members; Soulstone needs one protected checked member.",
+                "Hunter feeding reads Forever's current pet happiness and food APIs. It stays clear of settings; right-click to unlock, drag or scroll to arrange it, then left-click to lock.",
+                "Training Guide filters unverified seasonal learning levels. Tooltip borders now have a thin grey bevel and softened corners.",
+                "Settings recovery now includes reminder choices and positions, map size and movable-bar layouts.",
+                "Class-tool preferences and supply quantities are recovered per character, including the realm.",
+            } },
+        },
+    },
+    {
+        version = "1.0.3",
+        sections = {
+            { "Changed", {
+                "Smoother performance - a lot of work that ran every frame now runs only when something changes or a few times a second.",
+            } },
+            { "Fixed", {
+                "Combo points no longer vanish mid-fight when the client hides the value.",
+                "Elite and boss target frames keep their art in combat instead of dropping to the normal frame.",
+                "Pet and target-of-target art refresh after summons and target changes.",
+                "The player frame name no longer goes blank or shows as Unknown.",
+                "Hide Secondary Names now reliably hides the surname on the player and target frames, and no longer switches itself back off.",
+                "Your level updates on the character sheet the moment you ding with it open.",
+                "Inspecting a second player updates the name and talents instead of keeping the previous one.",
+            } },
+        },
+    },
+    {
+        version = "1.0.2",
+        sections = {
+            { "Fixed", {
+                "Target frame name no longer sticks to the previous target after targeting yourself.",
+            } },
+        },
+    },
+    {
+        version = "1.0.1",
+        sections = {
+            { "New", {
+                "Movable world map - drag it by the header and resize it from the corners.",
+                "Red combo points - switch the floating orbs to red in your class settings.",
+            } },
+            { "Changed", {
+                "Quiet Mode is now on by default.",
+                "Swing timers are now per character - each of your characters keeps its own setting.",
+            } },
+            { "Fixed", {
+                "The action bar band and gryphons no longer vanish after dragging a spell.",
+                "The welcome and first-run setup now appear only once per character.",
+            } },
+            { "Coming soon", {
+                "Class reminders - being redesigned.",
+                "Reveal world map - being worked on.",
+            } },
+        },
+    },
+}
+
+-- Grey when the class can't be read (a secret value is never used as a key)
+-- or has no colour.
+local function ClassColour()
+    local _, class = UnitClass("player")
+    if issecretvalue and issecretvalue(class) then return 0.7, 0.7, 0.7 end
+    local c = (CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class])
+        or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
+    if c then return c.r, c.g, c.b end
+    return 0.7, 0.7, 0.7
+end
+
+-- The running version's notes; a version without notes of its own (a
+-- development copy, "dev") gets the newest, as the list below does.
+local function EntryForVersion()
+    for _, entry in ipairs(UPDATES) do
+        if entry.version == EraUI.version then return entry end
+    end
+    return UPDATES[1]
+end
+
+-- Whether version a is later than b ("1.10.0" after "1.9.2"; "1.7" is
+-- "1.7.0"). Anything that isn't a version number ("dev", "") is never later
+-- nor earlier.
+local function Parts(version)
+    if type(version) ~= "string" or not version:match("^%d+[%.%d]*$") then return nil end
+    local parts = {}
+    for n in version:gmatch("%d+") do parts[#parts + 1] = tonumber(n) end
+    return parts
+end
+function EraUI.NewerVersion(a, b)
+    local pa, pb = Parts(a), Parts(b)
+    if not (pa and pb) then return false end
+    for i = 1, math.max(#pa, #pb) do
+        local x, y = pa[i] or 0, pb[i] or 0
+        if x ~= y then return x > y end
+    end
+    return false
+end
+-- The release What's New shows (its title), and the newest release before
+-- the running version ("just added" counts from it when an account's last
+-- version is unknown: Core/Integration.lua).
+function EraUI.ReleaseVersion() return EntryForVersion().version end
+function EraUI.PreviousRelease()
+    for _, entry in ipairs(UPDATES) do
+        if EraUI.NewerVersion(EraUI.version, entry.version) then return entry.version end
+    end
+    return UPDATES[2] and UPDATES[2].version or ""
+end
+
+-- The current release and the couple before it, so an update that skipped a
+-- session still shows what changed.
+local HISTORY = 3
+local function Entries()
+    local list = {}
+    local start
+    for i, entry in ipairs(UPDATES) do
+        if entry.version == EraUI.version then start = i; break end
+    end
+    if not start then start = 1 end
+    for i = start, math.min(#UPDATES, start + HISTORY - 1) do
+        list[#list + 1] = UPDATES[i]
+    end
+    return list
+end
+
+local window
+
+local function Build()
+    window = CreateFrame("Frame", "EraUIUpdates", UIParent, "BackdropTemplate")
+    window:SetSize(560, 380)
+    window:SetPoint("CENTER")
+    -- Settings and its nested controls use DIALOG, including independently
+    -- layered class-tool buttons. Raising a peer window can leave those children
+    -- above its backdrop; use the foreground dialog layer for the whole tree.
+    window:SetFrameStrata("FULLSCREEN_DIALOG")
+    window:SetClampedToScreen(true)
+    window:EnableMouse(true)
+    window:SetMovable(true)
+    window:RegisterForDrag("LeftButton")
+    window:SetScript("OnDragStart", window.StartMoving)
+    window:SetScript("OnDragStop", window.StopMovingOrSizing)
+    window:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    window:SetBackdropColor(.026, .029, .037, 1)
+    window:SetBackdropBorderColor(.19, .20, .24, 1)
+    window:Hide()
+    table.insert(UISpecialFrames, "EraUIUpdates")
+
+    local stripe = window:CreateTexture(nil, "ARTWORK")
+    stripe:SetPoint("TOPLEFT", 1, -1)
+    stripe:SetPoint("TOPRIGHT", -1, -1)
+    stripe:SetHeight(3)
+    window.stripe = stripe
+
+    local function Text(size, r, g, b, x, y, width, parent)
+        local t = (parent or window):CreateFontString(nil, "OVERLAY")
+        local font, _, flags = GameFontHighlight:GetFont()
+        t:SetFont(font, size, flags or "")
+        t:SetTextColor(r, g, b)
+        t:SetJustifyH("LEFT")
+        t:SetPoint("TOPLEFT", x, y)
+        if width then t:SetWidth(width) end
+        return t
+    end
+
+    window.eyebrow = Text(11, 1, 1, 1, 28, -28)
+    window.eyebrow:SetText("WHAT'S NEW")
+    window.title = Text(26, 1, 1, 1, 28, -48)
+    window.title:SetWidth(500)
+
+    local scroll = CreateFrame("ScrollFrame", nil, window, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", 28, -92)
+    scroll:SetPoint("BOTTOMRIGHT", -44, 70)
+    scroll:EnableMouseWheel(true)
+    scroll:SetScript("OnMouseWheel", function(self, delta)
+        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange(), self:GetVerticalScroll() - delta * 40)))
+    end)
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(488, 1)
+    scroll:SetScrollChild(content)
+    window.scroll, window.content = scroll, content
+
+    -- Only note text belongs to the scrolling child. Keep the heading and
+    -- dismissal button outside it so long release histories cannot hide them.
+    local flow = {}
+    local function Note(size, r, g, b, indent, text, gap)
+        local t = Text(size, r, g, b, indent, 0, 488 - indent, content)
+        t:SetText(text)
+        flow[#flow + 1] = { text = t, indent = indent, gap = gap }
+        return t
+    end
+    window.blocks = {}
+    local entries = Entries()
+    for index, entry in ipairs(entries) do
+        if index > 1 then
+            Note(15, 1, .82, 0, 0, "EraUI " .. entry.version, 11)
+        end
+        for _, section in ipairs(entry.sections) do
+            local header = Note(13, 1, .82, 0, 0, section[1], 11)
+            local lines = {}
+            for _, text in ipairs(section[2]) do
+                local line = Note(12, .86, .88, .93, 16, "• " .. text, 6)
+                lines[#lines + 1] = line
+            end
+            flow[#flow + 1] = { gap = 12 }
+            window.blocks[#window.blocks + 1] = { header = header, lines = lines }
+        end
+        if index < #entries then flow[#flow + 1] = { gap = 8 } end
+    end
+
+    function window:LayoutNotes()
+        local width = math.min(560, math.max(1, UIParent:GetWidth() - 40))
+        local contentWidth = math.max(1, width - 72)
+        self:SetWidth(width)
+        -- Where the question would run into the buttons (a narrow screen, or
+        -- Show me there too) it goes; the buttons stay.
+        if self.ask then
+            local room = width - 28 - 120 - 8 - 88 - ((self.showMe and self.showMe:IsShown()) and (8 + 88) or 0)
+            local need = 28 + (self.ask.GetStringWidth and self.ask:GetStringWidth() or 170) + 12
+            self.ask:SetShown(need <= room)
+        end
+        self.title:SetWidth(math.max(1, width - 56))
+        content:SetWidth(contentWidth)
+        local y = 0
+        for _, row in ipairs(flow) do
+            if row.text then
+                row.text:SetWidth(math.max(1, contentWidth - row.indent))
+                row.text:ClearAllPoints()
+                row.text:SetPoint("TOPLEFT", row.indent, -y)
+                y = y + math.max(12, row.text:GetStringHeight() or 12)
+            end
+            y = y + row.gap
+        end
+        content:SetHeight(math.max(1, y))
+        self:SetHeight(math.min(640, math.max(1, UIParent:GetHeight() - 40), math.max(240, y + 162)))
+        scroll:UpdateScrollChildRect()
+        scroll:SetVerticalScroll(math.min(scroll:GetVerticalScroll(), scroll:GetVerticalScrollRange()))
+    end
+    window:RegisterEvent("UI_SCALE_CHANGED")
+    window:RegisterEvent("DISPLAY_SIZE_CHANGED")
+    window:SetScript("OnEvent", function(self)
+        if self:IsShown() then self:LayoutNotes() end
+    end)
+
+    local button = CreateFrame("Button", nil, window, "BackdropTemplate")
+    button:SetSize(120, 34)
+    button:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -28, 20)
+    button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    local label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    label:SetPoint("CENTER")
+    label:SetText("Got it")
+    button:SetScript("OnClick", function() window:Hide() end)
+    local function Hover(self)
+        local r, g, b = ClassColour()
+        self:SetBackdropColor(r * .3, g * .3, b * .3, 1)
+    end
+    local function Unhover(self)
+        local r, g, b = ClassColour()
+        self:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    end
+    button:SetScript("OnEnter", Hover)
+    button:SetScript("OnLeave", Unhover)
+    window.button = button
+
+    -- Where to go with a bug or an idea: the question on the left, the
+    -- Discord button beside Got it on the right.
+    local ask = Text(12, .62, .64, .70, 28, 0)
+    ask:ClearAllPoints()
+    ask:SetPoint("BOTTOMLEFT", 28, 31)
+    ask:SetText("Found a bug or have an idea?")
+    window.ask = ask
+    -- Show me, beside Got it while the release has new options in /era:
+    -- What's New closes and /era walks you to each one (Core/SettingsTour.lua).
+    local showMe = CreateFrame("Button", nil, window, "BackdropTemplate")
+    showMe:SetSize(88, 34)
+    showMe:SetPoint("RIGHT", button, "LEFT", -8, 0)
+    showMe:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    local showLabel = showMe:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    showLabel:SetPoint("CENTER")
+    showLabel:SetText("Show me")
+    showMe.label = showLabel
+    showMe:SetScript("OnClick", function()
+        window:Hide()
+        local tour = EraUI.SettingsTour
+        if tour and tour.OpenNews then tour.OpenNews() end
+    end)
+    showMe:SetScript("OnEnter", Hover)
+    showMe:SetScript("OnLeave", Unhover)
+    showMe:Hide()
+    window.showMe = showMe
+    local discord = CreateFrame("Button", nil, window, "BackdropTemplate")
+    discord:SetSize(88, 34)
+    discord:SetPoint("RIGHT", button, "LEFT", -8, 0)
+    discord:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    local discordLabel = discord:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    discordLabel:SetPoint("CENTER")
+    discordLabel:SetText("Discord")
+    -- The invite is a Blizzard popup in a lower layer than this window, so
+    -- close What's New first or the popup opens hidden behind it.
+    discord:SetScript("OnClick", function()
+        window:Hide()
+        if EraUI.ShowDiscord then EraUI.ShowDiscord() end
+    end)
+    discord:SetScript("OnEnter", Hover)
+    discord:SetScript("OnLeave", Unhover)
+    window.discord = discord
+end
+
+local function Show()
+    if not window then Build() end
+    local r, g, b = ClassColour()
+    window.stripe:SetColorTexture(r, g, b, 1)
+    window.eyebrow:SetTextColor(r, g, b)
+    window.title:SetText("EraUI " .. EntryForVersion().version)
+    window.title:SetTextColor(r, g, b)
+    window.button:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    window.button:SetBackdropBorderColor(r, g, b, 1)
+    window.discord:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    window.discord:SetBackdropBorderColor(r, g, b, 1)
+    -- Show me only when this release added options this character has; its
+    -- words in the class colour too, so it stands out from Got it.
+    local tour = EraUI.SettingsTour
+    local news = tour and tour.NewsCount and tour.NewsCount() or 0
+    window.showMe:SetShown(news > 0)
+    window.showMe:SetBackdropColor(r * .2, g * .2, b * .2, 1)
+    window.showMe:SetBackdropBorderColor(r, g, b, 1)
+    window.showMe.label:SetTextColor(r, g, b)
+    window.discord:ClearAllPoints()
+    window.discord:SetPoint("RIGHT", news > 0 and window.showMe or window.button, "LEFT", -8, 0)
+    window:Show()
+    window:Raise()
+    window:LayoutNotes()
+    window.scroll:SetVerticalScroll(0)
+end
+
+EraUI.ShowUpdateNotes = Show

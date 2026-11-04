@@ -1,0 +1,8 @@
+Classic Character list assets
+
+Files: UI-Character-Skills-Bar.blp, UI-Character-Skills-BarBorder.blp,
+UI-Character-ReputationBar.blp.
+
+These are Blizzard Classic Era interface artwork, bundled because the Forever
+client ships modern replacements under the old Blizzard paths. They are game
+art, not an EraUI claim of authorship.

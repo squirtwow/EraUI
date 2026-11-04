@@ -1,0 +1,759 @@
+-- Dark Aura Borders and Aura Shadows on the real AuraStyle module. The player's
+-- aura buttons are proxies that log every key read and forbid key writes, so
+-- the checks prove the rings never read aura data or geometry and never write
+-- on Blizzard's buttons. Ring strips are placed from their icon anchors and
+-- sampled. Shadow frames are strict mocks: any call beyond the few the shadow
+-- needs (mouse, scripts, sizes) fails the run. The native icon allows one
+-- call only, the rim trim's SetTexCoord; the grey line is checked against
+-- the real Darkness slider maths (Core/Appearance.lua). Thin Debuff Colours
+-- (at the end): the debuff row's lines in their type's colour, remembered
+-- through a fight, the game's border kept when the type can't be told.
+local checks=0
+local function equal(got,want,label)
+ checks=checks+1;assert(got==want,label..": expected "..tostring(want)..", got "..tostring(got))
+end
+local LAYERS={BACKGROUND=1,BORDER=2,ARTWORK=3,OVERLAY=4,HIGHLIGHT=5}
+local created,combat=0,false
+local reads,iconCalls={},0
+local function Strict(t,label)
+ return setmetatable(t,{__index=function(_,key)error(label.." has no "..tostring(key))end})
+end
+local function Region(layer,sub)
+ local r={layer=layer,sub=sub or 0,calls=0}
+ for _,m in ipairs({"SetTexture","SetAtlas","SetTexCoord","SetVertexColor","ClearAllPoints","SetPoint","Show","Hide","SetShown","SetText","SetAlpha"})do
+  r[m]=function(self)self.calls=self.calls+1 end
+ end
+ function r:SetAlpha(a)self.calls=self.calls+1;self.alpha=a;self.alphaSets=(self.alphaSets or 0)+1 end
+ -- Reading the alpha back (a native border never hidden reads 1).
+ function r:GetAlpha()if self.alpha==nil then return 1 end;return self.alpha end
+ return r
+end
+local function Texture(layer,sub)
+ created=created+1
+ local t={layer=layer,sub=sub or 0,points={},shown=true,sets=0}
+ function t:SetColorTexture(r,g,b,a)self.colour={r,g,b,a};self.sets=self.sets+1 end
+ function t:SetPoint(point,relative,relativePoint,x,y)self.points[point]={relative,relativePoint,x,y}end
+ function t:SetShown(v)self.shown=v and true or false end
+ return Strict(t,"ring strip")
+end
+-- A native aura button: only the addon's proxy is handed out. Blizzard makes
+-- every button of a row on the same frame level (5 here).
+local backOf={}
+local function Button(kind,extra)
+ local back={textures={},scripts={},holders={},level=5,coordSets=0,reads={}}
+ -- The only call allowed on the icon: its texture coords, for the rim trim.
+ back.icon=setmetatable({},{__index=function(_,key)
+  if key=="SetTexCoord"then return function(_,...)back.coords={...};back.coordSets=back.coordSets+1 end end
+  iconCalls=iconCalls+1;error("icon touched: "..tostring(key))
+ end,__newindex=function()error("icon written")end})
+ back.Icon=back.icon
+ back.DebuffBorder=Region("OVERLAY");back.TempEnchantBorder=Region("OVERLAY")
+ back.Symbol=Region("OVERLAY");back.Count=Region("OVERLAY");back.Duration=Region("BACKGROUND")
+ back.auraType=kind;back.buttonInfo={debuffType="Magic",duration=30,expirationTime=40,auraInstanceID=7}
+ back.unit="player";back.timeLeft=12
+ back.scripts.OnClick=function()end
+ for key,value in pairs(extra or{})do back[key]=value end
+ function back.CreateTexture(_,name,layer,template,sub)
+  local t=Texture(layer,sub);back.textures[#back.textures+1]=t;return t
+ end
+ function back.IsProtected()return back.protected==true end
+ function back.GetFrameLevel()return back.level end
+ local proxy=setmetatable({},{
+  __index=function(_,key)reads[key]=(reads[key]or 0)+1;back.reads[key]=(back.reads[key]or 0)+1;return back[key]end,
+  __newindex=function(_,key)error("wrote "..tostring(key).." on a Blizzard aura button")end,
+ })
+ backOf[proxy]=back
+ return proxy,back
+end
+-- A shadow frame: EraUI's own child of an aura button. A new child starts one
+-- level above its parent, as in the client.
+local holderCount=0
+local function Holder(kind,parent)
+ local back=backOf[parent]
+ assert(kind=="Frame"and back,"shadow frame is a plain Frame on an aura button")
+ holderCount=holderCount+1
+ local h={points={},textures={},shown=true,level=back.level+1,levelSets=0}
+ function h:SetPoint(point,relative,relativePoint,x,y)self.points[point]={relative,relativePoint,x,y}end
+ function h:CreateTexture(_,layer,_,sub)local t=Texture(layer,sub);self.textures[#self.textures+1]=t;return t end
+ function h:GetFrameLevel()return self.level end
+ function h:SetFrameLevel(v)self.level=v;self.levelSets=self.levelSets+1 end
+ function h:SetShown(v)self.shown=v and true or false end
+ back.holders[#back.holders+1]=h
+ return Strict(h,"shadow frame")
+end
+-- A secret value: any arithmetic or comparison on it fails.
+local SECRET=setmetatable({},{__sub=function()error("arithmetic on a secret frame level")end,
+ __lt=function()error("compared a secret frame level")end,__le=function()error("compared a secret frame level")end})
+local function Row(count,kind)
+ local row={auraFrames={},backs={}}
+ for i=1,count do row.auraFrames[i],row.backs[i]=Button(kind)end
+ row.UpdateAuraButtons=function()end
+ return row
+end
+local hooks=0
+hooksecurefunc=function(t,key,fn)
+ if type(t)=="string"then fn=key;key=t;t=_G end
+ -- A hook on a Blizzard button lives in the client, not as a key the addon
+ -- writes: here it goes on the button's hidden table.
+ local target=backOf[t]or t
+ local old=target[key];hooks=hooks+1;target[key]=function(...)old(...);fn(...)end
+end
+local events
+CreateFrame=function(kind,_,parent)
+ if parent~=nil then return Holder(kind,parent)end
+ local f={}
+ function f:RegisterEvent(e)self.events=self.events or{};self.events[e]=true end
+ function f:SetScript(_,fn)self.handler=fn end
+ function f:SetAllPoints()end;function f:SetBackdrop()end;function f:SetBackdropColor()end;function f:SetBackdropBorderColor()end
+ function f:Hide()end
+ events=f;return f
+end
+InCombatLockdown=function()return combat end
+issecretvalue=function(v)return rawequal(v,SECRET)end
+-- Target and focus auras are secure, forbidden frames: any touch fails.
+local forbidden=setmetatable({},{__index=function()error("touched a forbidden target/focus aura frame")end})
+TargetFrame,FocusFrame=forbidden,forbidden
+
+BuffFrame=Row(4,"Buff");DebuffFrame=Row(2,"Debuff");ExternalDefensivesFrame=Row(1,"Buff")
+local anchor,anchorBack=Button(nil,{isAuraAnchor=true})
+DebuffFrame.auraFrames[3],DebuffFrame.backs[3]=anchor,anchorBack
+local enchant,enchantBack=Button("TempEnchant");BuffFrame.auraFrames[5],BuffFrame.backs[5]=enchant,enchantBack
+local consolidated,consolidatedBack=Button("Buff")
+local popout=Row(3,"Buff")
+rawset(getmetatable(consolidated),"__index",function(_,key)
+ reads[key]=(reads[key]or 0)+1;consolidatedBack.reads[key]=(consolidatedBack.reads[key]or 0)+1
+ if key=="Tooltip"then return {Auras=popout}end
+ return consolidatedBack[key]
+end)
+BuffFrame.ConsolidatedBuffs=consolidated
+local deadly,deadlyBack=Button("DeadlyDebuff");DeadlyDebuffFrame={Debuff=deadly}
+
+local E={modules={},Classic={},settings={enabled=true,unitFrames=false,tooltipSkin=false,darkMode=true}}
+function E:RegisterModule(name,m)self.modules[name]=m end
+function E:GetSetting(key)return self.settings[key]end
+assert(loadfile("Core/Appearance.lua"))("EraUI",E)
+assert(loadfile("Modules/AuraStyle.lua"))("EraUI",E)
+local M,ns=E.modules.AuraStyle,E.Classic
+
+local function AllBacks()
+ local list={}
+ for _,row in ipairs({BuffFrame,DebuffFrame,ExternalDefensivesFrame,popout})do
+  for i,back in ipairs(row.backs)do if not back.isAuraAnchor then list[#list+1]=back end end
+ end
+ list[#list+1]=consolidatedBack;list[#list+1]=deadlyBack
+ return list
+end
+-- Reads per button. The debuff row's buttons are also read by the Boosted
+-- Rest check (each debuff's type and icon, and its native border); every
+-- other button only by the ring, which reads no aura data at all.
+local function ResetReads()
+ reads={}
+ for _,b in ipairs(AllBacks())do b.reads={}end
+ anchorBack.reads={}
+end
+local function OnDebuffRow(b)
+ for _,d in ipairs(DebuffFrame.backs)do if d==b then return true end end
+ return false
+end
+local function RingReads()
+ local all={}
+ for _,b in ipairs(AllBacks())do
+  if not OnDebuffRow(b)then for key,n in pairs(b.reads)do all[key]=(all[key]or 0)+n end end
+ end
+ return all
+end
+local function DebuffRowReads()
+ local all={}
+ for _,b in ipairs(DebuffFrame.backs)do for key,n in pairs(b.reads)do all[key]=(all[key]or 0)+n end end
+ return all
+end
+local function Shown(back)
+ if #back.textures==0 then return false end
+ for _,t in ipairs(back.textures)do if not t.shown then return false end end
+ return true
+end
+local function AllShown(want,label)
+ for i,back in ipairs(AllBacks())do equal(Shown(back),want,label.." (button "..i..")")end
+end
+-- An icon's texture coords as last set ("" when never set), and how many
+-- times any icon's coords have been set.
+local TRIMMED,FULL="0.07,0.93,0.07,0.93","0,1,0,1"
+local function Coords(b)return b.coords and table.concat(b.coords,",")or""end
+local function Touched()
+ local n=anchorBack.coordSets
+ for _,b in ipairs(AllBacks())do n=n+b.coordSets end
+ return n
+end
+-- The consolidated buffs icon is a crop of a sheet with the game's own
+-- coords (ConsolidatedBuffsMixin:OnLoad), so it is never trimmed or reset.
+local function AllCoords(want,label)
+ for i,b in ipairs(AllBacks())do
+  if b~=consolidatedBack then equal(Coords(b),want,label.." (button "..i..")")end
+ end
+ equal(consolidatedBack.coordSets,0,label..": consolidated buffs icon keeps the game's coords")
+end
+
+-- Option not on (the default is on; see TestPersistence): Dark Mode on, nothing made.
+M:Initialize()
+equal(created,0,"option not on: no textures made on any aura button")
+equal(Touched(),0,"option not on: no icon trimmed")
+equal(events.events.PLAYER_REGEN_ENABLED,true,"waits for combat to end when it has to")
+local before=hooks
+
+-- Needs Dark Mode (the loaded style) and EraUI itself.
+E.settings.darkAuraBorders=true;E.settings.darkMode=false;M:RefreshBorders()
+equal(created,0,"Dark Mode off: no borders even with the option on")
+E.settings.darkMode=true;E.settings.enabled=false;M:RefreshBorders()
+equal(created,0,"EraUI turned off: no borders")
+equal(Touched(),0,"Dark Mode or EraUI off: no icon trimmed")
+E.settings.enabled=true
+
+-- Switched on in combat: aura buttons are not protected, so it applies at once.
+ResetReads();combat=true;M:RefreshBorders();combat=false
+AllShown(true,"on in combat: every player aura icon has a ring")
+equal(#consolidatedBack.textures,8,"consolidated buffs button ringed")
+equal(#deadlyBack.textures,8,"deadly debuff warning icon ringed")
+equal(#popout.backs[1].textures,8,"consolidated popout icons ringed")
+equal(#ExternalDefensivesFrame.backs[1].textures,8,"external defensives ringed")
+equal(#enchantBack.textures,8,"weapon enchant ringed")
+equal(#anchorBack.textures,0,"private aura anchor left alone (its icon is drawn by the game)")
+equal(created,8*#AllBacks(),"eight strips per button, nothing else")
+local ringReads=RingReads()
+for key in pairs(ringReads)do
+ equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="Tooltip",true,"ring reads only its own anchors, never aura data: "..key)
+end
+equal(ringReads.auraType or ringReads.buttonInfo or ringReads.unit or ringReads.timeLeft or ringReads.Duration or ringReads.DebuffBorder,nil,"no aura type, data, timer or native border read")
+-- The debuff row: the ring's anchors, plus the Boosted Rest check's type, info and border.
+for key in pairs(DebuffRowReads())do
+ equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="auraType"or key=="buttonInfo"or key=="DebuffBorder"or key=="Update",true,"debuff row reads only the ring's anchors and what the Boosted Rest check needs: "..key)
+end
+equal(reads.unit or reads.timeLeft or reads.Duration,nil,"no unit, timer or duration read anywhere")
+equal(iconCalls,0,"icon geometry never read (anchors and the trim's texture coords only)")
+AllCoords(TRIMMED,"on in combat: every ringed icon's bright rim trimmed (.07 a side)")
+equal(anchorBack.coordSets,0,"private aura anchor's icon never trimmed")
+equal(hooks,before,"no new hooks for the borders")
+
+-- Geometry: anchors to the icon only; sample the drawn strips.
+local ICON={TOPLEFT={0,30},TOPRIGHT={30,30},BOTTOMLEFT={0,0},BOTTOMRIGHT={30,0}}
+local back=BuffFrame.backs[1]
+local tones={}
+for _,t in ipairs(back.textures)do
+ local tl,br=t.points.TOPLEFT,t.points.BOTTOMRIGHT
+ equal(tl[1]==back.icon and br[1]==back.icon,true,"strip pinned to the native icon")
+ local left,top=ICON[tl[2]][1]+tl[3],ICON[tl[2]][2]+tl[4]
+ local right,bottom=ICON[br[2]][1]+br[3],ICON[br[2]][2]+br[4]
+ equal(left<right and bottom<top,true,"strip has a positive size")
+ local key=table.concat(t.colour,",")
+ tones[key]=tones[key]or{layer=t.layer,sub=t.sub,colour=t.colour,rects={}}
+ table.insert(tones[key].rects,{left,right,bottom,top})
+end
+local dark,grey
+for _,tone in pairs(tones)do if tone.colour[1]<.1 then dark=tone else grey=tone end end
+equal(dark~=nil and grey~=nil,true,"two tones: a dark edge and a grey line")
+local function Covered(tone,x,y)
+ for _,r in ipairs(tone.rects)do if x>r[1]and x<r[2]and y>r[3]and y<r[4]then return true end end
+ return false
+end
+local function Inside(x,y,lo,hi)return x>lo and x<hi and y>lo and y<hi end
+local wrong=0
+for x=-3.75,33.75,.5 do
+ for y=-3.75,33.75,.5 do
+  if Covered(dark,x,y)~=(Inside(x,y,-2,32)and not Inside(x,y,0,30))then wrong=wrong+1 end
+  if Covered(grey,x,y)~=(Inside(x,y,0,30)and not Inside(x,y,1,29))then wrong=wrong+1 end
+ end
+end
+equal(wrong,0,"dark edge fills exactly two units outside the icon, grey line one unit inside")
+equal(dark.colour[1]==dark.colour[2]and dark.colour[4],1,"dark edge is a solid neutral dark")
+equal(grey.colour[1]<.42 and grey.colour[3]>=grey.colour[1],true,"grey line is in Dark Mode's cool grey family, darker than the art tint")
+equal(grey.colour[1]==.30 and grey.colour[2]==.31 and grey.colour[3]==.34 and grey.colour[4]==1,true,"at the default Darkness (58) the grey line is exactly .30, .31, .34 as before")
+equal(LAYERS[dark.layer]==LAYERS.BACKGROUND and dark.sub<0,true,"dark edge under the icon and its timer text")
+equal(LAYERS[grey.layer]<LAYERS.OVERLAY and LAYERS[grey.layer]>LAYERS.BACKGROUND,true,"grey line over the icon rim, under the native overlays")
+equal(LAYERS[BuffFrame.backs[1].DebuffBorder.layer]>LAYERS[grey.layer],true,"native debuff/enchant borders, symbol and count stay on top")
+
+-- Nothing native changed.
+for _,b in ipairs(AllBacks())do
+ for _,key in ipairs({"DebuffBorder","TempEnchantBorder","Symbol","Count","Duration"})do
+  equal(b[key].calls,0,"native "..key.." untouched")
+ end
+end
+equal(type(BuffFrame.backs[1].scripts.OnClick),"function","right-click cancelling handler untouched")
+
+-- Buttons acquired later are ringed by the existing update hook, in combat.
+local late,lateBack=Button("Buff");BuffFrame.auraFrames[6],BuffFrame.backs[6]=late,lateBack
+ResetReads();combat=true;BuffFrame:UpdateAuraButtons();combat=false
+equal(#lateBack.textures,8,"a button acquired later gets its ring on the next native update")
+equal(reads.auraType or reads.buttonInfo,nil,"and the buff row's update hook still reads no aura data")
+local count=created
+BuffFrame:UpdateAuraButtons();DebuffFrame:UpdateAuraButtons();M:Refresh()
+equal(created,count,"updates and refreshes never make a second ring")
+
+-- Live toggling: hidden, shown again, never recreated.
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+AllShown(false,"switched off: rings hidden at once")
+AllCoords(FULL,"switched off: every icon back to full texture coords")
+local coordSets=Touched()
+BuffFrame:UpdateAuraButtons()
+equal(Shown(BuffFrame.backs[1]),false,"native updates keep them hidden while off")
+M:RefreshBorders()
+equal(Touched(),coordSets,"while off, native updates and refreshes leave the icons alone")
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+AllShown(true,"switched on again: rings back")
+AllCoords(TRIMMED,"switched on again: icons trimmed again")
+equal(created,count,"toggling reuses the same strips")
+-- The game may reset a reused button's coords: the next native update trims it again.
+BuffFrame.backs[1].coords={0,1,0,1};BuffFrame:UpdateAuraButtons()
+equal(Coords(BuffFrame.backs[1]),TRIMMED,"a native update re-applies the trim")
+
+-- A protected button (not how Forever builds them) waits until combat ends.
+local guarded,guardedBack=Button("Buff",{protected=true})
+ExternalDefensivesFrame.auraFrames[2],ExternalDefensivesFrame.backs[2]=guarded,guardedBack
+combat=true;ExternalDefensivesFrame:UpdateAuraButtons()
+equal(#guardedBack.textures,0,"never adds to a protected button in combat")
+equal(guardedBack.coordSets,0,"nor trims its icon in combat")
+combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
+equal(#guardedBack.textures,8,"ringed once combat ends")
+equal(Coords(guardedBack),TRIMMED,"and trimmed once combat ends")
+
+-- With the Classic unit frames on, the Classic debuff border still applies on top.
+E.settings.unitFrames=true
+local debuffBack=DebuffFrame.backs[1];debuffBack.DebuffBorder.calls=0
+DebuffFrame:UpdateAuraButtons()
+equal(debuffBack.DebuffBorder.calls>0,true,"Classic debuff border styling unchanged beside the ring")
+equal(Shown(debuffBack),true,"debuff keeps its dark ring underneath")
+
+-- Aura Shadows (needs Dark Aura Borders): three rings of black past the dark
+-- edge, on an EraUI frame one level under each aura button.
+local function Shaded(b)return b.holders[1]~=nil and b.holders[1].shown end
+equal(holderCount,0,"shadow option not on: no shadow frame made")
+count=created
+ResetReads();combat=true;E.settings.darkAuraShadows=true;M:RefreshBorders();combat=false
+equal(#guardedBack.holders,0,"protected button's shadow waits for combat to end")
+events.handler(events,"PLAYER_REGEN_ENABLED")
+for i,b in ipairs(AllBacks())do
+ equal(#b.holders,1,"one shadow frame (button "..i..")")
+ equal(#b.holders[1].textures,12,"three shadow rings of four strips (button "..i..")")
+ equal(Shaded(b)and Shown(b),true,"shadow and border both showing (button "..i..")")
+ equal(b.holders[1].level,b.level-1,"shadow frame one level under its button (button "..i..")")
+ equal(#b.textures,8,"nothing new drawn on the button itself (button "..i..")")
+end
+equal(#anchorBack.holders,0,"private aura anchor still left alone")
+equal(created,count+12*#AllBacks(),"only the shadow strips are new")
+equal(holderCount,#AllBacks(),"one shadow frame per aura button, nothing else")
+local shadowReads=RingReads()
+for key in pairs(shadowReads)do
+ equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="Tooltip"or key=="GetFrameLevel",true,"shadow reads only its anchors and the frame level: "..key)
+end
+equal(shadowReads.auraType or shadowReads.buttonInfo or shadowReads.unit or shadowReads.timeLeft or shadowReads.Duration or shadowReads.DebuffBorder,nil,"shadow reads no aura type, data, timer or native border")
+equal(iconCalls,0,"icon geometry never read for the shadow")
+equal(hooks,before,"no new hooks for the shadow")
+-- Geometry: every point d..d+1 units outside the icon is covered by exactly
+-- one strip, of that ring's alpha; nothing inside the dark edge or past five.
+local holder=back.holders[1]
+local hp=holder.points
+equal(hp.TOPLEFT and hp.BOTTOMRIGHT and hp.TOPLEFT[1]==back.icon and hp.BOTTOMRIGHT[1]==back.icon,true,"shadow frame sized by two icon corners")
+equal(hp.TOPLEFT[3]..","..hp.TOPLEFT[4].." "..hp.BOTTOMRIGHT[3]..","..hp.BOTTOMRIGHT[4],"-5,5 5,-5","shadow frame spans five units past the icon")
+local SH={}
+for _,t in ipairs(holder.textures)do
+ local tl,br=t.points.TOPLEFT,t.points.BOTTOMRIGHT
+ equal(tl[1]==back.icon and br[1]==back.icon,true,"shadow strip pinned to the native icon")
+ equal(t.colour[1]+t.colour[2]+t.colour[3],0,"shadow strip is black")
+ SH[#SH+1]={ICON[tl[2]][1]+tl[3],ICON[br[2]][1]+br[3],ICON[br[2]][2]+br[4],ICON[tl[2]][2]+tl[4],t.colour[4],t.layer,t.sub}
+end
+local function Out(x,y)return math.max(-x,x-30,-y,y-30)end
+local badCover,badAlpha,badLayer=0,0,0
+for _,r in ipairs(SH)do if not(r[6]=="BACKGROUND"and r[7]==-8)then badLayer=badLayer+1 end end
+local ALPHA={.45,.25,.1}
+for x=-6.75,36.75,.5 do
+ for y=-6.75,36.75,.5 do
+  local hits,alpha=0
+  for _,r in ipairs(SH)do if x>r[1]and x<r[2]and y>r[3]and y<r[4]then hits=hits+1;alpha=r[5]end end
+  local d=Out(x,y)
+  local want=(d>2 and d<5)and 1 or 0
+  if hits~=want then badCover=badCover+1 end
+  if want==1 and hits==1 and alpha~=ALPHA[math.floor(d-2)+1]then badAlpha=badAlpha+1 end
+ end
+end
+equal(badCover,0,"shadow covers 2 to 5 units outside the icon exactly once: no double-dark corners, no gaps")
+equal(badAlpha,0,"each ring fainter than the one inside it (45%, 25%, 10%)")
+equal(badLayer,0,"shadow strips at BACKGROUND -8 of their frame")
+-- Neighbours at Edit Mode's smallest gap (5): the shadow stops at their icon.
+local reach=0
+for _,r in ipairs(SH)do reach=math.max(reach,-r[1],r[2]-30,-r[3],r[4]-30)end
+equal(reach,5,"shadow reaches five units, never onto a neighbouring icon")
+-- Under every aura button: its own and its neighbours' icons, timers and
+-- debuff borders (all on the buttons' shared level) draw over it.
+for _,b in ipairs(AllBacks())do
+ for _,other in ipairs({BuffFrame.backs[2],DebuffFrame.backs[1]})do
+  equal(b.holders[1].level<other.level,true,"a shadow sits under every neighbouring aura button")
+ end
+end
+-- The level is kept on every native update if the button's moves, and a
+-- secret level is never used.
+back.level=9;BuffFrame:UpdateAuraButtons()
+equal(holder.level,8,"shadow follows its button's level on the next update")
+local sets=holder.levelSets;BuffFrame:UpdateAuraButtons()
+equal(holder.levelSets,sets,"an unchanged level is not set again")
+back.level=SECRET;BuffFrame:UpdateAuraButtons()
+equal(holder.level,8,"a secret frame level is left alone, no arithmetic on it")
+back.level=5;BuffFrame:UpdateAuraButtons()
+equal(holder.level,4,"back one under once the level is readable")
+-- Toggling.
+count=created
+E.settings.darkAuraShadows=false;M:RefreshBorders()
+equal(Shaded(back)or not Shown(back),false,"shadow off: shadow hidden, border kept")
+AllShown(true,"shadow off: every border kept")
+for i,b in ipairs(AllBacks())do equal(Shaded(b),false,"shadow off everywhere (button "..i..")")end
+BuffFrame:UpdateAuraButtons()
+equal(Shaded(back),false,"native updates keep the shadow hidden while off")
+E.settings.darkAuraShadows=true;M:RefreshBorders()
+equal(Shaded(back),true,"shadow on again")
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+equal(Shaded(back)or Shown(back),false,"borders off: shadow goes with them")
+BuffFrame:UpdateAuraButtons()
+equal(Shaded(back),false,"native updates keep it hidden")
+E.settings.darkAuraBorders=true;E.settings.darkMode=false;M:RefreshBorders()
+equal(Shaded(back),false,"Dark Mode off: no shadow")
+AllCoords(FULL,"Dark Mode off: icons back to full coords")
+E.settings.darkMode=true;E.settings.enabled=false;M:RefreshBorders()
+equal(Shaded(back),false,"EraUI turned off: no shadow")
+AllCoords(FULL,"EraUI turned off: icons back to full coords")
+E.settings.enabled=true;M:RefreshBorders()
+equal(Shaded(back)and Shown(back),true,"back with Dark Mode and borders")
+AllCoords(TRIMMED,"back with Dark Mode and borders: icons trimmed")
+equal(created,count,"toggling never makes a second shadow")
+equal(holderCount,#AllBacks(),"toggling never makes a second shadow frame")
+-- A late button gets its shadow from the update hook, in combat.
+local late2,late2Back=Button("Buff");BuffFrame.auraFrames[7],BuffFrame.backs[7]=late2,late2Back
+combat=true;BuffFrame:UpdateAuraButtons();combat=false
+equal(#late2Back.textures.." "..(late2Back.holders[1]and #late2Back.holders[1].textures or 0),"8 12","late button gets border and shadow")
+equal(late2Back.holders[1].level,4,"late button's shadow under it too")
+-- A protected button waits for combat to end for its shadow too.
+local g2,g2Back=Button("Buff",{protected=true})
+ExternalDefensivesFrame.auraFrames[3],ExternalDefensivesFrame.backs[3]=g2,g2Back
+combat=true;ExternalDefensivesFrame:UpdateAuraButtons()
+equal(#g2Back.textures+#g2Back.holders,0,"protected button: nothing in combat")
+combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
+equal(#g2Back.textures.." "..(g2Back.holders[1]and #g2Back.holders[1].textures or 0),"8 12","protected button shaded after combat")
+-- Its shadow frame is left alone in combat too, then catches up.
+combat=true;E.settings.darkAuraShadows=false;M:RefreshBorders()
+equal(g2Back.holders[1].shown,true,"protected button's shadow frame untouched in combat")
+equal(Shaded(back),false,"plain buttons switch at once in combat")
+combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
+equal(g2Back.holders[1].shown,false,"and it follows once combat ends")
+E.settings.darkAuraShadows=true;M:RefreshBorders()
+-- Its icon keeps the trim through combat too, then gets full coords back.
+combat=true;E.settings.darkAuraBorders=false;M:RefreshBorders()
+equal(Coords(g2Back),TRIMMED,"protected button's icon untouched in combat")
+equal(Coords(back),FULL,"plain icons get full coords at once in combat")
+combat=false;events.handler(events,"PLAYER_REGEN_ENABLED")
+equal(Coords(g2Back),FULL,"and it gets full coords once combat ends")
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+AllCoords(TRIMMED,"borders on again: every icon trimmed")
+
+-- Darkness slider: the grey line follows it, through the real
+-- RefreshDarkness, whether or not class colours darken too; the dark edge
+-- stays. Every line strip of every ring is checked.
+local function Sets()
+ local n=0
+ for _,b in ipairs(AllBacks())do for _,t in ipairs(b.textures)do n=n+t.sets end end
+ return n
+end
+local function Tones(r,g,b,label)
+ local bad=0
+ for _,bk in ipairs(AllBacks())do
+  for _,t in ipairs(bk.textures)do
+   local c,w=t.colour,t.layer=="ARTWORK"and{r,g,b}or{.05,.05,.06}
+   if not(c[1]==w[1]and c[2]==w[2]and c[3]==w[3]and c[4]==1)then bad=bad+1 end
+  end
+ end
+ equal(bad,0,label)
+end
+local function Step(darkness)return math.min(1,(1-darkness/100)/.42)end
+equal(E.settings.darkModeDarkness,nil,"slider at its default")
+Tones(.30,.31,.34,"Darkness 58 (default): every line exactly .30, .31, .34, every dark edge .05, .05, .06")
+local sets=Sets()
+ns.RefreshDarkness();M:RefreshBorders();BuffFrame:UpdateAuraButtons();DebuffFrame:UpdateAuraButtons()
+equal(Sets(),sets,"nothing changed: the slider, refreshes and native updates set no colour again")
+E.settings.darkModeDarkness=58;ns.RefreshDarkness()
+equal(Sets(),sets,"58 set explicitly: nothing set")
+E.settings.darkModeDarkness=40;ns.RefreshDarkness()
+equal(Sets(),sets,"lighter than 58: the line keeps today's grey, nothing set")
+E.settings.darkModeDarkness=90;ns.RefreshDarkness()
+local f=Step(90)
+equal(f>.2 and f<.3,true,"at 90 the line is about a quarter of today's grey")
+Tones(.30*f,.31*f,.34*f,"slider to 90: every existing ring's line darkened at once, dark edge unchanged")
+equal(Sets()-sets,4*#AllBacks(),"one colour set per line strip, none on the dark edge")
+sets=Sets();ns.RefreshDarkness();M:RefreshBorders();BuffFrame:UpdateAuraButtons()
+equal(Sets(),sets,"held at 90: nothing set again")
+-- A ring made now is dark straight away, each strip coloured once.
+local late3,late3Back=Button("Buff");BuffFrame.auraFrames[8],BuffFrame.backs[8]=late3,late3Back
+BuffFrame:UpdateAuraButtons()
+local once=0
+for _,t in ipairs(late3Back.textures)do if t.sets==1 then once=once+1 end end
+equal(#late3Back.textures..":"..once,"8:8","a ring made at 90 has the dark line from the start, each strip coloured once")
+Tones(.30*f,.31*f,.34*f,"new ring matches the others at 90")
+-- Rings hidden while the slider moves take the shade when shown again; a
+-- refresh alone also picks up a new Darkness.
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+E.settings.darkModeDarkness=75;ns.RefreshDarkness()
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+f=Step(75);Tones(.30*f,.31*f,.34*f,"hidden while the slider moved: shown again at 75's shade")
+E.settings.darkModeDarkness=82;M:RefreshBorders()
+f=Step(82);Tones(.30*f,.31*f,.34*f,"a refresh picks up a new Darkness")
+-- Darken class colours on gives the same line.
+E.settings.darkenClassColours=true;sets=Sets();ns.RefreshDarkness()
+equal(Sets(),sets,"the class colour tick does not change the line")
+E.settings.darkenClassColours=nil
+-- Back at the default: exactly today's grey again.
+E.settings.darkModeDarkness=58;ns.RefreshDarkness()
+Tones(.30,.31,.34,"back at 58: exactly .30, .31, .34 again")
+equal(iconCalls,0,"icon never read through all of it")
+
+-- Boosted Rest: listed with your debuffs (so the game rings it red), known
+-- by its Bonus XP icon (1001982). While the dark rings show, its red ring's
+-- alpha goes to 0 so the dark border shows; any other debuff keeps its own.
+local bonus,bonusBack=Button("Debuff")
+bonusBack.buttonInfo={texture=1001982,duration=3600,expirationTime=4000,auraInstanceID=9}
+DebuffFrame.auraFrames[4],DebuffFrame.backs[4]=bonus,bonusBack
+local plainDebuff=DebuffFrame.backs[1]
+plainDebuff.DebuffBorder.alpha=nil
+DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,0,"Boosted Rest: its red ring hidden while the dark borders show")
+equal(Shown(bonusBack),true,"and its dark ring shows")
+equal(plainDebuff.DebuffBorder.alpha,nil,"a real debuff keeps its coloured border")
+-- Off (the option, Dark Mode or EraUI): the red ring comes back, once.
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+equal(bonusBack.DebuffBorder.alpha,1,"dark borders off: Boosted Rest's own ring back")
+local alphaSets=bonusBack.DebuffBorder.alphaSets
+M:RefreshBorders();DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alphaSets,alphaSets,"while off its alpha is left alone")
+E.settings.darkAuraBorders=true;M:RefreshBorders()
+equal(bonusBack.DebuffBorder.alpha,0,"on again: hidden again (refresh)")
+-- The game reuses the button for another debuff: its ring comes back.
+bonusBack.buttonInfo={debuffType="Curse",texture=136139}
+DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,1,"button reused for a real debuff: its border shows again")
+-- A hidden (secret) icon with nothing else to go on leaves the border as the game set it.
+bonusBack.buttonInfo={texture=SECRET};bonusBack.DebuffBorder.alpha=nil
+DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,nil,"secret icon, no aura ID: border untouched")
+-- In a fight the icon can be secret: Boosted Rest is known by the aura it was seen as.
+bonusBack.buttonInfo={texture=1001982,auraInstanceID=30};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,0,"seen once with its icon")
+bonusBack.buttonInfo={texture=SECRET,auraInstanceID=30};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,0,"icon secret in a fight: still known by its aura, still dark")
+bonusBack.buttonInfo={texture=SECRET,auraInstanceID=31};DebuffFrame:UpdateAuraButtons()
+equal(bonusBack.DebuffBorder.alpha,1,"icon secret, another aura on the button: its own border back")
+-- The game updating one button on its own: checked again straight after.
+local solo,soloBack=Button("Debuff")
+function soloBack.Update(_,info)soloBack.buttonInfo=info end
+soloBack.buttonInfo={debuffType="Poison",texture=136064,auraInstanceID=40}
+DebuffFrame.auraFrames[5],DebuffFrame.backs[5]=solo,soloBack
+DebuffFrame:UpdateAuraButtons()
+equal(soloBack.DebuffBorder.alpha,nil,"a poison keeps its border")
+solo:Update({texture=1001982,auraInstanceID=41})
+equal(soloBack.DebuffBorder.alpha,0,"the game moving Boosted Rest onto it: dark straight away")
+solo:Update({debuffType="Poison",texture=136064,auraInstanceID=40})
+equal(soloBack.DebuffBorder.alpha,1,"and the poison back on it: its border shows again")
+local hookCount=hooks;DebuffFrame:UpdateAuraButtons()
+equal(hooks,hookCount,"each debuff button watched once")
+-- Only the debuff row is looked at: a buff with that icon is never touched.
+local buffBonus,buffBonusBack=Button("Buff")
+buffBonusBack.buttonInfo={texture=1001982}
+BuffFrame.auraFrames[9],BuffFrame.backs[9]=buffBonus,buffBonusBack
+ResetReads();BuffFrame:UpdateAuraButtons()
+equal(buffBonusBack.DebuffBorder.alphaSets,nil,"buff row: no border alpha set")
+equal(buffBonusBack.reads.buttonInfo,nil,"buff row: no aura data read")
+
+-- Thin Debuff Colours (off unless ticked, needs Dark Aura Borders): on the
+-- debuff row, a debuff whose type can be read keeps the dark edge, its
+-- ring's thin line takes the type's colour (the game's own, through
+-- AuraUtil.GetAuraBorderColor) and the game's thick coloured border is
+-- hidden. In a fight the type can be secret: a type read before is
+-- remembered by the aura's instance ID; one that can't be told leaves the
+-- game's border as the game set it. Boosted Rest keeps its plain dark
+-- border. The slider never re-tints a type colour. Nothing else changes.
+local TYPE={Magic={.2,.6,1},Curse={.6,0,1},Disease={.6,.4,0},Poison={0,.6,0},none={.8,0,0}}
+local lookups=0
+AuraUtil={GetAuraBorderColor=function(dispel)
+ assert(not rawequal(dispel,SECRET),"a secret type handed to the game's colour lookup")
+ lookups=lookups+1
+ local c=TYPE[dispel or"none"]or TYPE.none
+ return{r=c[1],g=c[2],b=c[3]}
+end}
+local function Line(b)
+ local out={}
+ for _,t in ipairs(b.textures)do if t.layer=="ARTWORK"then out[#out+1]=t end end
+ return out
+end
+local function LineIs(b,r,g,bl)
+ local strips=Line(b)
+ if #strips~=4 then return false end
+ for _,t in ipairs(strips)do
+  local c=t.colour
+  if not(c[1]==r and c[2]==g and c[3]==bl and c[4]==1)then return false end
+ end
+ return true
+end
+local function Typed(b,kind)local c=TYPE[kind];return LineIs(b,c[1],c[2],c[3])end
+local function Grey(b)local s=Step(E.settings.darkModeDarkness or 58);return LineIs(b,.30*s,.31*s,.34*s)end
+local function EdgeKept(b)
+ for _,t in ipairs(b.textures)do
+  if t.layer~="ARTWORK"and not(t.colour[1]==.05 and t.colour[3]==.06 and t.shown)then return false end
+ end
+ return true
+end
+local function AlphaSets()
+ local n=0
+ for _,b in ipairs(AllBacks())do n=n+(b.DebuffBorder.alphaSets or 0)end
+ return n
+end
+local d1,d2=DebuffFrame.backs[1],DebuffFrame.backs[2]
+d1.buttonInfo={debuffType="Magic",texture=135894,auraInstanceID=201}
+d2.buttonInfo={texture=136000,auraInstanceID=202} -- no dispel type: the game's "none"
+bonusBack.buttonInfo={texture=1001982,auraInstanceID=203}
+soloBack.buttonInfo={debuffType="Poison",texture=136064,auraInstanceID=204}
+for _,b in ipairs(DebuffFrame.backs)do b.DebuffBorder.alpha=nil;b.DebuffBorder.alphaSets=nil end
+deadlyBack.buttonInfo={debuffType="Magic",auraInstanceID=205}
+DebuffFrame:UpdateAuraButtons()
+-- Off (the default): today's look exactly.
+equal(E.settings.darkDebuffLines,nil,"setup: Thin Debuff Colours not ticked")
+equal(d1.DebuffBorder.alphaSets or d2.DebuffBorder.alphaSets or soloBack.DebuffBorder.alphaSets,nil,"off: every real debuff keeps the game's border, untouched")
+equal(Grey(d1)and Grey(d2)and Grey(soloBack),true,"off: every debuff's line grey, as before")
+equal(bonusBack.DebuffBorder.alpha==0 and Grey(bonusBack),true,"off: Boosted Rest dark, as before")
+-- On: live through the refresh the setting calls.
+E.settings.darkDebuffLines=true;ResetReads();lookups=0;M:RefreshBorders()
+equal(d1.DebuffBorder.alpha,0,"a magic debuff: the game's thick border hidden")
+equal(Typed(d1,"Magic"),true,"and its ring's thin line in magic's colour")
+equal(d2.DebuffBorder.alpha==0 and Typed(d2,"none"),true,"a debuff with no type: the game's no-type colour")
+equal(soloBack.DebuffBorder.alpha==0 and Typed(soloBack,"Poison"),true,"a poison: its line green")
+equal(EdgeKept(d1)and EdgeKept(d2)and EdgeKept(soloBack),true,"the dark edge outside each icon unchanged")
+equal(bonusBack.DebuffBorder.alpha==0 and Grey(bonusBack),true,"Boosted Rest keeps its plain dark border, no coloured line")
+equal(lookups,3,"the game's colour looked up once per typed debuff")
+equal(Grey(deadlyBack)and deadlyBack.DebuffBorder.alphaSets==nil,true,"the deadly debuff warning is another row: unchanged")
+for i,b in ipairs(AllBacks())do
+ if not OnDebuffRow(b)then equal(Grey(b),true,"buffs and other rows keep the grey line (button "..i..")")end
+end
+local rowReads=RingReads()
+equal(rowReads.auraType or rowReads.buttonInfo or rowReads.DebuffBorder,nil,"no aura data read off the debuff row")
+for key in pairs(DebuffRowReads())do
+ equal(key=="Icon"or key=="isAuraAnchor"or key=="CreateTexture"or key=="IsProtected"or key=="auraType"or key=="buttonInfo"or key=="DebuffBorder"or key=="Update"or key=="GetFrameLevel",true,"debuff row: only the ring's and shadow's anchors and the type and border: "..key)
+end
+-- Nothing new: no colour or alpha set again, whatever runs.
+local colourSets,alphaSets=Sets(),AlphaSets()
+M:RefreshBorders();DebuffFrame:UpdateAuraButtons();BuffFrame:UpdateAuraButtons();ns.RefreshDarkness()
+solo:Update(soloBack.buttonInfo)
+equal(Sets(),colourSets,"unchanged passes: no line coloured again")
+equal(AlphaSets(),alphaSets,"unchanged passes: no border's alpha set again")
+-- In a fight: the type secret, the aura known by its ID.
+d1.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=201}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==0 and Typed(d1,"Magic"),true,"type secret in a fight: remembered by its aura, still magic's line")
+d2.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=202}
+DebuffFrame:UpdateAuraButtons()
+equal(d2.DebuffBorder.alpha==0 and Typed(d2,"none"),true,"a remembered debuff with no type keeps the no-type line")
+equal(Sets(),colourSets,"the same aura in a fight: nothing set again")
+-- One never seen with its type: the game's own border, as the game set it.
+d2.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=206}
+DebuffFrame:UpdateAuraButtons()
+equal(d2.DebuffBorder.alpha==1 and Grey(d2),true,"another aura, its type unknown: the game's border back and the grey line")
+local fresh,freshBack=Button("Debuff")
+freshBack.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=207}
+DebuffFrame.auraFrames[6],DebuffFrame.backs[6]=fresh,freshBack
+DebuffFrame:UpdateAuraButtons()
+equal(freshBack.DebuffBorder.alphaSets,nil,"a debuff whose type was never seen: its border never touched")
+equal(Grey(freshBack),true,"and its line grey")
+-- Nothing readable at all (not even the aura's ID): the game's border.
+d1.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=SECRET}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1),true,"nothing readable: the game's border, as the game set it, and the grey line")
+d1.buttonInfo={debuffType="Curse",texture=136139,auraInstanceID=208}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==0 and Typed(d1,"Curse"),true,"readable again: a curse, its own colour")
+-- A secret alpha on the border is never compared: it is simply hidden again.
+d1.DebuffBorder.alpha=SECRET
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha,0,"a secret border alpha: hidden without comparing it")
+-- The game reusing a button: Boosted Rest onto a lined one, then a buff.
+d1.buttonInfo={texture=1001982,auraInstanceID=209}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==0 and Grey(d1),true,"Boosted Rest moved onto it: dark border, the grey line back")
+d1.buttonInfo={debuffType="Disease",texture=136127,auraInstanceID=210}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==0 and Typed(d1,"Disease"),true,"a disease after it: its colour")
+d1.auraType="Buff";d1.buttonInfo={debuffType="Magic",auraInstanceID=211}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1),true,"reused for something that isn't a debuff: the game's border and the grey line")
+d1.auraType="Debuff";d1.buttonInfo={debuffType="Magic",texture=135894,auraInstanceID=201}
+DebuffFrame:UpdateAuraButtons()
+equal(Typed(d1,"Magic"),true,"a debuff again: lined again")
+-- The game updating one button on its own: re-checked straight after.
+solo:Update({debuffType="Disease",texture=136127,auraInstanceID=212})
+equal(soloBack.DebuffBorder.alpha==0 and Typed(soloBack,"Disease"),true,"the game's own update: the new type's colour at once")
+solo:Update({texture=1001982,auraInstanceID=213})
+equal(soloBack.DebuffBorder.alpha==0 and Grey(soloBack),true,"Boosted Rest onto it: grey line, dark border")
+solo:Update({debuffType=SECRET,texture=SECRET,auraInstanceID=212})
+equal(soloBack.DebuffBorder.alpha==0 and Typed(soloBack,"Disease"),true,"the disease back, its type secret: remembered")
+-- The Darkness slider: the grey lines follow it, the type colours never.
+local before90={}
+for _,b in ipairs({d1,soloBack})do local n=0;for _,t in ipairs(Line(b))do n=n+t.sets end;before90[b]=n end
+colourSets=Sets()
+E.settings.darkModeDarkness=90;ns.RefreshDarkness()
+equal(Typed(d1,"Magic")and Typed(soloBack,"Disease"),true,"slider to 90: the type colours stay")
+for b,n in pairs(before90)do
+ local m=0;for _,t in ipairs(Line(b))do m=m+t.sets end
+ equal(m,n,"slider to 90: a typed line isn't set again")
+end
+equal(Grey(bonusBack)and Grey(freshBack)and Grey(BuffFrame.backs[1]),true,"slider to 90: the grey lines darken")
+local greyRings=0
+for _,b in ipairs(AllBacks())do if Grey(b)then greyRings=greyRings+1 end end
+equal(Sets()-colourSets,4*greyRings,"slider to 90: one colour set per grey line strip, none on a type line")
+M:RefreshBorders();DebuffFrame:UpdateAuraButtons()
+equal(Typed(d1,"Magic")and Typed(soloBack,"Disease"),true,"at 90, refreshes keep the type colours")
+d1.buttonInfo={debuffType=SECRET,texture=SECRET,auraInstanceID=214}
+DebuffFrame:UpdateAuraButtons()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1),true,"at 90, a line giving way goes to 90's grey")
+d1.buttonInfo={debuffType="Magic",texture=135894,auraInstanceID=201}
+DebuffFrame:UpdateAuraButtons()
+E.settings.darkModeDarkness=58;ns.RefreshDarkness()
+equal(Typed(d1,"Magic")and Grey(bonusBack),true,"back at 58: type colours kept, grey lines at 58")
+-- Remembered types are kept for the last hundred or so auras: an old one is
+-- forgotten (its border left to the game), a recent one still known.
+local watcher,watcherBack=Button("Debuff")
+function watcherBack.Update(_,info)watcherBack.buttonInfo=info end
+watcherBack.buttonInfo={debuffType="Poison",texture=1,auraInstanceID=1000}
+DebuffFrame.auraFrames[7],DebuffFrame.backs[7]=watcher,watcherBack
+DebuffFrame:UpdateAuraButtons()
+for id=1001,1250 do watcher:Update({debuffType="Curse",texture=1,auraInstanceID=id})end
+watcher:Update({debuffType=SECRET,texture=SECRET,auraInstanceID=1240})
+equal(watcherBack.DebuffBorder.alpha==0 and Typed(watcherBack,"Curse"),true,"a recent aura's type still remembered")
+watcher:Update({debuffType=SECRET,texture=SECRET,auraInstanceID=1150})
+equal(Typed(watcherBack,"Curse"),true,"one from the list before still remembered")
+watcher:Update({debuffType=SECRET,texture=SECRET,auraInstanceID=1000})
+equal(watcherBack.DebuffBorder.alpha==1 and Grey(watcherBack),true,"a long-gone aura forgotten: the game's border")
+-- Off again: every hidden border back once, the grey lines, Boosted Rest dark.
+d1.buttonInfo={debuffType="Magic",texture=135894,auraInstanceID=201}
+DebuffFrame:UpdateAuraButtons()
+E.settings.darkDebuffLines=false;M:RefreshBorders()
+for i,b in ipairs(DebuffFrame.backs)do
+ if not b.isAuraAnchor and b~=bonusBack then
+  equal(b.DebuffBorder.alpha~=0 and Grey(b),true,"off again: debuff "..i.." has the game's border and the grey line")
+ end
+end
+equal(bonusBack.DebuffBorder.alpha==0 and Grey(bonusBack),true,"off again: Boosted Rest still dark")
+colourSets,alphaSets=Sets(),AlphaSets()
+M:RefreshBorders();DebuffFrame:UpdateAuraButtons();ns.RefreshDarkness();solo:Update(soloBack.buttonInfo)
+equal(Sets()-colourSets+AlphaSets()-alphaSets,0,"off: then left alone")
+-- On, then Dark Aura Borders off (or Dark Mode): the lines go with them.
+E.settings.darkDebuffLines=true;M:RefreshBorders()
+equal(Typed(d1,"Magic")and d1.DebuffBorder.alpha==0,true,"on again, live")
+E.settings.darkAuraBorders=false;M:RefreshBorders()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1)and bonusBack.DebuffBorder.alpha==1,true,"Dark Aura Borders off: the game's borders back, Boosted Rest's too")
+E.settings.darkAuraBorders=true;E.settings.darkMode=false;M:RefreshBorders()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1),true,"Dark Mode off: the game's border")
+E.settings.darkMode=true;M:RefreshBorders()
+equal(Typed(d1,"Magic")and d1.DebuffBorder.alpha==0 and bonusBack.DebuffBorder.alpha==0,true,"Dark Mode back: lined and dark again")
+E.settings.darkDebuffLines=nil;M:RefreshBorders()
+equal(d1.DebuffBorder.alpha==1 and Grey(d1),true,"untick: today's look")
+equal(iconCalls,0,"icon never read through Thin Debuff Colours")
+print("Dark aura border checks passed: "..checks.." assertions.")

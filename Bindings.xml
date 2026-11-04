@@ -1,0 +1,10 @@
+<Bindings>
+	<!-- Key Bindings, AddOns section: three entries the player sets a key on in the game's own menu.
+	     Each clicks a window's named button (Look/SpellLayer.lua, Look/QuestLogOpen.lua,
+	     Look/TalentModule.lua). EraUI puts a key on one of them itself only when the player clicks
+	     Use N in the classic talents key offer (Look/TalentKey.lua). The names shown are set in
+	     Core/Init.lua. -->
+	<Binding name="CLICK EraUIClassicSpellBookBind:LeftButton" header="ERAUI" category="ADDONS"/>
+	<Binding name="CLICK EraUIClassicQuestLogBind:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUIClassicTalentsBind:LeftButton" category="ADDONS"/>
+</Bindings>

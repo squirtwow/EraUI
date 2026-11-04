@@ -1,0 +1,589 @@
+local ADDON, EraUI = ...
+local ns = EraUI.Classic
+
+-- One addon, two internal concerns: the skinning layer owns presentation;
+-- EraUI owns user preferences and the independent QoL modules.
+local mapping = {
+    classicBar="actionBars", buttons="actionBars", castAnim="actionBars",
+    castBars="castBars", mirrorTimers="castBars", unitFrames="unitFrames",
+    comboPoints="unitFrames", minimap="minimap", characterSheet="characterPanel",
+    talents="talentWindow", legacyWindow="legacyWindow", spellBook="spellbook", spellDrag="spellbookCombatDrag", questTracker="questTracker",
+    questLog="questLog", questMapPane="questLog", bags="bagsBank",
+    professionsBook="professions", tradeSkill="professions", trainer="trainer",
+    guildRoster="socialWindows", whoList="socialWindows", groupFinder="groupFinderPvp",
+    gameMenu="gameMenu", settingsPanel="blizzardSettings", damageMeter="damageMeterSkin",
+}
+EraUI.classicMapping = mapping
+ns.DB_DEFAULTS.erauiMigrated = false
+ns.DB_DEFAULTS.erauiWelcomeSeen = false
+ns.DB_DEFAULTS.erauiSetupComplete = false
+ns.DB_DEFAULTS.erauiSettingsMenuMigrated = false
+ns.DB_DEFAULTS.erauiNumericSettingsMirrored = false
+for key, value in pairs(EraUI.settingDefaults) do
+    if type(value) == "boolean" or type(value) == "number" then ns.DB_DEFAULTS["eraui_"..key] = value end
+end
+ns.DB_DEFAULTS.eraui_showAllSpellRanks = false
+ns.DB_DEFAULTS.updateNotesSeen = "" -- Last "What's new" version the account has seen.
+
+local function Sync()
+    if not ns.db then return end
+    for native, setting in pairs(mapping) do ns.db[native] = EraUI:GetSetting(setting) ~= false end
+    if EraUI:GetSetting("floatingComboPoints") then ns.db.comboPoints=true end
+    ns.db.namePlates = EraUI:GetSetting("friendlyNameplates") or EraUI:GetSetting("enemyNameplates")
+    ns.db.emptySlots = EraUI:GetSetting("hideEmptyActionSlots") == true
+    ns.db.spellBookTopRank = not EraUI:GetSavedSetting("showAllSpellRanks")
+    ns.db.hideLastNames = EraUI:GetSetting("hideSecondaryNames") == true -- EraUI owns application.
+    -- (The Classic minimap button setting is retired, Look/Engine.lua:
+    -- MinimapTools.lua supplies the EraUI button.)
+end
+local mirrorSave = ns.MirrorSave
+function ns.MirrorSave()
+    if EraUI.Persistence.resetting then return end
+    EraUI:SaveSettings()
+    if ns.db and EraUIDB then
+        ns.db.erauiNumericSettingsMirrored=true
+        for key, value in pairs(EraUIDB) do
+            if type(value) == "boolean" or (type(value) == "number" and type(EraUI.settingDefaults[key]) == "number") then
+                local mirrorKey = "eraui_"..key
+                if ns.DB_DEFAULTS[mirrorKey] == nil then ns.DB_DEFAULTS[mirrorKey] = not value end
+                ns.db[mirrorKey] = value
+            end
+        end
+    end
+    return mirrorSave()
+end
+local apply = ns.ApplyAll
+function ns.ApplyAll()
+    Sync()
+    return apply()
+end
+function EraUI:SyncClassicQoL()
+    Sync()
+    ns.QueueApply()
+end
+
+-- Keep the skinning layer's visual toggles native; extend the same menu with QoL.
+local function ToggleFeedback(key)
+    local label = key
+    for _, entry in ipairs(ns.TOGGLES) do
+        if entry[1] == key then label = entry[2]:gsub("^QoL: ", ""); break end
+    end
+    local message = label .. (ns.db[key] and " enabled." or " disabled.")
+    if key == "eraui_autoSellJunk" or key == "eraui_autoRepair" then
+        message = message .. " Applies on your next merchant visit."
+    elseif key == "eraui_vendorPrice" then
+        message = message .. " Applies on your next item hover."
+    elseif key == "eraui_classColors" then
+        message = message .. " Applies to new chat messages."
+    elseif ns.RELOAD_KEYS[key] and not ns.db[key] then
+        message = message .. " Reload UI to finish applying this change."
+    end
+    if key == "eraui_hideStatusMessages" then EraUI:Print(message)
+    else EraUI:Status(message) end
+end
+
+local toggle = ns.ToggleChanged
+function ns.ToggleChanged(key)
+    local setting = key:match("^eraui_(.+)$")
+    if setting then
+        EraUI:SetSetting(setting, ns.db[key] == true)
+        local qol, map = EraUI.modules.QoL, EraUI.modules.MinimapTools
+        if setting == "coordinates" and map then map:UpdateCoordinates()
+        elseif setting == "cleanMinimap" and map then map:Discover(); map:Refresh()
+        elseif setting == "bagSpace" and qol then qol:UpdateBagSpace()
+        elseif setting == "questLevels" and qol then qol:RefreshQuestLevels()
+        elseif setting == "classColors" and qol then qol:ApplyChatClassColors()
+        elseif setting == "gryphons" or setting == "disableAggroHighlight" then ns.QueueApply()
+        elseif setting == "comboPointRed" then
+            if ns.RefreshComboPointColor then ns.RefreshComboPointColor() end
+        elseif setting == "movableMap" then
+            if EraUI.modules.MovableMap then EraUI.modules.MovableMap:Apply() end
+        end
+        ns.MirrorSave()
+        ToggleFeedback(key)
+        return
+    end
+    if key == "emptySlots" then EraUI:SetSetting("hideEmptyActionSlots", ns.db.emptySlots) end
+    if key == "hideLastNames" then
+        EraUI:SetSetting("hideSecondaryNames",ns.db.hideLastNames)
+        local names = EraUI.modules.SecondaryNames
+        if names then names:Apply() end
+    end
+    if key == "spellBookTopRank" then
+        if InCombatLockdown() then Sync(); return end
+        SetCVar("ShowAllSpellRanks", ns.db.spellBookTopRank and "0" or "1")
+        EraUI:SetSetting("showAllSpellRanks",not ns.db.spellBookTopRank)
+    end
+    toggle(key)
+    ToggleFeedback(key)
+end
+
+-- Existing EraUI QoL callbacks delegate to the single action-bar owner.
+EraUI:RegisterModule("ActionBars", {
+    RefreshEmptySlots=function() EraUI:SyncClassicQoL() end,
+    ApplyGryphons=function() EraUI:SyncClassicQoL() end,
+})
+local qolOptions = {
+    {"vendorPrice", "QoL: Vendor prices", "Add missing selling prices to item tooltips."},
+    {"bagSpace", "QoL: Bag space", "Show free slots on the backpack."},
+    {"questLevels", "QoL: Quest levels", "Show levels on tracked quests."},
+    {"cleanMinimap", "QoL: Clean minimap", "Hide addon buttons until hover, or tuck them into one drawer; native controls stay visible."},
+    {"coordinates", "QoL: Coordinates", "Show your map position beneath the minimap."},
+    {"autoSellJunk", "QoL: Sell junk", "Sell grey items on your next merchant visit."},
+    {"autoRepair", "QoL: Auto repair", "Repair using your own money on your next repair-vendor visit."},
+    {"classColors", "QoL: Chat class colours", "Colour player names by class in new chat messages."},
+    {"gryphons", "QoL: Gryphons", "Show the Classic action-bar end caps."},
+    {"comboPointRed", "QoL: Red combo points", "Draw the floating combo point orbs red instead of gold."},
+    {"movableMap", "QoL: Movable world map", "Drag the world map by its edge and resize it from the corners."},
+    {"disableAggroHighlight", "QoL: Hide aggro flash", "Hide the player and target frame aggro flash."},
+    {"hideStatusMessages", "QoL: Quiet startup", "Hide EraUI status notices; errors and command replies remain visible."},
+}
+for _, entry in ipairs(qolOptions) do
+    ns.TOGGLES[#ns.TOGGLES+1] = {"eraui_"..entry[1], entry[2], entry[3]}
+end
+
+-- Reuse the approved EraUI settings presentation; visual application stays in Classic.
+ns.OpenDetailedOptions = ns.OpenOptions
+function ns.OpenOptions()
+    local module = EraUI.modules.Settings
+    if not module then return end
+    module:OpenSettings()
+end
+local setSetting = EraUI.SetSetting
+function EraUI:SetSetting(key, value)
+    setSetting(self, key, value)
+    if ns.db then ns.MirrorSave() end
+end
+function ns.PlateAllowed(frame)
+    if not frame or not frame.unit then return false end
+    local friend = UnitIsFriend("player", frame.unit)
+    if issecretvalue and issecretvalue(friend) then return false end
+    return EraUI:GetSetting(friend and "friendlyNameplates" or "enemyNameplates")
+end
+local windowSettings = {
+    CharacterFrame="characterPanel", PaperDollFrame="characterPanel",
+    MerchantFrame="merchantSkin", MailFrame="mailSkin", OpenMailFrame="mailSkin", SendMailFrame="mailSkin",
+    AuctionHouseFrame="auctionHouse", BankFrame="bagsBank", BankPanel="bagsBank", GuildBankFrame="bagsBank",
+    QuestFrame="questDialogs", GossipFrame="questDialogs", LootFrame="lootWindow",
+    ClassTrainerFrame="trainer", ProfessionsFrame="professions", ProfessionsBookFrame="professions",
+    FriendsFrame="socialWindows", CommunitiesFrame="socialWindows", PVPUIFrame="groupFinderPvp",
+    PVPFrame="groupFinderPvp", LFGListFrame="groupFinderPvp",
+}
+-- Windows without a switch of their own (trade, taxi, macros, calendar,
+-- achievements, the world map border and so on) follow Other Windows, so the
+-- presets can switch every Classic window.
+function ns.WindowAllowed(frame)
+    local name = frame and frame.GetName and frame:GetName()
+    local key = name and windowSettings[name] or "otherWindows"
+    return EraUI:GetSetting(key) ~= false
+end
+
+local welcome, waitingForCombat
+local initialLogin = false
+local welcomeChecked = false
+local welcomeShownThisSession = false
+local function CharacterWelcome()
+    EraUIClassicCharDB = EraUIClassicCharDB or {}
+    EraUIClassicCharDB.onboarding = EraUIClassicCharDB.onboarding or {}
+    return EraUIClassicCharDB.onboarding
+end
+-- Signs this account ran an earlier EraUI: notes seen, the welcome or setup
+-- done (on the account or this character), the AFK marker, or the old
+-- layout note waiting. Read once every saved copy has loaded.
+local function RanBefore()
+    local state = CharacterWelcome()
+    return (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
+        or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
+        or type(EraUIDB.afkScreenVersion) == "number" or EraUIDB.layoutNotice == 1
+end
+-- The onboarding state (welcome seen, setup complete) lives in this
+-- character's SavedVariables and is mirrored into a CVar keyed by character,
+-- read back over them at load. Addon CVars last only until the game closes,
+-- so the mirror covers SavedVariables lost within one session.
+local ONBOARD_CVAR = "EraUIOnboarding"
+if C_CVar and C_CVar.RegisterCVar then
+    local ok, value = pcall(C_CVar.GetCVar, ONBOARD_CVAR)
+    if not ok or value == nil then pcall(C_CVar.RegisterCVar, ONBOARD_CVAR, "") end
+end
+local function CharKey()
+    return EraUI:CharacterIdentity()
+end
+local function SerializeOnboarding(state)
+    local flags = (state.welcomeSeen and "1" or "0")
+        .. (state.setupComplete and "1" or "0")
+        .. (state.exploreSettings and "1" or "0")
+    local version = tostring(state.discoveryHintsVersion or 0)
+    local tabs = {}
+    for k in pairs(state.discoverTabs or {}) do tabs[#tabs + 1] = tostring(k) end
+    table.sort(tabs)
+    return flags .. "," .. version .. "," .. table.concat(tabs, ".")
+end
+local function SaveCharOnboarding()
+    if EraUI.Persistence.resetting then return end
+    EraUI:SaveSettings()
+    if not (C_CVar and C_CVar.GetCVar and C_CVar.SetCVar) then return end
+    local key, legacy = CharKey()
+    if not key then return end
+    local existing = {}
+    local text = C_CVar.GetCVar(ONBOARD_CVAR) or ""
+    for entry in text:gmatch("[^;]+") do
+        local k, payload = entry:match("^(.-):(.*)$")
+        if k and payload then existing[k] = payload end
+    end
+    existing[legacy] = nil
+    existing[key] = SerializeOnboarding(CharacterWelcome())
+    local parts = {}
+    for k, payload in pairs(existing) do parts[#parts + 1] = k .. ":" .. payload end
+    table.sort(parts)
+    pcall(C_CVar.SetCVar, ONBOARD_CVAR, table.concat(parts, ";"))
+end
+EraUI.SaveCharOnboarding = SaveCharOnboarding
+local function LoadCharOnboarding()
+    if not (C_CVar and C_CVar.GetCVar) then return end
+    local key, legacy = CharKey()
+    if not key then return end
+    local text = C_CVar.GetCVar(ONBOARD_CVAR) or ""
+    local records = {}
+    for entry in text:gmatch("[^;]+") do
+        local k, payload = entry:match("^(.-):(.*)$")
+        if k and payload then records[k] = payload end
+    end
+    local payload = records[key] or records[legacy]
+    if payload then
+        local flags, version, tabs = payload:match("^([01][01][01]),(%d+),(.*)$")
+        if flags then
+            local state = CharacterWelcome()
+            state.welcomeSeen = flags:sub(1, 1) == "1"
+            state.setupComplete = flags:sub(2, 2) == "1"
+            state.exploreSettings = flags:sub(3, 3) == "1"
+            state.discoveryHintsVersion = tonumber(version)
+            local tabMap = {}
+            for tab in tabs:gmatch("[^.]+") do
+                local index = tonumber(tab)
+                if index then tabMap[index] = true end
+            end
+            state.discoverTabs = tabMap
+            if not records[key] then SaveCharOnboarding() end
+        end
+    end
+end
+EraUI.LoadCharOnboarding = LoadCharOnboarding
+function ns.CharacterSetupComplete()
+    return CharacterWelcome().setupComplete == true
+end
+function ns.CompleteCharacterSetup()
+    local state = CharacterWelcome()
+    state.welcomeSeen = true
+    state.setupComplete = true
+    SaveCharOnboarding()
+end
+local function OpenQoL()
+    ns.OpenOptions()
+end
+function ns.ShowWelcome()
+    if InCombatLockdown() then waitingForCombat=true; return end
+    if not welcome then
+        welcome = CreateFrame("Frame", "EraUIWelcome", UIParent, "BackdropTemplate")
+        welcome:SetSize(640, 420)
+        welcome:SetPoint("CENTER")
+        welcome:SetFrameStrata("DIALOG")
+        welcome:SetClampedToScreen(true)
+        welcome:EnableMouse(true)
+        welcome:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",
+            edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+        welcome:SetBackdropColor(.026,.029,.037,1)
+        welcome:SetBackdropBorderColor(.19,.20,.24,1)
+        local _, class=UnitClass("player")
+        local colour=(CUSTOM_CLASS_COLORS and CUSTOM_CLASS_COLORS[class]) or (RAID_CLASS_COLORS and RAID_CLASS_COLORS[class])
+        local r,g,b=.7,.7,.7
+        if colour then r,g,b=colour.r,colour.g,colour.b end
+        local function Label(value,size,x,y,width,muted)
+            local text=welcome:CreateFontString(nil,"OVERLAY")
+            local font,_,flags=GameFontHighlight:GetFont()
+            text:SetFont(font,size,flags or "")
+            text:SetTextColor(muted and .58 or .94,muted and .62 or .95,muted and .68 or .98)
+            text:SetJustifyH("LEFT")
+            text:SetPoint("TOPLEFT",x,y)
+            if width then text:SetWidth(width) end
+            text:SetText(value)
+            return text
+        end
+        local stripe=welcome:CreateTexture(nil,"ARTWORK")
+        stripe:SetPoint("TOPLEFT",1,-1);stripe:SetPoint("TOPRIGHT",-1,-1);stripe:SetHeight(3)
+        stripe:SetColorTexture(r,g,b,1)
+        local panel=welcome:CreateTexture(nil,"BACKGROUND")
+        panel:SetPoint("TOPLEFT",1,-4);panel:SetSize(306,314)
+        panel:SetColorTexture(.014,.016,.022,1)
+        local eyebrow=Label("WELCOME TO",11,28,-30,nil,true)
+        eyebrow:SetTextColor(r,g,b)
+        Label("EraUI",42,26,-54)
+        Label("Classic UI,\nthe way you remember it.",20,28,-117,255)
+        Label("Old-school looks, with modern conveniences bolted on.",13,28,-180,250,true)
+        Label("Every piece is optional - turn any of it off.",13,28,-250,250)
+        local shortcut=Label("Settings are always one /era away.",11,28,-276,255,true)
+        shortcut:SetTextColor(r,g,b)
+        local function Feature(y,icon,title,description)
+            local image=welcome:CreateTexture(nil,"ARTWORK")
+            image:SetSize(28,28);image:SetPoint("TOPLEFT",330,y)
+            image:SetTexture("Interface\\Icons\\"..icon)
+            image:SetTexCoord(.07,.93,.07,.93)
+            Label(title,14,370,y,235)
+            Label(description,12,370,y-24,235,true)
+        end
+        Feature(-50,"INV_Helmet_03","The Classic look","Old bars, frames and windows - pick which ones.")
+        Feature(-135,"INV_Misc_Map_01","Handy extras","Auto-loot, auto-repair, coordinates and other small helpers.")
+        Feature(-220,"INV_Misc_Gear_01","Set it up your way","Every toggle is yours - change it any time.")
+        local line=welcome:CreateTexture(nil,"ARTWORK")
+        line:SetPoint("TOPLEFT",24,-320);line:SetPoint("TOPRIGHT",-24,-320);line:SetHeight(1)
+        line:SetColorTexture(.14,.15,.18,1)
+        local function Button(text,width,x,primary)
+            local button=CreateFrame("Button",nil,welcome,"BackdropTemplate")
+            button:SetSize(width,34);button:SetPoint("BOTTOMRIGHT",x,42)
+            button:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
+            local function Paint(hover)
+                button:SetBackdropColor(primary and r*.25 or .045,primary and g*.25 or .05,primary and b*.25 or .065,1)
+                button:SetBackdropBorderColor(hover and r or (primary and r*.65 or .22),hover and g or (primary and g*.65 or .23),hover and b or (primary and b*.65 or .27),1)
+            end
+            local label=button:CreateFontString(nil,"OVERLAY","GameFontHighlight")
+            label:SetPoint("CENTER");label:SetText(text)
+            Paint(false)
+            button:SetScript("OnEnter",function()Paint(true)end)
+            button:SetScript("OnLeave",function()Paint(false)end)
+            return button
+        end
+        local settings=Button("Make it yours",152,-24,true)
+        settings:SetScript("OnClick",function()
+            welcome:Hide()
+            local module=EraUI.modules.Settings
+            if module then
+                if ns.setupRequested or not ns.CharacterSetupComplete() then
+                    ns.setupRequested = false
+                    module:OpenSetup()
+                else module:OpenSettings() end
+            end
+        end)
+        local close=Button("Let's play",104,-188,false)
+        close:SetScript("OnClick",function()welcome:Hide()end)
+        local login=CreateFrame("CheckButton",nil,welcome)
+        login:SetSize(18,18);login:SetPoint("BOTTOMLEFT",28,51)
+        local box=login:CreateTexture(nil,"BACKGROUND");box:SetAllPoints();box:SetColorTexture(.15,.16,.19,1)
+        local check=login:CreateTexture(nil,"ARTWORK");check:SetPoint("TOPLEFT",3,-3);check:SetPoint("BOTTOMRIGHT",-3,3);check:SetColorTexture(r,g,b,1)
+        login:SetCheckedTexture(check)
+        local caption=login:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
+        caption:SetPoint("LEFT",login,"RIGHT",8,0);caption:SetText("Show on login");caption:SetTextColor(.58,.62,.68)
+        login:SetScript("OnClick",function(self)EraUI:SetSetting("showWelcomeOnLogin",self:GetChecked() and true or false)end)
+        local signature=Label(EraUI.Signature and EraUI:Signature()or"Made with |TInterface\\AddOns\\EraUI\\Media\\Heart:10:10:0:0|t by Squirt",10,28,-394,nil,true)
+        signature:SetTextColor(.48,.49,.52)
+        local dismiss=CreateFrame("Button",nil,welcome)
+        dismiss:SetSize(28,28);dismiss:SetPoint("TOPRIGHT",-10,-10)
+        local cross=dismiss:CreateFontString(nil,"OVERLAY","GameFontHighlight");cross:SetPoint("CENTER");cross:SetText("X");cross:SetTextColor(.58,.62,.68)
+        dismiss:SetScript("OnClick",function()welcome:Hide()end)
+        welcome:SetScript("OnShow",function()
+            welcome:SetScale(math.min(1,math.max(.1,(UIParent:GetWidth()-32)/640),math.max(.1,(UIParent:GetHeight()-32)/420)))
+            login:SetChecked(EraUI:GetSetting("showWelcomeOnLogin") and true or false)
+        end)
+        welcome:SetScript("OnHide",function()
+            CharacterWelcome().welcomeSeen=true
+            ns.db.erauiWelcomeSeen=true
+            ns.MirrorSave()
+            SaveCharOnboarding()
+        end)
+        table.insert(UISpecialFrames,"EraUIWelcome")
+    end
+    welcome:Show()
+end
+local firstRun=ns.FirstRun
+-- Forever's keyboard and mouse intro on a brand-new character shows in the
+-- middle about 4 s after login, until OK, Skip or a quest. The welcome card
+-- waits for it, looking again once a second; an intro that is on but not
+-- shown yet holds the card 10 s at most. Only reads the game's state:
+-- nothing is hooked or written on the tutorial.
+local function IntroUp(waited)
+    local frame=TutorialKeyboardMouseFrame_Frame
+    if type(frame)=="table" and frame.IsShown and frame:IsShown() then return true end
+    local list=type(TutorialManager)=="table" and TutorialManager.Tutorials
+    local intro=type(list)=="table" and list.Intro_KeyboardMouse
+    return type(intro)=="table" and intro.IsActive==true and waited<10
+end
+local function WelcomeAfterIntro(since)
+    local now=type(GetTime)=="function" and GetTime() or 0
+    since=since or now
+    if IntroUp(now-since) then
+        C_Timer.After(1,function() WelcomeAfterIntro(since) end)
+        return
+    end
+    ns.ShowWelcome()
+end
+local function CheckUpdateNotes()
+    -- "What's new" notes: shown once per version, on the first login with it.
+    -- Fresh installs get the welcome instead, so the notes are marked seen
+    -- without showing. Existing accounts updating into the first notes-enabled
+    -- version see the notes once.
+    if ns.db.updateNotesSeen ~= EraUI.version then
+        local hasSeenWelcome = CharacterWelcome().welcomeSeen or ns.db.erauiWelcomeSeen
+        local showNotes = ns.db.updateNotesSeen ~= "" or hasSeenWelcome
+        ns.db.updateNotesSeen = EraUI.version
+        ns.MirrorSave()
+        if showNotes and not welcomeShownThisSession and not CharacterWelcome().exploreSettings
+            and EraUI.ShowUpdateNotes then
+            C_Timer.After(1.5, EraUI.ShowUpdateNotes)
+        end
+    end
+end
+function ns.FirstRun()
+    if not EraUI:GetSetting("enabled") then return end
+    if CharacterWelcome().exploreSettings then
+        welcomeChecked=true
+        if InCombatLockdown() then return end
+        local settings=EraUI.modules.Settings
+        if settings and settings.ShowSettings then
+            settings:ShowSettings()
+            CharacterWelcome().exploreSettings=nil
+            SaveCharOnboarding()
+            EraUI:Print("Explore Casting and your class section for more options. Open EraUI settings anytime with /era.")
+        end
+        CheckUpdateNotes()
+        return
+    end
+    if not welcomeChecked then
+        if initialLogin or not CharacterWelcome().welcomeSeen then
+            EraUI:Status("Open EraUI settings anytime by typing /era in chat.")
+        end
+        welcomeChecked = true
+        if not CharacterWelcome().welcomeSeen or (initialLogin and EraUI:GetSetting("showWelcomeOnLogin")) then
+            welcomeShownThisSession = true
+            WelcomeAfterIntro()
+        end
+    end
+    CheckUpdateNotes()
+    -- Retain the native-layout selection/check machinery and its link.
+    ns.db.welcomeNote=false
+    firstRun()
+end
+
+local loader=CreateFrame("Frame")
+loader:RegisterEvent("ADDON_LOADED")
+loader:RegisterEvent("PLAYER_REGEN_ENABLED")
+loader:RegisterEvent("PLAYER_ENTERING_WORLD")
+loader:SetScript("OnEvent",function(_,event,name)
+    if event=="PLAYER_ENTERING_WORLD" then initialLogin = name == true; return end
+    if event=="PLAYER_REGEN_ENABLED" then
+        if CharacterWelcome().exploreSettings then ns.FirstRun();return end
+        if waitingForCombat then waitingForCombat=false;ns.ShowWelcome() end
+        return
+    end
+    if name~=ADDON or not ns.db then return end
+    -- Per-character onboarding state (welcome seen, setup complete): the
+    -- CVar mirror, when this session has one, over SavedVariables.
+    LoadCharOnboarding()
+    -- The skinning layer's mirror has already loaded; recover EraUI scalar choices
+    -- on Forever clients which do not reliably restore SavedVariables.
+    if ns.db.erauiMigrated then
+        for key in pairs(EraUI.settingDefaults) do
+            local saved=ns.db["eraui_"..key]
+            if type(saved)==type(EraUI.settingDefaults[key]) and (type(saved)=="boolean" or type(saved)=="number" and ns.db.erauiNumericSettingsMirrored) then EraUIDB[key]=saved end
+        end
+    else
+        -- These switches were disabled Later placeholders in the old UI, not
+        -- usable opt-outs. The skinning layer now supplies them.
+        for _,key in ipairs({"questLog","bagsBank","merchantSkin","mailSkin","auctionHouse","groupFinderPvp","blizzardSettings"}) do
+            EraUIDB[key]=true
+        end
+        ns.db.erauiMigrated=true
+    end
+    if not ns.db.erauiSettingsMenuMigrated then
+        -- Import the active visual choices once, before the settings menu owns them.
+        local grouped = {}
+        for native, setting in pairs(mapping) do
+            if grouped[setting] == nil then grouped[setting] = true end
+            grouped[setting] = grouped[setting] and ns.db[native] ~= false
+        end
+        for key,value in pairs(grouped) do EraUIDB[key] = value end
+        EraUIDB.friendlyNameplates = ns.db.namePlates ~= false
+        EraUIDB.enemyNameplates = ns.db.namePlates ~= false
+        EraUIDB.hideEmptyActionSlots = ns.db.emptySlots == true
+        EraUIDB.showAllSpellRanks = not ns.db.spellBookTopRank
+        ns.db.erauiSettingsMenuMigrated = true
+    end
+    EraUI.Persistence:LoadAccount()
+    EraUI.Persistence:LoadCharacter()
+    -- The /era reorganisation after 1.4.0: a one-time "New layout" note at the
+    -- top of /era (layoutNotice 1), only for accounts that used an earlier
+    -- EraUI. Fresh installs start with the new layout (0). Decided once, after
+    -- every saved copy has loaded and before the AFK marker below is set for
+    -- everyone; the value is backed up, so the X sticks.
+    if type(EraUIDB.layoutNotice) ~= "number" then
+        local state = CharacterWelcome()
+        local returning = (ns.db.updateNotesSeen or "") ~= "" or ns.db.erauiWelcomeSeen == true
+            or ns.db.erauiSetupComplete == true or state.welcomeSeen == true or state.setupComplete == true
+            or type(EraUIDB.afkScreenVersion) == "number"
+        EraUIDB.layoutNotice = returning and 1 or 0
+        EraUI:SaveSettings()
+    end
+    -- The grouped /era layout (sub-tabs, one row per option): a welcome card
+    -- on the next /era open (layoutWelcome 1), only for accounts that knew
+    -- an earlier layout, by the same signs as above. An account still
+    -- waiting on the old note gets the card instead. Fresh installs start
+    -- with the new layout (0). Decided once, after every saved copy has
+    -- loaded; backed up.
+    if type(EraUIDB.layoutWelcome) ~= "number" then
+        EraUIDB.layoutWelcome = RanBefore() and 1 or 0
+        EraUI:SaveSettings()
+    end
+    -- A new player (no sign of an earlier EraUI) is offered the walkthrough
+    -- once (tourOffer 1), the first time /era opens with the first-run
+    -- welcome or setup behind them (Core/SettingsTour.lua makes it 2 once
+    -- shown or taken). Everyone else 0. Decided once; backed up.
+    if type(EraUIDB.tourOffer) ~= "number" then
+        EraUIDB.tourOffer = RanBefore() and 0 or 1
+        EraUI:SaveSettings()
+    end
+    -- "just added" after new options' names, per release
+    -- (Core/SettingsNav.lua): on the first load of each new version, the
+    -- version this account ran before it (justAddedFrom) and the one it runs
+    -- now (justAddedVersion). The words show on options added after the
+    -- first, up to the second, while the second runs. The version before is
+    -- the one saved here last time, else the last notes seen; when neither
+    -- is known on an account that ran EraUI before, or after "/era updates
+    -- again" ("0"), the release before this one. A fresh install: "", no
+    -- words (everything is new to it). A development copy decides nothing.
+    -- Both backed up. 1.6.0's single layoutPillsVersion is retired: the
+    -- options it covered carry their own version now.
+    if EraUIDB.layoutPillsVersion ~= nil then EraUIDB.layoutPillsVersion = nil end
+    local running, seen = EraUI.version, ns.db.updateNotesSeen
+    if running ~= "dev" and EraUIDB.justAddedVersion ~= running then
+        local from = EraUIDB.justAddedVersion
+        if type(from) ~= "string" or from == "" then from = seen end
+        if type(from) ~= "string" or from == "" or from == "0" then
+            from = RanBefore() and EraUI.PreviousRelease and EraUI.PreviousRelease() or ""
+        end
+        EraUIDB.justAddedFrom, EraUIDB.justAddedVersion = from, running
+        EraUI:SaveSettings()
+    elseif running ~= "dev" and seen == "0" and EraUI.PreviousRelease then
+        EraUIDB.justAddedFrom = EraUI.PreviousRelease()
+        EraUI:SaveSettings()
+    end
+    -- 1.3.0 saved AFK Screen off for everyone while it was Coming soon, so nobody
+    -- chose that. Turn it on once, after every saved copy has loaded; the marker
+    -- is backed up too, so a later "off" sticks.
+    if type(EraUIDB.afkScreenVersion) ~= "number" or EraUIDB.afkScreenVersion < 2 then
+        EraUIDB.afkScreen = true
+        EraUIDB.afkScreenVersion = 2
+        EraUI:SaveSettings()
+    end
+    -- The Poison Reminders panel became the rogue's POISON! class reminder
+    -- (after 1.5.1). Its users keep poison alerts; done once, after every
+    -- saved copy has loaded, like the AFK Screen switch-on above.
+    if EraUI.ReminderPoisons and EraUI.ReminderPoisons.Migrate(EraUIDB, ns.db) then EraUI:SaveSettings() end
+    -- Combat Spell Dragging became experimental and off unless chosen (after
+    -- 1.7.3). It was on by default, so nobody chose it: turned off once,
+    -- after every saved copy has loaded; the marker is backed up, so a later
+    -- "on" sticks.
+    if type(EraUIDB.combatDragVersion) ~= "number" or EraUIDB.combatDragVersion < 1 then
+        EraUIDB.spellbookCombatDrag = false
+        EraUIDB.combatDragVersion = 1
+        EraUI:SaveSettings()
+    end
+    for key in pairs(EraUI.reloadSettings) do EraUI.loadedVisualSettings[key]=EraUIDB[key] end
+    Sync()
+end)

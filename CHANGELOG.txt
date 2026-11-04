@@ -1,0 +1,405 @@
+# Changelog
+
+## 1.8.0
+
+### Added
+- Quest Item Sparkles: lootable quest items sparkle so they're easy to spot. On by default; the game's outlines are off while it's on.
+- Herb and Ore Sparkles: the nearest herb or ore sparkles as you get close. (experimental)
+- Flight mini-games: Whack-a-Gnome (Whack-a-Peon for the Alliance) and Azeroth Blast, in /era > Screen & Cursor > Mini-games. (experimental)
+- The Legacy window (Y) in the 1.x look.
+- Remember Minimap Zoom: keeps your minimap zoom between logins.
+- A small seal on voiced quests in the classic quest log, with a quest voice addon that supports it.
+- Hide Surnames can cover player tooltips too. (experimental)
+- Key Bindings for the Classic Talents, Spellbook and Quest Log, and a one-time offer to set N for talents. (experimental)
+
+### Changed
+- The Classic look is rebuilt from the ground up. It looks and works the same, and your settings are kept.
+- The Training Guide matches Forever's launch data.
+- The spellbook and quest log keys open the game's own windows; the menu buttons still open the classic ones.
+- The guild key works without changing your key bindings.
+- The classic quest log remembers where you drag it.
+- Combat Spell Dragging is off unless you turn it on. (experimental)
+- The Professions window's side tabs are gone. Close and reopen it to get back from a profession's page.
+- Nameplates, Class Reminders, Empty Slots and more do much less work in the background.
+- Gryphons are lighter in Dark Mode.
+
+### Fixed
+- Your portrait's crowd control icon shows on Forever's launch client (no countdown there).
+- The combined bag's empty slots, the profession book's spell buttons and the scoreboard's close button keep EraUI's look.
+- Training Guide: missing trainer spells, High Order mage teleports and portals, and ranks you can buy on the same visit.
+- The shaman totem bar no longer sits on the Classic action bars.
+- Settings no longer slip back after a /reload, and swing timers stay on after a restart.
+- No "set up EraUI" line at every login, and the welcome waits for the game's intro on a new character.
+- Ticking Advanced Cast Bar turns on its tick marks and latency zone.
+- Tooltip IDs show on comparison and quest reward tooltips every time.
+- With Hide Surnames off, the game's My surname box keeps your choice.
+- /eraui-classic reset no longer brings back What's New and the set up line, or switches windows back on after a restart.
+- The queue eye goes straight back beside the minimap after Edit Mode changes.
+- No dark strip above the Professions window.
+- Small fixes to help text, /era search and the status report.
+
+## 1.7.3
+
+### Added
+- Craft Batch Countdown on the Advanced Cast Bar: crafting a batch shows which one you're on (4 / 133) and the time left for them all.
+
+### Changed
+- Update Notice now hears of a newer EraUI from far more players, not just your guild and group.
+
+### Fixed
+- Movable World Map: opening the quest list no longer shifts the map out of its window.
+- The target of target's name lines up under its bars again.
+- Skill and reputation bars fill to the end when full.
+
+## 1.7.2
+
+### Fixed
+- Minimap: no gold bar behind the zone name, the classic tracking glass is back, the calendar date and glow are fixed, the game's new event button gets its own spot, and the day/night icon scales with the minimap.
+- The Who list keeps filling after a /who.
+- Incoming heal and shield bars line up with the health bar again.
+- Button cooldowns stay dark after a cast with No cast animation on buttons.
+- Party role icons no longer stretch after a group change mid-fight.
+- BLESSING! no longer counts Salvation as a blessing.
+
+### Changed
+- Battle Shout and Trueshot Aura reminders check the whole raid, since both buffs now reach everyone.
+- Training Guide spells and levels match Forever's latest patch, and old trainer prices reset after a game update.
+
+## 1.7.1
+
+### Added
+- Square Minimap (Map & Minimap), with a Square Size slider.
+- Show me what's new walks you to each new option in /era, and glows in your class colour until you've looked.
+- First-time players are offered a quick tour of /era.
+
+### Changed
+- Options that have been tested are no longer marked experimental. Only Raid-style Party Outline still is.
+
+### Fixed
+- "just added" shows next to new options again after an update.
+
+## 1.7.0
+
+### Added
+- Thick Frames: thick dark unit frames with round corners and taller bars, plus Portrait Rings, Classic Party Frames and a class-colour Edge (experimental).
+- Stat Tracker: a small panel of the stats you pick, updating live; drag it anywhere (Character & Spells, experimental).
+- Upgrade Spell Ranks: a new rank you learn replaces the old one on your bars (Action Bars, experimental).
+- Rounded Cast Bars: thick soft-cornered cast bars with the spell icon in its own tile (experimental).
+- Thick Aura Borders: thick dark borders round your own buffs and debuffs (experimental).
+- Raid-style Party Outline: flat bars and one thick dark outline round raid-style party frames (experimental).
+- Cast Bar Colour: your cast bar in yellow, grey, your class colour or a colour you pick (experimental).
+- Clean Minimap: a new Drawer style tucks your addon buttons into one minimap button, in a grid you can arrange (experimental).
+- Dark Bag Buttons: in Dark Mode, darker grey bag icons, all alike, and a dark line on an open bag (experimental).
+
+### Changed
+- In Dark Mode your cast bar is now light grey; pick Yellow under Cast Bar Colour for the old look.
+- Dark Windows also darkens the game's red buttons (Release Spirit, quest, mail, trade and more) and red X close buttons (experimental).
+- With Match Focus Size, the focus frame shows only debuffs unless Use Larger Frame is ticked for it in Edit Mode.
+
+### Fixed
+- No more "blocked" message from the focus frame after levelling up in a fight.
+- The target of target shows the right name when it becomes you, and Hide Surnames works there too.
+
+## 1.6.0
+
+### Added
+- A new settings layout: grouped tabs, sub-tabs and one row per option, with a short walkthrough. Your settings are kept.
+- Flat Bars: a plain, solid fill on unit-frame and cast bars (experimental).
+- Dark Windows: in Dark Mode, EraUI's red buttons and pop-ups, the game menu, help tips, the spellbook and Professions go dark with the Darkness slider (experimental).
+- Black Pages: black Spellbook and Professions pages (experimental).
+- Thin Debuff Colours: your debuffs get the dark border with a thin line in their colour (experimental).
+- More from Squirt lists Forever Enhanced Cursor and Forever Enhanced Cooldown Pulse.
+
+### Changed
+- Clean Minimap also hides the minimap buttons of Squirt's other addons until you hover the map.
+- Reveal World Map steps aside while another map addon is already revealing the map.
+
+### Fixed
+- The target frame shows all five combo points again.
+- No more "blocked" message after fights with a focus or target.
+- With Friends & Guild on, the friends key opens the classic Friends List instead of the game's new social window.
+- The sort bags button shows on the combined bag again.
+- Trainer descriptions are no longer cut off.
+- Switching Dark Menu Bar on or off applies at once.
+- What's New and the update notice show the right version.
+
+## 1.5.5
+
+### Added
+- In Dark Mode, light + and - on the minimap zoom buttons, and a dark ring on the day/night button.
+- The heart and name in the "Made with love by Squirt" footer show in your class colour.
+
+### Changed
+- Dark Aura Borders give Boosted Rest the dark border instead of a red debuff ring.
+
+### Fixed
+- Hide Aggro Highlight keeps the aggro flash and your status glow hidden.
+
+## 1.5.4
+
+### Added
+- Dark Menu Bar: in Dark Mode the menu bar buttons' frames darken with the Darkness slider (Action Bars page).
+
+### Changed
+- Dark Aura Borders: the grey line darkens with the Darkness slider, and icons are trimmed so their bright rim doesn't show.
+- Tooltip borders darken with the Darkness slider in Dark Mode. Class-coloured borders keep their colour.
+
+## 1.5.3
+
+### Added
+- Darkness slider for Dark Mode, from light grey to near black.
+- Darken class colours too: class-coloured unit borders darken with the slider.
+
+### Changed
+- Dark Mode also darkens the minimap ring, zoom buttons, clock, reputation bar frame and latency bar.
+- More from Squirt shows Forever Enhanced Cooldown Manager's new logo.
+
+### Fixed
+- Escape closes EraUI's windows without changing your key bindings.
+- The Presets window closes when you change tab or close /era.
+
+## 1.5.2
+
+### Added
+- Character Item Levels: item levels on your worn gear in the character window (off by default).
+- Rogues: click POISON! to apply poisons, left-click main hand, right-click off hand (Needs testing, off by default).
+
+### Changed
+- Rogues: POISON! replaces the Poison Reminders panel, and stays on if you used it.
+- /era reset, Reset toggles and /eraui-classic reset now ask before resetting.
+- /era search shows just the cards, with no option boxes or gaps. Click a result's tab name to go there.
+
+### Fixed
+- Poison Supplies works again on Forever's new patch.
+- Character window: Melee and Ranged Attack show your weapon skill again.
+- Debuff borders show their type colour again (Magic, Curse, Poison, Disease) instead of always red.
+- Spellbook and profession shift-click links, and Whisper in the Guild and Who lists, updated for Forever's new patch.
+- Clickable reminders no longer leave an invisible click spot on screen in combat.
+- Mage Conjure buttons no longer float over other cards.
+
+## 1.5.1
+
+### Changed
+- Boss cast bars switch to Forever Enhanced Cooldown Manager's look when its Raid Timers option is ticked.
+- Bag Space now uses the game's new Show Free Bag Space switch.
+- Training Guide updated for the level 30 patch (druids get Primal Bite).
+
+### Fixed
+- Opening Professions from the spellbook works with the new patch.
+- The backpack no longer shows your arrow count.
+- Group Finder: the new Play Style choice has the Classic look, and the line under the role icons no longer sticks out.
+- Training Guide and Talents show your new level straight after a level-up.
+- The PvP icon updates straight away.
+
+## 1.5.0
+
+### Added
+- Class Icon Portraits: two switches under Frames & Nameplates show class icons instead of faces. Mine is for your own unit frame, Others for other players'. They're the game's own options from Options > Interface, so both always match, and they change at once. Not in combat.
+
+### Changed
+- The /era window is streamlined: every option now lives with its topic, so things are easier to find. Can't spot something? Search still finds it all.
+- The /era tabs are now Appearance, your class, Action Bars, Frames & Nameplates, Casting, Map & Minimap, Quests, Character & Spells, Bags & Vendors, Chat & Names, Group & Invites, Windows & Tooltips, Screen & Cursor and More from Squirt, each with a line under its title saying what's on it.
+- Search also finds cards by their old names (some are shorter now, like Discard Junk When Full and Hide Surnames), and the Classic / Dark Mode choice and Update Notice. It takes colour or color and grey or gray, and shows each result's tab.
+- Cursor Ring, Cast Progress Ring and Cursor Trail: their options show once you switch them on.
+- Setup walkthrough: its pages follow the new tabs, and every option it offered is still there.
+- Updating from an earlier EraUI? A one-time note at the top of /era points you to Search. It shows once.
+- Class-coloured Unit Borders is greyed out until Dark Mode is on, as well as Unit Frames.
+
+### Fixed
+- Spellbook: your spellbook key (P) closes the spellbook from the Training Guide tab too (in combat, press it twice). In combat, the spells under the Training Guide can no longer be clicked through it.
+- More from Squirt: the card's text no longer runs under its CurseForge button.
+
+## 1.4.0
+
+### Added
+- AFK Screen, on by default: when you go AFK your interface and minimap fade away and EraUI shows its banner in your class colour, your character standing still, a card with your name, level, guild, zone, time away and the clock, and a famous World of Warcraft Classic line for your class. Move or press a key to come back. Its options are under Screen & Cursor.
+- Bag Item Levels: the item level of the gear in your bags as a big number in the item's quality colour, a green or red arrow for upgrades, and a red icon on gear you can't equip. Off by default.
+- Class reminders: Click pet reminders in combat, for hunters and warlocks. SUMMON PET!, PET DEAD! and PET LOW HEALTH! can be clicked mid-fight (Call Pet, Revive Pet, your demon, Mend Pet, Health Funnel). Off by default, and it needs Clickable reminders on.
+- Aura Shadows (Needs testing): a soft shadow behind your buff and debuff icons, with Dark Aura Borders in Dark Mode.
+- The EraUI logo in your addon list now matches the one on CurseForge.
+
+### Changed
+- The AFK Screen is switched on once for everyone updating. If you switch it off, it stays off.
+
+## 1.3.0
+
+### Added
+- Class reminders: PET LOW HEALTH! for hunters (click: Mend Pet) and warlocks (click: Health Funnel), in combat too. It shows below 35% by default, adjustable from 20 to 60%. Off by default.
+- Class reminders: Seal and Aura choices under Advanced, like Blessing. The alert names the one you picked.
+- Class-coloured Tooltips: a player's tooltip border, name and class in their class colour. Off by default.
+- Dark Aura Borders: a dark ring round your buff and debuff icons, on with Dark Mode.
+- Coming soon in /era: AFK Screen and Bag Item Levels.
+
+### Fixed
+- Guild roster and /who: your own line no longer offers whisper, invite, promote or remove on yourself, and you can edit your own guild note.
+- The update notice only trusts a whisper from your full name.
+- /era Turn off recognises your character correctly.
+
+## 1.2.2
+
+### Added
+- More from Squirt: Forever Enhanced Cooldown Manager is out, and its card gives you its CurseForge and GitHub links.
+- Class reminders: Summon Incubus can be picked as your demon.
+
+### Changed
+- Class reminders: all reminders, the Poison Reminders panel too, hide while you're on a flight path and come back a moment after you land.
+- Class reminders: Forever's own spell ranks are recognised: Trueshot ranks 1 and 2, Seal of Righteousness, Wisdom, Command and Fury, Retribution and the resistance auras, Ice Armor and Aspect of the Beast.
+
+### Removed
+- Class reminders for spells WoW Forever doesn't have: Summon Water Elemental (mage), Fire and Earth Elemental Totem (shaman), and the Blessing of Sanctuary and Felguard choices.
+
+## 1.2.1
+
+### Added
+- Discord: a Discord button in the /era footer beside Changelog and at the bottom of What's New, and /era discord. Found a bug or have an idea? It gives you the invite to copy.
+- Class reminders: on Any, clicking a blessing, weapon imbue or demon reminder casts the only one you know, or the one you cast last. Until you've cast one, hovering the reminder says what to do.
+
+### Changed
+- Class reminders: blessings are always click-cast as the normal blessing, never a Greater Blessing that needs Symbol of Kings. Priests, mages and druids click-cast a group buff (Prayer of Fortitude, Arcane Brilliance, Gift of the Wild) only while carrying its reagent.
+- Class reminders: a warrior's Battle Shout says "Not enough rage", with its own "Say when you're out of rage" option.
+- Update notice: only believes a version from your guild, party, raid or instance group, or a whisper from yourself.
+- More from Squirt: Forever Enhanced Cooldown Manager has its own icon and opens with /ccm.
+- Clean minimap also tucks away Forever Enhanced Cooldown Manager's minimap button, and no longer fades an addon's minimap button while you drag it.
+
+### Fixed
+- Setup: the "log out now?" question for a new damage font and its "Yes, log out" button no longer stay on screen after you leave setup, or come back after a fight.
+
+## 1.2.0
+
+### Added
+- Damage text font: pick the font of the damage and healing numbers, your own heals included. Pepsi by default, plus Bangers, Luckiest Guy, Lilita One, Titan One, Black Ops One, Russo One, Bungee, Permanent Marker and Press Start 2P, and the game's Skurri, Morpheus, Friz Quadrata and Arial Narrow. /era > Text & Camera. A new font shows after you log out and back in.
+- Damage text size slider, with a sample number that grows and shrinks as you drag. The size applies straight away.
+- Setup: a new Damage & healing text page. If you pick a new font, the last page offers to log out so you can see it.
+- Training Guide: spells you learn from a class quest (Bear Form, Teleport: Moonglade, warrior stances, hunter pet skills, shaman totems, warlock demons and more) show the quest's name and where it starts, for your race and faction, including Skyborne. Hover to see who gives it.
+- Click Links Again to Close: click an item or spell link in chat again to close its tooltip. /era > Quality of Life, on by default.
+- Class reminders: "Not enough mana" shows under a reminder until you can cast it. Option "Say when you're out of mana", on by default.
+- Update notice: tells you in chat when someone in your guild or group has a newer EraUI. The tick under the Presets button in /era, on by default.
+- More from Squirt: a new tab at the bottom of /era with my other addons. Forever Enhanced Cooldown Manager is coming soon.
+
+### Changed
+- Class reminders: clicking a reminder for a buff you're missing now casts it on you, even with someone else targeted.
+- Training Guide: quest spells no longer count as unknown trainer prices in the totals.
+- The Changelog button now sits in the middle of the /era footer.
+
+### Fixed
+- A Lua error after phasing or changing zones.
+
+## 1.1.0
+
+### Added
+- Presets: Classic + Quality of Life, Classic look only, or Quality of Life only (keeps Blizzard's modern interface). The first page of /era setup, or use the Presets button in /era, which shows your current preset. Your Quality of Life choices are never changed.
+- Classic Damage Meter: optional Classic look for Blizzard's damage meter, including extra windows and the spell breakdown. /era > Interface, off by default.
+- Quest tracker choice: with Questie installed, choose the Classic Tracker or Questie's own tracker, in /era setup or when turning Quest Tracker on. Questie's tracker currently lists no quests on WoW Forever, so the Classic Tracker is recommended.
+- Other Windows: a switch for the Classic look on windows without one of their own (trade, taxi, macros, calendar, achievements, collections and more). /era > Interface, on by default.
+
+### Changed
+- Important Debuffs on Portraits works in combat, using the game's own secure display. Enemy targets show stuns first, then fears, silences and roots. Friendly units show any crowd control, and your portrait shows what is controlling you. The icon covers the level badge while shown.
+- Movable World Map: resizing scales the whole map window. Your saved size carries over.
+- Options that need a Classic piece (for example Training Guide needs the Classic Spellbook) are greyed out while it is off.
+- "QoL" is now spelled out as Quality of Life.
+- Lighter player power bar updates.
+
+### Fixed
+- The world map no longer jumps to its default spot in combat, and no longer causes blocked map messages.
+- Level-up "tainted by EraUI" error when using Questie's tracker.
+- Important Debuffs on Portraits error from 1.0.6.
+
+### Removed
+- Trainer troubleshooting text from the status window.
+
+## 1.0.6
+
+### Added
+- Cast Progress Ring: class/custom colours, size and opacity controls. Fills during casts, drains during channels, with no interruption flash.
+- Cursor Trail: independent toggle, class/custom colours, size, opacity and fade controls.
+- Discard Cheapest Junk: frees the lowest-value grey stack on the initial right-click of a known lootable corpse when bags are full. Falls back to the next loot click when loot rights are unavailable. Includes Shift bypass, a chat receipt and one-stack-per-loot-window limit.
+- Important Debuffs on Portraits: crowd-control icons and countdowns on player, target, focus and party portraits, marked Needs testing.
+- Changelog button in /era.
+- Discord button in the status window.
+- All new gameplay/cursor options default off.
+
+### Fixed
+- Player cast bar jumping vertically.
+- XP/status bar jumping to the screen top.
+- Train-button hover highlighting while preserving purchases and profession confirmations.
+- Class-tool navigation closing settings.
+- Quest-level labels causing tracker rebuilds or recursive layout, with prefixes respecting available space.
+- Added a centred scroll hint when more settings are below the viewport.
+
+### Changed
+- Removed redundant Configure shortcuts for Druid, Warrior, Paladin, Shaman, Priest and Warlock.
+- Clearly labelled Hunter feeding and Mage conjuring/trade sections.
+- Hidden ineffective Rogue/Shaman group-reminder options and unsupported Rogue reminder clicking.
+- Prevented duplicate Rogue missing-poison alerts while preserving saved choices and supply tools.
+
+## 1.0.5
+- Added: optional Clickable reminders (outside combat) in class-reminder settings. Disabled by default; enable it to cast supported spells by clicking their icons. Drag the reminder text to move it. Preview alerts never cast, and combat disables click actions.
+- Added: separate Hunter PET DEAD! reminder with Revive Pet, independently configurable under Advanced. SUMMON PET! now covers missing pets without duplicating the dead-pet alert.
+- Changed: reminder icons have a subtle hover highlight without an instructional tooltip. Choose a specific blessing, shaman imbue or warlock demon under Advanced for its click action. Targetable group buffs use your friendly living target, otherwise yourself.
+- Fixed: compact Classic trainers forward selection and purchases through Blizzard's native controls. Pet ability levels and training-point costs are shown; opening, empty-filter messages and combat presentation are improved.
+- Fixed: EraUI now includes optional Questie tracker compatibility, suppressing duplicate Blizzard tracking both in and out of combat. Disabling Questie's tracker restores native tracking; its Show Blizzard Timer preference is respected.
+- Added: Questie's quest-log actions open the selected quest in EraUI's Classic quest log when enabled, including folded or offscreen entries. Objective and map-icon actions retain map navigation.
+- Fixed: map quest details use the available panel height, with scrolling descriptions and rewards above the bottom action buttons.
+- Fixed: Map Reveal waits for native zoom data and refreshes after canvas sizing, avoiding an early-login map initialization error.
+- Fixed: player debuff borders use anchors instead of arithmetic on restricted icon dimensions, preventing secret-number errors.
+- Changed: /era reset now saves a durable reset request and reloads automatically outside combat. Live settings remain valid until reload, and queued/logout saves cannot restore the old settings. Failed reset requests preserve settings and do not reload.
+
+## 1.0.4
+- Added: optional Reveal World Map shows supported unexplored terrain with darker shading, using map metadata generated for the Forever client build.
+- Fixed: What's New is bounded to the screen with scrollable release notes, mouse-wheel support and a fixed heading and Got it button. Layout adapts to UI scale and resolution changes.
+- Changed: Tooltips and Training Guide are enabled by default for fresh settings and resets. Existing saved choices are respected; both options remain configurable in /era and require a reload to change.
+- Added: optional Training Guide tab inside the Classic spellbook, populated immediately from bundled Forever spell metadata. Search unlearned ranks grouped by availability, missing requirements and upcoming levels. Cost totals use labelled Classic base-price references, with unverified prices marked ?; optional trainer quotes refine those references.
+- Fixed: Training Guide excludes unverified seasonal/default learning levels, including the level-1 Heart of the Lion and Aspect of the Viper records. Classic price references exclude seasonal offers.
+- Fixed: hunter feeding uses Forever's current pet happiness and food APIs. Settings explain why the button is hidden when the pet is happy, absent or dead, or while settings are open.
+- Fixed: aura and general tooltip skins use an original thin, bevelled grey border with softened corners and a translucent dark background. Native alpha refreshes cannot expose the modern border while skinned.
+- Fixed: player channel progress uses one public timestamp clock and keeps its scale through damage updates. Advanced channels retain the native duration fallback for restricted timing.
+- Fixed: the map quest list overlays the right side of the full-width map instead of squeezing its artwork into a letterboxed viewport. Older saved map proportions are corrected once.
+- Fixed: opening or closing the world map's quest sidebar keeps the saved outer window size and position, including before the first manual resize.
+- Added: the Tooltips setting now applies Classic dark backgrounds and grey borders to regular item, spell, unit and map-control tooltips, including linked items and comparisons.
+- Fixed: world map artwork follows resizing immediately, with proportional sizing throughout the drag and no delayed growth on release. Normal and expanded map layouts are restored separately when reopened.
+- Fixed: the Map Pin button and hover highlight stay within their intended small top-left control instead of stretching across the map.
+- Fixed: the player-frame level number keeps its Classic gold colour after leveling.
+- Changed: Classic Unit Frames now includes Classic player debuff borders and dark, grey-bordered buff/debuff hover boxes. Native aura text, timers, dispel symbols and controls are retained.
+- Fixed: expanded class options and search results reserve their full height and scroll above the settings footer. Mage supply sliders also reserve room for their labels.
+- Fixed: mage conjure click targets no longer protect the settings window. They stay aligned with visible controls, hide during combat and allow settings navigation, closing and scaling during combat.
+- Fixed: pet reminders detect dead pets and the selected warlock demon. Weapon reminders share coating detection, correctly read the off hand and respect the selected shaman imbue.
+- New: optional Windfury Totem reminder under Shaman Advanced settings. The general totem reminder explicitly checks for at least one active totem.
+- Fixed: group reminders skip duplicate player entries, dead, offline and out-of-range members, and restrict party-only buffs to your raid subgroup. Aura changes invalidate cached checks, missing-member summaries are compact, and Soulstone needs only one protected checked member.
+- Fixed: hunter feeding no longer overlaps settings. Right-click the icon to unlock, drag it to move, scroll to resize and left-click to lock. Positioning previews also work before learning Feed Pet.
+- New: Class Reminders rebuilt as big on-screen alerts, a class-coloured word with the spell icon.
+- New: pick your aspect, blessing, imbue or demon so the alert names it.
+- New: covered for every class: Battle Shout, blessings, seals, aspects, Trueshot Aura, pets, poisons, weapon imbues, Inner Fire, Fortitude, Water Elemental, healthstones, soulstones, soul shards, Mark of the Wild and Thorns.
+- Changed: reminder options now live in your class tab as an Options dropdown, with individual reminders under Advanced.
+- Changed: drag any alert to move it, pick Small, Normal or Large, and reset positions any time; alerts stay hidden in combat by default.
+- Fixed: settings recovery now includes reminder toggles, choices, sizes and positions, map dimensions and movable-bar layouts when Forever loses SavedVariables.
+- Fixed: class-tool preferences, supply quantities, feeding/poison layouts and onboarding are recovered per character. Character identity includes the realm.
+
+## 1.0.3
+- Changed: Smoother performance - bar placement, client-window scans, loot and unit power updates no longer run on every single frame.
+- Fixed: Combo points no longer vanish mid-fight when the client hides the value.
+- Fixed: Elite and boss target frames keep their art in combat instead of dropping to the normal frame.
+- Fixed: Pet and target-of-target art refresh after summons and target changes.
+- Fixed: The player frame name no longer goes blank or shows as "Unknown".
+- Fixed: Hide Secondary Names now reliably hides the surname on the player and target frames, and no longer switches itself back off.
+- Fixed: Your level updates on the character sheet the moment you ding with it open.
+- Fixed: Inspecting a second player updates the name and talents instead of keeping the previous one.
+
+## 1.0.2
+- Fixed: Target frame name no longer sticks to the previous target after targeting yourself.
+
+## 1.0.1
+- New: Movable world map - drag it by the header and resize it from the corners; your spot and size are remembered.
+- New: Red combo points - switch the floating orbs to red in your class settings.
+- New: "What's new" window that appears once after an update, styled like the rest of EraUI and coloured to your class (`/era updates` reopens it).
+- Changed: Swing timers are now per character - each of your characters keeps its own setting.
+- Fixed: The action bar band and gryphons no longer vanish after dragging a spell.
+- Fixed: The welcome and first-run setup now appear only once per character.
+- Quiet Mode now starts on by default (errors and command replies still show).
+- Class Reminders and Reveal World Map are marked as coming soon until they're ready.
+
+## 1.0.0
+- Initial release.
+- Restores the classic 2004 interface: action bar, unit frames, cast bars, mirror timers, minimap, nameplates, quest log and tracker, character sheet, spellbook, talents, professions, trade skills, trainers, bags, bank, game menu, settings window, window frames, Who list, guild roster and group finder.
+- Quality-of-life features: vendor prices, bag-space display, quest levels, map quest objectives, auto-sell junk, auto-repair, chat class colours, secondary names, spell-rank filtering, energy/rage/mana/druid resource bars, swing timers, an advanced cast bar, class tools, coordinates, clean minimap, cursor ring, chat dragging and more.
+- Floating combo points with a choice of gold or red orbs.
+- Settings window with search (`/era`) and a guided first-run setup.
