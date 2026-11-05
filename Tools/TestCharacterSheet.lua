@@ -124,6 +124,12 @@ do
     Equal(s.State(title).font, env.GameFontNormal, "the title re-fonted")
     Equal(C.levelLine:GetText(), "Level 12 Human Rogue", "the level line")
     Equal(select(2, C.levelLine:GetPoint(1)), title, "under the title")
+    -- The name in the art's top band, clear of the line under it (at 24
+    -- down it sat on that line); the level line where it was.
+    local _, onto, at, x, y = title:GetPoint(1)
+    Equal(table.concat({ tostring(onto == sheet), at, x, y }, " "), "true TOP 6 -19", "the name up in the top band")
+    local _, _, _, lx, ly = C.levelLine:GetPoint(1)
+    Equal(lx .. " " .. ly, "0 -11", "the level line still 43 down")
     Equal(env.CharacterLevelText:GetAlpha(), 0, "the game's level text faded")
     game.level = 13
     env.CharacterLevelText:SetAlpha(1)

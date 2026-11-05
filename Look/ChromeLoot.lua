@@ -213,10 +213,8 @@ local function OwnView(box)
     local fine, view = Look.Ask(box, "GetView")
     if not fine or type(view) ~= "table" then return end
     Look.Ask(view, "SetElementExtent", ROW)
-    if type(CreateScrollBoxPadding) == "function" then
-        local made, padding = pcall(CreateScrollBoxPadding, 0, 0, 0, 0, 0)
-        if made then Look.Ask(view, "SetPadding", padding) end
-    end
+    -- A linear view's SetPadding takes the numbers and makes its own padding.
+    Look.Ask(view, "SetPadding", 0, 0, 0, 0, 0)
     Look.Ask(box, "FullUpdate", true)
 end
 

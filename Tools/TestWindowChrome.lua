@@ -634,7 +634,10 @@ local function LootWorld(items)
         game.Own(loot, "ScrollBox", box)
         local view = { extent = 46 }
         function view.SetElementExtent(_, extent) view.extent = extent end
-        function view.SetPadding(_, padding) view.padding = padding end
+        -- As Blizzard's ScrollBoxLinearBaseViewMixin: five numbers, not a padding table.
+        function view.SetPadding(_, top, bottom, left, right, spacing)
+            view.padding = { top, bottom, left, right, spacing }
+        end
         game.lootView = view
         game.lootRows = {}
         for i = 1, items do
@@ -665,7 +668,6 @@ end
 Session()
 local loot = LootWorld(6)
 game.Seal()
-env.CreateScrollBoxPadding = function(...) return { ... } end
 game.Pass()
 Equal(st[loot].width .. "x" .. st[loot].height, "170x240", "loot: the 1.x 170 x 240")
 loot:Resize()
@@ -688,7 +690,10 @@ Equal(ns.WindowPiece(loot, "backing"), nil, "no stone")
 Equal(st[loot.TitleContainer.TitleText].alpha .. st[loot.ScrollBox].alpha, "11", "its title and list kept")
 Equal(Spot(loot.ScrollBox, "TOPLEFT") .. " / " .. Spot(loot.ScrollBox, "BOTTOMRIGHT"), "TOPLEFT LootFrame 21,-71 / BOTTOMRIGHT LootFrame 10,46",
     "the list placed, three rows tall with the pages showing")
-Equal(game.lootView.extent .. " " .. #game.lootView.padding .. " " .. tostring(game.fullUpdate), "41 5 true", "rows 41 tall, no padding, redrawn at once")
+local paddingTypes = {}
+for i = 1, 5 do paddingTypes[i] = type(game.lootView.padding[i]) .. "=" .. tostring(type(game.lootView.padding[i]) == "number" and game.lootView.padding[i]) end
+Equal(game.lootView.extent .. " " .. table.concat(paddingTypes, ",") .. " " .. tostring(game.fullUpdate),
+    "41 number=0,number=0,number=0,number=0,number=0 true", "rows 41 tall, no padding (five plain numbers), redrawn at once")
 local row1 = game.lootRows[1]
 local rowPlate = game.Find(function(s) return s.parent == row1 and s.file == MEDIA .. "UI-QuestItemNameFrame" end)
 Equal(st[rowPlate].width .. "x" .. st[rowPlate].height .. " " .. Spot(rowPlate, "LEFT"), "130x62 LEFT ? 30,0", "each row on the old name plate")

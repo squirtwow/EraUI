@@ -138,15 +138,19 @@ function C.WriteLevel()
     Look.Fade(CharacterLevelText)
 end
 
+-- The name in the middle of the art's top band, clear of the line under
+-- it (at 24 down it sat on that line); the level line where it was, below.
+C.TITLE_Y, C.LEVEL_GAP = -19, -11
+
 function C.LayTitle(sheet)
     local title = TitleText(sheet)
     if not title then return end
-    Look.Pin(title, "TOP", sheet, "TOP", 6, -24)
+    Look.Pin(title, "TOP", sheet, "TOP", 6, C.TITLE_Y)
     title:SetFontObject(GameFontNormal)
     if not C.levelLine then
         C.levelLine = Look.OwnLabel(sheet, "levelLine", "GameFontNormalSmall", "OVERLAY")
     end
-    Look.Pin(C.levelLine, "TOP", title, "BOTTOM", 0, -6)
+    Look.Pin(C.levelLine, "TOP", title, "BOTTOM", 0, C.LEVEL_GAP)
     C.levelLine:Show()
     C.WriteLevel()
 end
