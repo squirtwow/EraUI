@@ -5,14 +5,15 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
--- 1.8.0 (the newest notes) added six options to lead to: the two sparkles,
--- the Legacy Window, Remember Minimap Zoom, On Tooltips Too and the mini-games
--- page, so its Show me what's new has six steps. The checks below run as
--- 1.7.1, whose walkthrough they were written for.
+-- 1.8.1 (the newest notes) is fixes only: no new options, so no Show me
+-- what's new. 1.8.0 added six options to lead to: the two sparkles, the
+-- Legacy Window, Remember Minimap Zoom, On Tooltips Too and the mini-games
+-- page. The checks below run as 1.7.1, whose walkthrough they were written for.
 do
  local E, f = Session("ROGUE")
  equal(E.SettingsTour.Release() .. " " .. #E.SettingsTour.NewsKeys(f) .. " " .. tostring(f.newsButton:IsShown()),
-  "1.8.0 6 true", "1.8.0: six new options to show, so Show me what's new")
+  "1.8.1 0 false", "1.8.1: fixes only, nothing new to show")
+ equal(#E.SettingsTour.NewsKeys(f, "1.8.0"), 6, "1.8.0's six new options")
 end
 MOCK_RELEASE = "1.7.1"
 local function Has(text, part) return text:find(part, 1, true) ~= nil end

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1
+
+### Fixed
+- Looting with EraUI's Loot Window no longer gives a Lua error or an empty loot box.
+- Your name on the character window no longer sits on the line under the top band.
+
 ## 1.8.0
 
 ### Added

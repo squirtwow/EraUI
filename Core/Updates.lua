@@ -6,6 +6,15 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.1",
+        sections = {
+            { "Fixed", {
+                "Looting with EraUI's Loot Window no longer gives a Lua error or an empty loot box.",
+                "Your name on the character window no longer sits on the line under the top band.",
+            } },
+        },
+    },
+    {
         version = "1.8.0",
         sections = {
             { "Added", {
