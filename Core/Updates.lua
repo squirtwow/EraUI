@@ -6,6 +6,18 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.2",
+        sections = {
+            { "Added", {
+                "Open Clams: clams in your bags open by themselves out of a fight, with a clam button while you carry some. In /era > Bags & Vendors > Bags & Loot.",
+            } },
+            { "Changed", {
+                "Dark Bag Buttons no longer needs Dark Mode.",
+                "Training Guide updated for this week's Forever patch, with Poised and Shank added.",
+            } },
+        },
+    },
+    {
         version = "1.8.1",
         sections = {
             { "Fixed", {

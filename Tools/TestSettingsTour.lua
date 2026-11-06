@@ -5,14 +5,17 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
--- 1.8.1 (the newest notes) is fixes only: no new options, so no Show me
--- what's new. 1.8.0 added six options to lead to: the two sparkles, the
--- Legacy Window, Remember Minimap Zoom, On Tooltips Too and the mini-games
--- page. The checks below run as 1.7.1, whose walkthrough they were written for.
+-- 1.8.2 (the newest notes) added one option to lead to: Open Clams. 1.8.1
+-- was fixes only: no new options, so no Show me what's new. 1.8.0 added six:
+-- the two sparkles, the Legacy Window, Remember Minimap Zoom, On Tooltips Too
+-- and the mini-games page. The checks below run as 1.7.1, whose walkthrough
+-- they were written for.
 do
  local E, f = Session("ROGUE")
- equal(E.SettingsTour.Release() .. " " .. #E.SettingsTour.NewsKeys(f) .. " " .. tostring(f.newsButton:IsShown()),
-  "1.8.1 0 false", "1.8.1: fixes only, nothing new to show")
+ local keys = E.SettingsTour.NewsKeys(f)
+ equal(E.SettingsTour.Release() .. " " .. #keys .. " " .. tostring(keys[1]),
+  "1.8.2 1 openClams", "1.8.2: Show me what's new leads to Open Clams")
+ equal(#E.SettingsTour.NewsKeys(f, "1.8.1"), 0, "1.8.1: fixes only, nothing new to show")
  equal(#E.SettingsTour.NewsKeys(f, "1.8.0"), 6, "1.8.0's six new options")
 end
 MOCK_RELEASE = "1.7.1"

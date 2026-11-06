@@ -2746,7 +2746,7 @@ do
  -- The data: every option Nav says a release added is a row here, from a
  -- release with notes, and its own rows are exactly the ones written out above.
  local releases = {}
- -- 1.8.2 (Open Clams): its notes go into Core/Updates.lua with the release.
+ -- 1.8.2: Open Clams.
  for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
