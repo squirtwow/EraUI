@@ -1,12 +1,13 @@
--- The 1.x art on the menu bar's small buttons, and the two Dark Mode extras
--- that colour them:
+-- The 1.x art on the menu bar's small buttons, and the two dark extras that
+-- colour them:
 --   * micro buttons: the old 32x64 sheets (lower 42 rows), the portrait shell
 --     on the character button
 --   * bag buttons: the quick slot art, the open-bag glow, the backpack's
 --     free-slot number, the round reagent bag
 --   * the key ring's own art
 --   * Dark Menu Bar: the modern micro buttons' bronze frames in Dark Mode's grey
---   * Dark Bag Buttons: the bag icons grey and the open-bag line dark
+--   * Dark Bag Buttons: the bag icons grey and the open-bag line dark, with or
+--     without Dark Mode
 -- Other files call the public functions on the Classic namespace; the band
 -- (Look/Band*.lua) uses them for every button it lays out.
 local _, EraUI = ...
@@ -216,9 +217,10 @@ end
 
 ---------------------------------------------------------------------------
 -- Dark Bag Buttons: the bag bar's icons desaturated and grey (all alike, still
--- told apart) and the open-bag line dark, wherever the buttons sit. Only
--- colour calls on the game's textures, after the game's own updates; EraUI's
--- state in weak tables, nothing hooked until the tick is first on.
+-- told apart) and the open-bag line dark, wherever the buttons sit, with or
+-- without Dark Mode. Only colour calls on the game's textures, after the
+-- game's own updates; EraUI's state in weak tables, nothing hooked until the
+-- tick is first on.
 ---------------------------------------------------------------------------
 
 local BAG_NAMES = Look.Words("MainMenuBarBackpackButton CharacterBag0Slot CharacterBag1Slot CharacterBag2Slot "
@@ -230,7 +232,7 @@ local bagGrey = setmetatable({}, { __mode = "k" })  -- an icon: the desaturation
 local bagWatching = false
 
 local function DarkBags()
-    return Look.Enabled() and EraUI:GetSetting("darkMode") and EraUI:GetSetting("darkBagButtons") and true or false
+    return Look.Enabled() and EraUI:GetSetting("darkBagButtons") and true or false
 end
 Look.DarkBags = DarkBags
 

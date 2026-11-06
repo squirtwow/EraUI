@@ -33,7 +33,8 @@ under it, Colour: Cast Bar Colour (Match look, Yellow, Grey, Class, Custom)
 and Custom Cast Bar Colour, a colour swatch that shows only with Custom.
 Appearance > Dark Mode has Darkness, Borders and Bars and windows: Dark Menu
 Bar beside Dark Bag Buttons, then Dark Windows with Black Pages under it; all
-of them greyed while Dark Mode is off.
+of them greyed while Dark Mode is off except Dark Bag Buttons, which works
+without it (2026-11-06).
 Map & Minimap has Square Minimap right under Minimap (2026-10-15),
 indented under it and greyed while it's off ("Switch on Minimap first."):
 it reshapes that look, and like Show Gryphons it's left out of the setup

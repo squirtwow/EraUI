@@ -524,7 +524,6 @@ do
  local notes = {
   thickFrames = "Switch on Unit Frames first (Frames & Nameplates > Unit Frames).",
   roundedCastBars = "Switch on Cast Bars first (Casting).",
-  darkBagButtons = "Switch on Dark Mode first (Appearance > Style).",
   castBarColour = "Switch on Cast Bars first.",
  }
  for n, step in ipairs(NEWS) do

@@ -4,8 +4,8 @@
 -- icon and the line the game shows while that bag is open, and the game's own
 -- updates as Forever's code runs them (a bag slot's update sets the icon,
 -- puts its colour back, refreshes the frame art and ends by greying a bag
--- that's being moved). Off by default: nothing is hooked or painted. On in
--- Dark Mode: every icon grey at .6, all alike, and the open-bag line dark,
+-- that's being moved). Off by default: nothing is hooked or painted. On, with
+-- or without Dark Mode: every icon grey at .6, all alike, and the open-bag line dark,
 -- after every one of those updates; a skin that recolours the line after the
 -- game (as a button skin addon does) is painted over once the slot's update
 -- ends. Off again: each texture gets back the colour it had (the game's, a
@@ -284,10 +284,11 @@ equal(Look(slots[0]) .. " / " .. Look(backpack), PLAIN .. " / " .. PLAIN, "off: 
 equal(Colours() - before, 4, "off: EraUI paints nothing more")
 equal(hooks, beforeHooks, "and hooks nothing more")
 
--- Dark Mode off (after a reload) or EraUI off: the tick waits, nothing dark.
+-- Dark Mode off (after a reload): still dark, it needs no Dark Mode. EraUI
+-- off: the tick waits, nothing dark.
 E.settings.darkBagButtons, E.settings.darkMode = true, false
 ns.RefreshDarkBagButtons()
-Every(PLAIN, "Dark Mode off")
+Every(DARK, "Dark Mode off")
 E.settings.darkMode, E.settings.enabled = true, false
 ns.RefreshDarkBagButtons()
 Every(PLAIN, "EraUI off")

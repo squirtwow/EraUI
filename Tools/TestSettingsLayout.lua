@@ -290,20 +290,24 @@ for _, c in ipairs(CLASSES) do
   equal((bags.depth or 0) == 0 and bags:GetTop() == bar:GetTop() and bags:GetLeft() > bar:GetRight(), true,
    c .. " Dark Bag Buttons beside Dark Menu Bar, not indented")
   equal(windows:GetLeft() == bar:GetLeft() and windows:GetTop() < bar:GetBottom(), true, c .. " Dark Windows on the next line, under Dark Menu Bar")
-  -- Dark Mode off greys all six; Dark Aura Borders off greys its two;
-  -- Dark Windows off greys Black Pages.
+  -- Dark Mode off greys all six others; Dark Aura Borders off greys its two;
+  -- Dark Windows off greys Black Pages. Dark Bag Buttons needs no Dark Mode.
   E.settings.darkMode = nil; E.settings.darkAuraBorders = true; E.settings.darkWindows = true; f:RefreshDependencies()
-  for _, row in ipairs({aura, shade, lines, bar, bags, windows, black}) do
+  for _, row in ipairs({aura, shade, lines, bar, windows, black}) do
    equal(row.dependencyDisabled == true and row.alpha, .45, c .. " " .. row.settingKey .. " greyed while Dark Mode is off")
   end
+  equal(not bags.dependencyDisabled and bags.alpha, 1, c .. " Dark Bag Buttons not greyed while Dark Mode is off")
   bags:SetChecked(true); bags:Fire("OnClick")
-  equal(E.settings.darkBagButtons == nil and bags:GetChecked() == false, true, c .. " Dark Bag Buttons can't be switched on without Dark Mode; its tick goes back")
+  equal(E.settings.darkBagButtons == true and bags:GetChecked() == true, true, c .. " Dark Bag Buttons can be switched on without Dark Mode")
+  bags:SetChecked(false); bags:Fire("OnClick")
+  equal(E.settings.darkBagButtons == false and bags:GetChecked() == false, true, c .. " and off again")
+  E.settings.darkBagButtons = nil
   aura:SetChecked(false); aura:Click()
   equal(E.settings.darkAuraBorders == true and aura:GetChecked() == true, true, c .. " a click on a greyed row changes nothing and keeps its tick")
   shade:SetChecked(true); shade:Fire("OnClick")
   equal(E.settings.darkAuraShadows == nil and shade:GetChecked() == false, true, c .. " Aura Shadows can't be switched on without Dark Mode; its tick goes back")
   E.settings.darkMode = true; E.settings.darkAuraBorders = false; E.settings.darkWindows = false; f:RefreshDependencies()
-  equal(aura.dependencyDisabled == false and aura.alpha == 1 and bar.dependencyDisabled == false and bags.dependencyDisabled == false
+  equal(aura.dependencyDisabled == false and aura.alpha == 1 and bar.dependencyDisabled == false and not bags.dependencyDisabled
    and bags.alpha == 1 and windows.dependencyDisabled == false, true,
    c .. " Dark Mode on: Dark Aura Borders, Dark Menu Bar, Dark Bag Buttons and Dark Windows available")
   equal(shade.dependencyDisabled and lines.dependencyDisabled and black.dependencyDisabled, true, c .. " their sub-options still greyed")
@@ -637,13 +641,13 @@ do
  equal(status, "Dark Menu Bar enabled. It shows once Dark Mode is applied.", "Dark Menu Bar waits for Dark Mode")
  E.GetSetting = get
  -- Dark Bag Buttons: its words, off by default, live through EraUI.Classic
- -- with its own chat line, waiting for Dark Mode like the rows round it.
+ -- with its own chat line, never waiting for Dark Mode (unlike the rows round it).
  local bagRow = f.checks.darkBagButtons
  _, help, extras = M.Hover(f, bagRow)
  equal(help, "Dark Bag Buttons  Your bag buttons' icons in a darker grey, all alike, instead of each bag's colours. An open bag shows a dark line, not a bright one.",
   "Dark Bag Buttons: what it does, in two lines")
  equal(extras, "Default: Off.", "Dark Bag Buttons: off by default, no reload line")
- equal(bagRow.summary, "Grey, darker bag icons and a dark line on open bags. Dark Mode only.", "Dark Bag Buttons: its summary")
+ equal(bagRow.summary, "Grey, darker bag icons and a dark line on open bags.", "Dark Bag Buttons: its summary")
  local bagPasses = 0
  E.Classic.RefreshDarkBagButtons = function() bagPasses = bagPasses + 1 end
  bagRow:SetChecked(false); bagRow:Click()
@@ -653,7 +657,7 @@ do
  equal(tostring(E.settings.darkBagButtons) .. " " .. bagPasses .. " " .. status, "false 2 Dark Bag Buttons disabled.", "and off, live")
  E.GetSetting = function(self, key) if key == "darkMode" then return false end; return get(self, key) end
  bagRow:Click()
- equal(status, "Dark Bag Buttons enabled. They show once Dark Mode is applied.", "Dark Bag Buttons waits for Dark Mode")
+ equal(status, "Dark Bag Buttons enabled.", "Dark Bag Buttons never waits for Dark Mode")
  E.GetSetting = get
  bagRow:Click()
  E.Classic.RefreshDarkBagButtons = nil

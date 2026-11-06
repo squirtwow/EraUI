@@ -16,14 +16,13 @@ P.LOOK = {
 -- Optional looks: Quality of Life only switches them off too; the Classic
 -- look leaves them as chosen. Dark Aura Borders is not one: it only shows in
 -- Dark Mode, so presets leave it alone and choosing Dark Mode later gives it.
--- Nor is Dark Bag Buttons, for the same reason: a tick you chose waits for
--- Dark Mode. Flat Bars, Thick Aura Borders, Rounded Cast Bars, Thick Frames,
--- the Raid-style Party Outline and Square Minimap are: they show in Classic
--- or Dark Mode.
+-- Flat Bars, Thick Aura Borders, Rounded Cast Bars, Thick Frames, the
+-- Raid-style Party Outline, Square Minimap and Dark Bag Buttons are: they
+-- show in Classic or Dark Mode.
 -- Thick Frames' own two ticks and its Edge choice are left as chosen: they
 -- do nothing while it's off. So is Square Minimap's Square Size.
 P.LOOK_EXTRAS = { "damageMeterSkin", "classColourBorders", "darkMode", "flatBars", "thickAuraBorders", "roundedCastBars", "thickFrames",
-    "partyOutline", "squareMinimap" }
+    "partyOutline", "squareMinimap", "darkBagButtons" }
 
 P.NAMES = { classic = "Classic look", qol = "Quality of Life only", custom = "Custom" }
 

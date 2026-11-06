@@ -272,22 +272,23 @@ Equal(saved.darkAuraBorders, false, "a switched-off Dark Aura Borders stays off 
 Equal(saved.darkAuraShadows, false, "a switched-off Aura Shadows stays off through presets")
 saved.darkAuraBorders = true
 saved.darkAuraShadows = true
--- Dark Bag Buttons only shows in Dark Mode too: presets leave it alone, on
--- or off, and it never changes which preset you're on.
+-- Dark Bag Buttons is one too: it shows in Classic or Dark Mode.
 inExtras = false
 for _, key in ipairs(P.LOOK_EXTRAS) do if key == "darkBagButtons" then inExtras = true end end
-Equal(inExtras, false, "Dark Bag Buttons is not an optional look")
-for _, value in ipairs({ true, false }) do
-    saved.darkBagButtons = value
-    Equal(P:Changes("qol").darkBagButtons, nil, "Quality of Life only leaves Dark Bag Buttons alone (" .. tostring(value) .. ")")
-    Equal(P:Changes("classic").darkBagButtons, nil, "the Classic look leaves Dark Bag Buttons alone (" .. tostring(value) .. ")")
-    P:Apply("qol")
-    Equal(saved.darkBagButtons, value, "Dark Bag Buttons kept after Quality of Life only (" .. tostring(value) .. ")")
-    P:Apply("classic")
-    Equal(saved.darkBagButtons, value, "and after the Classic look (" .. tostring(value) .. ")")
-    Equal(P:Current(), "classic", "Dark Bag Buttons never changes the preset (" .. tostring(value) .. ")")
-end
+Equal(inExtras, true, "Dark Bag Buttons is an optional look")
+saved.darkBagButtons = true
+Equal(P:Changes("classic").darkBagButtons, nil, "the Classic look leaves Dark Bag Buttons alone")
+Equal(P:Changes("qol").darkBagButtons, false, "Quality of Life only switches Dark Bag Buttons off")
+P:Apply("qol")
+Equal(saved.darkBagButtons, false, "Dark Bag Buttons off after Quality of Life only")
+P:Apply("classic")
+Equal(saved.darkBagButtons, false, "Dark Bag Buttons stays as chosen after the Classic look")
+saved.darkBagButtons = true
+Equal(P:Current(), "classic", "Dark Bag Buttons on is still the Classic look")
+P:Apply("classic")
+Equal(saved.darkBagButtons, true, "the Classic look keeps a switched-on Dark Bag Buttons")
 saved.darkBagButtons = nil
+Equal(P:Current(), "classic", "and off, still the Classic look")
 -- Upgrade Spell Ranks is a quality-of-life choice, not a look: presets leave
 -- it alone, on or off, and it never changes which preset you're on.
 for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do

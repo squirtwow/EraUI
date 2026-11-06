@@ -22,7 +22,8 @@ local DEPENDS = {
     classColourBorders = {"darkMode", "unitFrames"}, gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
-    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode", darkBagButtons="darkMode",
+    -- Dark Bag Buttons isn't here: it shows with or without Dark Mode.
+    darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode",
     darkWindows="darkMode", blackPages="darkWindows", darkDebuffLines="darkAuraBorders",
     -- On Appearance > Style, its parent on Casting: greyed there, never indented.
     roundedCastBars="castBars",
@@ -585,7 +586,9 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if refresh then refresh() end
             local name=key=="darkMenuBar" and "Dark Menu Bar " or key=="darkBagButtons" and "Dark Bag Buttons "
                 or key=="darkWindows" and "Dark Windows " or "Black Pages "
-            local later=key=="darkMenuBar" and " It shows once Dark Mode is applied." or " They show once Dark Mode is applied."
+            -- Dark Bag Buttons needs no Dark Mode, so it never waits for it.
+            local later=key=="darkBagButtons" and "" or key=="darkMenuBar" and " It shows once Dark Mode is applied."
+                or " They show once Dark Mode is applied."
             EraUI:Status(name..(value and "enabled." or "disabled.")..(value and not EraUI:GetSetting("darkMode") and later or ""))
             return
         end
@@ -993,7 +996,7 @@ local function BuildLookRows(frame)
     MakeCheck(frame, "Aura Shadows", "darkAuraShadows", nil, "A soft shadow behind your buff and debuff icons. Needs Dark Aura Borders.", false)
     MakeCheck(frame, "Thin Debuff Colours", "darkDebuffLines", nil, "Debuffs: dark border with a thin line in their colour.", false)
     MakeCheck(frame, "Dark Menu Bar", "darkMenuBar", nil, "Dark frames behind the menu bar buttons. Dark Mode only.", false)
-    local bagButtons = MakeCheck(frame, "Dark Bag Buttons", "darkBagButtons", nil, "Grey, darker bag icons and a dark line on open bags. Dark Mode only.", false)
+    local bagButtons = MakeCheck(frame, "Dark Bag Buttons", "darkBagButtons", nil, "Grey, darker bag icons and a dark line on open bags.", false)
     bagButtons.searchText = bagButtons.searchText .. " bag bar backpack button icon colour grey darker open highlight"
     MakeCheck(frame, "Dark Windows", "darkWindows", nil, "Darker buttons, pop-ups, frames and book pages. Dark Mode only.", false)
     MakeCheck(frame, "Black Pages", "blackPages", nil, "Black spellbook and professions pages instead of brown-grey.", false)
