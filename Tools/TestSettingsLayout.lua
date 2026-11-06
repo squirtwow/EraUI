@@ -61,7 +61,7 @@ local EXPECTED = {
     {"DEFENCE", {"statTrackerArmor", "statTrackerDodge", "statTrackerParry", "statTrackerBlock"}},
     {"OTHER", {"statTrackerSpeed", "statTrackerDurability"}}}}}},
   {"bags", "Bags & Vendors", "Bags, loot and merchants.", {
-   {"bagsloot", "Bags & Loot", {{"BAGS", {"bagsBank", "bagSpace", "bagItemLevels", "lootWindow", "fastAutoLoot", "discardCheapestJunk"}}}},
+   {"bagsloot", "Bags & Loot", {{"BAGS", {"bagsBank", "bagSpace", "bagItemLevels", "lootWindow", "fastAutoLoot", "discardCheapestJunk", "openClams"}}}},
    {"vendors", "Vendors", {{"VENDORS", {"merchantSkin", "autoSellJunk", "autoRepair", "vendorPrice", "junkValueSummary", "durabilityWarning"}}}}}},
  }},
  {group = "SOCIAL", tabs = {
@@ -224,7 +224,8 @@ local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
  ["1.7.0"] = {"thickFrames", "thickAuraBorders", "roundedCastBars", "partyOutline", "darkBagButtons", "upgradeSpellRanks",
   "cleanMinimapStyle", "castBarColour", "statTracker"},
  ["1.7.1"] = {"squareMinimap"}, ["1.7.3"] = {"advancedCastBatch"},
- ["1.8.0"] = {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips", "miniGameFlight"}}
+ ["1.8.0"] = {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips", "miniGameFlight"},
+ ["1.8.2"] = {"openClams"}}
 local TIGHT = {}
 -- The options saying "just added" for an account that updated from this version.
 local function NewSince(from)
@@ -242,6 +243,7 @@ end
 -- On Tooltips Too (under Hide Surnames) since 2026-10-28. The mini-games'
 -- flight choice and Play rows since 2026-10-31 (new, off by default). Herb and
 -- Ore Sparkles since 2026-11-04 (new, off by default, ore not seen in game).
+-- Open Clams (new 2026-11-07) was seen working in game that day: never.
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true}
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
@@ -2744,7 +2746,8 @@ do
  -- The data: every option Nav says a release added is a row here, from a
  -- release with notes, and its own rows are exactly the ones written out above.
  local releases = {}
- for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0"}) do releases[version] = true end
+ -- 1.8.2 (Open Clams): its notes go into Core/Updates.lua with the release.
+ for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
   equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
@@ -2828,8 +2831,8 @@ do
    looked = looked + 1
   end
  end
- equal(newCount, 20, "updated from 1.5.5: the twenty options of 1.6.0, 1.7.0, 1.7.1, 1.7.3 and 1.8.0 say just added")
- equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty just added, the Party Outline also experimental, and the coming soon ones)")
+ equal(newCount, 21, "updated from 1.5.5: the twenty-one options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0 and 1.8.2 say just added")
+ equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty-one just added, the Party Outline also experimental, and the coming soon ones)")
  -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
  -- they show to an account that updated.

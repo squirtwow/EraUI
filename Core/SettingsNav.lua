@@ -112,7 +112,7 @@ local TABS = {
     bags = {name = "Bags & Vendors", icon = "Interface\\Icons\\INV_Misc_Bag_08",
         about = "Bags, loot and merchants.", subs = {
             {id = "bagsloot", name = "Bags & Loot", sections = {S("Bags", {"bagsBank", "bagSpace", "bagItemLevels",
-                "lootWindow", "fastAutoLoot", "discardCheapestJunk"})}},
+                "lootWindow", "fastAutoLoot", "discardCheapestJunk", "openClams"})}},
             {id = "vendors", name = "Vendors", sections = {S("Vendors", {"merchantSkin", "autoSellJunk", "autoRepair",
                 "vendorPrice", "junkValueSummary", "durabilityWarning"})}},
         }},
@@ -178,6 +178,7 @@ Added("1.7.3", {"advancedCastBatch"})
 -- The mini-games' page is one step: On a Flight Path leads to it.
 Added("1.8.0", {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips",
     "miniGameFlight"})
+Added("1.8.2", {"openClams"})
 Nav.ADDED = ADDED
 -- Rows with no room for "just added" and their other words between their
 -- name and their buttons (Tools/TestSettingsLayout measures every row that

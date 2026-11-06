@@ -236,6 +236,7 @@ local classIconCoords = CLASS_ICON_TCOORDS or {
 -- its default are added by the footer itself (Describe, below).
 local settingHelp = {
     discardCheapestJunk = "With full bags, looting deletes your cheapest grey stack to make room and says which in chat. Never in combat; hold Shift to skip.",
+    openClams = "Clams in your bags open by themselves out of a fight, never at a vendor or bank. A clam button shows while you carry some.",
     cursorCastRing = "A ring round your cursor that fills as you cast and drains as you channel. With Cursor Ring on, it sits just outside it.",
     portraitDebuffs = "Crowd control on player, target, focus and party portraits, with a countdown on all but your own. Covers the level badge.",
     classColourBorders = "Player, target and focus frame borders in each player's class colour. Needs Dark Mode and Unit Frames.",
@@ -435,6 +436,8 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- (under Hide Surnames) got it on 2026-10-28. The mini-games' flight choice
 -- and Play rows got it on 2026-10-31 (new, off by default). Herb and Ore
 -- Sparkles got it on 2026-11-04 (new, off by default, ore not seen in game).
+-- Open Clams (new 2026-11-07) was seen working in game the same day, so it
+-- never needed it.
 local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
     miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true}
 local function NeedsTesting(key)
@@ -675,6 +678,18 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if EraUI.modules.QuestSparkles then EraUI.modules.QuestSparkles:Refresh() end
             local name=key=="questSparkles" and "Quest Item Sparkles" or "Herb and Ore Sparkles"
             EraUI:Status(name..(value and " enabled. If you don't see them yet, /reload." or " disabled."))
+            return
+        end
+        -- Open Clams: starts, or stops and hides its button, at once
+        -- (Modules/OpenClams.lua). With Clam Opener loaded, that does the job.
+        if key=="openClams" then
+            local clams=EraUI.modules.OpenClams
+            if clams then clams:Refresh() end
+            if value and clams and clams.Standalone and clams.Standalone() then
+                EraUI:Status("Open Clams enabled. Clam Opener is loaded, so it opens your clams instead.")
+            else
+                EraUI:Status("Open Clams "..(value and "enabled. Clams open by themselves out of a fight." or "disabled."))
+            end
             return
         end
         -- Mini-game Sounds: the games read it each time they play a sound.
@@ -1135,6 +1150,8 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Loot Window", "lootWindow", nil, "Classic loot window and item rows.", false)
     MakeCheck(frame, "Faster Auto-loot", "fastAutoLoot", nil, "Loot immediately. Hold Shift for manual looting; inactive in combat.", false)
     MakeCheck(frame, "Discard Junk When Full", "discardCheapestJunk", nil, "Frees the cheapest grey stack when looting with full bags. Shift bypasses.", false)
+    local clams = MakeCheck(frame, "Open Clams", "openClams", nil, "Clams in your bags open by themselves out of a fight.", false)
+    clams.searchText = clams.searchText .. " clam clams open opener shell pearl auto open container"
     MakeCheck(frame, "Merchant", "merchantSkin", nil, "Classic merchant and buyback windows.", false)
     MakeCheck(frame, "Auto-sell Junk", "autoSellJunk", nil, "Sell grey items at merchants.", false)
     MakeCheck(frame, "Auto-repair", "autoRepair", nil, "Repair using your own gold.", false)

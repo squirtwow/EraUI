@@ -123,6 +123,7 @@ local defaults = {
     gatherSparkles = false, -- Herb and Ore Sparkles (experimental): the same, plus the game's soft targeting picking out the nearest herb or ore as you get close; off by default, applies live
     fastAutoLoot = false,
     discardCheapestJunk = false,
+    openClams = false, -- Open Clams: clams in your bags open one at a time by themselves out of a fight, never at a vendor, bank, mailbox, trade or auction house, and a clam button shows while you carry some (Modules/OpenClams.lua); steps aside while Clam Opener is loaded; off by default, applies live
     autoQuests = false,
     mapQuestObjectives = true,
     movableMap = true,

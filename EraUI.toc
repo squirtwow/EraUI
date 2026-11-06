@@ -162,6 +162,7 @@ Modules\ExtraQoL.lua
 Modules\CombatFont.lua
 Modules\UpdateCheck.lua
 Modules\JunkDiscard.lua
+Modules\OpenClams.lua
 Modules\EnergyBar.lua
 Modules\ResourceBar.lua
 Modules\RangedSwingTimer.lua
