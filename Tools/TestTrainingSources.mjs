@@ -44,14 +44,16 @@ for(const id of [409580,415423,425336,401977,438040,468766,469145,1221404]){
 for(const [id,className,level]of [[6991,'HUNTER',10],[1515,'HUNTER',10],[674,'HUNTER',20],[674,'ROGUE',10],[402927,'WARRIOR',20]]){
  equal(rows.some(r=>r.id===id&&r.className===className&&r.level===level),true,`${id}: legitimate training entry survives cleanup`);
 }
-// Build 1.60.1.70753. Talents live in Forever's class trait trees, not the
+// Build 1.60.1.70790. Talents live in Forever's class trait trees, not the
 // Classic Talent table: rank 1 of a talent is never a trainer row (Wowhead
 // Forever's ability pages leave them out too), but its trained ranks are.
-equal(manifest.build,'1.60.1.70753','manifest build');
+// (70790 renumbered Mutilate: its talent is 399956 now; it dropped Lava Burst,
+// and Venom 1310703 became a passive with no trainer row.)
+equal(manifest.build,'1.60.1.70790','manifest build');
 equal(lua.includes(`build="${manifest.build}"`),true,'data and manifest name one build');
 for(const [id,name]of [[1310222,'Spearing Strike'],[1310994,'Swift Judgement'],[1310911,"Light's Vigil"],[1293241,'Summon Hawk'],
- [1317257,'Strider Kick'],[1310707,'Mutilate'],[1310703,'Venom'],[402174,'Penance'],[401859,'Prayer of Mending'],
- [408490,'Lava Burst'],[408521,'Riptide'],[400574,'Arcane Blast'],[1312002,'Ice Lance'],[1326079,'Arcane Wrath'],[1225228,'Bane of Havoc'],
+ [1317257,'Strider Kick'],[399956,'Mutilate'],[402174,'Penance'],[401859,'Prayer of Mending'],
+ [408521,'Riptide'],[400574,'Arcane Blast'],[1312002,'Ice Lance'],[1326079,'Arcane Wrath'],[1225228,'Bane of Havoc'],
  [1293817,'Conflagrate'],[412758,'Incinerate'],[1316697,'Wrack'],[1238122,'Feral Charge'],[407995,'Primal Bite'],[408120,'Wild Growth']]){
  equal(rows.some(r=>r.id===id),false,`${id} ${name}: a talent is not a trainer row`);
  equal(manifest.excluded.includes(id),true,`${id} ${name}: seen and excluded, not just missing`);
@@ -63,14 +65,25 @@ equal(manifest.excluded.includes(1325499),true,'Revoke seen and excluded');
 for(const [id,className,level,name]of [[5221,'DRUID',20,'Shred'],[20163,'PALADIN',26,'Seal of Fury'],[18499,'WARRIOR',30,'Berserker Rage'],
  [17354,'SHAMAN',38,'Mana Tide Totem'],[17359,'SHAMAN',48,'Mana Tide Totem'],[1325256,'SHAMAN',58,'Mana Tide Totem'],
  [1240826,'PRIEST',50,'Prayer of Mending'],[1240827,'PRIEST',60,'Prayer of Mending'],
- // 70707: Righteous Fury from 10 (was 16); trainers teach Voice of Truth and
- // Binding Heal rank 1, which left the talent trees (30 Oct hotfix).
- [25780,'PALADIN',10,'Righteous Fury'],[1310897,'PALADIN',20,'Voice of Truth'],[401937,'PRIEST',25,'Binding Heal'],
+ // 70707: Righteous Fury from 10 (was 16); trainers teach Voice of Truth,
+ // which left the talent tree (30 Oct hotfix). (Binding Heal did too, until
+ // 70790 dropped it.)
+ [25780,'PALADIN',10,'Righteous Fury'],[1310897,'PALADIN',20,'Voice of Truth'],
+ // Forever's new spells, levels by ID (BaseLevel 0): Poised for rogues and
+ // druids (70753), Shank's two ranks (70790), named Rank 1 and 2 by ID.
+ [1328825,'ROGUE',18,'Poised'],[1328829,'DRUID',32,'Poised'],[1329283,'ROGUE',24,'Shank'],[1329549,'ROGUE',44,'Shank'],
+ // 70790: Sniper Shot's rank 3 has a level of its own (58).
+ [1310786,'HUNTER',58,'Sniper Shot'],
  // 70753: Holy Shield's ranks at last agree (40, 50, 60).
  [20927,'PALADIN',40,'Holy Shield'],[20928,'PALADIN',50,'Holy Shield'],[1239570,'PALADIN',60,'Holy Shield'],
  // 70753: druids train a new Ferocious Bite rank 1 and a Lacerate rank 2.
  [1328618,'DRUID',24,'Ferocious Bite'],[1328616,'DRUID',34,'Lacerate']]){
- equal(rows.find(r=>r.id===id&&r.className===className&&r.level===level)?.name,name,`${id}: ${name} at ${level} in build 70753`);
+ equal(rows.find(r=>r.id===id&&r.className===className&&r.level===level)?.name,name,`${id}: ${name} at ${level} in build 70790`);
+}
+equal([1329283,1329549].map(id=>{const r=rows.find(x=>x.id===id);return r&&`${r.rank} ${r.prev}`;}),['Rank 1 0','Rank 2 1329283'],
+ 'Shank: two ranks the guide tells apart, rank 2 after rank 1');
+for(const id of [1328825,1328829,1329283,1329549]){
+ equal(manifest.levelAudit.some(a=>a.id===id&&a.source==='forever-level-by-id'&&a.evidence),true,`${id}: by-ID level cites its evidence`);
 }
 // 70753 has no Primal Bite rank 4 any more.
 equal(rows.some(r=>r.id===1238073),false,'1238073: Primal Bite rank 4 is gone');
@@ -85,7 +98,7 @@ for(const id of [1326053,1326054,1326055]){
 // (3 Nov) remove Lava Burst too. The client data still lists them, so they are
 // left out by ID and recorded as such.
 equal(manifest.trainerChanges.notTaught,[19977,19978,19979,25890,1038,25895,1325499,1238299,1238300,1326047],'no longer taught, by ID');
-equal(manifest.trainerChanges.nowTaught,[{id:1310897,className:'PALADIN'},{id:401937,className:'PRIEST'}],'now taught, by ID');
+equal(manifest.trainerChanges.nowTaught,[{id:1310897,className:'PALADIN'}],'now taught, by ID');
 // The spellbook can still list them as coming, so the data hands the guide
 // the same list to leave out (Modules/TrainingGuide.lua).
 const shipped=(lua.match(/^E\.TrainingData=\{build="[^"]+",notTaught=\{([\d,]*)\},classes=\{$/m)||[])[1];
@@ -98,11 +111,11 @@ for(const [id,name]of [[19977,'Blessing of Light'],[19978,'Blessing of Light'],[
  equal(manifest.excluded.includes(id),true,`${id} ${name}: seen and excluded`);
  equal(manifest.levelAudit.some(a=>a.id===id&&a.level>0),false,`${id} ${name}: not learnable in the 70753 client data`);
 }
-// Lava Burst's ranks are still in the 70753 files: only the launch notes remove them.
-for(const id of [1238299,1238300,1326047]){
- equal(rows.some(r=>r.id===id),false,`${id} Lava Burst: no longer a trainer row`);
- equal(manifest.excluded.includes(id),true,`${id} Lava Burst: seen and excluded`);
- equal(manifest.levelAudit.some(a=>a.id===id&&a.level>0),true,`${id} Lava Burst: still learnable in the client data`);
+// Lava Burst's ranks were still in the 70753 files (only the launch notes
+// removed them); 70790 drops them, and Binding Heal's, from the client too.
+for(const id of [1238299,1238300,1326047,401937,1240770,1240771,1240772,1240773,1240774]){
+ equal(rows.some(r=>r.id===id),false,`${id}: no longer a trainer row`);
+ equal(manifest.levelAudit.some(a=>a.id===id),false,`${id}: no learnable record in the 70790 client data`);
 }
 // 70707 renamed the three Explosive Trap Effect helpers "Explosive Trap": the
 // trap is still one row per rank, under the trap's own IDs.
@@ -137,7 +150,7 @@ for(const [id,name]of [[12484,'Chilled'],[29077,'Master of Elements'],[12355,'Im
  equal(rows.some(r=>r.id===id),false,`${id} ${name}: not a trainer row`);
  equal(manifest.excluded.includes(id),true,`${id} ${name}: seen and excluded`);
 }
-for(const id of [16979,1310786])equal(rows.some(r=>r.id===id),false,`${id}: not a trainer row before an in-game check`);
+equal(rows.some(r=>r.id===16979),false,'16979: not a trainer row before an in-game check');
 // Lightning Shield's damage helpers name no class either: still one row per rank.
 const shields=rows.filter(r=>r.className==='SHAMAN'&&r.name==='Lightning Shield');
 equal(shields.map(r=>r.id).join(' '),'324 325 905 945 8134 10431 10432','Lightning Shield: one row per rank');
@@ -150,16 +163,17 @@ equal(rows.every(r=>r.prev!==1263850),true,'no row needs the missing spell 12638
 const rankOf=r=>+(/^Rank (\d+)$/.exec(r.rank)||[])[1]||0;
 const prevOf=id=>rows.find(r=>r.id===id)?.prev;
 for(const [name,talent,ranks]of [['Seal of Command',20375,[20915,20918,20919,20920]],['Holy Shock',1311606,[20473,20929,20930]],
- ['Trueshot Aura',1299346,[1299348,19506,20905,20906]],['Arcane Wrath',1326079,[1326080,1326081,1326082]],['Sniper Shot',1310687,[1310785]],
+ ['Trueshot Aura',1299346,[1299348,19506,20905,20906]],['Arcane Wrath',1326079,[1326080,1326081,1326082]],['Sniper Shot',1310687,[1310785,1310786]],
  ['Conflagrate',1293817,[1293818,17962,18930,18931,18932]],['Primal Bite',407995,[1238069,1238070]],
  ['Holy Shield',20925,[20927,20928,1239570]],['Lacerate',1328617,[1328616,414644,1235826,1235827]]]){
  equal(ranks.map(prevOf),[talent,...ranks.slice(0,-1)],`${name}: each rank needs the one before it, from the talent on`);
  equal(rows.some(r=>r.id===talent),false,`${name}: its rank 1 is a talent, not a trainer row`);
  equal(manifest.excluded.includes(talent),true,`${name}: its talent is seen and left out`);
 }
-// 90 by this rule: since 70707 Holy Shield's 3 joined, Lava Burst's 3 left, and
-// the client names Primal Bite's 2 and Lacerate's itself (its SupercedesSpell).
-equal(manifest.talentChains.length,90,'90 trained ranks follow a talent');
+// 91 by this rule: since 70707 Holy Shield's 3 joined, Lava Burst's 3 left, and
+// the client names Primal Bite's 2 and Lacerate's itself (its SupercedesSpell);
+// 70790 adds Sniper Shot's rank 3.
+equal(manifest.talentChains.length,91,'91 trained ranks follow a talent');
 for(const c of manifest.talentChains){
  const row=rows.find(r=>r.id===c.id&&r.className===c.className),before=rows.find(r=>r.id===c.prev&&r.className===c.className);
  equal(row&&[row.name,rankOf(row),row.prev],[c.name,c.rank,c.prev],`${c.className} ${c.id}: shipped as the manifest says`);
@@ -168,9 +182,6 @@ for(const c of manifest.talentChains){
  // Forever Prep reads the rows in order, so the rank before comes first.
  if(before)equal(before.level<row.level||(before.level===row.level&&before.id<row.id),true,`${c.id}: listed after the rank it needs`);
 }
-// Held: Binding Heal's ranks (trainers teach its rank 1 now, conflict 1) keep
-// their rows as the client gives them.
-for(const id of [401937,1240770,1240771,1240772,1240773,1240774])equal(prevOf(id),0,`${id}: held, prev left at 0`);
 // Every other trained rank above 1 names the rank before it too (rankChains):
 // the row of its class one rank lower, or the rank 1 every character of the
 // class starts with (Fireball, Smite...), so no guide offers rank 3 unless
@@ -197,11 +208,11 @@ for(const [id,prev,rank]of [[1328616,1328617,2],[414644,1328616,3],[1235826,4146
  [1328618,0,1],[22568,1328618,2],[22827,22568,3],[22828,22827,4],[22829,22828,5],[31018,22829,6]]){
  equal([row('DRUID',id)?.prev,rankOf(row('DRUID',id))],[prev,rank],`${id}: the druid's rank as the client gives it`);
 }
-// Held at 0 by ID, each with its reason: Binding Heal 2-6 (above), Seal of
-// Righteousness 2 (which rank 1 characters have waits for a game check) and the
-// Greater Blessings of Might and Wisdom rank 2 (Forever's trainers ask for the
-// plain blessing's top rank instead).
-const heldPrev=[1240770,1240771,1240772,1240773,1240774,20287,25916,25918];
+// Held at 0 by ID, each with its reason: Seal of Righteousness 2 (which rank 1
+// characters have waits for a game check) and the Greater Blessings of Might
+// and Wisdom rank 2 (Forever's trainers ask for the plain blessing's top rank
+// instead). Binding Heal 2-6 were held too, until 70790 dropped the spell.
+const heldPrev=[20287,25916,25918];
 equal(manifest.heldPrev.map(h=>h.id),heldPrev,'the ranks held at 0, by ID');
 for(const h of manifest.heldPrev){
  equal(rows.filter(r=>r.id===h.id).map(r=>r.prev),[0],`${h.id}: held at 0`);

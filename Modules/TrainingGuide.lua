@@ -104,7 +104,12 @@ function M:Catalog()
    local name,icon
    if T.Spell then name,icon=T.Spell(data[1])end
    local rank=data[7]
-   if C_Spell and C_Spell.GetSpellSubtext then rank=C_Spell.GetSpellSubtext(data[1])or rank end
+   -- The game's rank text, unless it gives none: Shank's two ranks have
+   -- none in the client, so the list's own "Rank 1"/"Rank 2" keep them apart.
+   if C_Spell and C_Spell.GetSpellSubtext then
+    local text=C_Spell.GetSpellSubtext(data[1])
+    if type(text)=="string"and text~=""then rank=text end
+   end
    local row={spellID=data[1],level=data[2],previous=ClientHas(data[3])and data[3]or 0,cost=data[5],name=name or data[6],rank=rank,
     icon=icon,trainer=true,reference=true}
    entries[Key(row.name,row.rank)]=row

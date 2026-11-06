@@ -1,57 +1,57 @@
 {
-  "build": "1.60.1.70753",
+  "build": "1.60.1.70790",
   "sources": [
     {
-      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70753",
-      "sha256": "72715f0f750d222f5e907e84b91dd81f85999a2e901489946b8db1e4adfaaae7"
+      "url": "https://wago.tools/db2/SkillLine/csv?build=1.60.1.70790",
+      "sha256": "f3867d43ab42d1f5278e6e5028d0151bc06e4ef8e5cbd790a20df6ee57aa654d"
     },
     {
-      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70753",
-      "sha256": "2853e5aeca9eac78afe4706c1420c55249b8ca1f61725682b65622f41204401b"
+      "url": "https://wago.tools/db2/SkillLineAbility/csv?build=1.60.1.70790",
+      "sha256": "ba3e396415ce1cbf34df00acafbf0edc9a8d70dd4b2584ca4ddf1325fb8c9d14"
     },
     {
-      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70753",
+      "url": "https://wago.tools/db2/SkillRaceClassInfo/csv?build=1.60.1.70790",
       "sha256": "2193908c90f65d38fa9bc68907217fd759c132ccdc9f882cd3bc5acecabba322"
     },
     {
-      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70753",
-      "sha256": "eddb84994bcb0e15fd61e10ddedf7151efb2d893eea04f75142c91d37a8416cc"
+      "url": "https://wago.tools/db2/SpellLevels/csv?build=1.60.1.70790",
+      "sha256": "54ccf6e7fbd72153fbf4856b90d08ea9ddced02902678db82a39c60b411dad75"
     },
     {
-      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70753",
-      "sha256": "0a7dd2a3ee0be5b00e0ae91abf93d73fafa4c4c5be4fdc39245ca0227c0a4480"
+      "url": "https://wago.tools/db2/SpellName/csv?build=1.60.1.70790",
+      "sha256": "7c4193359dab5dd805819f5f8765439195639582511479353378cdc5e556a0d6"
     },
     {
-      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70753",
-      "sha256": "6305a313e7dddb481982b34bcabbbcf17d2afc0579c5e492f85fa2cb919ec86e"
+      "url": "https://wago.tools/db2/Spell/csv?build=1.60.1.70790",
+      "sha256": "bfe5ed9d1403f04c431f74af2f0ddc91002ebc07208883da999efc5d0e7e5b77"
     },
     {
-      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70753",
-      "sha256": "a0e6b8805f695cbadb8af9c28a9f7b89418d6e2804d0d09c06c2471110f39b48"
+      "url": "https://wago.tools/db2/SpellMisc/csv?build=1.60.1.70790",
+      "sha256": "04496faca714b6eef1654b4493289a150a65c287e30d4033b7f7ceb5076141f4"
     },
     {
-      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70753",
-      "sha256": "ad022c86368a1e850be3c960cf39b92847aeefe51760a95c4da3eea53ea55291"
+      "url": "https://wago.tools/db2/SpellEffect/csv?build=1.60.1.70790",
+      "sha256": "52724739763341c79e941a9a7b2071d138ae98cc8e4f1e88c4dfbc68408dcd8e"
     },
     {
-      "url": "https://wago.tools/db2/SkillLineXTraitTree/csv?build=1.60.1.70753",
+      "url": "https://wago.tools/db2/SkillLineXTraitTree/csv?build=1.60.1.70790",
       "sha256": "e6774240ba1fda84bef060fda0d0b23e42d5ae9b4d8ae3323f7ccb31f38c5760"
     },
     {
-      "url": "https://wago.tools/db2/TraitNode/csv?build=1.60.1.70753",
-      "sha256": "1a9289bcb0babea3a5ed4be71d818019c9fc0ff327a95573dd8896070856b8d0"
+      "url": "https://wago.tools/db2/TraitNode/csv?build=1.60.1.70790",
+      "sha256": "f7f37eead7e7641cdbecdb1c548276ae1e5c1776eb5ad0539b88770a78979d44"
     },
     {
-      "url": "https://wago.tools/db2/TraitNodeXTraitNodeEntry/csv?build=1.60.1.70753",
-      "sha256": "cf672d42bfda5f5a51ae09f1642b131322e1ef5be273d7bf0191d9280205826b"
+      "url": "https://wago.tools/db2/TraitNodeXTraitNodeEntry/csv?build=1.60.1.70790",
+      "sha256": "7e9fb84e1256434748b1763365ea7498e0d6dd4871f789ad2a1c39925c071492"
     },
     {
-      "url": "https://wago.tools/db2/TraitNodeEntry/csv?build=1.60.1.70753",
-      "sha256": "052f8d708a2a95afcba3c1ac6d972d33a73b971913fedf3641f27b3537cbe7ac"
+      "url": "https://wago.tools/db2/TraitNodeEntry/csv?build=1.60.1.70790",
+      "sha256": "dccff303039c45dc3355d8d525a664db2a87de9a17bbec133f5859755e9152b0"
     },
     {
-      "url": "https://wago.tools/db2/TraitDefinition/csv?build=1.60.1.70753",
-      "sha256": "42ca30d251b054b095487c9bbdd3db968a6f3e2547c28db5d8b6e41d0ae4d98b"
+      "url": "https://wago.tools/db2/TraitDefinition/csv?build=1.60.1.70790",
+      "sha256": "4c29bf0710067d94d87051dfa216ac1dbc96b7651043ce171d787012d92daea7"
     },
     {
       "url": "https://www.wowhead.com/classic/spells/abilities/warrior",
@@ -100,15 +100,15 @@
       "basePrices": 112
     },
     "HUNTER": {
-      "spells": 133,
+      "spells": 134,
       "basePrices": 100
     },
     "ROGUE": {
-      "spells": 89,
+      "spells": 94,
       "basePrices": 82
     },
     "PRIEST": {
-      "spells": 230,
+      "spells": 224,
       "basePrices": 160
     },
     "SHAMAN": {
@@ -124,7 +124,7 @@
       "basePrices": 128
     },
     "DRUID": {
-      "spells": 200,
+      "spells": 201,
       "basePrices": 163
     }
   },
@@ -1625,7 +1625,8 @@
     30906,
     30919,
     30920,
-    1310703,
+    399956,
+    1329328,
     400574,
     402174,
     1316697,
@@ -1633,7 +1634,6 @@
     1310911,
     407669,
     408120,
-    408490,
     425336,
     408521,
     409580,
@@ -1658,8 +1658,6 @@
     1238074,
     1238075,
     1238077,
-    1238299,
-    1238300,
     1239550,
     1239551,
     1239552,
@@ -1683,7 +1681,6 @@
     1225228,
     407632,
     1310222,
-    1310707,
     1310709,
     1310711,
     1310725,
@@ -1698,12 +1695,11 @@
     1317006,
     1317257,
     1325499,
-    1326047,
     1326079,
     1328548,
     1328617,
-    1328825,
-    1328829,
+    1316709,
+    1329555,
     13797,
     14298,
     14299,
@@ -14406,7 +14402,7 @@
     },
     {
       "id": 13732,
-      "name": "Improved Sinister Strike",
+      "name": "Efficient Strikes",
       "classMask": 8,
       "baseLevel": 0,
       "spellLevel": 0,
@@ -15167,7 +15163,7 @@
     },
     {
       "id": 14162,
-      "name": "Improved Eviscerate",
+      "name": "Coup de Grace",
       "classMask": 8,
       "baseLevel": 0,
       "spellLevel": 0,
@@ -19042,7 +19038,7 @@
     },
     {
       "id": 16166,
-      "name": "Elemental Mastery",
+      "name": "Lightning Mastery",
       "classMask": 64,
       "baseLevel": 0,
       "spellLevel": 1,
@@ -30929,12 +30925,12 @@
       "source": "forever-relevelled-seasonal"
     },
     {
-      "id": 1310703,
+      "id": 1329328,
       "name": "Venom",
       "classMask": 8,
-      "baseLevel": 40,
-      "spellLevel": 40,
-      "level": 40,
+      "baseLevel": 30,
+      "spellLevel": 30,
+      "level": 30,
       "source": "forever-base-level"
     },
     {
@@ -31068,19 +31064,6 @@
         "season": 2
       },
       "level": 40,
-      "source": "forever-relevelled-seasonal"
-    },
-    {
-      "id": 408490,
-      "name": "Lava Burst",
-      "classMask": 64,
-      "baseLevel": 30,
-      "spellLevel": 30,
-      "reference": {
-        "level": 1,
-        "season": 2
-      },
-      "level": 30,
       "source": "forever-relevelled-seasonal"
     },
     {
@@ -31243,7 +31226,7 @@
     },
     {
       "id": 437009,
-      "name": "Totemic Projection",
+      "name": "Totemic Call",
       "classMask": 64,
       "baseLevel": 22,
       "spellLevel": 22,
@@ -31265,19 +31248,6 @@
         "season": 2
       },
       "reason": "seasonal-without-forever-learning-level"
-    },
-    {
-      "id": 401937,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 25,
-      "spellLevel": 25,
-      "reference": {
-        "level": 1,
-        "season": 2
-      },
-      "level": 25,
-      "source": "forever-relevelled-seasonal"
     },
     {
       "id": 415076,
@@ -31495,24 +31465,6 @@
       "source": "forever-base-level"
     },
     {
-      "id": 1238299,
-      "name": "Lava Burst",
-      "classMask": 64,
-      "baseLevel": 40,
-      "spellLevel": 40,
-      "level": 40,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1238300,
-      "name": "Lava Burst",
-      "classMask": 64,
-      "baseLevel": 50,
-      "spellLevel": 50,
-      "level": 50,
-      "source": "forever-base-level"
-    },
-    {
       "id": 1239242,
       "name": "Riptide",
       "classMask": 64,
@@ -31664,51 +31616,6 @@
       "baseLevel": 50,
       "spellLevel": 50,
       "level": 50,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1240770,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 32,
-      "spellLevel": 32,
-      "level": 32,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1240771,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 38,
-      "spellLevel": 38,
-      "level": 38,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1240772,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 44,
-      "spellLevel": 44,
-      "level": 44,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1240773,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 50,
-      "spellLevel": 50,
-      "level": 50,
-      "source": "forever-base-level"
-    },
-    {
-      "id": 1240774,
-      "name": "Binding Heal",
-      "classMask": 16,
-      "baseLevel": 56,
-      "spellLevel": 56,
-      "level": 56,
       "source": "forever-base-level"
     },
     {
@@ -32350,22 +32257,11 @@
       "source": "forever-base-level"
     },
     {
-      "id": 1310707,
-      "name": "Mutilate",
-      "classMask": 8,
-      "baseLevel": 30,
-      "spellLevel": 30,
-      "level": 30,
-      "source": "forever-base-level"
-    },
-    {
       "id": 1310709,
-      "name": "Coup de Grace",
       "classMask": 8,
-      "baseLevel": 30,
-      "spellLevel": 30,
-      "level": 30,
-      "source": "forever-base-level"
+      "baseLevel": 0,
+      "spellLevel": 0,
+      "reason": "invalid-base-level"
     },
     {
       "id": 1310711,
@@ -32580,6 +32476,15 @@
       "source": "forever-base-level"
     },
     {
+      "id": 1310786,
+      "name": "Sniper Shot",
+      "classMask": 4,
+      "baseLevel": 58,
+      "spellLevel": 58,
+      "level": 58,
+      "source": "forever-base-level"
+    },
+    {
       "id": 1311656,
       "name": "Seal of Fury",
       "classMask": 2,
@@ -32737,15 +32642,6 @@
       "reason": "invalid-base-level"
     },
     {
-      "id": 1326047,
-      "name": "Lava Burst",
-      "classMask": 64,
-      "baseLevel": 60,
-      "spellLevel": 60,
-      "level": 60,
-      "source": "forever-base-level"
-    },
-    {
       "id": 1326082,
       "name": "Arcane Wrath",
       "classMask": 128,
@@ -32822,7 +32718,9 @@
       "classMask": 8,
       "baseLevel": 0,
       "spellLevel": 18,
-      "reason": "unverified-learning-level"
+      "level": 18,
+      "source": "forever-level-by-id",
+      "evidence": "A new Forever spell with BaseLevel 0 and no Classic reference; its SpellLevel, Wowhead Forever's tooltip and warcraft.wiki.gg's Forever ability list (Trainer) give this level"
     },
     {
       "id": 1328829,
@@ -32830,6 +32728,72 @@
       "classMask": 1024,
       "baseLevel": 0,
       "spellLevel": 32,
+      "level": 32,
+      "source": "forever-level-by-id",
+      "evidence": "A new Forever spell with BaseLevel 0 and no Classic reference; its SpellLevel, Wowhead Forever's tooltip and warcraft.wiki.gg's Forever ability list (Trainer) give this level"
+    },
+    {
+      "id": 1329283,
+      "name": "Shank",
+      "classMask": 8,
+      "baseLevel": 0,
+      "spellLevel": 24,
+      "level": 24,
+      "source": "forever-level-by-id",
+      "evidence": "A new Forever spell with BaseLevel 0 and no Classic reference; its SpellLevel, Wowhead Forever's tooltip and warcraft.wiki.gg's Forever ability list (Trainer) give this level"
+    },
+    {
+      "id": 1329549,
+      "name": "Shank",
+      "classMask": 8,
+      "baseLevel": 0,
+      "spellLevel": 44,
+      "level": 44,
+      "source": "forever-level-by-id",
+      "evidence": "A new Forever spell with BaseLevel 0 and no Classic reference; its SpellLevel, Wowhead Forever's tooltip and warcraft.wiki.gg's Forever ability list (Trainer) give this level"
+    },
+    {
+      "id": 1316709,
+      "name": "Death Mark",
+      "classMask": 8,
+      "baseLevel": 40,
+      "spellLevel": 40,
+      "level": 40,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1325756,
+      "name": "Death Mark",
+      "classMask": 8,
+      "baseLevel": 48,
+      "spellLevel": 48,
+      "level": 48,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1325757,
+      "name": "Death Mark",
+      "classMask": 8,
+      "baseLevel": 56,
+      "spellLevel": 56,
+      "level": 56,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1325758,
+      "name": "Death Mark",
+      "classMask": 8,
+      "baseLevel": 60,
+      "spellLevel": 60,
+      "level": 60,
+      "source": "forever-base-level"
+    },
+    {
+      "id": 1329555,
+      "name": "Reckless Swings",
+      "classMask": 1,
+      "baseLevel": 0,
+      "spellLevel": 0,
       "reason": "unverified-learning-level"
     }
   ],
@@ -32874,10 +32838,6 @@
       {
         "id": 1310897,
         "className": "PALADIN"
-      },
-      {
-        "id": 401937,
-        "className": "PRIEST"
       }
     ]
   },
@@ -33028,6 +32988,13 @@
       "rank": 4,
       "id": 20910,
       "prev": 20909
+    },
+    {
+      "className": "HUNTER",
+      "name": "Sniper Shot",
+      "rank": 3,
+      "id": 1310786,
+      "prev": 1310785
     },
     {
       "className": "HUNTER",
@@ -38728,26 +38695,6 @@
     }
   ],
   "heldPrev": [
-    {
-      "id": 1240770,
-      "reason": "Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check"
-    },
-    {
-      "id": 1240771,
-      "reason": "Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check"
-    },
-    {
-      "id": 1240772,
-      "reason": "Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check"
-    },
-    {
-      "id": 1240773,
-      "reason": "Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check"
-    },
-    {
-      "id": 1240774,
-      "reason": "Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check"
-    },
     {
       "id": 20287,
       "reason": "Seal of Righteousness rank 2: rank 1 is 21084 by the client's rank text, 20154 by Forever's 70707 spellbook changes and its recorded trainer list; kept until a game check shows which one characters have"

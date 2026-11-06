@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {trainingLevel} from './TrainingLevelRules.mjs';
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 const cache=process.argv[2];assert(cache,'Pass a cache directory');await mkdir(cache,{recursive:true});
-const build='1.60.1.70753',sources=[];
+const build='1.60.1.70790',sources=[];
 // Cached by file name, so pass a new cache directory for each new build, with
 // the classic-*.html reference pages copied in from
 // C:\AddonDev\_ForeverData\classic-reference-pages: Classic's data doesn't move
@@ -79,15 +79,30 @@ const learnedWithAnother=new Set([1325499]);
 // Lava Burst ranks 2-4 (1238299, 1238300, 1326047) too: Blizzard's launch notes
 // of 3 Nov 2026 remove the spell with every reference, yet the 70753 files still
 // list these ranks, waiting on a talent nobody can get. Official word only, so
-// take them off this list if live data disagrees.
+// take them off this list if live data disagrees. Build 70790 drops every
+// Lava Burst and Binding Heal row; the Lava Burst IDs stay on notTaught for a
+// client still on an older build, and Binding Heal leaves nowTaught.
 const notTaught=new Set([19977,19978,19979,25890,1038,25895,1325499,1238299,1238300,1326047]);
-const nowTaught=new Map([[1310897,'PALADIN'],[401937,'PRIEST']]);
+const nowTaught=new Map([[1310897,'PALADIN']]);
 // Levels set by ID, each with its evidence in the manifest's levelAudit. Aspect
 // of the Beast ranks 2-4 are new ranks with BaseLevel 0 and no Classic reference,
 // so the level rules leave them out; their SpellLevel and Forever's spellbook
 // changes for 70707 agree on 40/50/60.
 const newRank='A new rank with BaseLevel 0 and no Classic reference; its SpellLevel and Forever\'s 70707 spellbook changes give this level';
-const levelsById=new Map([[1299445,[40,newRank]],[1299446,[50,newRank]],[1299447,[60,newRank]]]);
+// Forever's new spells, BaseLevel 0 with no Classic reference, so the level
+// rules leave them out too: Poised (rogue 1328825, druid 1328829; build 70753)
+// and Shank's two ranks (rogue; build 70790). Their SpellLevel, Wowhead
+// Forever's tooltips (Requires level ...) and warcraft.wiki.gg's Forever
+// ability lists (Trainer, 6 Nov 2026) agree; a player was told by the
+// trainer list that Poised is trained at 18.
+const newSpell='A new Forever spell with BaseLevel 0 and no Classic reference; its SpellLevel, Wowhead Forever\'s tooltip and warcraft.wiki.gg\'s Forever ability list (Trainer) give this level';
+const levelsById=new Map([[1299445,[40,newRank]],[1299446,[50,newRank]],[1299447,[60,newRank]],
+ [1328825,[18,newSpell]],[1328829,[32,newSpell]],[1329283,[24,newSpell]],[1329549,[44,newSpell]]]);
+// Shank's two ranks have no rank text in the client (build 70790), so the
+// guide, which tells spells apart by name and rank, saw one. Wowhead Forever's
+// tooltips call them Rank 1 and Rank 2. By ID; the build checks below stop on
+// any other class list with two rows of one name and rank.
+const rankTextById=new Map([[1329283,'Rank 1'],[1329549,'Rank 2']]);
 // Tiger's Fury's only row is AcquireMethod 3 and nothing in the client teaches
 // it, yet Forever's trainers do: one rank, at its BaseLevel 24. By ID only.
 const trainedAnyway=new Map([[5217,'AcquireMethod 3 and taught by nothing in the client; Forever\'s 70707 spellbook changes list one rank, trained at 24']]);
@@ -131,7 +146,8 @@ for(const a of tables.SkillLineAbility){
  if((treeTalents.has(id)&&!nowTaught.has(id))||learnedWithAnother.has(id)||notTaught.has(id)||notTrainerSpells.has(id)||awaitingCheck.has(id)||teaching.has(id)||!spells.get(id)?.Description_lang||!level||required<1||required>60||!m||(+m.Attributes_0&128)){
   exclusions.push(id);continue;
  }
- const n=spellNames.get(id)?.Name_lang,rank=spells.get(id)?.NameSubtext_lang||'';
+ const n=spellNames.get(id)?.Name_lang,rank=spells.get(id)?.NameSubtext_lang||rankTextById.get(id)||'';
+ assert(!rankTextById.has(id)||!spells.get(id)?.NameSubtext_lang,`${id}: the client gives its rank text now, so its by-ID text can go`);
  if(!n||/\b(?:OLD|DND|Deprecated|Passive Effect)\b/i.test(n))continue;
  // A rank before it with no SpellName row is no spell anyone can know (Claw
  // rank 1 names 1263850), so nothing comes before it.
@@ -162,7 +178,7 @@ for(const a of tables.SkillLineAbility.filter(r=>+r.AcquireMethod===2&&+skills.g
 // 2-5, Holy Shock 2-4, Conflagrate 2-6...), so a guide would offer them to a
 // character without the talent. Each such rank needs the one before it, by
 // the client's rank number: rank 2 the talent, rank 3 rank 2, and so on.
-// Binding Heal is not one: trainers teach its rank 1 now (nowTaught).
+// Voice of Truth is not one: trainers teach it now (nowTaught).
 const rankOf=rank=>+(/^Rank (\d+)$/.exec(rank||'')||[])[1]||0;
 const talentRanks=new Map();
 for(const [id,mask]of treeTalents)if(!nowTaught.has(id)){
@@ -170,10 +186,9 @@ for(const [id,mask]of treeTalents)if(!nowTaught.has(id)){
  talentRanks.set(key,[...(talentRanks.get(key)||[]),id]);
 }
 // Held at prev 0 by ID, as the client gives them (manifest heldPrev), until
-// the game settles them.
-const bindingHeal='Binding Heal: trainers teach rank 1 now (30 Oct notes), and its ranks stay as the client gives them until a game check';
+// the game settles them. (Binding Heal's ranks were held here until build
+// 70790 dropped the spell.)
 const keepPrev=new Map([
- ...[1240770,1240771,1240772,1240773,1240774].map(id=>[id,bindingHeal]),
  [20287,'Seal of Righteousness rank 2: rank 1 is 21084 by the client\'s rank text, 20154 by Forever\'s 70707 spellbook changes and its recorded trainer list; kept until a game check shows which one characters have'],
  [25916,'Greater Blessing of Might rank 2: Forever\'s trainer list (recorded on build 70124) asks for Blessing of Might rank 7, not rank 1'],
  [25918,'Greater Blessing of Wisdom rank 2: Forever\'s trainer list (recorded on build 70124) asks for Blessing of Wisdom rank 6, not rank 1']]);
@@ -246,6 +261,12 @@ for(const [className,rawRows]of Object.entries(output)){
   else exclusions.push(r.id);
  }
  const rows=[...canonical.values()];
+ // The guide keeps one row per name and rank for a character, so two rows
+ // one race can have would hide one (Shank's two ranks with no rank text did).
+ const everyone=race=>race===0||race===-1;
+ for(const a of rows)for(const b of rows)if(a!==b&&a.name===b.name&&a.rank===b.rank){
+  assert(!everyone(a.race)&&!everyone(b.race)&&((a.race>>>0)&(b.race>>>0))===0,`${className} ${a.id} and ${b.id}: both ${a.name} ${a.rank||'(no rank)'}, so the guide shows one`);
+ }
  rows.sort((a,b)=>a.level-b.level||a.id-b.id);assert(rows.length>20,`${className}: incomplete catalog`);
  chainTalentRanks(className,rows);chainTrainedRanks(className,rows);
  lua+=' '+className+'={\n';
