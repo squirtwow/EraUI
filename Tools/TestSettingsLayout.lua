@@ -75,7 +75,7 @@ local EXPECTED = {
     {"DEFENCE", {"statTrackerArmor", "statTrackerDodge", "statTrackerParry", "statTrackerBlock"}},
     {"OTHER", {"statTrackerSpeed", "statTrackerDurability"}}}}}},
   {"bags", "Bags & Vendors", "Bags, loot and merchants.", {
-   {"bagsloot", "Bags & Loot", {{"BAGS", {"bagsBank", "bagSpace", "bagItemLevels", "lootWindow", "fastAutoLoot", "discardCheapestJunk", "openClams"}}}},
+   {"bagsloot", "Bags & Loot", {{"BAGS", {"bagsBank", "bagSpace", "bagItemLevels", "bagArrowArmourColour", "bagBigCounts", "lootWindow", "fastAutoLoot", "discardCheapestJunk", "openClams"}}}},
    {"vendors", "Vendors", {{"VENDORS", {"merchantSkin", "autoSellJunk", "autoRepair", "vendorPrice", "junkValueSummary", "durabilityWarning"}}}}}},
  }},
  {group = "SOCIAL", tabs = {
@@ -221,6 +221,9 @@ local PARENT = {
  squareMinimap = "minimap", squareMinimapScale = "minimap",
  -- Show Their Level, folded under Class-coloured Friends (its own block below).
  classColourFriendsLevel = "classColourFriends",
+ -- Arrow Colour by Armour, folded under Bag Item Levels (its own block below).
+ bagArrowArmourColour = "bagItemLevels",
+ bagBigCounts = "bagItemLevels",
 }
 local FOLDED = {
  cursorRing = {"cursorRingClassColour", "cursorRingSize", "cursorRingThickness"},
@@ -248,7 +251,7 @@ local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
  ["1.7.1"] = {"squareMinimap"}, ["1.7.3"] = {"advancedCastBatch"},
  ["1.8.0"] = {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips", "miniGameFlight"},
  ["1.8.2"] = {"openClams"}, ["1.8.3"] = {"abilityTrail", "plainAddonList", "hideRestInCities", "classColourFriends", "thankBuffs",
-  "actionRings", "nameInChat"}}
+  "actionRings", "nameInChat"}, ["1.8.4"] = {"bagArrowArmourColour", "bagBigCounts"}}
 local TIGHT = {}
 -- The options saying "just added" for an account that updated from this version.
 local function NewSince(from)
@@ -284,7 +287,7 @@ local TRAIL_TESTING = {"abilityTrailCombatOnly",
  "abilityTrailUnlock", "abilityTrailPlace"}
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
- actionRings = true}
+ actionRings = true, bagArrowArmourColour = true, bagBigCounts = true}
 for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
@@ -753,8 +756,8 @@ do
  E.modules.AuraStyle = nil
  -- Bag Item Levels and Character Item Levels.
  _, help, extras = M.Hover(f, f.checks.bagItemLevels)
- equal(help, "Bag Item Levels  Item levels on the gear in your bags, in quality colours, with a green arrow on an upgrade over what you wear. Not the bank yet.",
-  "Bag Item Levels help: the levels, the arrow, not the bank")
+ equal(help, "Bag Item Levels  Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too (experimental).",
+  "Bag Item Levels help: the levels, the arrow, not the bank, bag addons")
  equal(extras, "Default: Off.", "Bag Item Levels off by default, no Coming soon")
  local count = 0
  local realBags = E.modules.BagItemLevels
@@ -858,6 +861,53 @@ do
    "Class-coloured Friends off: Show Their Level folds away at once")
   E.modules.ClassFriends = nil
   E.settings.classColourFriends, E.settings.classColourFriendsLevel = nil, nil
+ end
+ -- Arrow Colour by Armour (2026-11-08): folded under Bag Item Levels (hidden,
+ -- never greyed, while that's off), off by default, experimental, live
+ -- through the bag module both ways, never a reload.
+ do
+  -- An earlier check switched Bag Item Levels on: start from off, ticks redrawn.
+  E.settings.bagItemLevels = nil; f:Hide(); f:Show(); Flush()
+  Open(f, "bags", "bagsloot")
+  local bags, arrow = f.checks.bagItemLevels, f.checks.bagArrowArmourColour
+  equal(arrow.category == Tab(f, "bags") and arrow.subId, "bagsloot", "Arrow Colour by Armour on Bags & Vendors > Bags & Loot")
+  equal(tostring(real.settingDefaults.bagArrowArmourColour) .. " " .. tostring(real.reloadSettings.bagArrowArmourColour) .. " "
+   .. tostring(arrow.dependencyDisabled) .. " [" .. table.concat(arrow.tagIds, ",") .. "] " .. arrow.text:GetText(),
+   "false nil nil [TEST] Arrow Colour by Armour", "Arrow Colour by Armour: off by default, no reload, never greyed, experimental, its name")
+  equal(arrow:IsShown(), false, "folded away while Bag Item Levels is off")
+  local refreshed = 0
+  local realBags = E.modules.BagItemLevels
+  E.modules.BagItemLevels = {Refresh = function() refreshed = refreshed + 1 end}
+  bags:Click(); Flush()
+  equal(tostring(E.settings.bagItemLevels) .. " " .. tostring(arrow:IsShown()) .. " " .. refreshed, "true true 1",
+   "Bag Item Levels on: Arrow Colour by Armour opens under it at once")
+  local order, at = M.Keys(f)
+  for i, key in ipairs(order) do if key == "bagItemLevels" then at = i end end
+  equal(order[at + 1], "bagArrowArmourColour", "right after it")
+  M.NoOverlaps(f, "Bags & Loot with Arrow Colour by Armour open"); M.Fits(f, "Bags & Loot with Arrow Colour by Armour open")
+  equal(arrow.depth == 1 and math.abs(arrow:GetLeft() - bags:GetLeft() - 22) < .01, true, "one step in")
+  _, help, extras = M.Hover(f, arrow)
+  equal(help, "Arrow Colour by Armour  Upgrade arrows on armour show its type: cloth purple, leather orange, mail blue, plate silver. Weapons, jewellery and cloaks stay green.",
+   "Arrow Colour by Armour help")
+  equal(extras, "Default: Off.", "its default said")
+  arrow:Click()
+  equal(tostring(E.settings.bagArrowArmourColour) .. " " .. refreshed .. " " .. tostring(status),
+   "true 2 Bag Item Levels: Arrow Colour by Armour on.", "on, live")
+  arrow:Click()
+  equal(tostring(E.settings.bagArrowArmourColour) .. " " .. refreshed .. " " .. tostring(status),
+   "false 3 Bag Item Levels: Arrow Colour by Armour off.", "and off, live")
+  local found = M.Results(f, "arrow colour by armour")
+  equal(table.concat(found, ","), "bagArrowArmourColour", "search finds it by name")
+  f.searchBox:SetText(""); Flush()
+  found = M.Results(f, "leather")
+  equal(table.concat(found, ","), "bagArrowArmourColour", "search finds it by an armour type")
+  f.searchBox:SetText(""); Flush()
+  Open(f, "bags", "bagsloot")
+  bags:Click(); Flush()
+  equal(tostring(E.settings.bagItemLevels) .. " " .. tostring(arrow:IsShown()) .. " " .. refreshed, "false false 4",
+   "Bag Item Levels off: Arrow Colour by Armour folds away at once")
+  E.modules.BagItemLevels = realBags
+  E.settings.bagItemLevels, E.settings.bagArrowArmourColour = nil, nil
  end
  -- Thank for Buffs (Chat & Names > Thank for buffs), 2026-11-07: off by
  -- default, experimental, live through its module both ways; its whisper (a
@@ -1298,7 +1348,7 @@ do
  equal(card.unavailable == false and card.tickMark:IsShown() == false and table.concat(card.tagIds, ",") == "", true, "finished: Bag Item Levels has no coming soon and is off")
  local _, help, extras = M.Hover(f, card)
  equal(Has(help .. extras, "Coming soon"), false, "finished: no Coming soon line")
- equal(Has(help, "green arrow on an upgrade over what you wear"), true, "finished: its help")
+ equal(Has(help, "green arrow on upgrades"), true, "finished: its help")
  local count, status = 0
  E.modules.BagItemLevels = {Refresh = function() count = count + 1 end}
  local say = E.Status; E.Status = function(_, m) status = m end
@@ -2235,6 +2285,7 @@ do
  E.settings.nameInChat = true
  E.settings.classColourFriends = true
  E.settings.actionRings = true
+ E.settings.bagItemLevels = true
  local ONE_OF = {abilityTrailSeconds = true, abilityTrailBorderColour = true}
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
@@ -2310,6 +2361,7 @@ do
  E.settings.nameInChat = nil
  E.settings.classColourFriends = nil
  E.settings.actionRings = nil
+ E.settings.bagItemLevels = nil
  -- The class tab, per class (its page above); here its place and name.
  equal(Tab(f, "class") .. "," .. Tab(f, "casting"), "6,7", "your class is the sixth tab and Casting the seventh")
  -- Every option is on exactly one sub-page.
@@ -2346,6 +2398,7 @@ do
  E.settings.nameInChat = true
  E.settings.classColourFriends = true
  E.settings.actionRings = true
+ E.settings.bagItemLevels = true
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
    f:SelectCategory(i, sub.id); Flush()
@@ -2383,6 +2436,7 @@ do
  E.settings.nameInChat = nil
  E.settings.classColourFriends = nil
  E.settings.actionRings = nil
+ E.settings.bagItemLevels = nil
  -- Folds: hidden (not greyed) until their switch is on, open right after it
  -- at once keeping the scroll, and fold away again.
  local height = f:GetHeight()
@@ -3113,7 +3167,7 @@ do
  -- 1.8.2: Open Clams. 1.8.3: Ability Trail, Plain AddOn List, Hide Zzz in
  -- Cities, Class-coloured Friends, Thank for Buffs, Action Rings and Name
  -- in Chat.
- for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2", "1.8.3"}) do releases[version] = true end
+ for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2", "1.8.3", "1.8.4"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
   equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
@@ -3197,7 +3251,7 @@ do
    looked = looked + 1
   end
  end
- equal(newCount, 28, "updated from 1.5.5: the twenty-eight options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2 and 1.8.3 say just added")
+ equal(newCount, 30, "updated from 1.5.5: the thirty options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2, 1.8.3 and 1.8.4 say just added")
  equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty-eight just added, the Party Outline also experimental, and the coming soon ones)")
  -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
@@ -3241,9 +3295,9 @@ do
  for _, key in ipairs(TRAIL_TESTING) do trail[#trail + 1] = key end
  trail[#trail + 1] = "abilityTrailParty"
  table.sort(trail)
- equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
+ equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagArrowArmourColour,bagBigCounts,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
   .. "miniGameFlight,miniGameWhack,partyOutline,spellbookCombatDrag",
-  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Herb and Ore Sparkles,"
+  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Arrow Colour by Armour, Herb and Ore Sparkles,"
   .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline and Combat Spell Dragging")
  f.searchBox:SetText(""); Flush()
 end
@@ -3428,7 +3482,7 @@ end
 do
  local E, f = Session("WARLOCK")
  local MINOR = {a = true, an = true, ["and"] = true, the = true, of = true, on = true, to = true, ["in"] = true, from = true, ["for"] = true, with = true,
-  per = true}
+  per = true, by = true}
  local function TitleCase(label)
   local first = true
   for word in label:gmatch("%S+") do

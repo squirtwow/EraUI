@@ -73,8 +73,27 @@ function F.BestRanks()
             end
         end
     end
+    F.EachProfessionSlot(function(slot)
+        F.Note(Data.Call(api.GetSpellBookItemInfo, slot, bank), spellType, byName, known)
+    end)
     ranks = {byName = byName, known = known}
     return ranks
+end
+-- Each profession's spellbook slots, which no skill line covers (its book:
+-- spellOffset + 1 to + numAbilities).
+function F.EachProfessionSlot(fn)
+    local Data = D()
+    if not (C_SpellBook and type(GetProfessions) == "function") then return end
+    -- Primary, primary, then the secondary ones; a gap where one isn't learned.
+    local indexes = {Data.Call(GetProfessions)}
+    for i = 1, 6 do
+        local index = indexes[i]
+        local count, offset
+        if Data.Num(index) then count, offset = select(5, Data.Call(GetProfessionInfo, index)) end
+        if Data.Num(count) and Data.Num(offset) then
+            for slot = offset + 1, offset + count do fn(slot) end
+        end
+    end
 end
 function F.Note(item, spellType, byName, known)
     local Data = D()
@@ -330,29 +349,19 @@ function F.PickSpells()
     return list
 end
 
--- Each profession's own spells (its book: spellOffset + 1 to + numAbilities).
+-- Each profession's own spells.
 function F.PickProfessions()
     local Data = D()
     local list = {}
     local api = C_SpellBook
-    if not (api and type(GetProfessions) == "function") then return list end
     local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
-    -- Primary, primary, then the secondary ones; a gap where one isn't learned.
-    local indexes = {Data.Call(GetProfessions)}
-    for i = 1, 6 do
-        local index = indexes[i]
-        local count, offset
-        if Data.Num(index) then count, offset = select(5, Data.Call(GetProfessionInfo, index)) end
-        if Data.Num(count) and Data.Num(offset) then
-            for slot = offset + 1, offset + count do
-                local item = Data.Call(api.GetSpellBookItemInfo, slot, bank)
-                local id = Data.Field(item, "spellID") or Data.Field(item, "actionID")
-                if Data.Num(id) and Data.Field(item, "isPassive") ~= true then
-                    list[#list + 1] = {kind = "spell", id = id, rank = "top", name = Data.Field(item, "name"), icon = F.SpellIcon(id)}
-                end
-            end
+    F.EachProfessionSlot(function(slot)
+        local item = Data.Call(api.GetSpellBookItemInfo, slot, bank)
+        local id = Data.Field(item, "spellID") or Data.Field(item, "actionID")
+        if Data.Num(id) and Data.Field(item, "isPassive") ~= true then
+            list[#list + 1] = {kind = "spell", id = id, rank = "top", name = Data.Field(item, "name"), icon = F.SpellIcon(id)}
         end
-    end
+    end)
     return list
 end
 

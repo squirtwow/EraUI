@@ -137,7 +137,7 @@ local TABS = {
             S("Other", {"statTrackerSpeed", "statTrackerDurability"})}},
     bags = {name = "Bags & Vendors", icon = "Interface\\Icons\\INV_Misc_Bag_08",
         about = "Bags, loot and merchants.", subs = {
-            {id = "bagsloot", name = "Bags & Loot", sections = {S("Bags", {"bagsBank", "bagSpace", "bagItemLevels",
+            {id = "bagsloot", name = "Bags & Loot", sections = {S("Bags", {"bagsBank", "bagSpace", "bagItemLevels", "bagArrowArmourColour", "bagBigCounts",
                 "lootWindow", "fastAutoLoot", "discardCheapestJunk", "openClams"})}},
             {id = "vendors", name = "Vendors", sections = {S("Vendors", {"merchantSkin", "autoSellJunk", "autoRepair",
                 "vendorPrice", "junkValueSummary", "durabilityWarning"})}},
@@ -229,6 +229,7 @@ Added("1.8.3", {"abilityTrail", "abilityTrailParty", "abilityTrailScroll", "abil
 Added("1.8.3", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion", "actionRingEditor"})
 -- Name in Chat is one step too: its name box and ticks show with the switch.
 Added("1.8.3", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"})
+Added("1.8.4", {"bagArrowArmourColour", "bagBigCounts"})
 Nav.ADDED = ADDED
 -- Rows with no room for "just added" and their other words between their
 -- name and their buttons (Tools/TestSettingsLayout measures every row that

@@ -5,7 +5,8 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
--- 1.8.3 (the newest notes) added seven options to lead to: Class-coloured
+-- 1.8.4 (the newest notes) added two: Arrow Colour by Armour and Big Bag
+-- Numbers, both under Bag Item Levels. 1.8.3 added seven options to lead to: Class-coloured
 -- Friends, Action Rings (one step for its page), Hide Zzz in Cities, Plain
 -- AddOn List, Ability Trail (one step for its page), Thank for Buffs and
 -- Name in Chat, in page order. 1.8.2 added one: Open Clams. 1.8.1 was fixes only: no new
@@ -16,7 +17,10 @@ do
  local E, f = Session("ROGUE")
  local keys = E.SettingsTour.NewsKeys(f)
  equal(E.SettingsTour.Release() .. " " .. table.concat(keys, ","),
-  "1.8.3 classColourFriends,actionRings,hideRestInCities,plainAddonList,abilityTrail,thankBuffs,nameInChat",
+  "1.8.4 bagArrowArmourColour,bagBigCounts",
+  "1.8.4: Show me what's new leads to Arrow Colour by Armour and Big Bag Numbers, in page order")
+ equal(table.concat(E.SettingsTour.NewsKeys(f, "1.8.3"), ","),
+  "classColourFriends,actionRings,hideRestInCities,plainAddonList,abilityTrail,thankBuffs,nameInChat",
   "1.8.3: Show me what's new leads to its seven new options, one step each, in page order")
  local open = E.SettingsTour.NewsKeys(f, "1.8.2")
  equal(#open .. " " .. tostring(open[1]), "1 openClams", "1.8.2: Open Clams")

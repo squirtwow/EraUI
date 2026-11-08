@@ -6,6 +6,19 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.4",
+        sections = {
+            { "Added", {
+                "Big Bag Numbers: stacks and cooldowns, big as item levels.",
+                "Arrow Colour by Armour: upgrade arrows show armour type.",
+                "Bag Item Levels: works in popular bag addons.",
+            } },
+            { "Fixed", {
+                "Action Rings: professions work after new ranks.",
+            } },
+        },
+    },
+    {
         version = "1.8.3",
         sections = {
             { "Added", {

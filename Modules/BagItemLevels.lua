@@ -10,7 +10,8 @@ local M={};E:RegisterModule("BagItemLevels",M)
 -- mark is a mouse-free child frame of ours, kept in a table here, repainted by
 -- a post-hook on each bag window's item update and by a few events. Every part
 -- of a mark blends normally, so it fades with the interface (the AFK screen
--- hides the UI that way) and with a bag search.
+-- hides the UI that way) and with a bag search. Popular bag addons' item buttons
+-- get the same marks: see "Bag addons" below.
 -- Coming soon: while this is true Bag Item Levels never runs, whatever is
 -- saved, and its /era row says "coming soon". It ships for testing, off by default.
 M.comingSoon=false
@@ -23,6 +24,11 @@ local WHITE="Interface\\Buttons\\WHITE8X8"
 -- are sized for it and scale with the slot.
 local SLOT,TEXT,ARROW_SIZE,INSET=37,14,12,2
 local UP,DOWN={.25,1,.3},{1,.22,.2}
+-- Arrow Colour by Armour: an upgrade arrow's colour for each armour type, by
+-- the game's name for it. Only these body slots have a type worth showing.
+local ARMOUR={Cloth={.78,.58,1},Leather={1,.7,.32},Mail={.32,.76,1},Plate={.86,.9,.96}}
+local BODY={INVTYPE_HEAD=true,INVTYPE_SHOULDER=true,INVTYPE_CHEST=true,INVTYPE_ROBE=true,INVTYPE_WAIST=true,
+ INVTYPE_LEGS=true,INVTYPE_FEET=true,INVTYPE_WRIST=true,INVTYPE_HAND=true}
 local TINT={1,.12,.12} -- the item's own icon drawn again in red, the way Classic shows gear you can't use
 local LIFT=.3 -- Poor grey moved this far toward white, so it still reads on dark icons
 local MAX_FRAMES=13
@@ -36,11 +42,13 @@ local HANDS={INVTYPE_WEAPON="one",INVTYPE_WEAPONMAINHAND="main",INVTYPE_2HWEAPON
 local OFF_WEAPON={INVTYPE_WEAPON=true,INVTYPE_WEAPONOFFHAND=true}
 -- ITEM_LOCK_CHANGED: picking an item up greys its icon without a bag update.
 local EVENTS={"PLAYER_EQUIPMENT_CHANGED","GET_ITEM_INFO_RECEIVED","PLAYER_LEVEL_UP","SKILL_LINES_CHANGED",
- "SPELLS_CHANGED","UPDATE_FACTION","PLAYER_REGEN_ENABLED","INVENTORY_SEARCH_UPDATE","ITEM_LOCK_CHANGED"}
+ "SPELLS_CHANGED","UPDATE_FACTION","PLAYER_REGEN_ENABLED","INVENTORY_SEARCH_UPDATE","ITEM_LOCK_CHANGED","ADDON_LOADED"}
 -- Level, armour and weapon skills (plate or mail at 40) and reputation change what you can equip.
 local FORGET={PLAYER_LEVEL_UP=true,SKILL_LINES_CHANGED=true,SPELLS_CHANGED=true,UPDATE_FACTION=true}
 local SIDES={{"leftText","leftColor"},{"rightText","rightColor"}}
 local marks=setmetatable({},{__mode="k"}) -- Blizzard bag button -> our mark
+local foreign=setmetatable({},{__mode="k"}) -- a bag addon's item button -> what reads its bag and slot
+local grouped=setmetatable({},{__mode="k"}) -- a bag addon's button drawing several pieces of gear as one
 local usable={} -- item link -> can equip, until level, skills or reputation change
 local hooked,events,queued,pending,waiting,durability={}
 
@@ -69,8 +77,8 @@ end
 local function EquipLoc(link)
  local get=C_Item and C_Item.GetItemInfoInstant or GetItemInfoInstant
  if type(get)~="function"then return end
- local ok,id,_,_,loc,icon=pcall(get,link)
- if ok and Public(id)and Public(loc)and type(loc)=="string"then return loc,id,Clean(icon)end
+ local ok,id,_,_,loc,icon,class,sub=pcall(get,link)
+ if ok and Public(id)and Public(loc)and type(loc)=="string"then return loc,id,Clean(icon),Clean(class),Clean(sub)end
 end
 
 -- The item level worn in a slot (0 when empty) and its kind, or nil while unknown.
@@ -205,12 +213,16 @@ local function LevelText(o)
  o.level=text
  return text
 end
+-- A protected button in a fight: left until the fight ends.
+local function Locked(button)
+ if InCombatLockdown and InCombatLockdown()and type(button.IsProtected)=="function"and button:IsProtected()then
+  waiting=true;return true
+ end
+end
 -- Made once per button, on first use, and only shown or hidden after that.
 local function Mark(button)
  local o=marks[button];if o then return o end
- if InCombatLockdown and InCombatLockdown()and type(button.IsProtected)=="function"and button:IsProtected()then
-  waiting=true;return
- end
+ if Locked(button)then return end
  o=CreateFrame("Frame",nil,button)
  o:SetAllPoints(button)
  o:EnableMouse(false)
@@ -237,15 +249,81 @@ local function Width(button)
 end
 -- The number's font at its size: Lilita One with a thick dark outline, or the
 -- game's own font should Lilita One be refused.
-local function Face(o,size)
- if o.size==size then return end
- o.size=size
- local text=o.level
+local function NumberFont(text,size)
  local ok,done=pcall(text.SetFont,text,FONT,size,OUTLINE)
  if not ok or done==false then pcall(text.SetFont,text,FALLBACK,size,OUTLINE)end
 end
+local function Face(o,size)
+ if o.size==size then return end
+ o.size=size
+ NumberFont(o.level,size)
+end
 -- The number's size on a slot this wide: 14 on a normal 37 slot, never below 9.
 local function TextSize(w)return math.max(9,math.floor(w*TEXT/SLOT+.5))end
+-- Big Bag Numbers: the button's own stack count and cooldown countdown in the
+-- item level's font and size. They stay the button's numbers, in their places,
+-- so what they say and when they show are still the bag's business. Only the
+-- font changes, and the one each had is kept to put back when the option goes
+-- off. Without the option neither is touched.
+local counts,clocks=setmetatable({},{__mode="k"}),setmetatable({},{__mode="k"})
+local clockFonts,clockFontCount={},0
+local function Remember(text)
+ local ok,file,size,flags=pcall(text.GetFont,text)
+ file=ok and Clean(file)
+ if type(file)=="string"then return {file=file,fontSize=Clean(size),flags=Clean(flags)or""}end
+end
+-- A countdown takes its font from a font object: one made for each font it needs.
+local function ClockFont(file,size,flags)
+ local key=file.."|"..tostring(size).."|"..flags
+ local font=clockFonts[key]
+ if font then return font end
+ clockFontCount=clockFontCount+1
+ font=CreateFont("EraUIBagCountdown"..clockFontCount)
+ if file==FONT then NumberFont(font,size)else pcall(font.SetFont,font,file,size,flags)end
+ clockFonts[key]=font
+ return font
+end
+local function BigCount(button,size)
+ local text=button.Count
+ if type(text)~="table"or type(text.SetFont)~="function"or type(text.GetFont)~="function"then return end
+ local was=counts[text]
+ if was and was.size==size then return end
+ if Locked(button)then return end
+ was=was or Remember(text)
+ if not was then return end
+ counts[text],was.size=was,size
+ NumberFont(text,size)
+end
+local function BigClock(button,size)
+ local cooldown=button.Cooldown
+ if type(cooldown)~="table"or type(cooldown.SetCountdownFont)~="function"or type(cooldown.GetCountdownFontString)~="function"then return end
+ local was=clocks[cooldown]
+ if was and was.size==size then return end
+ if Locked(button)then return end
+ if not was then
+  local ok,text=pcall(cooldown.GetCountdownFontString,cooldown)
+  was=ok and type(text)=="table"and type(text.GetFont)=="function"and Remember(text)
+  if not was then return end
+ end
+ clocks[cooldown],was.size=was,size
+ pcall(cooldown.SetCountdownFont,cooldown,ClockFont(FONT,size,OUTLINE))
+end
+local function BigNumbers(button)
+ if not E:GetSetting("bagBigCounts")then return end
+ local size=TextSize(Width(button))
+ BigCount(button,size)
+ BigClock(button,size)
+end
+local function RestoreNumbers()
+ for text,was in pairs(counts)do
+  pcall(text.SetFont,text,was.file,was.fontSize,was.flags)
+  counts[text]=nil
+ end
+ for cooldown,was in pairs(clocks)do
+  pcall(cooldown.SetCountdownFont,cooldown,ClockFont(was.file,was.fontSize,was.flags))
+  clocks[cooldown]=nil
+ end
+end
 local function Tint(o,w,icon)
  local t=o.tint
  if icon then
@@ -271,18 +349,39 @@ local function Where(button)
  local bag,slot=Number(button.GetBagID,button),Number(button.GetID,button)
  if bag and slot then return bag,slot end
 end
+-- An upgrade arrow's colour: green, or the armour's type with Arrow Colour by
+-- Armour on. Weapons, shields, jewellery and cloaks are never body armour.
+local function UpColour(loc,class,sub)
+ if not E:GetSetting("bagArrowArmourColour")or not BODY[loc]then return UP end
+ if type(class)~="number"or type(sub)~="number"then return UP end
+ local classes,subs=Enum and Enum.ItemClass,Enum and Enum.ItemArmorSubclass
+ if type(classes)~="table"or type(subs)~="table"or class~=classes.Armor then return UP end
+ for name,colour in pairs(ARMOUR)do
+  if sub==subs[name]then return colour end
+ end
+ return UP
+end
+-- Faded with the item while a bag search leaves it out.
+local function Fade(button,o)
+ local ok,matches=false
+ if type(button.GetMatchesSearch)=="function"then ok,matches=pcall(button.GetMatchesSearch,button)end
+ o:SetAlpha(ok and Public(matches)and matches==false and .3 or 1)
+end
+-- What a button's slot holds this moment, and where that is.
+local function Held(button)
+ local bag,slot=(foreign[button]or Where)(button)
+ local get=C_Container and C_Container.GetContainerItemInfo
+ if not bag or type(get)~="function"then return end
+ local ok,info=pcall(get,bag,slot)
+ if ok and Public(info)and type(info)=="table"then return info,bag,slot end
+end
 local function Paint(button)
  if not Active()then Hide(button);return end
- local bag,slot=Where(button)
- local get=C_Container and C_Container.GetContainerItemInfo
- local info
- if bag and type(get)=="function"then
-  local ok,got=pcall(get,bag,slot)
-  if ok and Public(got)and type(got)=="table"then info=got end
- end
+ BigNumbers(button)
+ local info,bag,slot=Held(button)
  local link=info and Clean(info.hyperlink)
- local loc,id,icon
- if type(link)=="string"then loc,id,icon=EquipLoc(link)end
+ local loc,id,icon,class,sub
+ if type(link)=="string"then loc,id,icon,class,sub=EquipLoc(link)end
  if not loc or not(SLOTS[loc]or HANDS[loc])then Hide(button);return end
  local level=Level(link)
  if not level then pending=true;Hide(button);return end
@@ -290,9 +389,10 @@ local function Paint(button)
  local _,minLevel,quality=ItemInfo(link)
  local w=Width(button)
  -- The number, in the item's quality colour. Should gear ever stack, that
- -- corner is the game's count, so a stack shows no number.
+ -- corner is the game's count, so a stack shows no number. A bag addon's
+ -- button drawing several pieces as one has its count there too.
  local count=Clean(info.stackCount)
- if type(count)=="number"and count>1 then
+ if grouped[button]or type(count)=="number"and count>1 then
   o.level:Hide()
  else
   Face(o,TextSize(w))
@@ -312,17 +412,14 @@ local function Paint(button)
  local worn=can and Reference(loc)
  if worn and level~=worn then
   local up=level>worn
-  local c=up and UP or DOWN
+  local c=up and UpColour(loc,class,sub)or DOWN
   o.arrow:SetTexCoord(0,1,up and 0 or 1,up and 1 or 0) -- the art points up; flipped for down
   o.arrow:SetVertexColor(c[1],c[2],c[3])
   o.arrow:Show()
  else
   o.arrow:Hide()
  end
- -- Faded with the item while a bag search leaves it out.
- local ok,matches=false
- if type(button.GetMatchesSearch)=="function"then ok,matches=pcall(button.GetMatchesSearch,button)end
- o:SetAlpha(ok and Public(matches)and matches==false and .3 or 1)
+ Fade(button,o)
  o:Show()
 end
 local function PaintFrame(frame)
@@ -349,6 +446,7 @@ end
 
 function M:PaintAll()
  pending,waiting=false,false
+ if not Active()or not E:GetSetting("bagBigCounts")then RestoreNumbers()end
  if not Active()then
   for _,o in pairs(marks)do o:Hide()end
   return
@@ -356,15 +454,126 @@ function M:PaintAll()
  for _,frame in ipairs(Frames())do
   if type(frame.IsShown)=="function"and frame:IsShown()then PaintFrame(frame)end
  end
+ for button in pairs(foreign)do
+  local ok,visible=pcall(button.IsVisible,button)
+  if ok and Public(visible)and visible then pcall(Paint,button)end
+ end
 end
 local function Queue()
  if queued then return end
  queued=true
  C_Timer.After(0,function()queued=false;M:PaintAll()end)
 end
-local function OnEvent(_,event)
+
+-- Bag addons. Their item buttons get these same marks, drawn by us on the
+-- button, so the number and arrow come out exactly as on the game's bags (the
+-- slots their own APIs offer are small and restyled). Each one is optional:
+-- nothing happens unless it's loaded, in either order, and if its API has
+-- changed this quietly does nothing. Post-hooks only, and whatever of ours
+-- runs inside their code is in a pcall, so it can never break a bag window.
+local hushed=setmetatable({},{__mode="k"}) -- that addon's own item level text, once hooked
+local joined={} -- bag addons already joined up
+local askAgain -- makes a bag addon run its corner widgets again
+local function Repaint(button)pcall(Paint,button)end
+-- After a button's own update. Whatever the bag holds this moment, a button
+-- told it's showing nothing stays clear.
+local function AfterDetails(button,details)
+ local count=type(details)=="table"and Public(details)and Clean(details.itemCount)
+ grouped[button]=type(count)=="number"and count>1 or nil
+ if type(details)=="table"and Public(details)and Public(details.itemLink)and details.itemLink==nil then Hide(button)
+ else Repaint(button)end
+end
+local function AfterSearch(button)
+ local o=marks[button]
+ if o then pcall(Fade,button,o)end
+end
+-- That addon's own smaller item level, the moment it shows on gear we number.
+-- Only that text is hidden, so anything ahead of it in its corner keeps its turn.
+local function Hush(widget)
  if not Active()then return end
- if FORGET[event]then
+ local button=widget:GetParent() -- on the button, or on a frame of its there
+ if not foreign[button]then button=button:GetParent()end
+ if not foreign[button]then return end
+ local info=Held(button)
+ local link=info and Clean(info.hyperlink)
+ local loc=type(link)=="string"and EquipLoc(link)
+ if loc and(SLOTS[loc]or HANDS[loc])then widget:Hide()end
+end
+local function AfterNumber(widget)pcall(Hush,widget)end
+local function HushListed(details)
+ local widget,tags=details.region,details.tags
+ if type(widget)~="table"or hushed[widget]or type(tags)~="table"or tags[1]~="item_level"then return end
+ hushed[widget]=true
+ hooksecurefunc(widget,"Show",AfterNumber)
+end
+-- From an addon's list of the frames it makes: item buttons with a real bag and
+-- slot behind them. The ones showing another character's bags have neither.
+local function AdoptListed(details)
+ if details.regionType=="CornerWidget"then return HushListed(details)end
+ local button=details.regionType=="ItemButton"and details.region
+ if type(button)~="table"or foreign[button]then return end
+ if type(button.GetBagID)~="function"or type(button.SetItemDetails)~="function"then return end
+ foreign[button]=Where
+ hooksecurefunc(button,"SetItemDetails",AfterDetails)
+ if type(button.SetItemFiltered)=="function"then hooksecurefunc(button,"SetItemFiltered",AfterSearch)end
+ -- Its window reopening with the bag unchanged skips that update, so this
+ -- catches what changed while closed: options, worn gear, your level.
+ if type(button.HookScript)=="function"then button:HookScript("OnShow",Queue)end
+end
+local function JoinListed(addon)
+ local api=addon.API
+ local skins=type(api)=="table"and api.Skins
+ if type(skins)~="table"or type(skins.RegisterListener)~="function"or type(skins.GetAllFrames)~="function"then return end
+ skins.RegisterListener(function(details)pcall(AdoptListed,details)end)
+ for _,details in ipairs(skins.GetAllFrames()or{})do pcall(AdoptListed,details)end
+ if type(api.RequestItemButtonsRefresh)=="function"then askAgain=api.RequestItemButtonsRefresh end
+end
+-- From an addon's grid of item buttons, which has no API for them.
+local function BagAndSlot(button)
+ local ok,cached=pcall(button.IsCached,button)
+ if not ok or not Public(cached)or cached then return end -- another character's bags: no live slot to read
+ local bag,slot=Number(button.GetBag,button),Number(button.GetID,button)
+ if bag and slot then return bag,slot end
+end
+local function AdoptGrid(group)
+ if type(group.buttons)~="table"then return end
+ for _,button in ipairs(group.buttons)do
+  if type(button)=="table"and not foreign[button]and type(button.Update)=="function"and type(button.GetBag)=="function"then
+   foreign[button]=BagAndSlot
+   hooksecurefunc(button,"Update",Repaint)
+   Repaint(button)
+  end
+ end
+end
+local function AfterLayout(group)pcall(AdoptGrid,group)end
+local function JoinGrid(addon)
+ local grid=addon.ContainerGroup
+ if type(grid)~="table"or type(grid.Layout)~="function"then return end
+ hooksecurefunc(grid,"Layout",AfterLayout)
+ local frames=addon.Frames
+ if type(frames)~="table"or type(frames.Iterate)~="function"then return end
+ for _,frame in frames:Iterate()do
+  local group=type(frame)=="table"and frame.ItemGroup
+  if type(group)=="table"then AfterLayout(group)end
+ end
+end
+local BAG_ADDONS={Baganator=JoinListed,Bagnon=JoinGrid}
+local function JoinBagAddons()
+ for name,join in pairs(BAG_ADDONS)do
+  local addon=_G[name]
+  if not joined[name]and type(addon)=="table"then
+   joined[name]=true
+   pcall(join,addon)
+  end
+ end
+end
+
+local function OnEvent(_,event,name)
+ if not Active()then return end
+ if event=="ADDON_LOADED"then
+  -- A frame later, so the bag addon has finished its own setup.
+  if BAG_ADDONS[name]then C_Timer.After(0,function()JoinBagAddons();M:PaintAll()end)end
+ elseif FORGET[event]then
   usable={};Queue()
   -- Your new level can reach the tooltips a moment after the event.
   if event=="PLAYER_LEVEL_UP"then C_Timer.After(1,function()usable={};M:PaintAll()end)end
@@ -388,12 +597,14 @@ local function Setup()
   events:SetScript("OnEvent",OnEvent)
  end
  for _,event in ipairs(EVENTS)do events:RegisterEvent(event)end
+ JoinBagAddons()
 end
 
 function M:Refresh()
  if Active()then Setup()elseif events then events:UnregisterAllEvents()end
  usable={}
  self:PaintAll()
+ if askAgain then pcall(askAgain)end
 end
 function M:Initialize()
  if Active()then self:Refresh()end

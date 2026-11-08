@@ -908,6 +908,13 @@ do
     equal(Attr({kind = "spell", id = 5505, rank = "exact"}), "spell spell 5505 nil nil", "kept at rank 2: rank 2")
     equal(Attr({kind = "spell", id = 10054, rank = "top", name = "Conjure Mana Ruby"}), "nil nil nil nil nil", "a spell you don't know: nothing")
     equal(Attr({kind = "spell", id = 3561, rank = "top"}), "spell spell 3561 nil nil", "a spell without ranks")
+    G.spells[3273], G.spells[3274] = {name = "First Aid"}, {name = "First Aid"}
+    local fishing = G.book[41]
+    G.book[41] = 3274
+    F.Invalidate()
+    equal(Attr({kind = "spell", id = 3273, rank = "top", name = "First Aid"}), "spell spell 3274 nil nil", "an old profession rank casts the one in its book")
+    G.book[41] = fishing
+    F.Invalidate()
     equal(Attr({kind = "item", id = 6947, hand = 17}), "item item item:6947 nil 17", "an item on the off hand")
     equal(Attr({kind = "item", id = 5}), "item item item:5 nil nil", "an item (always set; greyed with none)")
     G.macros[3] = {name = "Pull", icon = 77}

@@ -101,6 +101,9 @@ local FOLDS = {
     abilityTrailBorderColour="abilityTrailBorder",
     -- Show Their Level, under Class-coloured Friends.
     classColourFriendsLevel="classColourFriends",
+    -- Arrow Colour by Armour and Big Bag Numbers, under Bag Item Levels.
+    bagArrowArmourColour="bagItemLevels",
+    bagBigCounts="bagItemLevels",
 }
 local FOLD_PARENTS = {}
 for _, parentKey in pairs(FOLDS) do FOLD_PARENTS[parentKey] = true end
@@ -348,7 +351,9 @@ local settingHelp = {
     afkShowDate = "Today's date on the AFK screen.",
     afkShowQuote = "A famous Classic line for your class, like a loading screen tip. A new one each time you're away.",
     tooltipClassColours = "A player's tooltip border, name and class in their class colour, on EraUI's tooltips or the game's own. NPCs keep theirs.",
-    bagItemLevels = "Item levels on the gear in your bags, in quality colours, with a green arrow on an upgrade over what you wear. Not the bank yet.",
+    bagItemLevels = "Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too (experimental).",
+    bagArrowArmourColour = "Upgrade arrows on armour show its type: cloth purple, leather orange, mail blue, plate silver. Weapons, jewellery and cloaks stay green.",
+    bagBigCounts = "Stack counts and cooldowns in your bags in the same big number as item levels.",
     characterItemLevels = "Item levels on the gear you wear, in quality colours, in EraUI's character window or Blizzard's. They match Bag Item Levels.",
     statTracker = "A small panel of the stats you tick, updating as buffs, gear and levels change them. Drag it anywhere; it stays on screen.",
     statTrackerLayout = "List puts each stat on a line of its own. One line puts them all side by side in a single bar.",
@@ -540,14 +545,15 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- don't need it (the tag goes where a feature is switched on). Thank for
 -- Buffs lost it the same day: Squirt saw its whisper go to a stranger.
 -- Name in Chat (new the same day, off by default) has it on its switch
--- until Squirt sees "(Name) " go out in game.
+-- until Squirt sees "(Name) " go out in game. Arrow Colour by Armour (new
+-- 2026-11-08, off by default) has it until he sees the colours in game.
 local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
     miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
     abilityTrailCombatOnly = true,
     abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
     abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
     abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
-    actionRings = true}
+    actionRings = true, bagArrowArmourColour = true, bagBigCounts = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -937,8 +943,20 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             return
         end
         if key=="bagItemLevels" then
+            -- Arrow Colour by Armour opens or folds away under it.
+            if parent.RefreshFolds then parent:RefreshFolds() end
             if EraUI.modules.BagItemLevels then EraUI.modules.BagItemLevels:Refresh() end
             EraUI:Status("Bag Item Levels "..(value and "enabled. Open your bags to see it." or "disabled."))
+            return
+        end
+        if key=="bagArrowArmourColour" then
+            if EraUI.modules.BagItemLevels then EraUI.modules.BagItemLevels:Refresh() end
+            EraUI:Status("Bag Item Levels: Arrow Colour by Armour "..(value and "on." or "off."))
+            return
+        end
+        if key=="bagBigCounts" then
+            if EraUI.modules.BagItemLevels then EraUI.modules.BagItemLevels:Refresh() end
+            EraUI:Status("Bag Item Levels: Big Bag Numbers "..(value and "on." or "off."))
             return
         end
         if key=="characterItemLevels" then
@@ -1364,6 +1382,12 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Bags & Bank", "bagsBank", nil, "Classic bag and bank windows.", false)
     MakeCheck(frame, "Bag Space", "bagSpace", nil, "Show free slots on the backpack.", false)
     MakeCheck(frame, "Bag Item Levels", "bagItemLevels", nil, "Item levels in quality colours, with upgrade arrows.", ComingSoon("bagItemLevels"))
+    -- Arrow Colour by Armour, folded under it (FOLDS).
+    local armourArrow = MakeCheck(frame, "Arrow Colour by Armour", "bagArrowArmourColour", nil, "Upgrade arrows on armour in the colour of its type.", false)
+    armourArrow.searchText = armourArrow.searchText .. " upgrade arrow arrows armour armor type cloth leather mail plate bag bags color"
+    -- Big Bag Numbers, folded under it too.
+    local bigCounts = MakeCheck(frame, "Big Bag Numbers", "bagBigCounts", nil, "Stack counts and cooldowns as big as item levels.", false)
+    bigCounts.searchText = bigCounts.searchText .. " stack stacks count counts cooldown cooldowns number numbers font bag bags"
     MakeCheck(frame, "Loot Window", "lootWindow", nil, "Classic loot window and item rows.", false)
     MakeCheck(frame, "Faster Auto-loot", "fastAutoLoot", nil, "Loot immediately. Hold Shift for manual looting; inactive in combat.", false)
     MakeCheck(frame, "Discard Junk When Full", "discardCheapestJunk", nil, "Frees the cheapest grey stack when looting with full bags. Shift bypasses.", false)
