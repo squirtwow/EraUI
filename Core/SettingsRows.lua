@@ -251,6 +251,18 @@ function Rows.TagBox(row)
     Rows.PlaceTags(row)
     return row.tagBox
 end
+-- A slider row's name line at its widest value ("Travel Distance: 600 px"),
+-- so its words and its slider stay put while you drag.
+local function WidestName(row)
+    local info, text = row.info, row.text
+    local now, widest = text:GetText(), 0
+    for _, value in ipairs({info.low, info.high}) do
+        text:SetText(row.labelText .. ": " .. (info.format and info.format(value) or tostring(value)))
+        widest = math.max(widest, math.floor((text:GetStringWidth() or 0) + .5))
+    end
+    text:SetText(now)
+    return widest
+end
 function Rows.PlaceTags(row)
     local box = row.tagBox
     box:ClearAllPoints()
@@ -258,8 +270,26 @@ function Rows.PlaceTags(row)
         box:SetPoint("LEFT", row.tagAfter, "RIGHT", 10, 0)
     else
         -- The words drop one so they sit on the name's baseline.
-        local width = math.floor((row.text:GetStringWidth() or 0) + .5)
+        local width = row.slider and WidestName(row) or math.floor((row.text:GetStringWidth() or 0) + .5)
         box:SetPoint("LEFT", row.text, "LEFT", width + TAG_GAP + 1, -1)
+    end
+    if row.slider then Rows.PlaceSlider(row) end
+end
+-- A slider row's slider: in its usual place, or after the row's words
+-- ("experimental") when they reach that far, so they never sit on it.
+function Rows.PlaceSlider(row)
+    local slider, info = row.slider, row.info
+    local left = info.wide and 222 or 214
+    if #row.tagIds > 0 then
+        local words = row.textLeft + WidestName(row) + TAG_GAP + 1 + math.floor(row.tagBox:GetWidth() + .5)
+        left = math.max(left, words + 10)
+    end
+    slider:ClearAllPoints()
+    slider:SetPoint("LEFT", row, "LEFT", left, 0)
+    if info.wide then
+        slider:SetWidth(math.max(60, 522 - left))
+    else
+        slider:SetPoint("RIGHT", row, "RIGHT", -12, 0)
     end
 end
 local function Tag(row, index)
@@ -326,8 +356,11 @@ end
 -- Mode). The chosen one is filled in your class colour.
 function Rows.SelectChoice(row, index)
     row.selected = index
+    Rows.PaintChoices(row.buttons, index)
+end
+function Rows.PaintChoices(buttons, index)
     local r, g, b = ClassColour()
-    for i, button in ipairs(row.buttons) do
+    for i, button in ipairs(buttons) do
         local on = i == index
         button.selected = on
         if on then
@@ -382,17 +415,11 @@ function Rows.Slider(frame, key, label, info)
     local row = Rows.Base(frame, key, "slider", label, "Frame")
     local slider = Rows.MakeSlider(row, info.low, info.high, info.step)
     row.slider, row.info = slider, info
-    if info.wide then
-        row.text:SetPoint("RIGHT", row, "LEFT", 212, 0)
-        slider:SetPoint("LEFT", row, "LEFT", 222, 0)
-        slider:SetWidth(300)
-    else
-        -- Room for the longest name with its highest value ("Cast Ring
-        -- Opacity (%): 100"); the slider takes the rest of the row.
-        row.text:SetPoint("RIGHT", row, "LEFT", 206, 0)
-        slider:SetPoint("LEFT", row, "LEFT", 214, 0)
-        slider:SetPoint("RIGHT", row, "RIGHT", -12, 0)
-    end
+    -- Room for the longest name with its highest value ("Cast Ring Opacity
+    -- (%): 100"); a wide row's slider is 300 long, a narrow row's takes the
+    -- rest of the row. Rows.PlaceSlider moves it right past any words.
+    row.text:SetPoint("RIGHT", row, "LEFT", info.wide and 212 or 206, 0)
+    Rows.PlaceSlider(row)
     local function Show(value)
         row.text:SetText(label .. ": " .. (info.format and info.format(value) or tostring(value)))
         if info.after then info.after(row, value) end
@@ -418,6 +445,111 @@ function Rows.Slider(frame, key, label, info)
     end
     Rows.Forward(row, slider)
     return row
+end
+
+-- A table line (Ability Trail's You and Party): a tick row a whole line
+-- wide, its name kept to the first column, then its cells, one a column: a
+-- choice (small buttons side by side, the chosen one in your class colour)
+-- or a slider with its value after it. Hovering a cell shows that cell's own
+-- description in the footer (its key's help and default). cells: {kind,
+-- key, label, x, read(), save(value)}, then names, values and width (a
+-- choice's buttons) or low, high, step, width and format(value) (a slider).
+local function CellEnter(child)
+    local row = child.row
+    row.hovered = true
+    Rows.Paint(row)
+    local frame = row.owner
+    if frame and frame.ShowRowHelp then frame:ShowRowHelp(child.cell.help) end
+end
+local function CellLeave(child) Leave(child.row) end
+local function Watch(row, child, cell)
+    child.row, child.cell = row, cell
+    child:HookScript("OnEnter", CellEnter)
+    child:HookScript("OnLeave", CellLeave)
+end
+function Rows.SyncCells(row)
+    for _, cell in ipairs(row.cells or {}) do
+        local value = cell.read()
+        if cell.kind == "choice" then
+            local index = 1
+            for i, choice in ipairs(cell.values) do if choice == value then index = i end end
+            cell.selected = index
+            Rows.PaintChoices(cell.buttons, index)
+        else
+            value = math.max(cell.low, math.min(cell.high, tonumber(value) or cell.low))
+            cell.syncing = true
+            cell.slider:SetValue(value)
+            cell.syncing = false
+            cell.value:SetText(cell.format and cell.format(value) or tostring(value))
+        end
+    end
+end
+local function ChoiceCell(row, cell)
+    cell.buttons = {}
+    for i, name in ipairs(cell.names) do
+        local button = Rows.Button(row, name, cell.width, 22)
+        button:SetPoint("LEFT", row, "LEFT", cell.x + (i - 1) * (cell.width + 4), 0)
+        button:SetScript("OnClick", function()
+            cell.save(cell.values[i])
+            Rows.SyncCells(row)
+        end)
+        Watch(row, button, cell)
+        cell.buttons[i] = button
+    end
+end
+local function SliderCell(row, cell)
+    local slider = Rows.MakeSlider(row, cell.low, cell.high, cell.step)
+    slider:SetPoint("LEFT", row, "LEFT", cell.x, 0)
+    slider:SetWidth(cell.width)
+    local value = Text(row, "", 13)
+    value:SetPoint("LEFT", slider, "RIGHT", 8, 0)
+    value:SetWordWrap(false)
+    slider:SetScript("OnValueChanged", function(_, raw)
+        local n = math.max(cell.low, math.min(cell.high, math.floor(raw + .5)))
+        value:SetText(cell.format and cell.format(n) or tostring(n))
+        if not cell.syncing then cell.save(n) end
+    end)
+    -- The thumb (20 tall) stands past the 12 px slider: the slider takes the
+    -- mouse its full height, so grabbing the thumb's edge drags it.
+    slider:SetHitRectInsets(0, 0, -5, -5)
+    Watch(row, slider, cell)
+    cell.slider, cell.value = slider, value
+end
+function Rows.Cells(row, cells)
+    row.cells = cells
+    local name = cells[1].x - 8
+    row.text:SetPoint("RIGHT", row, "LEFT", name, 0)
+    -- The line's own click (its tick) only on its name: a click that misses
+    -- a cell (between the buttons, on a value) flips nothing. Kept to the
+    -- name as the line is sized (the whole width once laid out).
+    local function Fit(self, width)
+        width = tonumber(width) or WIDE
+        self:SetHitRectInsets(0, math.max(0, width - name), 0, 0)
+    end
+    Fit(row, WIDE)
+    row:HookScript("OnSizeChanged", Fit)
+    for _, cell in ipairs(cells) do
+        cell.help = {settingKey = cell.key, labelText = cell.label, owner = row.owner, rowKind = "cell"}
+        if cell.kind == "choice" then ChoiceCell(row, cell) else SliderCell(row, cell) end
+    end
+    -- The tick, then its cells, follow what's saved.
+    local tick = row.SetChecked
+    row.SetChecked = function(self, checked)
+        tick(self, checked)
+        Rows.SyncCells(self)
+    end
+end
+-- Column titles over a table's first line: on its section heading's line
+-- (18 above the line, the heading's height) and in its look, gold small
+-- capitals; the heading itself names the first column. titles: {text, x}.
+function Rows.Titles(row, titles)
+    row.titles = {}
+    for i, title in ipairs(titles) do
+        local fs = Text(row, title[1]:upper(), 11)
+        fs:SetTextColor(Rows.GOLD[1], Rows.GOLD[2], Rows.GOLD[3])
+        fs:SetPoint("TOPLEFT", row, "TOPLEFT", title[2], 18)
+        row.titles[i] = fs
+    end
 end
 
 -- A colour row: its swatch at the right; a click opens the colour picker.
@@ -526,6 +658,61 @@ function Rows.ButtonRow(frame, key, label, buttonText, onClick)
     row.button = button
     Rows.Forward(row, button)
     row.SetChecked = function() end
+    return row
+end
+
+-- A line of words to type (a whole line): its name, the box, and Default at
+-- the right, which puts the first words back. Enter, or leaving the box,
+-- saves; Escape puts the saved words back. info: read() (the saved words),
+-- save(text), reset(), maxLetters.
+local function TextSave(box)
+    local row = box.row
+    if not box.cancelled then row.info.save(box:GetText() or "") end
+    box.cancelled = nil
+    row:SetChecked()
+end
+local function TextEscape(box)
+    box.cancelled = true
+    box:ClearFocus()
+end
+local function TextEnter(box) box:ClearFocus() end
+function Rows.TextBox(frame, key, label, info)
+    local row = Rows.Base(frame, key, "text", label, "Frame")
+    row.info = info
+    row.text:SetPoint("RIGHT", row, "LEFT", 212, 0)
+    local reset = Rows.Button(row, "Default", nil, 22)
+    reset:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+    local box = CreateFrame("EditBox", nil, row, "BackdropTemplate")
+    box:SetHeight(22)
+    box:SetPoint("LEFT", row, "LEFT", 222, 0)
+    box:SetPoint("RIGHT", reset, "LEFT", -8, 0)
+    box:SetBackdrop(BACKDROP)
+    box:SetBackdropColor(TICK_FILL[1], TICK_FILL[2], TICK_FILL[3], 1)
+    box:SetBackdropBorderColor(TICK_EDGE[1], TICK_EDGE[2], TICK_EDGE[3], 1)
+    local font, _, flags = GameFontHighlight:GetFont()
+    box:SetFont(font, 13, flags or "")
+    box:SetTextColor(.94, .95, .98)
+    box:SetTextInsets(7, 7, 0, 0)
+    box:SetAutoFocus(false)
+    box:SetMaxLetters(info.maxLetters or 120)
+    box.row = row
+    box:SetScript("OnEnterPressed", TextEnter)
+    box:SetScript("OnEscapePressed", TextEscape)
+    box:SetScript("OnEditFocusLost", TextSave)
+    reset:SetScript("OnClick", function()
+        box.cancelled = true
+        box:ClearFocus()
+        box.cancelled = nil
+        info.reset()
+        row:SetChecked()
+    end)
+    Rows.Forward(row, box)
+    Rows.Forward(row, reset)
+    row.edit, row.resetButton = box, reset
+    -- The saved words, unless they're being typed.
+    row.SetChecked = function()
+        if not box:HasFocus() then box:SetText(info.read() or "") end
+    end
     return row
 end
 

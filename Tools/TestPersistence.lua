@@ -1446,4 +1446,38 @@ do
     equal(EraUIDB.miniGameProgress.stamp,9,"a record with no stamp never beats the backup")
     flush()
 end
+-- Action Rings (Modules/RingData.lua): each character's rings in its record,
+-- only the version, each ring's name and kind, and each slice's kind, id,
+-- name, rank and hand (no icons). Read back only when SavedVariables lost
+-- them, never over ones there.
+do
+    for k in pairs(cvars) do cvars[k]=nil end
+    character,realm="Hunter","RealmOne"
+    local function classic() return {erauiMigrated=true,erauiSettingsMenuMigrated=true} end
+    E,flush,fire=Session({},{},classic())
+    EraUIClassicCharDB.actionRings={version=1,old={junk=true},rings={
+        [1]={kind="custom",name="Travel",slices={{kind="spell",id=587,name="Conjure Food",icon=133,rank="exact"},
+            {kind="item",id=6947,name="Instant Poison",icon=99,hand=17},5,{kind="x"},{kind="pet",id="BattlePet-0-1",name="Cat"}}},
+        [3]={kind="quest",name="Quest Items"},[12]={kind="custom",name="Past ten"}}}
+    E:SaveSettings();flush()
+    E,flush,fire=Session()
+    local rings=EraUIClassicCharDB.actionRings
+    equal(rings and rings.version.." "..rings.rings[1].name.." "..#rings.rings[1].slices.." "..rings.rings[3].kind,"1 Travel 3 quest",
+        "both SavedVariables lost: this character's rings come back")
+    local slices=rings.rings[1].slices
+    equal(slices[1].id.." "..slices[1].rank.." "..tostring(slices[1].icon).." "..slices[2].hand.." "..slices[3].kind.." "..slices[3].id,
+        "587 exact nil 17 pet BattlePet-0-1","each slice's kind, id, rank and hand, no icon; junk slices gone")
+    equal(tostring(rings.rings[12]).." "..tostring(rings.old),"nil nil","no ring past the tenth, nothing else kept")
+    flush()
+    -- SavedVariables there: theirs stay.
+    E,flush,fire=Session(copy(EraUIDB),{actionRings={version=1,rings={[2]={kind="raid",name="Marks"}}}},classic())
+    equal(EraUIClassicCharDB.actionRings.rings[2].name.." "..tostring(EraUIClassicCharDB.actionRings.rings[1]),"Marks nil",
+        "SavedVariables kept: the backup never writes over them")
+    flush()
+    character="Mage"
+    E,flush,fire=Session()
+    equal(EraUIClassicCharDB.actionRings,nil,"another character doesn't get them")
+    flush()
+    character="Hunter"
+end
 print("Persistence recovery checks passed: " .. checks .. " assertions.")

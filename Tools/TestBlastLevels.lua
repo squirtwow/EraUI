@@ -3,7 +3,9 @@
 -- plain Lua: holes; every hit on every blocker (match, near and blast, one
 -- hit a cell a step, oil only when the piece on it goes); locked pieces;
 -- frozen pieces never made specials; the Hearthstone and the flyer with
--- blockers; relics falling, leaving at the exits and dropping in; each
+-- blockers; a special swapped with any piece firing at once (blockers on its
+-- line, goals, the boss, Bloodlust, a Free swap, locked pieces, holes and
+-- relics, the goal hint); relics falling, leaving at the exits and dropping in; each
 -- goal; winning and losing; Bloodlust / Heroism by moves; the boss's
 -- damage, shield, countdown, actions and defeat; the power-ups and starting
 -- boosters; a level kept and read back (and every damage refused); levels
@@ -281,6 +283,87 @@ do
     for _, i in ipairs(any) do if i == I(2, 8) or clear[i] then relic = true end end
     equal(#any .. " " .. tostring(relic), "57 false", "then any piece not already hit (never the relic)")
     local _ = Target
+end
+
+-- 4b. A special swapped with any piece fires at once -------------------------------------------------------
+
+do
+    Still()
+    -- A Charge for the row moved up a row: it fires row 3, every blocker on it hit, and uses a move.
+    local s = Hand(Rows(), {[3] = "2.i.s..."}, {moves = 10, specials = {[I(4, 4)] = {"charge", "row"}}})
+    local result = B.Swap(s, I(4, 4), I(3, 4))
+    local step = result.steps[1]
+    equal(tostring(result.ok) .. " " .. tostring(result.lone) .. " " .. tostring(result.combo) .. " " .. s.movesLeft .. " " .. tostring(result.used),
+        "true " .. I(3, 4) .. " nil 9 true", "a Charge and a plain piece: it fires, no match needed, one move used")
+    equal(Hits(step), I(3, 1) .. ":crate:1 " .. I(3, 3) .. ":ice:0 " .. I(3, 5) .. ":skull:0",
+        "along its row: the crate loses a hit, the ice cracks, the skull breaks")
+    equal(Cleared(step), table.concat({I(3, 2), I(3, 4), I(3, 6), I(3, 7), I(3, 8)}, " "), "the plain pieces go, and the Charge")
+    -- A flyer still goes for a crate first.
+    s = Hand(Rows(), {[1] = "....2..."}, {specials = {[I(4, 4)] = {"flyer"}}})
+    step = B.Swap(s, I(4, 4), I(4, 5)).steps[1]
+    equal(step.fired[1].special .. " " .. step.fired[1].i .. " " .. step.fired[1].target .. " | " .. Hits(step),
+        "flyer " .. I(4, 5) .. " " .. I(1, 5) .. " | " .. I(1, 5) .. ":crate:1", "a flyer swapped with a piece: off to the crate")
+    -- Goals count what it clears.
+    s = Hand(Rows({[4] = "H.H.H..."}), nil, {goals = {{id = "collect", token = "foe1", need = 5}, {id = "enemy", need = 9}},
+        specials = {[I(5, 4)] = {"charge", "row"}}})
+    result = B.Swap(s, I(5, 4), I(4, 4))
+    equal(Goals(s) .. " " .. tostring(result.outcome), "3 3 nil", "a Charge moved up through three humans: 3 humans, 3 Alliance pieces")
+    -- The boss: its pieces and the Charge's 40, no combo's 150.
+    s = Hand(Rows(), nil, {goals = {{id = "boss", need = 1, name = "Hogger"}}, specials = {[I(4, 4)] = {"charge", "row"}},
+        boss = {key = "elwynn", name = "Hogger", hp = 1000, every = 3, actions = {{kind = "oil", count = 3}}}})
+    step = B.Swap(s, I(4, 4), I(4, 5)).steps[1]
+    equal(step.damage .. " " .. s.boss.hp, "120 880", "a Charge fired on its own hits the boss as any Charge: 8 x 10 + 40")
+    -- Bloodlust / Heroism: its clear fills the meter like any.
+    s = Hand(Rows({[4] = "HHDNHDNH"}), nil, {specials = {[I(5, 4)] = {"sheep"}}})
+    s.meter = B.METER_FULL - 2
+    result = B.Swap(s, I(5, 4), I(5, 5))
+    equal(tostring(result.lustStep) .. " " .. s.lust .. " " .. s.meter, "1 3 0", "a Sheep's blast through three Alliance pieces lights Bloodlust: 3 moves of it")
+    -- A Free swap sets it off too, with no move used.
+    s = Hand(Rows(), nil, {moves = 5, specials = {[I(4, 4)] = {"sheep"}}})
+    result = B.Swap(s, I(4, 4), I(4, 5), {free = true})
+    equal(#result.steps[1].cleared .. " " .. s.movesLeft .. " " .. tostring(result.free) .. " " .. tostring(result.lone), "9 5 true " .. I(4, 5),
+        "a Free swap with a Sheep: it fires, no move used")
+
+    -- Locked pieces, holes and relics still can't set it off (with a relic it needs a match).
+    s = Hand(Rows(), {[1] = ".2......", [2] = "#.r.....", [3] = ".i......"}, {specials = {[I(2, 2)] = {"sheep"}}})
+    equal(tostring(B.Swap(s, I(2, 2), I(1, 2)).what) .. " " .. tostring(B.Swap(s, I(2, 2), I(3, 2)).what), "crate ice",
+        "a Sheep beside a crate or a frozen piece: they can't move")
+    equal(B.Swap(s, I(2, 2), I(2, 1)).why .. " " .. B.Swap(s, I(2, 2), I(2, 3)).why, "far nomatch", "nor into a hole; with a relic it needs a match")
+    equal(tostring(B.MoveValue(s.board, I(2, 2), I(2, 3))) .. " " .. tostring(B.GoalValue(s, I(2, 2), I(2, 3))), "nil nil",
+        "so the Sheep and the relic are no move")
+    equal(B.FindMove(s.board) == nil and B.Hint(s.board) == nil and B.GoalHint(s) == nil, true, "boxed in like that: no move, no hint")
+    Moving()
+    equal(B.Unstick(s) and s.board[I(2, 2)].special .. " " .. tostring(B.FindMove(s.board) ~= nil), "sheep true",
+        "so it's shuffled (the Sheep kept where it is) into a board with a move")
+    Still()
+    s = Hand(Rows(), {[1] = ".2......", [2] = "#.r.....", [3] = ".i......"}, {specials = {[I(2, 2)] = {"sheep"}}})
+    s.board[I(3, 2)] = B.Make(s, s.board[I(3, 2)], {ice = false})
+    local a, b = B.FindMove(s.board)
+    equal(a .. " " .. b, I(2, 2) .. " " .. I(3, 2), "thawed, the piece below it and the Sheep are a move")
+    equal(B.GoalHint(s) ~= nil and B.Swap(s, I(2, 2), I(3, 2)).ok, true, "a hint, and it plays")
+
+    -- The goal hint fires a Charge where it serves the goal.
+    s = Hand(Rows({[6] = "H.H.H.H."}), nil, {goals = {{id = "collect", token = "foe1", need = 9}}, specials = {[I(5, 1)] = {"charge", "row"}}})
+    a, b = B.GoalHint(s)
+    equal(a .. " " .. b, I(5, 1) .. " " .. I(6, 1), "the goal hint: move the Charge down onto the humans' row")
+    B.Swap(s, a, b)
+    equal(Goals(s), "3", "three humans cleared (the fourth swapped up out of the row)")
+    -- A swap lining up three humans along the Charge's own line: worth what
+    -- the line alone is worth, each cell once (the cells beside the match too).
+    local goal = {{id = "collect", token = "foe1", need = 9}}
+    s = Hand(Rows({[4] = ".HH.H..."}), nil, {goals = goal, specials = {[I(4, 4)] = {"charge", "row"}}})
+    local shared = B.GoalValue(s, I(4, 4), I(4, 5))
+    s = Hand(Rows({[4] = "H.H.H..."}), nil, {goals = goal, specials = {[I(4, 4)] = {"charge", "row"}}})
+    local alone = B.GoalValue(s, I(4, 4), I(4, 5))
+    equal(type(shared) == "number" and math.abs(shared - alone) < 1e-9, true,
+        ("a row Charge over the three it lines up: %s, as the row alone (%s)"):format(tostring(shared), tostring(alone)))
+    s = Hand(Rows({[2] = "...H....", [3] = "...H....", [5] = "...H...."}), nil, {goals = goal, specials = {[I(4, 4)] = {"charge", "col"}}})
+    shared = B.GoalValue(s, I(4, 4), I(5, 4))
+    s = Hand(Rows({[1] = "...H....", [3] = "...H....", [5] = "...H...."}), nil, {goals = goal, specials = {[I(4, 4)] = {"charge", "col"}}})
+    alone = B.GoalValue(s, I(4, 4), I(5, 4))
+    equal(type(shared) == "number" and math.abs(shared - alone) < 1e-9, true,
+        ("a column Charge down the three it lines up: %s, as the column alone (%s)"):format(tostring(shared), tostring(alone)))
+    Moving()
 end
 
 -- 5. Relics -------------------------------------------------------------------------------------------
@@ -660,15 +743,15 @@ do
     local WANT = {
         {16, 5, "collect foe1 14", nil, nil, nil, "goals"}, {16, 5, "collect foe2 20"}, {18, 5, "collect foe1 14, collect foe3 14"},
         {18, 5, "oil 16", nil, nil, nil, "oil"}, {16, 5, "score 1200", nil, nil, nil, "holes"}, {20, 5, "oil 12"},
-        {20, 5, "collect foe2 20, oil 8"}, {18, 5, "enemy 50"}, {28, 5, "oil 16"}, {20, 5, "boss 1", nil, 1250, 4, "boss"},
+        {20, 5, "collect foe2 24, oil 8"}, {18, 5, "enemy 50"}, {26, 5, "oil 16"}, {20, 5, "boss 1", nil, 1250, 4, "boss"},
         {16, 5, "ice 14", nil, nil, nil, "ice"}, {20, 5, "ice 8, collect foe1 22"}, {18, 6, "ice 8, collect foe3 14"}, {26, 6, "oil 12, ice 6"},
         {20, 6, "enemy 50"}, {18, 6, "crate 8", nil, nil, nil, "crate"}, {26, 6, "crate 6, collect foe2 12"}, {28, 6, "oil 16, crate 6"},
-        {24, 6, "ice 10, crate 4"}, {26, 6, "boss 1", nil, 1350, 4}, {30, 6, "collect foe1 16, collect foe2 16"}, {26, 6, "crate 10"},
-        {24, 6, "relic 1", "4,5", nil, nil, "relic"}, {34, 6, "relic 2, oil 10", "2,5"}, {24, 6, "score 2000, crate 6"},
-        {28, 6, "relic 2, ice 8", "4,5"}, {26, 6, "oil 12"}, {36, 6, "relic 2, crate 8", "2,7"}, {32, 6, "ice 12, oil 12, collect foe3 14"},
-        {28, 6, "boss 1", nil, 1550, 4}, {26, 6, "enemy 60, oil 12"}, {20, 6, "web 8", nil, nil, nil, "web"}, {27, 6, "web 10, collect pal1 14"},
-        {34, 6, "relic 2, web 6", "3,6"}, {26, 6, "crate 12"}, {32, 6, "ice 14, web 6"}, {38, 6, "oil 16, relic 1", "4,5"},
-        {28, 6, "score 2400, crate 8, ice 8"}, {40, 6, "relic 2, oil 16, web 6", "3,6"}, {30, 6, "boss 1", nil, 1500, 3, "skull"},
+        {24, 6, "ice 10, crate 4"}, {26, 6, "boss 1", nil, 1350, 4}, {30, 6, "collect foe1 16, collect foe2 16"}, {24, 6, "crate 10"},
+        {24, 6, "relic 1", "4,5", nil, nil, "relic"}, {30, 6, "relic 2, oil 10", "2,5"}, {24, 6, "score 2000, crate 6"},
+        {24, 6, "relic 2, ice 8", "4,5"}, {26, 6, "oil 12"}, {30, 6, "relic 2, crate 8", "2,7"}, {28, 6, "ice 12, oil 12, collect foe3 14"},
+        {28, 6, "boss 1", nil, 1550, 4}, {26, 6, "enemy 60, oil 12"}, {20, 6, "web 8", nil, nil, nil, "web"}, {24, 6, "web 10, collect pal1 16"},
+        {28, 6, "relic 2, web 6", "3,6"}, {26, 6, "crate 12"}, {28, 6, "ice 14, web 6"}, {34, 6, "oil 16, relic 1", "4,5"},
+        {28, 6, "score 2400, crate 8, ice 8"}, {36, 6, "relic 2, oil 16, web 6", "3,6"}, {30, 6, "boss 1", nil, 1500, 3, "skull"},
     }
     local ZONES = {"elwynn", "durotar", "westfall", "barrens"}
     for n, want in ipairs(WANT) do

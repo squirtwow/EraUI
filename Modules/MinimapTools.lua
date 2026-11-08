@@ -106,11 +106,12 @@ function Module:Discover()
     -- Legacy buttons with unambiguous addon-owned names, and the buttons of
     -- Squirt's other addons (the cooldown manager, cooldown pulse, cursor,
     -- nameplates, raid frames, privacy and clam opener), which draw their
-    -- own rather than use the library. Native map controls (time, mail,
+    -- own rather than use the library, and a guide's button whose name the
+    -- drawer's scan can't tell is a button. Native map controls (time, mail,
     -- tracking and zoom) are deliberately not collected.
     for _, name in ipairs({"DBMMinimapButton", "AtlasButton", "BagnonMinimapButton", "HealBot_MMButton", "FECMMinimapButton",
         "FECPMinimapButton", "FECursorMinimapButton", "FENMinimapButton", "FERFMinimapButton", "ClamOpenerMinimapButton",
-        "ForeverEnhancedPrivacyMinimapButton"}) do
+        "ForeverEnhancedPrivacyMinimapButton", "ZygorGuidesViewerMapIcon"}) do
         Remember(_G[name])
     end
     -- The drawer also takes other addons' buttons on the minimap.
@@ -263,12 +264,24 @@ local function LooksLikeButton(frame)
     local dx, dy = x * ratio - mx, y * ratio - my
     return math.sqrt(dx * dx + dy * dy) >= Minimap:GetWidth() / 2 * .75
 end
+-- A minimap carrying hundreds of map pins (a guide's or a quest addon's, in
+-- a busy city) can overflow the stack when asked for all its children, and
+-- an addon may have replaced that call with one of its own. Past SCAN_LIMIT
+-- children it isn't scanned, and a failed scan is passed over: buttons the
+-- library or the named list know, and ones found before, still join.
+local SCAN_LIMIT = 400
+local function Children(holder)
+    local count = holder.GetNumChildren and holder:GetNumChildren()
+    if type(count) == "number" and count > SCAN_LIMIT then return nil end
+    local fine, children = pcall(function() return {holder:GetChildren()} end)
+    return fine and children or nil
+end
+Module.SCAN_LIMIT = SCAN_LIMIT
 function Module:ScanChildren()
     for _, holder in ipairs({_G.Minimap, _G.MinimapBackdrop}) do
-        if holder and holder.GetChildren then
-            for _, child in ipairs({holder:GetChildren()}) do
-                if not found[child] and not buttons[child] and LooksLikeButton(child) and Eligible(child) then found[child] = true end
-            end
+        local children = holder and holder.GetChildren and Children(holder)
+        for _, child in ipairs(children or {}) do
+            if not found[child] and not buttons[child] and LooksLikeButton(child) and Eligible(child) then found[child] = true end
         end
     end
 end
@@ -614,9 +627,12 @@ function Module:ToggleDrawer()
     if not panel then return end
     if panel:IsShown() then panel:Hide(); return end
     -- A button an addon has made since the last look joins as it opens.
+    -- Other addons' code runs in here (their buttons, their own versions of
+    -- the minimap's functions): a failure there never stops the drawer opening.
     if not InCombatLockdown() then
-        self:Discover()
-        self:UpdateDrawer()
+        local fine, problem = pcall(self.Discover, self)
+        if fine then fine, problem = pcall(self.UpdateDrawer, self) end
+        if not fine then Drawer.lastError = tostring(problem) end
     end
     -- Laid out first, so the drawer's size is known when it's placed.
     self:LayoutDrawer()
@@ -859,6 +875,10 @@ function Module:BuildDrawer()
     end
     if type(UISpecialFrames) == "table" then table.insert(UISpecialFrames, DRAWER) end
     Drawer.button = self:BuildDrawerButton()
+    -- Placed from the start, not only when first opened: an addon may ask
+    -- where its button is while it waits in the closed drawer (one guide's
+    -- notices line up beside its map button as it starts).
+    PlacePanel()
     return true
 end
 

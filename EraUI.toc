@@ -2,7 +2,7 @@
 ## Title: EraUI
 ## Notes: Classic interface for WoW Forever, with EraUI quality-of-life options.
 ## Author: Squirt
-## Version: 1.8.2
+## Version: 1.8.3
 ## SavedVariables: EraUIDB, EraUIClassicDB
 ## SavedVariablesPerCharacter: EraUIClassicCharDB
 ## IconTexture: Interface\AddOns\EraUI\Media\EraUIIcon.tga
@@ -163,6 +163,11 @@ Modules\CombatFont.lua
 Modules\UpdateCheck.lua
 Modules\JunkDiscard.lua
 Modules\OpenClams.lua
+Modules\PlainAddonList.lua
+Modules\RestInCities.lua
+Modules\ClassFriends.lua
+Modules\ThankBuffs.lua
+Modules\NameInChat.lua
 Modules\EnergyBar.lua
 Modules\ResourceBar.lua
 Modules\RangedSwingTimer.lua
@@ -173,6 +178,7 @@ Modules\QuestieCompatibility.lua
 Modules\QuestTrackerChoice.lua
 Modules\ClassAccents.lua
 Modules\AdvancedCastBar.lua
+Modules\AbilityTrail.lua
 Modules\AuraStyle.lua
 Modules\PortraitDebuffs.lua
 Modules\PoisonData.lua
@@ -194,6 +200,15 @@ Modules\MerchantTools.lua
 Modules\BagItemLevels.lua
 Modules\CharacterItemLevels.lua
 Modules\StatTracker.lua
+Modules\RingSnippet.lua
+Modules\RingClassData.lua
+Modules\RingData.lua
+Modules\RingFill.lua
+Modules\RingSecure.lua
+Modules\RingView.lua
+Modules\RingEditor.lua
+Modules\RingRows.lua
+Modules\ActionRings.lua
 Modules\MinimapTools.lua
 Modules\MinimapZoom.lua
 Modules\QuestSparkles.lua

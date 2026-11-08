@@ -10,7 +10,9 @@ local _, EraUI = ...
 -- old stone at first) in a rim of your side's metal. Each piece is a race's
 -- face on a plate of its own bright colour and shape, a small pip of its
 -- side's colour at the bottom right (Horde red, Alliance blue), a special's
--- badge at the top right. Blockers: oil under a piece, ice and webs over it,
+-- badge at the top right: in a soft light of the special's colour, swelling
+-- gently in its gold ring, a star glinting on it now and then, the whole
+-- piece in a pulsing glow of that colour (never over the face). Blockers: oil under a piece, ice and webs over it,
 -- crates, skulls and relics in place of one (a relic on a gold glow), arrows
 -- under the exits, and no tile at all on a hole. A move plays out in beats:
 -- the swap slides (back with a boing when it matches nothing); each clear
@@ -47,8 +49,14 @@ local V = {
     CELL = 45, TOP = 78, TILE = 43, RIM = 3, TILE_SHADE = .6, PLATE_DARK = .25,
     PLATE = 41, PLATE_RIM = 47, FACE = 33, SHEEN = 26, HOVER = 47,
     PIP = 12, PIP_RIM = 16, PIP_X = 13, PIP_Y = -13,
-    BADGE = 16, BADGE_RING = 21, BADGE_X = 13, BADGE_Y = 13,
-    GLOW = 72, PICK = 52, HINT = 56,
+    -- A special's badge at the top right: its ring (which never swells)
+    -- just fits the cell (13 + 9.5 = 22.5, half of CELL) and keeps off the
+    -- face (its edge 8.9 px from the face's centre, the old badge 7.9), the
+    -- light round it sits on the plate under the face, and a glint flares on
+    -- it every GLINT_EVERY seconds for GLINT_LIFE.
+    BADGE = 17, BADGE_RING = 19, BADGE_X = 13, BADGE_Y = 13, BADGE_GLOW = 38,
+    GLINT = 20, GLINT_EVERY = 2.6, GLINT_LIFE = .55,
+    GLOW = 76, PICK = 52, HINT = 56,
     OIL = 43, ICE = 41, WEB = 43, CRATE = 39, SKULL = 36, RELIC = 34, RELIC_GLOW = 50,
     EXIT_W = 30, EXIT_H = 16, EXIT_IN = 6,
     SLIDE = .13, BURST = .3, FALL = .22, FALL_ROW = .03, FADE = .34, LAND = .74,
@@ -122,10 +130,10 @@ local NOTES = {
     lust = "%s! Double points for 10 seconds.",
     lustMoves = "%s! Double points for 3 moves.",
     over = "%s is over. Fill the meter again.",
-    charge = "Charge made: match it to clear its line.",
-    sheep = "Explosive Sheep made: match it to blast round it.",
-    flyer = "%s made: match it to clear a piece elsewhere.",
-    hearth = "Hearthstone made: swap it with a piece to clear that race.",
+    charge = "Charge made: swap it with any piece to clear its line.",
+    sheep = "Explosive Sheep made: swap with any piece to blast round it.",
+    flyer = "%s made: swap with any piece to clear one elsewhere.",
+    hearth = "Hearthstone made: swap it with any piece to clear that race.",
     hearthUsed = "Hearthstone: every %s cleared!",
     charges = "Two Charges: a row and a column!",
     sheeps = "Two Sheep: a huge blast!",
@@ -267,7 +275,7 @@ end
 
 -- A piece's parts: its glow, plate and rim, a sheen, the face (or a
 -- Hearthstone's icon), a blocker in its place, ice and webs over it, the
--- crate's hits, its side's pip and a special's badge and line.
+-- crate's hits, its side's pip and a special's badge (its light and glint) and line.
 local function MakeMarks(owner, art)
     art.streak = Square(art, "OVERLAY", 10, 2)
     if art.streak:SetTexture(ART.castSpark) == false then art.streak:SetColorTexture(1, .82, .3, .9) end
@@ -276,11 +284,17 @@ local function MakeMarks(owner, art)
     art.pipRim = Disc(Square(art, "OVERLAY", V.PIP_RIM, 3, V.PIP_X, V.PIP_Y), PAINT.pipRim)
     art.pip = Square(art, "OVERLAY", V.PIP, 4, V.PIP_X, V.PIP_Y)
     art.pip:SetTexture(V.MASK)
+    -- The badge's light: on the plate, under the face, so the portrait is never dimmed or washed out.
+    art.badgeGlow = Lit(Square(art, "ARTWORK", V.BADGE_GLOW, -1, V.BADGE_X, V.BADGE_Y), ART.glow)
+    art.badgeGlow:Hide()
     art.badgeRing = Square(art, "OVERLAY", V.BADGE_RING, 5, V.BADGE_X, V.BADGE_Y)
     if not (owner.badgeAtlas and Art(art.badgeRing, owner.badgeAtlas)) then Disc(art.badgeRing, {.78, .6, .26}) end
     art.badge = Square(art, "OVERLAY", V.BADGE, 6, V.BADGE_X, V.BADGE_Y)
     art.badge:SetTexCoord(.08, .92, .08, .92)
     Round(art, art.badge)
+    art.glint = Lit(Square(art, "OVERLAY", V.GLINT, 7, V.BADGE_X, V.BADGE_Y), ART.spark)
+    art.glint:SetAlpha(0)
+    art.glint:Hide()
     art.badgeRing:Hide()
     art.badge:Hide()
 end
@@ -549,16 +563,41 @@ function game:SyncOil()
         self:PaintOil(index)
     end
 end
--- A special's marks: its glow and badge, and a Charge's line across or down.
+-- A special's marks: its own icon drawn whole where the face was (as a
+-- Hearthstone's is), on its race's plate, with the race's face small in the
+-- corner ring in a light of the special's colour; a glint, its glow, and a
+-- Charge's line across or down.
 function game:Mark(art, piece)
     local special = piece.special
-    local badge = self:Badge(special)
-    art.badge:SetShown(badge ~= nil)
-    art.badgeRing:SetShown(badge ~= nil)
-    if badge then art.badge:SetTexture(badge) end
+    local icon = self:Badge(special)
+    local race = icon and not piece.block and Blast.RACE[piece.kind] or nil
+    if icon or special == "hearth" then
+        art.full:SetTexture(icon or Blast.ICONS.hearth)
+        art.full:SetTexCoord(.08, .92, .08, .92)
+    end
+    if icon then
+        art.full:SetShown(true)
+        art.face:SetShown(false)
+    end
+    art.badged = race ~= nil
+    art.badge:SetShown(art.badged)
+    art.badgeRing:SetShown(art.badged)
+    art.badgeGlow:SetShown(art.badged)
+    if race then
+        Blast.PutFace(art.badge, race)
+        art.badge:SetSize(V.BADGE, V.BADGE)
+    end
     local colour = special and PAINT.special[special]
     art.glow:SetShown(colour ~= nil)
-    if colour then art.glow:SetVertexColor(colour[1], colour[2], colour[3], 1) end
+    art.glint:SetShown(colour ~= nil)
+    art.glint:SetAlpha(0)
+    art.glinting = nil
+    if colour then
+        art.glow:SetVertexColor(colour[1], colour[2], colour[3], 1)
+        art.badgeGlow:SetVertexColor(colour[1], colour[2], colour[3], 1)
+        -- The glint: a paler light of the same colour.
+        art.glint:SetVertexColor((1 + colour[1]) / 2, (1 + colour[2]) / 2, (1 + colour[3]) / 2, 1)
+    end
     art.charge = special == "charge"
     if art.charge then
         if piece.dir == "col" then
@@ -717,8 +756,27 @@ function game:LightAreas(rects)
     end
 end
 
+-- A special's glint: every GLINT_EVERY seconds (t: each cell's own clock) a
+-- pale star swells on its badge, turning a little as it goes, and fades.
+local function Glint(art, t)
+    local share = (t % V.GLINT_EVERY) / V.GLINT_LIFE
+    if share >= 1 then
+        if art.glinting then
+            art.glinting = nil
+            art.glint:SetAlpha(0)
+        end
+        return
+    end
+    art.glinting = true
+    local s = math.sin(math.pi * share)
+    local size = math.max(1, V.GLINT * s)
+    art.glint:SetSize(size, size)
+    art.glint:SetAlpha(.9 * s)
+    if art.glint.SetRotation then art.glint:SetRotation(share * math.pi / 2) end
+end
 -- What moves while nothing is played: the picked piece's ring pulsing, a
--- hint's pieces bobbing, the specials shimmering (the edge glow is the HUD's).
+-- hint's pieces bobbing, the specials shimmering (the edge glow is the
+-- HUD's): their glow, badge and its light pulse, their glint flares now and then.
 function game:Shine(dt)
     local t = self.clock
     local picker = self.picker
@@ -734,10 +792,17 @@ function game:Shine(dt)
         if cell.shiny then
             local art = cell.art
             local s = .5 + .5 * math.sin(t * 3.2 + cell.index * .9)
-            local size = V.GLOW * (.9 + .12 * s)
-            art.glow:SetAlpha(.4 + .5 * s)
+            local size = V.GLOW * (.92 + .14 * s)
+            art.glow:SetAlpha(.55 + .45 * s)
             art.glow:SetSize(size, size)
+            if art.badged then
+                -- The badge swells inside its ring, by 7% at most; the ring stays put, inside the cell.
+                local k = 1 + .07 * s
+                art.badge:SetSize(V.BADGE * k, V.BADGE * k)
+                art.badgeGlow:SetAlpha(.5 + .45 * s)
+            end
             if art.charge then art.streak:SetAlpha(.5 + .5 * s) end
+            Glint(art, t + cell.index * .37)
         end
     end
     if self.MoveEdge then self:MoveEdge(dt) end

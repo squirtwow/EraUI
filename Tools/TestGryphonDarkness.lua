@@ -46,15 +46,20 @@ do
     assert(loadfile("Core/Appearance.lua"))("EraUI", E)
 
     local band, keyring, cap, gryphon, plain = Texture(), Texture(), Texture(), Texture(), Texture()
+    local knob, column = Texture(), Texture()
     ns.ThemeTexture(band, "barBody")
     ns.ThemeTexture(keyring, "barKeyring")
     ns.ThemeTexture(cap, "maxLevel")
     ns.ThemeTexture(gryphon, "endCap")
     ns.ThemeTexture(plain, "statusFill") -- not frame art: never tinted
+    ns.ThemeTexture(knob, "scrollKnob")
+    ns.ThemeTexture(column, "charScrollBar")
     Grey(band.colour, .10, "Darkness 90: the band near black, as before")
     Grey(keyring.colour, .10, "Darkness 90: the key ring piece, as before")
     Grey(cap.colour, .10, "Darkness 90: the max-level cap, as before")
     Grey(gryphon.colour, .55, "Darkness 90: the gryphons half as dark (about half bright)")
+    Grey(knob.colour, .55, "Darkness 90: the scroll knob half as dark, so it shows on its column")
+    Grey(column.colour, .10, "Darkness 90: the scroll column itself near black, as before")
     Equal(plain.sets, 0, "art without a Dark Mode key is never tinted")
     Grey({ ns.DarkGrey() }, .10, "ns.DarkGrey is still the full grey")
 
@@ -65,6 +70,7 @@ do
         Grey(band.colour, step[2], "Darkness " .. step[1] .. ": the band")
         Grey(cap.colour, step[2], "Darkness " .. step[1] .. ": the max-level cap")
         Grey(gryphon.colour, step[3], "Darkness " .. step[1] .. ": the gryphons at half the darkness")
+        Grey(knob.colour, step[3], "Darkness " .. step[1] .. ": the scroll knob at half the darkness")
         Grey({ ns.DarkGrey() }, step[2], "Darkness " .. step[1] .. ": ns.DarkGrey")
     end
 

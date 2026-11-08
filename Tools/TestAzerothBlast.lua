@@ -4,14 +4,17 @@
 -- or a square and always has a move; swaps that match nothing or aren't
 -- side by side; each special made by its shape (Charge, Explosive Sheep,
 -- Gryphon / Wind Rider, Hearthstone) and where it goes; what each one clears;
--- chains; every combo; the Hearthstone clearing one race; the Bloodlust /
+-- chains; every combo; one special swapped with any piece firing at once
+-- (from where it lands, with any match the swap lines up), and counted as a
+-- move by the move finder, the hint and the shuffle; the Hearthstone clearing one race; the Bloodlust /
 -- Heroism meter filling only from the other faction's races and doubling
 -- points for 10 seconds; epic loot; chains of clears always ending;
 -- shuffling a board with no move; keeping a board; the hint finder. Then
 -- Free play in the window on a small mock client (as Tools/TestMiniGames.lua;
 -- the levels are Tools/TestBlastCampaign.lua's): the board drawn (stone
 -- tiles, each race's face on its own coloured plate, the sides' pips, the
--- specials' marks, the art's fallbacks), clicks and drags, a move played out
+-- specials' marks: a bigger badge in its own light, a stronger pulsing glow
+-- and a glint, never over the face; the art's fallbacks), clicks and drags, a move played out
 -- (pieces popping, sparks, loot flying to the score, points rising, the
 -- fall's bounce), each special's and combo's effects and sounds, chain
 -- words, Bloodlust / Heroism round the board's edge (never over it), epic
@@ -382,10 +385,10 @@ local function Matches(board)
 end
 local function AnyMove(board)
     for i = 1, 64 do
-        if board[i].special == "hearth" then return true end
+        -- Any special: swapped with the piece beside it, it fires (Free play has no relics or locked pieces).
+        if board[i].special then return true end
         local r, c = B.Cell(i)
         for _, j in ipairs({c < 8 and i + 1 or nil, r < 8 and i + 8 or nil}) do
-            if board[i].special and board[j].special then return true end
             board[i], board[j] = board[j], board[i]
             local works = Matches(board) > 0
             board[i], board[j] = board[j], board[i]
@@ -642,13 +645,91 @@ do
     equal(Fired(step) .. " " .. #step.cleared, "flyer 3", "a Hearthstone + a flyer: its race goes and the flyer fires")
 
     local s = State()
-    Lay(s, Rows({}), {[I(4, 4)] = {"charge", "row"}})
-    equal(B.Swap(s, I(4, 4), I(4, 5)).why, "nomatch", "a special and a plain piece still need a match")
-    s = State()
     Lay(s, Rows({[4] = ".OO.....", [5] = "O......."}), {[I(5, 1)] = {"charge", "col"}})
     local result2 = B.Swap(s, I(5, 1), I(4, 1))
     equal(result2.ok and Fired(result2.steps[1]) .. " | " .. Cleared(result2.steps[1]), "charge | " .. Area({1, 1, 8, 1}, {4, 2, 4, 3}),
-        "a Charge moved into a match fires down its column")
+        "a Charge moved into a match fires down its column, once")
+    equal(result2.lone, I(4, 1), "from the cell it landed on")
+end
+
+-- One special swapped with any piece: it fires at once, no match needed ------------------------------
+
+-- A board with no match and the specials given ({[cell] = {special, dir}}), swapped from a to b.
+local function Lone(specials, a, b, rows, rules)
+    local s = State(nil, rules)
+    Lay(s, Rows(rows or {}), specials)
+    local before = B.Copy(s.board)
+    local result = B.Swap(s, a, b)
+    return result, result.steps and result.steps[1], s, before
+end
+do
+    -- A Charge for the row moved along its row: that row, from where it lands.
+    local result, step, s, before = Lone({[I(4, 4)] = {"charge", "row"}}, I(4, 4), I(4, 5))
+    equal(tostring(result.ok) .. " " .. tostring(result.lone) .. " " .. tostring(result.combo), "true " .. I(4, 5) .. " nil",
+        "a Charge and a plain piece swap: no match needed, no combo")
+    equal(Fired(step) .. " " .. step.fired[1].i .. " | " .. Cleared(step), "charge " .. I(4, 5) .. " | " .. Area({4, 1, 4, 8}),
+        "it fires its row from the cell it landed on")
+    equal(table.concat(step.flashes[1], ",") .. " " .. step.points .. " " .. s.score .. " " .. s.moves, "4,1,4,8 80 80 1",
+        "the row lit, 80 points, one move")
+    equal(result.swapped[I(4, 5)] == before[I(4, 4)] and result.swapped[I(4, 4)] == before[I(4, 5)], true, "the swap shows first")
+    -- Moved down a row: the row it lands on (the line its badge shows).
+    result, step = Lone({[I(4, 4)] = {"charge", "row"}}, I(4, 4), I(5, 4))
+    equal(Cleared(step), Area({5, 1, 5, 8}), "a Charge for the row moved down: row 5")
+    equal(step.before[I(4, 4)].special == nil and step.after[I(5, 4)] == step.before[I(4, 4)], true,
+        "the piece it swapped with, off its line, stays and falls into the gap")
+    result, step = Lone({[I(4, 4)] = {"charge", "col"}}, I(4, 4), I(5, 4))
+    equal(Cleared(step), Area({1, 4, 8, 4}), "a Charge for the column moved down: its column")
+    -- A plain piece moved onto the Charge: the Charge still fires from where it lands.
+    result, step = Lone({[I(4, 4)] = {"charge", "col"}}, I(4, 5), I(4, 4))
+    equal(result.lone .. " | " .. Cleared(step), I(4, 5) .. " | " .. Area({1, 5, 8, 5}), "a piece moved onto a Charge: it fires down column 5")
+    -- At the board's edges and corners.
+    result, step = Lone({[I(8, 8)] = {"charge", "col"}}, I(8, 8), I(7, 8))
+    equal(Cleared(step), Area({1, 8, 8, 8}), "a Charge in the bottom corner: column 8")
+    result, step = Lone({[I(1, 1)] = {"charge", "row"}}, I(1, 1), I(2, 1))
+    equal(Cleared(step), Area({2, 1, 2, 8}), "from the top corner down: row 2")
+
+    -- An Explosive Sheep: the 3 x 3 round where it lands, cut at the edges.
+    result, step = Lone({[I(4, 4)] = {"sheep"}}, I(4, 4), I(4, 5))
+    equal(Fired(step) .. " | " .. Cleared(step), "sheep | " .. Area({3, 4, 5, 6}), "a Sheep and a plain piece: the 3x3 round it")
+    result, step = Lone({[I(1, 4)] = {"sheep"}}, I(1, 4), I(1, 5))
+    equal(Cleared(step), Area({1, 4, 2, 6}), "on the top edge: what of it is on the board")
+    result, step = Lone({[I(1, 2)] = {"sheep"}}, I(1, 2), I(1, 1))
+    equal(Cleared(step), Area({1, 1, 2, 2}), "in the corner: four pieces")
+
+    -- A Gryphon / Wind Rider: off it goes, as when it's caught in a clear.
+    result, step = Lone({[I(4, 4)] = {"flyer"}}, I(4, 4), I(4, 5), nil, {flyer = 1})
+    equal(Fired(step) .. " " .. step.fired[1].i .. " " .. step.fired[1].target .. " | " .. Cleared(step),
+        "flyer " .. I(4, 5) .. " " .. I(1, 1) .. " | " .. Area({1, 1}, {4, 5}), "a flyer and a plain piece: it takes off and clears one piece")
+    equal(step.points .. " " .. #step.made, "20 0", "two pieces, nothing made")
+
+    -- The same swap lining up a match: both go in the one clear.
+    result, step = Lone({[I(4, 3)] = {"charge", "col"}}, I(5, 3), I(4, 3), {[4] = "OO......", [5] = "..O....."})
+    equal(tostring(result.lone) .. " " .. Fired(step) .. " | " .. Cleared(step), I(5, 3) .. " charge | " .. Area({1, 3, 8, 3}, {4, 1, 4, 2}),
+        "an orc swapped with a Charge, lining up three: the Charge's column and the three go together")
+    equal(#step.made, 0, "three make nothing")
+    result, step = Lone({[I(4, 3)] = {"sheep"}}, I(5, 3), I(4, 3), {[4] = "OO.O....", [5] = "..O....."})
+    equal(Cleared(step), Area({4, 1, 4, 4}, {4, 2, 6, 4}), "four lined up beside a Sheep: the four and the Sheep's 3x3")
+    equal(step.made[1] and step.made[1].piece.special .. " " .. step.made[1].i .. " " .. tostring(step.after[I(6, 3)] == step.made[1].piece),
+        "charge " .. I(4, 3) .. " true", "the four still make their Charge where the moved piece went (it falls into the Sheep's gap)")
+
+    -- A Hearthstone and two specials keep their combos.
+    result = Lone({[I(4, 4)] = {"hearth"}}, I(4, 4), I(4, 5), {[4] = "....O..."})
+    equal(tostring(result.combo) .. " " .. tostring(result.lone), "hearth nil", "a Hearthstone with a piece: still that piece's race")
+    result = Lone({[I(4, 4)] = {"charge", "row"}, [I(4, 5)] = {"sheep"}}, I(4, 4), I(4, 5))
+    equal(tostring(result.combo) .. " " .. tostring(result.lone), "chargesheep nil", "two specials: still their combo")
+    -- Two plain pieces still need a match.
+    result = Lone({[I(1, 1)] = {"charge", "row"}}, I(5, 5), I(5, 6))
+    equal(result.ok == false and result.why, "nomatch", "two plain pieces that match nothing still swap back")
+
+    -- The meter fills from the other side's pieces it clears; Bloodlust doubles it; epic loot as ever.
+    result, step, s = Lone({[I(4, 4)] = {"charge", "row"}}, I(4, 4), I(4, 5), {[4] = "HH.DN..."})
+    equal(step.enemies .. " " .. s.meter, "4 4", "a Horde player's Charge (a dwarf) through three Alliance pieces and itself: Bloodlust fills by 4")
+    s = State()
+    s.lust = 5
+    Lay(s, Rows({}), {[I(4, 4)] = {"charge", "row"}})
+    equal(B.Swap(s, I(4, 4), I(4, 5)).steps[1].points, 160, "doubled under Bloodlust")
+    result, step = Lone({[I(4, 4)] = {"sheep"}}, I(4, 4), I(4, 5), nil, {epic = 1})
+    equal(step.epics .. " " .. step.points, "9 540", "epic loot from what it clears (every roll epic here: 9 x 60)")
 end
 
 -- Bloodlust / Heroism ------------------------------------------------------------------------
@@ -757,12 +838,19 @@ do
         for c = 1, 8 do row[c] = letters[((c - 1) + 3 * ((r - 1) % 2)) % 6 + 1] end
         rows[r] = table.concat(row)
     end
-    Lay(s, rows, {[I(3, 3)] = {"charge", "col"}, [I(6, 6)] = {"sheep"}})
-    equal(B.FindMove(s.board) == nil and AnyMove(s.board), false, "a board with no move")
+    Lay(s, rows)
+    equal(tostring(B.FindMove(s.board)) .. " " .. tostring(AnyMove(s.board)), "nil false", "a board with no move")
     equal(B.Unstick(s), true, "is shuffled")
     equal(Matches(s.board) .. " " .. tostring(AnyMove(s.board)), "0 true", "into one with no match and a move")
-    equal(s.board[I(3, 3)].special .. " " .. s.board[I(3, 3)].dir .. " " .. s.board[I(6, 6)].special, "charge col sheep", "its specials kept in place")
     equal(B.Unstick(s), false, "a board with a move isn't")
+    -- A special on it is a move (swapped with the piece beside it, it fires): never shuffled for having none.
+    Lay(s, rows, {[I(3, 3)] = {"charge", "col"}, [I(6, 6)] = {"sheep"}})
+    local fa, fb = B.FindMove(s.board)
+    equal(tostring(fa == I(3, 3) and B.Adjacent(fa, fb)) .. " " .. tostring(B.Unstick(s)), "true false",
+        "the same board with a Charge and a Sheep: a move (the Charge and a piece beside it), not shuffled")
+    B.Arrange(s, true)
+    equal(s.board[I(3, 3)].special .. " " .. s.board[I(3, 3)].dir .. " " .. s.board[I(6, 6)].special, "charge col sheep",
+        "laid out again (as after a chain too long): its specials kept in place")
     local hearth = s.board[I(1, 1)]
     s.board[I(1, 1)] = {id = 9999, special = "hearth"}
     hearth = s.board[I(1, 1)]
@@ -892,6 +980,30 @@ do
     end
     Lay(s, rows)
     equal(B.FindMove(s.board) == nil and B.Hint(s.board) == nil, true, "a board with no move has no hint")
+
+    -- A special beside any piece is a move, and the hint weighs what it clears.
+    Lay(s, rows, {[I(6, 6)] = {"sheep"}})
+    local ha, hb = B.Hint(s.board)
+    equal((ha == I(6, 6) or hb == I(6, 6)) and B.Adjacent(ha, hb) and B.MoveValue(s.board, ha, hb), 9,
+        "one Sheep on a board with no match to make: the hint is the Sheep, worth its 3x3")
+    equal(B.Swap(s, ha, hb).ok and s.moves, 1, "and it plays as a move")
+    Lay(s, rows, {[I(8, 8)] = {"flyer"}})
+    equal(B.FindMove(s.board) ~= nil and B.MoveValue(s.board, I(8, 8), I(8, 7)), 2, "a flyer in the corner: a move, worth itself and the piece it hits")
+    s = State()
+    Lay(s, Rows({[2] = "OO......", [3] = "..O....."}), {[I(6, 4)] = {"charge", "row"}})
+    equal(B.MoveValue(s.board, I(6, 4), I(6, 5)) .. " " .. B.MoveValue(s.board, I(6, 4), I(7, 4)) .. " " .. B.MoveValue(s.board, I(3, 3), I(2, 3)),
+        "8 8 3", "a Charge's line is worth its 8 pieces, a three 3")
+    ha, hb = B.Hint(s.board)
+    equal(ha == I(6, 4) or hb == I(6, 4), true, "the hint: fire the Charge")
+    s = State()
+    Lay(s, Rows({[4] = "OO......", [5] = "..O....."}), {[I(4, 3)] = {"charge", "col"}})
+    equal(B.MoveValue(s.board, I(5, 3), I(4, 3)) .. " " .. B.MoveValue(s.board, I(4, 3), I(5, 3)), "10 10",
+        "a Charge's column with the three it lines up: 10 pieces, the one they share counted once (either way round)")
+    local was = B.Copy(s.board)
+    B.Hint(s.board)
+    local same = true
+    for i = 1, 64 do if s.board[i] ~= was[i] then same = false end end
+    equal(same, true, "looking at specials leaves the board as it was")
 
     -- Many boards: a hint whenever there's a move, always one that plays, never worse than the first move found.
     s = B.New(Lcg(99), "Alliance")
@@ -1223,15 +1335,18 @@ do
         "each combo")
     equal(Said({combo = "flyer"}), "Wind Rider combo: both fire!", "a flyer combo")
     equal(Said(Making("charge")) .. " | " .. Said(Making("sheep")) .. " | " .. Said(Making("flyer")) .. " | " .. Said(Making("hearth")),
-        "Charge made: match it to clear its line. | Explosive Sheep made: match it to blast round it. | "
-        .. "Wind Rider made: match it to clear a piece elsewhere. | Hearthstone made: swap it with a piece to clear that race.",
-        "each special made says how to use it")
+        "Charge made: swap it with any piece to clear its line. | Explosive Sheep made: swap with any piece to blast round it. | "
+        .. "Wind Rider made: swap with any piece to clear one elsewhere. | Hearthstone made: swap it with any piece to clear that race.",
+        "each special made says how to use it: swapped with any piece")
     local plain = {made = {}, epics = 0}
     equal(Said({steps = {plain, plain, plain}}) .. " | " .. Said({steps = {{made = {}, epics = 1}}}) .. " | " .. Said({steps = {plain}}),
         "A chain of 3! | Epic loot! 50 more for each. | ", "a chain, epic loot, else nothing")
+    equal(Said({lone = I(4, 5), steps = {plain}}), "", "a special fired on its own: no words (its effects say it)")
     local long = 0
-    for _, words in ipairs({Said(Making("hearth")), Said({combo = "chargesheep"}), "Heroism is over. Fill the meter again."}) do
-        if #words > 60 or words:find("%-%-") then long = long + 1 end
+    local lines = {Said({combo = "chargesheep"}), "Heroism is over. Fill the meter again.", MG.BlastView.NOTES.flyer:format("Gryphon")}
+    for _, special in ipairs({"charge", "sheep", "flyer", "hearth"}) do lines[#lines + 1] = Said(Making(special)) end
+    for _, words in ipairs(lines) do
+        if #words > 60 or words:find("%-%-") or words:find("\226\128\148", 1, true) then long = long + 1 end
     end
     equal(long, 0, "short enough for two footer lines, no dashes")
     local cell = Game().cells[1]
@@ -1242,25 +1357,74 @@ do
     equal(tostring(art.pip.shown) .. " " .. tostring(art.badge.shown) .. " " .. tostring(art.glow.shown) .. " " .. table.concat(art.glow.vertex, ",", 1, 3)
         .. " " .. tostring(art.plate.shown), "false false true 0.3,0.6,1 true", "no side's pip, no badge, a blue glow, on a blue plate")
     Game():Dress(cell, {id = -2, kind = "dwarf", special = "charge", dir = "col"})
-    equal(art.streak.shown and art.streak.w .. "x" .. art.streak.h .. " " .. table.concat(art.streak.coords, ",") .. " " .. art.badge.texture,
-        "10x" .. (B.VIEW.FACE + 8) .. " 0,1,0,1 Interface\\Icons\\Ability_Warrior_Charge", "a Charge for the column: a line of light down it and the Charge badge")
+    equal(art.streak.shown and art.streak.w .. "x" .. art.streak.h .. " " .. table.concat(art.streak.coords, ",") .. " " .. art.full.texture,
+        "10x" .. (B.VIEW.FACE + 8) .. " 0,1,0,1 Interface\\Icons\\Ability_Warrior_Charge", "a Charge for the column: a line of light down it and the Charge's icon")
+    equal(tostring(art.full.shown) .. " " .. tostring(art.face.shown) .. " " .. art.full.w .. " " .. tostring(art.full.mask == art.face.mask)
+        .. " " .. table.concat(art.full.coords, ","), "true false " .. B.VIEW.FACE .. " true 0.08,0.92,0.08,0.92",
+        "the special's icon drawn whole where the face was, cut round as a face is")
+    equal(art.badge.texture, "Interface\\CharacterFrame\\TemporaryPortrait-Male-Dwarf", "the dwarf's face small in the corner ring, so its race still shows")
     equal(art.badge.shown and art.badgeRing.shown and art.badge.mask ~= nil and art.badgeRing.atlas, "GarrMission_PortraitRing",
         "its badge round, in a small gold ring")
     equal(art.glow.shown and art.glow.blend .. " " .. table.concat(art.glow.vertex, ",", 1, 3), "ADD 1,0.62,0.18", "and a warm glow behind it")
-    equal(Game().cells[1].art.face.texture, "Interface\\CharacterFrame\\TemporaryPortrait-Male-Dwarf", "on a dwarf")
+    local V = B.VIEW
+    equal(art.badge.w .. " " .. art.badgeRing.w .. " " .. tostring(art.badgeRing.w / 2 + V.BADGE_X <= V.CELL / 2
+        and art.badgeRing.w / 2 + V.BADGE_Y <= V.CELL / 2), "17 19 true",
+        "a bigger badge (17 px in a 19 px ring, was 16 in 21), its ring inside the cell (the board clips what's past it)")
+    local spot = art.badge.lastPoint
+    equal(spot[1] .. " " .. spot[4] .. "," .. spot[5] .. " " .. art.badgeRing.lastPoint[4] .. "," .. art.badgeRing.lastPoint[5], "CENTER 13,13 13,13",
+        "at the top right, ring and badge on one centre")
+    -- The ring and badge are one solid disc over the face: its nearest edge
+    -- must stay at least as far from the face's centre as the old badge's
+    -- (a 21 px ring at 13, 13: 7.9 px), so it never creeps onto the portrait.
+    local ringAt, faceAt = art.badgeRing.lastPoint, art.face.lastPoint
+    local fx, fy = faceAt and faceAt[4] or 0, faceAt and faceAt[5] or 0
+    local gap = math.sqrt((ringAt[4] - fx) ^ 2 + (ringAt[5] - fy) ^ 2) - art.badgeRing.w / 2
+    local oldGap = math.sqrt(2) * 13 - 21 / 2
+    equal(gap >= oldGap - .001, true, ("the badge keeps off the face: its edge %.2f px from the face's centre (old badge %.2f)"):format(gap, oldGap))
+    local lit = art.badgeGlow
+    equal(lit.shown and lit.blend .. " " .. table.concat(lit.vertex, ",", 1, 3) .. " " .. lit.texture .. " " .. lit.layer .. " " .. lit.sublevel
+        .. " " .. art.face.layer .. " " .. tostring(art.face.sublevel or 0) .. " " .. art.plate.layer,
+        "ADD 1,0.62,0.18 Interface\\Glues\\Models\\UI_Draenei\\GenericGlow64 ARTWORK -1 ARTWORK 0 BORDER",
+        "the badge in a soft light of the Charge's colour, over the plate but under the face (the portrait never dimmed)")
+    equal(art.glint.shown and art.glint.texture .. " " .. art.glint.blend .. " " .. art.glint.layer .. " " .. art.glint.alpha,
+        "Interface\\Cooldown\\star4 ADD OVERLAY 0", "a star waiting to glint on the badge")
+    equal(tostring(art.full.shown) .. " " .. art.full.w .. " " .. tostring(art.full.mask ~= nil), "true " .. V.FACE .. " true", "the icon shown whole, at the face's size")
+    equal(Game().cells[1].art.plate.shown and Game().cells[1].art.face.texture, "Interface\\CharacterFrame\\TemporaryPortrait-Male-Dwarf", "on a dwarf's plate")
     Game():Dress(cell, {id = -3, kind = "dwarf", special = "charge", dir = "row"})
     equal(art.streak.w .. "x" .. art.streak.h .. " " .. table.concat(art.streak.coords, ","), (B.VIEW.FACE + 8) .. "x10 0,0,1,0,0,1,1,1", "a Charge for the row: the line turned across")
-    -- Specials shimmer.
+    -- Specials shimmer: the glow, the badge and its light pulse; a glint flares now and then.
     local shiny = Game().cells[2]
     Game():Dress(shiny, {id = -4, kind = "orc", special = "sheep"})
     Tick(.1)
     local was = shiny.art.glow.alpha
+    local wasBadge, wasLight = shiny.art.badge.w, shiny.art.badgeGlow.alpha
     Tick(.2)
     equal(type(was) == "number" and shiny.art.glow.alpha ~= was, true, "a special's glow shimmers")
-    equal(table.concat(shiny.art.glow.vertex, ",", 1, 3) .. " " .. shiny.art.badge.texture, "1,0.45,0.85 Interface\\Icons\\Spell_Nature_Polymorph",
-        "a Sheep's pink glow and its badge")
+    equal(shiny.art.badge.w ~= wasBadge and shiny.art.badgeGlow.alpha ~= wasLight, true, "its badge and the badge's light pulse with it")
+    local low, high, wide, narrow, ring, most, glinted = 1, 0, 0, math.huge, 0, 0, false
+    for _ = 1, 80 do
+        Tick(.05)
+        local a = shiny.art
+        low, high = math.min(low, a.glow.alpha), math.max(high, a.glow.alpha)
+        wide, narrow = math.max(wide, a.badge.w), math.min(narrow, a.badge.w)
+        ring = math.max(ring, a.badgeRing.w)
+        most = math.max(most, a.glint.alpha or 0)
+        if (a.glint.alpha or 0) > .3 and a.glint.w > 8 then glinted = true end
+    end
+    equal(low >= .55 and high > .9 and high <= 1, true, ("a stronger glow: %.2f to %.2f (was .4 to .9)"):format(low, high))
+    equal(narrow >= V.BADGE and wide <= V.BADGE * 1.08, true, "the badge swells gently, never past 8%")
+    equal(ring == V.BADGE_RING and ring / 2 + V.BADGE_X <= V.CELL / 2 and wide < ring, true,
+        "inside its ring, which stays put inside the cell (no flat edge on the board's top row or right column)")
+    equal(glinted and most <= .9 and shiny.art.glint.w <= V.GLINT, true, "and now and then a glint flares on the badge")
+    equal(table.concat(shiny.art.glow.vertex, ",", 1, 3) .. " " .. shiny.art.full.texture .. " " .. table.concat(shiny.art.badgeGlow.vertex, ",", 1, 3),
+        "1,0.45,0.85 Interface\\Icons\\Spell_Nature_Polymorph 1,0.45,0.85", "a Sheep's pink glow, its icon whole, its race's face in pink light")
     Game():Dress(shiny, {id = -5, kind = "orc"})
-    equal(shiny.shiny or shiny.art.glow.shown or shiny.art.badge.shown, false, "a plain piece again: no glow, no badge")
+    equal(shiny.shiny or shiny.art.glow.shown or shiny.art.badge.shown or shiny.art.badgeGlow.shown or shiny.art.glint.shown or shiny.art.full.shown, false,
+        "a plain piece again: no glow, no badge, no light, no glint, no icon")
+    equal(shiny.art.face.shown, true, "and its face back")
+    Game():Dress(shiny, {id = -6, special = "hearth"})
+    equal(tostring(shiny.art.badgeGlow.shown) .. " " .. tostring(shiny.art.glint.shown) .. " " .. tostring(shiny.art.glow.shown) .. " " .. shiny.art.full.texture,
+        "false true true Interface\\Icons\\INV_Misc_Rune_01", "a Hearthstone: its own icon again (not the Sheep's), a glint on it, its blue glow")
 end
 
 -- When the client has no gold ring, no green glow or no swirl: the next art, then plain shapes.

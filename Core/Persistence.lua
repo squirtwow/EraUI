@@ -13,6 +13,9 @@ local layouts = {
     comboPointPosition=true, energyBarPosition=true, resourceBarPositions=true,
     swingTimerPosition=true, rangedSwingTimerPosition=true, advancedCastBarPosition=true,
     statTrackerPosition=true, rewardProfiles=true,
+    -- Ability Trail's places (yours, and each party slot's) and its ignore
+    -- list (Modules/AbilityTrail.lua).
+    abilityTrailPosition=true, abilityTrailPartyPositions=true, abilityTrailIgnore=true,
     -- The mini-games window's place and the account's best scores (Modules/MiniGames.lua),
     -- and their levels, coins and unlocks (Modules/MiniGameProgress.lua; the newer stamp wins).
     miniGamePosition=true, miniGameBest=true, miniGameProgress=true,
@@ -80,6 +83,36 @@ local function Bests(value)
     end
     return out and {best = out} or nil
 end
+
+-- A character's Action Rings (Modules/RingData.lua) for the backup: the
+-- version, each ring's name and kind, and each slice's kind, id, name, rank
+-- and hand, nothing else (no icons: the game gives them again). At most ten
+-- rings of sixteen slices, every string kept short.
+local function Short(text) return type(text) == "string" and text:sub(1, 64) or nil end
+local function Rings(value)
+    if type(value) ~= "table" or type(value.rings) ~= "table" then return nil end
+    local out = {version = Finite(value.version) and value.version or 1, rings = {}}
+    for slot = 1, 10 do
+        local ring = value.rings[slot]
+        if type(ring) == "table" and type(ring.kind) == "string" then
+            local copy = {kind = Short(ring.kind), name = Short(ring.name)}
+            if type(ring.slices) == "table" then
+                copy.slices = {}
+                for _, slice in ipairs(ring.slices) do
+                    if #copy.slices >= 16 then break end
+                    local id = type(slice) == "table" and slice.id or nil
+                    if id ~= nil and type(slice.kind) == "string" and (Finite(id) or type(id) == "string") then
+                        copy.slices[#copy.slices + 1] = {kind = Short(slice.kind), id = type(id) == "string" and Short(id) or id,
+                            name = Short(slice.name), rank = Short(slice.rank), hand = Finite(slice.hand) and slice.hand or nil}
+                    end
+                end
+            end
+            out.rings[slot] = copy
+        end
+    end
+    return out
+end
+P.Rings = Rings
 
 -- A character's class tools for the backup, without the Training Guide's
 -- trainer quotes: a cache the next trainer visit fills again, and by far the
@@ -293,6 +326,9 @@ function P:LoadCharacter()
         if type(saved.swing) == "table" then self.characterSwing = saved.swing end
         local zooms = Zooms(saved.minimapZoom)
         if zooms then EraUIClassicCharDB.minimapZoom = zooms end
+        -- Action Rings come back only when SavedVariables lost them.
+        local rings = Rings(saved.actionRings)
+        if rings and EraUIClassicCharDB.actionRings == nil then EraUIClassicCharDB.actionRings = rings end
         -- Best scores only rise: the higher of the backup's and SavedVariables'.
         local bests = Bests(saved.miniGames)
         if bests then
@@ -314,7 +350,7 @@ function P:Save()
         local char = EraUIClassicCharDB or {}
         self.store.characters[self.character] = {
             classTools=ToolsToKeep(char.classTools), onboarding=char.onboarding or {}, swing=E.charSettings or self.characterSwing or {},
-            minimapZoom=Zooms(char.minimapZoom), miniGames=Bests(char.miniGames), seen=self.seen,
+            minimapZoom=Zooms(char.minimapZoom), miniGames=Bests(char.miniGames), actionRings=Rings(char.actionRings), seen=self.seen,
         }
     end
     local ok, payload = pcall(Encode, self.store)

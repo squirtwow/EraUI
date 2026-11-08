@@ -176,12 +176,14 @@ function methods:GetVerticalScroll() return self.scroll or 0 end
 for _, key in ipairs({"SetBackdrop", "SetTexCoord", "SetShadowColor", "SetShadowOffset", "SetFrameStrata", "SetMovable",
  "SetClampedToScreen", "RegisterForDrag", "RegisterEvent", "UnregisterAllEvents", "SetOrientation", "SetValueStep",
  "SetObeyStepOnDrag", "SetAutoFocus", "SetMaxLetters", "SetTextInsets", "StartMoving", "StopMovingOrSizing",
- "SetHitRectInsets", "SetAltArrowKeyMode", "SetNonSpaceWrap", "Raise", "SetDrawLayer", "SetBlendMode",
+ "SetAltArrowKeyMode", "SetNonSpaceWrap", "Raise", "SetDrawLayer", "SetBlendMode",
  "SetDesaturated", "SetCheckedTexture", "SetHighlightTexture", "SetNormalTexture", "SetPushedTexture",
  "SetDisabledTexture", "LockHighlight", "UnlockHighlight", "SetStatusBarTexture", "SetStatusBarColor"}) do
  methods[key] = function(self) Guard(self) end
 end
--- Kept, so wrapping, justification, colours, alpha and mouse can be checked.
+-- Kept, so wrapping, justification, colours, alpha, mouse and the part of a
+-- frame that takes the mouse (its hit rect's insets) can be checked.
+function methods:SetHitRectInsets(l, r, t, b) Guard(self); self.hitInsets = {l, r, t, b} end
 function methods:SetWordWrap(v) Guard(self); self.wordWrap = v end
 function methods:SetJustifyH(v) Guard(self); self.justifyH = v end
 function methods:SetJustifyV(v) Guard(self); self.justifyV = v end
@@ -273,7 +275,8 @@ function M.Session(c, ready, soon, char, setup)
   classColors = true, bagSpace = true, questLevels = true, matchFocusSize = true, trainingGuide = true,
   spellbookCombatDrag = true, gryphons = true, actionBars = true, unitFrames = true, minimap = true, castBars = true,
   advancedCastLatency = true, advancedCastTicks = true, movableMap = true, mapQuestObjectives = true,
-  hideStatusMessages = true}) do E.settingDefaults[key] = value end
+  hideStatusMessages = true, actionRingScale = 100, actionRingNames = true, actionRingCooldowns = true,
+  actionRingMotion = true}) do E.settingDefaults[key] = value end
  E.cvarSettings = {classIconPortraitMine = "ReplaceMyPlayerPortrait", classIconPortraitOthers = "ReplaceOtherPlayerPortraits"}
  -- The real release list: What's New's release (1.7.0 here, the newest, as
  -- "9.9.9" has no notes of its own) and version order for "just added".
@@ -286,6 +289,9 @@ function M.Session(c, ready, soon, char, setup)
  assert(loadfile("Core/SettingsNav.lua"))("EraUI", E)
  assert(loadfile("Core/SettingsTour.lua"))("EraUI", E)
  assert(loadfile("Core/Settings.lua"))("EraUI", E)
+ -- Action Bars > Action Rings' rows (built by Settings' Initialize). The
+ -- rings themselves aren't loaded here (Tools/TestRings.lua runs them).
+ assert(loadfile("Modules/RingRows.lua"))("EraUI", E)
  E.modules.ClassReminders:Initialize()
  E.modules.MageSupplies:Initialize()
  if setup then setup(E) end

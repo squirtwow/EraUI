@@ -191,7 +191,11 @@ local G = {
 -- Goals ask for more pieces rather than fewer moves (a quick player still
 -- earns 3 stars), and the hard spikes got their design moves back: a player
 -- who finds the best move half the time wins levels 1 to 10 nearly always
--- and most later ones.
+-- and most later ones. Since a special fires when swapped with any piece
+-- (7 Nov 2026), the levels that made easier have fewer moves (9, 22, 24, 26,
+-- 28, 29, 33, 34, 36, 37, 39; each still within 4 of its design) and 7 and
+-- 33 ask for a few more pieces: greedy's wins had come to leave half their
+-- moves, past the 45% line.
 local ROWS = {
     {"collect foe1 14", 16, "FULL", 5, card = "goals"},                        -- 20
     {"collect foe2 20", 16, "FULL", 5},                                         -- 20
@@ -199,9 +203,9 @@ local ROWS = {
     {"oil", 18, 4, 5, card = "oil"},                                            -- 22
     {"score 1200", 16, "CORNERS", 5, card = "holes"},                           -- 20
     {"oil", 20, 6, 5},                                                          -- 24
-    {"collect foe2 20, oil", 20, 7, 5},                                         -- 24
+    {"collect foe2 24, oil", 20, 7, 5},                                         -- 24
     {"enemy 50", 18, "DIAMOND", 5},                                             -- 22
-    {"oil", 28, 9, 5},                                                          -- 26
+    {"oil", 26, 9, 5},                                                          -- 26
     {"boss", 20, "FULL", 5, card = "boss", hp = 1250, every = 4},               -- 24, 1000
     {"ice", 16, 11, 5, card = "ice"},                                           -- 20
     {"ice, collect foe1 22", 20, 12, 5},                                        -- 24
@@ -214,24 +218,24 @@ local ROWS = {
     {"ice, crate", 24, 19, 6},                                                  -- 28
     {"boss", 26, 20, 6, hp = 1350, every = 4},                                  -- 26, 1100
     {"collect foe1 16, collect foe2 16", 30, "PILLARS", 6},                     -- 26
-    {"crate", 26, 22, 6},                                                       -- 26
+    {"crate", 24, 22, 6},                                                       -- 26
     {"relic 1", 24, 23, 6, exits = {4, 5}, max = 1, card = "relic"},            -- 24
-    {"relic 2, oil", 34, 24, 6, exits = {2, 5}, max = 2},                       -- 30
+    {"relic 2, oil", 30, 24, 6, exits = {2, 5}, max = 2},                       -- 30
     {"score 2000, crate", 24, 25, 6},                                           -- 28
-    {"relic 2, ice", 28, 26, 6, exits = {4, 5}, max = 1},                       -- 28
+    {"relic 2, ice", 24, 26, 6, exits = {4, 5}, max = 1},                       -- 28
     {"oil", 26, 27, 6},                                                         -- 30
-    {"relic 2, crate", 36, 28, 6, exits = {2, 7}, max = 2},                     -- 32
-    {"ice, oil, collect foe3 14", 32, 29, 6},                                   -- 32
+    {"relic 2, crate", 30, 28, 6, exits = {2, 7}, max = 2},                     -- 32
+    {"ice, oil, collect foe3 14", 28, 29, 6},                                   -- 32
     {"boss", 28, 30, 6, hp = 1550, every = 4},                                  -- 28, 1250
     {"enemy 60, oil", 26, 31, 6},                                               -- 30
     {"web", 20, 32, 6, card = "web"},                                           -- 24
-    {"web, collect pal1 14", 27, 33, 6},                                        -- 28
-    {"relic 2, web", 34, 34, 6, exits = {3, 6}, max = 2},                       -- 30
+    {"web, collect pal1 16", 24, 33, 6},                                        -- 28
+    {"relic 2, web", 28, 34, 6, exits = {3, 6}, max = 2},                       -- 30
     {"crate", 26, 35, 6},                                                       -- 30
-    {"ice, web", 32, 36, 6},                                                    -- 32
-    {"oil, relic 1", 38, 37, 6, exits = {4, 5}, max = 1},                       -- 34
+    {"ice, web", 28, 36, 6},                                                    -- 32
+    {"oil, relic 1", 34, 37, 6, exits = {4, 5}, max = 1},                       -- 34
     {"score 2400, crate, ice", 28, 38, 6},                                      -- 32
-    {"relic 2, oil, web", 40, 39, 6, exits = {3, 6}, max = 2},                  -- 36
+    {"relic 2, oil, web", 36, 39, 6, exits = {3, 6}, max = 2},                  -- 36
     {"boss", 30, 40, 6, card = "skull", hp = 1500, every = 3},                  -- 30, 1350
 }
 local function Goals(text)

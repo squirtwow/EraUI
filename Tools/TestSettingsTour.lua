@@ -5,16 +5,21 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
--- 1.8.2 (the newest notes) added one option to lead to: Open Clams. 1.8.1
--- was fixes only: no new options, so no Show me what's new. 1.8.0 added six:
--- the two sparkles, the Legacy Window, Remember Minimap Zoom, On Tooltips Too
--- and the mini-games page. The checks below run as 1.7.1, whose walkthrough
--- they were written for.
+-- 1.8.3 (the newest notes) added seven options to lead to: Class-coloured
+-- Friends, Action Rings (one step for its page), Hide Zzz in Cities, Plain
+-- AddOn List, Ability Trail (one step for its page), Thank for Buffs and
+-- Name in Chat, in page order. 1.8.2 added one: Open Clams. 1.8.1 was fixes only: no new
+-- options, so no Show me what's new. 1.8.0 added six: the two sparkles, the
+-- Legacy Window, Remember Minimap Zoom, On Tooltips Too and the mini-games
+-- page. The checks below run as 1.7.1, whose walkthrough they were written for.
 do
  local E, f = Session("ROGUE")
  local keys = E.SettingsTour.NewsKeys(f)
- equal(E.SettingsTour.Release() .. " " .. #keys .. " " .. tostring(keys[1]),
-  "1.8.2 1 openClams", "1.8.2: Show me what's new leads to Open Clams")
+ equal(E.SettingsTour.Release() .. " " .. table.concat(keys, ","),
+  "1.8.3 classColourFriends,actionRings,hideRestInCities,plainAddonList,abilityTrail,thankBuffs,nameInChat",
+  "1.8.3: Show me what's new leads to its seven new options, one step each, in page order")
+ local open = E.SettingsTour.NewsKeys(f, "1.8.2")
+ equal(#open .. " " .. tostring(open[1]), "1 openClams", "1.8.2: Open Clams")
  equal(#E.SettingsTour.NewsKeys(f, "1.8.1"), 0, "1.8.1: fixes only, nothing new to show")
  equal(#E.SettingsTour.NewsKeys(f, "1.8.0"), 6, "1.8.0's six new options")
 end
@@ -375,9 +380,9 @@ local NEWS = {
  {"roundedCastBars", "appearance", "style", "Rounded Cast Bars"},
  {"partyOutline", "appearance", "style", "Raid-style Party Outline"},
  {"darkBagButtons", "appearance", "dark", "Dark Bag Buttons"},
- {"upgradeSpellRanks", "actionBars", "main", "Upgrade Spell Ranks"},
+ {"upgradeSpellRanks", "actionBars", "bars", "Upgrade Spell Ranks"},
  {"cleanMinimapStyle", "map", "main", "Clean Minimap: Style"},
- {"castBarColour", "casting", "main", "Cast Bar Colour"},
+ {"castBarColour", "casting", "castbars", "Cast Bar Colour"},
  {"statTracker", "character", "main", "Stat Tracker"},
 }
 local function Clip(f, region)
@@ -526,7 +531,7 @@ do
  news:Click(); Flush()
  local notes = {
   thickFrames = "Switch on Unit Frames first (Frames & Nameplates > Unit Frames).",
-  roundedCastBars = "Switch on Cast Bars first (Casting).",
+  roundedCastBars = "Switch on Cast Bars first (Casting > Cast Bars).",
   castBarColour = "Switch on Cast Bars first.",
  }
  for n, step in ipairs(NEWS) do

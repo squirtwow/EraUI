@@ -2,7 +2,8 @@
 -- unitFramePlayer): the target frame's stone and gold art mirrored, the round
 -- portrait on the left with the level badge under it, EraUI's green and power
 -- bars over the game's faded ones, rest "Zzz" and crossed swords in the
--- level's place, the old glows and the 1.x PvP banner. Dressing waits for the
+-- level's place (the level instead in a capital with Hide Zzz in Cities),
+-- the old glows and the 1.x PvP banner. Dressing waits for the
 -- end of a fight; the keepers below run in fights too and only touch art,
 -- text and anchors of the frame's pieces.
 local _, EraUI = ...
@@ -187,6 +188,13 @@ function UF.KeepPlayerArt()
     end
 end
 
+-- Hide Zzz in Cities (Modules/RestInCities.lua): in a capital the level
+-- shows instead of the rest icon.
+local function CityRest()
+    local cities = EraUI.modules and EraUI.modules.RestInCities
+    return type(cities) == "table" and type(cities.Hides) == "function" and cities:Hides() == true
+end
+
 -- Which of rest, fight or the level shows; nil while the game keeps it secret.
 local function StateNow(frame)
     local resting, busy = IsResting(), UnitAffectingCombat("player")
@@ -195,6 +203,7 @@ local function StateNow(frame)
     local fighting = (flagged and true) or (busy and true) or false
     local rest = resting and not fighting and true or false
     local fight = not resting and (fighting or (hated and true) or false) or false
+    if rest and CityRest() then rest = false end
     return rest, fight
 end
 

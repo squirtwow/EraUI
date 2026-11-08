@@ -33,8 +33,11 @@ local _, EraUI = ...
 --   Blast.AddMoves(state, n) -> movesLeft (on a lost level it carries on: extra + 1)
 --   Refused: {ok = false, why = "far"|"nomatch"|"locked"|"over"|"empty"|"relic",
 --     what = "ice"|"web"|"crate"|"skull" (locked)}.
+-- A special swapped with a race's piece fires at once, no match needed (a
+--   move used, or none on a Free swap); with a relic it needs a match.
 -- A result: {ok, a, b, free, used (a move went), smash, swapped (the board after
---   the swap), combo, hearthKind, steps, lustStep, lustOver (it ended with this
+--   the swap), combo, hearthKind, lone (the cell a special on its own fired
+--   from), steps, lustStep, lustOver (it ended with this
 --   move), settled, reshuffled (laid again: no move was left), bossActed (the
 --   boss's step), points, scoreBefore, meterBefore, movesLeft, outcome, goals = {have...}}.
 -- Its steps, in order, each with kind:
@@ -719,7 +722,8 @@ function Blast.LevelSwap(state, a, b, opts)
         end
     end
     local result = {ok = true, a = a, b = b, free = free or nil, steps = {}, swapped = Copy(board),
-        combo = plan and plan.combo, hearthKind = plan and plan.hearthKind, scoreBefore = state.score, meterBefore = state.meter}
+        combo = plan and plan.combo, hearthKind = plan and plan.hearthKind, lone = plan and plan.lone,
+        scoreBefore = state.score, meterBefore = state.meter}
     state.lustLit = nil
     if plan then
         Blast.Run(state, plan, result)
@@ -809,18 +813,22 @@ local function CellValue(state, want, i, how)
     if want.boss then value = value + (Blast.Enemy(state, piece) and 15 or 10) / Blast.HINT_DAMAGE end
     return value
 end
--- A special caught in the first clear: its area as blast hits (no chain past it).
-local function SpecialValue(state, want, i, piece, seen)
-    local r, c = Cell(i)
-    local rect
-    if piece.special == "charge" then rect = piece.dir == "col" and {1, c, N, c} or {r, 1, r, N}
-    elseif piece.special == "sheep" then rect = Blast.Clip(r - 1, c - 1, r + 1, c + 1)
-    else return piece.special == "flyer" and 6 or 10 end
+-- A special caught in the first clear, or fired on its own: its area as
+-- blast hits (no chain past it), each cell once (seen: cells already
+-- counted). blasted: a cell counted only as beside the match (seen "near")
+-- counts as blasted instead.
+local function SpecialValue(state, want, i, piece, seen, blasted)
+    local rect = Blast.Reach(piece, i)
+    if not rect then return piece.special == "flyer" and 6 or 10 end
     local value = want.boss and (Blast.DAMAGE[piece.special] or 0) / Blast.HINT_DAMAGE or 0
     Blast.EachIn(rect, function(j)
-        if not seen[j] then
+        local was = seen[j]
+        if not was then
             seen[j] = true
             value = value + CellValue(state, want, j, "blast")
+        elseif blasted and was == "near" then
+            seen[j] = true
+            value = value + CellValue(state, want, j, "blast") - CellValue(state, want, j, "near")
         end
     end)
     return value
@@ -867,7 +875,8 @@ local function MatchAt(board, i, cells)
 end
 -- What a plain swap is worth (nil: it matches nothing): the cells it
 -- matches, the specials it makes and catches, the cells next to them, and a
--- relic moved down or toward an exit.
+-- relic moved down or toward an exit. Also the cells it counted (true, or
+-- "near" for one only beside the match).
 local scratch = {}
 local function MatchValue(state, want, a, b, pa, pb)
     local board, value = state.board, 0
@@ -888,7 +897,7 @@ local function MatchValue(state, want, a, b, pa, pb)
         for _, d in ipairs(Blast.AROUND) do
             local j = Near(i, d)
             if j and not seen[j] then
-                seen[j] = true
+                seen[j] = "near"
                 value = value + CellValue(state, want, j, "near")
             end
         end
@@ -901,7 +910,7 @@ local function MatchValue(state, want, a, b, pa, pb)
         if rt > rf or ExitGap(state, ct) < ExitGap(state, cf) then value = value + 12
         else value = value - 12 end
     end
-    return value
+    return value, seen
 end
 -- Whether a piece of kind moved to i (from from) has one of its kind beside
 -- it: no line or square can form without one (a quick no for most swaps).
@@ -918,8 +927,17 @@ local function Beside(board, i, from, kind)
     end
     return false
 end
+-- Whether cell i is one of the groups' (matched).
+local function Matched(groups, i)
+    for _, group in ipairs(groups or EMPTY) do
+        for _, j in ipairs(group.cells) do if j == i then return true end end
+    end
+    return false
+end
 -- How good swapping a and b is for the goals, looking at its first clear
--- only, or nil when it's no move.
+-- only, or nil when it's no move. A special on its own: the match the swap
+-- lines up (one that takes the special in counts its blast) and its blast
+-- from where it lands, a cell they share counted once.
 function Blast.GoalValue(state, a, b, want)
     local board = state.board
     local pa, pb = board[a], board[b]
@@ -930,7 +948,14 @@ function Blast.GoalValue(state, a, b, want)
     board[a], board[b] = pb, pa
     local value
     local plan = (pa.special or pb.special) and Blast.Combo(state, a, b)
-    if plan then
+    if plan and plan.lone then
+        local seen
+        value, seen = MatchValue(state, want, a, b, pa, pb)
+        value = value or 0
+        if not Matched(plan.groups, plan.lone) then
+            value = value + SpecialValue(state, want, plan.lone, board[plan.lone], seen or {}, true)
+        end
+    elseif plan then
         local seen = {}
         value = Blast.MoveValue(board, b, a) or 90
         for _, i in ipairs(plan.seeds) do

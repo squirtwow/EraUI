@@ -973,6 +973,32 @@ equal(Names(M.drawer.shown):match("([^,]+)$"), "AaaLateMinimapButton", "at the e
 equal(E.settings.minimapDrawerOrder[#E.settings.minimapDrawerOrder], "AaaLateMinimapButton", "and kept there")
 Grid("one joined as it opened", 5, 9)
 drawer:Click()
+-- A known button whose name the scan wouldn't take (a guide's map icon)
+-- still joins, by its name.
+S.setup = true; local guide = AddonButton("ZygorGuidesViewerMapIcon", 35); S.setup = false
+S.before[guide] = Snapshot(guide)
+drawer:Click()
+equal(Held(guide), true, "a known map icon joins the drawer")
+equal(Names(M.drawer.shown):match("([^,]+)$"), "ZygorGuidesViewerMapIcon", "at the end")
+drawer:Click()
+-- A crowded minimap: an addon's own version of the map's child list failing
+-- (a stack overflow among a city's map pins) never stops the drawer opening,
+-- and a map past the scan limit isn't scanned at all.
+rawset(Minimap, "GetChildren", function() error("stack overflow") end)
+drawer:Click()
+equal(tostring(Panel():IsShown()) .. " " .. tostring(Held(guide)), "true true", "a failing child list: the drawer still opens, its buttons in")
+drawer:Click()
+rawset(Minimap, "GetChildren", nil)
+rawset(Minimap, "GetNumChildren", function() return M.SCAN_LIMIT + 1 end)
+S.setup = true; local crowded = AddonButton("CrowdedMinimapButton", 40); S.setup = false
+S.before[crowded] = Snapshot(crowded)
+drawer:Click()
+equal(tostring(Panel():IsShown()) .. " " .. tostring(Held(crowded)), "true false", "past the scan limit: open, the map not scanned")
+drawer:Click()
+rawset(Minimap, "GetNumChildren", nil)
+drawer:Click()
+equal(Held(crowded), true, "under the limit again: it joins")
+drawer:Click()
 -- In a fight nothing is lent as it opens; the first open after it takes it.
 S.setup = true; local fight = AddonButton("FightMinimapButton", 25); S.setup = false
 S.before[fight] = Snapshot(fight)
@@ -989,6 +1015,7 @@ for _, f in ipairs(S.frames) do if S.before[f] and f ~= _G.ForbiddenMinimapButto
 
 -- Nothing to show ---------------------------------------------------------------------
 
+_G.ZygorGuidesViewerMapIcon = nil -- the last session's, found by name
 made = Session({cleanMinimap = true, cleanMinimapStyle = "drawer", library = {}, noOther = true})
 panel, drawer = Panel(), DrawerButton()
 S.setup = true

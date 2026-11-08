@@ -26,13 +26,18 @@ local EXPECTED = {
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
     {"BARS AND WINDOWS", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"}}}},
-   {"classcol", "Class Colours", {{"CLASS COLOURS", {"classColors", "tooltipClassColours", "classColourBorders", "castBarClassBorder"}}}}}},
-  {"actionBars", "Action Bars", "The stone dock and the Classic action buttons.", {
-   {"main", nil, {{"ACTION BARS", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText",
-    "upgradeSpellRanks"}}}}}},
+   {"classcol", "Class Colours", {{"CLASS COLOURS", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel",
+    "classColourBorders", "castBarClassBorder"}}}}}},
+  -- Action Rings on a sub-tab of its own (2026-11-07): its switch and
+  -- options, then Your Rings (the editor's box opens under it: Tools/TestRings.lua).
+  {"actionBars", "Action Bars", "The stone dock, the Classic action buttons and action rings.", {
+   {"bars", "Action Bars", {{"ACTION BARS", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText",
+    "upgradeSpellRanks"}}}},
+   {"rings", "Action Rings", {{"ACTION RINGS", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion"}},
+    {"YOUR RINGS", {"actionRingEditor"}}}}}},
   {"frames", "Frames & Nameplates", "Unit frames, portraits and nameplates.", {
    {"unit", "Unit Frames", {{"UNIT FRAMES", {"unitFrames", "matchFocusSize", "disableAggroHighlight", "portraitDebuffs",
-    "classIconPortraitMine", "classIconPortraitOthers"}}}},
+    "classIconPortraitMine", "classIconPortraitOthers", "hideRestInCities"}}}},
    {"plates", "Nameplates", {{"NAMEPLATES", {"friendlyNameplates", "enemyNameplates"}}}}}},
   {"map", "Map & Minimap", "The minimap and the world map.", {
    {"main", nil, {{"MINIMAP", {"minimap", "squareMinimap", "squareMinimapScale", "cleanMinimap", "cleanMinimapStyle", "minimapDrawerColumns",
@@ -40,13 +45,22 @@ local EXPECTED = {
     {"WORLD MAP", {"mapQuestObjectives", "movableMap", "revealMap"}}}}}},
   {"windows", "Windows & Tooltips", "Classic frames for the game's windows, and tooltips.", {
    {"main", nil, {{"WINDOWS", {"gameMenu", "popups", "blizzardSettings", "mailSkin", "auctionHouse", "damageMeterSkin",
-    "otherWindows", "contextMenus"}}, {"TOOLTIPS", {"tooltipSkin", "tooltipIDs"}}}}}},
+    "otherWindows", "plainAddonList", "contextMenus"}}, {"TOOLTIPS", {"tooltipSkin", "tooltipIDs"}}}}}},
  }},
  {group = "GAMEPLAY", tabs = {
   {"class", nil, "Tools for your class. Each class sees its own.", nil},
-  {"casting", "Casting", "Cast bars for you and everyone else.", {
-   {"main", nil, {{"CAST BARS", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency", "advancedCastBatch"}},
-    {"COLOUR", {"castBarColour", "castBarCustomColour"}}}}}},
+  -- Ability Trail's own sub-tab (2026-11-07, Squirt: "sub tab is fine"): the
+  -- table of the two trails, then what they share. Scrolling Icons is on in
+  -- the checks below (Speed and Travel Distance show, Show For doesn't).
+  {"casting", "Casting", "Cast bars, and the abilities you and your party use.", {
+   {"castbars", "Cast Bars", {{"CAST BARS", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency", "advancedCastBatch"}},
+    {"COLOUR", {"castBarColour", "castBarCustomColour"}}}},
+   {"trail", "Ability Trail", {{"TRAILS", {"abilityTrail", "abilityTrailParty"}},
+    {"ICONS", {"abilityTrailScroll", "abilityTrailSpeed", "abilityTrailDistance", "abilityTrailSeconds", "abilityTrailCombatOnly",
+        "abilityTrailBorder", "abilityTrailBorderColour"}},
+    {"SHOW IN", {"abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids", "abilityTrailInBattlegrounds"}},
+    {"YOUR ICONS", {"abilityTrailTooltip", "abilityTrailSpellID", "abilityTrailPauseOnHover", "abilityTrailIgnored"}},
+    {"POSITION", {"abilityTrailUnlock", "abilityTrailPlace"}}}}}},
   {"quests", "Quests", "The quest log, dialogue and tracker.", {
    {"main", nil, {{"QUESTS", {"questLog", "questDialogs", "questTracker", "questLevels"}},
     {"SPARKLES", {"questSparkles", "gatherSparkles"}},
@@ -67,7 +81,9 @@ local EXPECTED = {
  {group = "SOCIAL", tabs = {
   {"chat", "Chat & Names", "Chat, names and EraUI's own messages.", {
    {"main", nil, {{"CHAT", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle", "hideStatusMessages",
-    "showWelcomeOnLogin", "updateCheck"}}}}}},
+    "showWelcomeOnLogin", "updateCheck"}}, {"THANK FOR BUFFS", {"thankBuffs", "thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild",
+    "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}}, {"NAME IN CHAT", {"nameInChat", "nameInChatName",
+    "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"}}}}}},
   {"group", "Group & Invites", "Friends, guild, group finder and invites.", {
    {"main", nil, {{"WINDOWS", {"socialWindows", "groupFinderPvp"}}, {"INVITES AND REQUESTS", {"blockDuels", "blockPartyInvites",
     "partyFromFriends", "inviteFromWhispers", "autoSummon", "autoResurrect", "releasePvP"}}}}}},
@@ -195,10 +211,16 @@ local PARENT = {
  -- Thick Frames' two ticks and its Frame Edge choice (Thick Frames itself is
  -- greyed by Unit Frames, on another page, and never indented).
  thickFrameRings = "thickFrames", thickFrameParty = "thickFrames", thickFrameEdge = "thickFrames",
+ -- Ability Trail's Speed and Travel Distance (Scrolling Icons on) or Show
+ -- For (off) under Scrolling Icons, and Spell ID under Tooltip (its own block below).
+ abilityTrailSpeed = "abilityTrailScroll", abilityTrailDistance = "abilityTrailScroll", abilityTrailSeconds = "abilityTrailScroll",
+ abilityTrailSpellID = "abilityTrailTooltip",
  -- Square Minimap reshapes Minimap's own look: under it, greyed while it's off.
  -- Its Square Size slider shows only with it, laid out under Minimap at its
  -- indent (GROUPS; checked in its own block below).
  squareMinimap = "minimap", squareMinimapScale = "minimap",
+ -- Show Their Level, folded under Class-coloured Friends (its own block below).
+ classColourFriendsLevel = "classColourFriends",
 }
 local FOLDED = {
  cursorRing = {"cursorRingClassColour", "cursorRingSize", "cursorRingThickness"},
@@ -225,7 +247,8 @@ local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
   "cleanMinimapStyle", "castBarColour", "statTracker"},
  ["1.7.1"] = {"squareMinimap"}, ["1.7.3"] = {"advancedCastBatch"},
  ["1.8.0"] = {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips", "miniGameFlight"},
- ["1.8.2"] = {"openClams"}}
+ ["1.8.2"] = {"openClams"}, ["1.8.3"] = {"abilityTrail", "plainAddonList", "hideRestInCities", "classColourFriends", "thankBuffs",
+  "actionRings", "nameInChat"}}
 local TIGHT = {}
 -- The options saying "just added" for an account that updated from this version.
 local function NewSince(from)
@@ -244,8 +267,25 @@ end
 -- flight choice and Play rows since 2026-10-31 (new, off by default). Herb and
 -- Ore Sparkles since 2026-11-04 (new, off by default, ore not seen in game).
 -- Open Clams (new 2026-11-07) was seen working in game that day: never.
+-- Ability Trail's Party line since 2026-11-07 (new, off by default, not seen in a group),
+-- and Thank for Buffs (new the same day: the game may hide who cast a buff).
+-- Ability Trail's rows not seen in game since 2026-11-08 (the 1.8.3 tidy-up:
+-- every row but You, Party's own, Scrolling Icons (on by default, the gliding
+-- Squirt saw) and Speed). Plain AddOn List, Hide Zzz in
+-- Cities and Class-coloured Friends were seen working in game that evening:
+-- never. Show Their Level (under Class-coloured Friends, new that night) was
+-- seen too, so never since 1.8.3. Action Rings (new the same day, off by
+-- default) until he sees its rings work. Show For and Travel Distance never
+-- since 2026-11-08: the word sat on their sliders. Name in Chat (new the
+-- same day) never: Squirt saw "(Squirt)" go out in game that day.
+local TRAIL_TESTING = {"abilityTrailCombatOnly",
+ "abilityTrailBorder", "abilityTrailBorderColour", "abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids",
+ "abilityTrailInBattlegrounds", "abilityTrailTooltip", "abilityTrailSpellID", "abilityTrailPauseOnHover", "abilityTrailIgnored",
+ "abilityTrailUnlock", "abilityTrailPlace"}
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
- miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true}
+ miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
+ actionRings = true}
+for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
  "flatBars", "thickAuraBorders", "roundedCastBars", "thickFrames", "thickFrameRings", "thickFrameParty", "thickFrameEdge",
@@ -742,6 +782,273 @@ do
  f.checks.rememberMinimapZoom:Click()
  equal(E.settings.rememberMinimapZoom == false and count == 4 and status == "Remember Minimap Zoom disabled.", true, "and off, live")
  E.modules.MinimapZoom = nil
+ -- Plain AddOn List (Windows & Tooltips), Hide Zzz in Cities (Frames &
+ -- Nameplates > Unit Frames) and Class-coloured Friends (Appearance > Class
+ -- Colours), 2026-11-07: off by default, experimental, live through their
+ -- modules both ways, never a reload, nothing they wait for.
+ for _, case in ipairs({
+  {"plainAddonList", "PlainAddonList", "windows", nil, "Plain AddOn List",
+   "The game's AddOn list as one plain list, without category headings or addons tucked under others. Search and ticks work as before.",
+   "Plain AddOn List enabled. The AddOn list shows as one plain list.", "Plain AddOn List disabled. The grouped list is back next time it opens."},
+  {"hideRestInCities", "RestInCities", "frames", "unit", "Hide Zzz in Cities",
+   "In a capital city your level shows instead of the resting Zzz on your player frame. Everywhere else the Zzz shows as before.",
+   "Hide Zzz in Cities enabled. In a capital city your level shows instead of the Zzz.", "Hide Zzz in Cities disabled."},
+  {"classColourFriends", "ClassFriends", "appearance", "classcol", "Class-coloured Friends",
+   "Online friends' names in their class colour in the friends list. For Battle.net friends, only the character's name.",
+   "Class-coloured Friends enabled. Open your friends list to see it.", "Class-coloured Friends disabled."}}) do
+  local key, module, tab, sub, label, about, on, off = (table.unpack or unpack)(case)
+  -- Class-coloured Friends is on by default (Squirt, 2026-11-07); the others off.
+  local default = key == "classColourFriends"
+  local row = f.checks[key]
+  equal(row.category == Tab(f, tab) and (sub == nil or row.subId == sub), true, label .. " on its page")
+  equal(tostring(real.settingDefaults[key]) .. " " .. tostring(real.reloadSettings[key]) .. " " .. tostring(row.dependencyDisabled),
+   tostring(default) .. " nil nil", label .. ": its default, no reload, needs nothing")
+  Open(f, tab, sub)
+  M.NoOverlaps(f, label .. "'s page")
+  _, help, extras = M.Hover(f, row)
+  equal(help, label .. "  " .. about, label .. " help")
+  equal(extras, default and "Default: On." or "Default: Off.", label .. " default said")
+  local refreshed = 0
+  E.modules[module] = {Refresh = function() refreshed = refreshed + 1 end}
+  -- This session starts with every option unsaved and unticked.
+  row:Click()
+  equal(tostring(E.settings[key]) .. " " .. refreshed .. " " .. tostring(status), "true 1 " .. on, label .. " on, live")
+  row:Click()
+  equal(tostring(E.settings[key]) .. " " .. refreshed .. " " .. tostring(status), "false 2 " .. off, label .. " and off, live")
+  E.modules[module] = nil
+  E.settings[key] = nil
+ end
+ -- Show Their Level (2026-11-07): folded under Class-coloured Friends (hidden,
+ -- never greyed, while that's off), off by default, not experimental since
+ -- 1.8.3 (seen working in game), live through the module both ways (the
+ -- rows showing done afresh), never a reload.
+ do
+  Open(f, "appearance", "classcol")
+  local friends, level = f.checks.classColourFriends, f.checks.classColourFriendsLevel
+  equal(tostring(real.settingDefaults.classColourFriendsLevel) .. " " .. tostring(real.reloadSettings.classColourFriendsLevel) .. " "
+   .. tostring(level.dependencyDisabled) .. " [" .. table.concat(level.tagIds, ",") .. "] " .. level.text:GetText(),
+   "false nil nil [] Show Their Level", "Show Their Level: off by default, no reload, never greyed, not experimental, its name")
+  equal(level:IsShown(), false, "folded away while Class-coloured Friends is off")
+  local refreshed, again = 0, 0
+  E.modules.ClassFriends = {Refresh = function(_, fresh) refreshed = refreshed + 1; if fresh then again = again + 1 end end}
+  friends:Click(); Flush()
+  equal(tostring(E.settings.classColourFriends) .. " " .. tostring(level:IsShown()) .. " " .. refreshed .. " " .. again, "true true 1 0",
+   "Class-coloured Friends on: Show Their Level opens under it at once")
+  local order, at = M.Keys(f)
+  for i, key in ipairs(order) do if key == "classColourFriends" then at = i end end
+  equal(order[at + 1], "classColourFriendsLevel", "right after it")
+  M.NoOverlaps(f, "Class Colours with Show Their Level open"); M.Fits(f, "Class Colours with Show Their Level open")
+  equal(level.depth == 1 and math.abs(level:GetLeft() - friends:GetLeft() - 22) < .01, true, "one step in")
+  _, help, extras = M.Hover(f, level)
+  equal(help, "Show Their Level  A Battle.net friend's level after their character's name, in the same colour. Friends added by name show it already.",
+   "Show Their Level help")
+  equal(extras, "Default: Off.", "its default said")
+  level:Click()
+  equal(tostring(E.settings.classColourFriendsLevel) .. " " .. refreshed .. " " .. again .. " " .. tostring(status),
+   "true 2 1 Class-coloured Friends: Show Their Level on.", "on, live: the rows showing done afresh")
+  level:Click()
+  equal(tostring(E.settings.classColourFriendsLevel) .. " " .. refreshed .. " " .. again .. " " .. tostring(status),
+   "false 3 2 Class-coloured Friends: Show Their Level off.", "and off, live")
+  local found = M.Results(f, "show their level")
+  equal(table.concat(found, ","), "classColourFriendsLevel", "search finds it by name")
+  f.searchBox:SetText(""); Flush()
+  Open(f, "appearance", "classcol")
+  friends:Click(); Flush()
+  equal(tostring(E.settings.classColourFriends) .. " " .. tostring(level:IsShown()) .. " " .. refreshed, "false false 4",
+   "Class-coloured Friends off: Show Their Level folds away at once")
+  E.modules.ClassFriends = nil
+  E.settings.classColourFriends, E.settings.classColourFriendsLevel = nil, nil
+ end
+ -- Thank for Buffs (Chat & Names > Thank for buffs), 2026-11-07: off by
+ -- default, experimental, live through its module both ways; its whisper (a
+ -- whole line: the words and Default) and five skip ticks show only while
+ -- it's on, each a row of its own, never indented.
+ do
+  Open(f, "chat")
+  local thanks, words = f.checks.thankBuffs, f.checks.thankBuffsMessage
+  local SKIP_KEYS = {"thankBuffsSkipGroup", "thankBuffsSkipGuild", "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}
+  equal(tostring(real.settingDefaults.thankBuffs) .. " " .. tostring(real.reloadSettings.thankBuffs) .. " " .. tostring(thanks.dependencyDisabled)
+   .. " " .. table.concat(thanks.tagIds, ","), "false nil nil ", "Thank for Buffs: off by default, no reload, needs nothing, seen working (no experimental)")
+  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+   .. "nameInChat", "Thank for Buffs alone while it's off (Name in Chat's switch after it)")
+  _, help, extras = M.Hover(f, thanks)
+  equal(help, "Thank for Buffs  Another player who buffs you gets one whisper of thanks, all their buffs in one line. Then nothing more to them for 30 minutes.",
+   "Thank for Buffs help")
+  equal(extras, "Default: Off.", "Thank for Buffs off by default")
+  local refreshed = 0
+  E.modules.ThankBuffs = {Refresh = function() refreshed = refreshed + 1 end}
+  thanks:Click(); Flush()
+  equal(tostring(E.settings.thankBuffs) .. " " .. refreshed .. " " .. tostring(status),
+   "true 1 Thank for Buffs enabled. A player who buffs you gets one whisper of thanks.", "on, live, says so")
+  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+   .. "thankBuffsMessage,thankBuffsSkipGroup,thankBuffsSkipGuild,thankBuffsSkipFriends,thankBuffsSkipCombat,thankBuffsSkipInstances,nameInChat",
+   "on: its whisper and five skip ticks show under it at once")
+  M.NoOverlaps(f, "Chat & Names with Thank for Buffs on"); M.Fits(f, "Chat & Names with Thank for Buffs on")
+  equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01, true, "Chat & Names still fits without scrolling")
+  -- The whisper row: a whole line, its name, the box and Default inside it.
+  equal(words.wide == true and words.rowKind == "text" and words.text:GetText() == "Thank-you Whisper" and (words.depth or 0) == 0, true,
+   "Thank-you Whisper: a whole line of its own, not indented")
+  local box, reset = words.edit, words.resetButton
+  equal(box:GetText() .. " / " .. reset.label:GetText(), "Thanks for the %spell%! / Default", "the box shows the first words, Default beside it")
+  equal(words.text:GetRight() <= box:GetLeft() - 4 and box:GetRight() <= reset:GetLeft() - 4 and reset:GetRight() <= words:GetRight() - 4
+   and box:GetWidth() >= 300, true, "name, box and Default side by side inside the row, the box wide enough to type in")
+  equal(M.Glyphs("Thank-you Whisper", 13) <= words.text:GetRight() - words.text:GetLeft(), true, "the whisper row's name fits before the box")
+  _, help, extras = M.Hover(f, words)
+  equal(help, "Thank-you Whisper  What the whisper says. %name% is their first name, %spell% their buffs. Default puts the first words back.",
+   "the whisper's help names its placeholders")
+  equal(extras, "Default: Thanks for the %spell%!", "its default, word for word")
+  -- Typed words save when Enter (or leaving the box) ends the typing;
+  -- Escape puts the saved ones back; empty words are the first ones.
+  box:SetFocus(); box:SetText("Ty %name%!"); box:Fire("OnEnterPressed")
+  equal(tostring(E.settings.thankBuffsMessage) .. " " .. tostring(box:HasFocus()) .. " " .. tostring(status),
+   "Ty %name%! false Thank for Buffs: your whisper is saved.", "Enter saves the words")
+  box:SetFocus(); box:SetText("Something else"); box:Fire("OnEscapePressed")
+  equal(E.settings.thankBuffsMessage .. " / " .. box:GetText(), "Ty %name%! / Ty %name%!", "Escape puts the saved words back")
+  box:SetFocus(); box:SetText("   "); box:ClearFocus()
+  equal(E.settings.thankBuffsMessage .. " / " .. box:GetText(), "Thanks for the %spell%! / Thanks for the %spell%!", "empty words: the first ones again")
+  E.settings.thankBuffsMessage = "Mine"; words:SetChecked(true)
+  equal(box:GetText(), "Mine", "the box follows the saved words (a tick's refresh passes true: ignored)")
+  reset:Click()
+  equal(E.settings.thankBuffsMessage .. " / " .. box:GetText() .. " / " .. tostring(status),
+   "Thanks for the %spell%! / Thanks for the %spell%! / Thank for Buffs: the whisper is back to \"Thanks for the %spell%!\".", "Default puts the first words back")
+  -- The keyboard: Space on the whisper row puts you in its box.
+  f:FocusRow(words); f.keys:Fire("OnSpacePressed")
+  equal(box:HasFocus(), true, "Space on the whisper row: typing in its box")
+  box:Fire("OnEscapePressed")
+  -- The skip ticks: each a row of its own, live (read at each whisper), its
+  -- default and help.
+  local SKIPS = {
+   {"Skip Your Group", "No whisper to players in your party or raid.", "On"},
+   {"Skip Your Guild", "No whisper to players in your guild.", "On"},
+   {"Skip Your Friends", "No whisper to your friends, character or Battle.net.", "Off"},
+   {"Skip in Combat", "No whisper while you're in a fight. A buff then is let go, not thanked later.", "On"},
+   {"Skip in Dungeons", "No whisper in dungeons, raids or battlegrounds.", "On"}}
+  for i, key in ipairs(SKIP_KEYS) do
+   local row, want = f.checks[key], SKIPS[i]
+   equal(row.rowKind .. " " .. row.text:GetText() .. " " .. (row.depth or 0) .. " " .. table.concat(row.tagIds, ","), "tick " .. want[1] .. " 0 ",
+    key .. ": a tick of its own, not indented, no words after its name")
+   E.settings[key] = real.settingDefaults[key]
+   _, help, extras = M.Hover(f, row)
+   equal(help .. " / " .. extras, want[1] .. "  " .. want[2] .. " / Default: " .. want[3] .. ".", key .. " help and default")
+   row:SetChecked(E.settings[key]); row:Click()
+   equal(tostring(E.settings[key] == not real.settingDefaults[key]) .. " " .. tostring(status),
+    "true Thank for Buffs: " .. want[1] .. (real.settingDefaults[key] and " off." or " on."), key .. " flips live, says so")
+   E.settings[key] = nil
+  end
+  -- Off: its options fold away, the module stops.
+  thanks:Click(); Flush()
+  equal(tostring(E.settings.thankBuffs) .. " " .. refreshed .. " " .. tostring(status) .. " " .. tostring(words:IsShown()),
+   "false 2 Thank for Buffs disabled. false", "off, live: its options fold away")
+  -- Search finds it by what it does.
+  local found = M.Results(f, "thank")
+  table.sort(found)
+  equal(table.concat(found, ","), "thankBuffs,thankBuffsMessage,thankBuffsSkipCombat,thankBuffsSkipFriends,thankBuffsSkipGroup,thankBuffsSkipGuild,"
+   .. "thankBuffsSkipInstances", "searching thank finds the switch and its rows")
+  local buffs = M.Results(f, "mark of the wild")
+  equal(table.concat(buffs, ","), "thankBuffs", "and a buff's name finds the switch")
+  f.searchBox:SetText(""); Flush()
+  E.modules.ThankBuffs = nil
+  E.settings.thankBuffs, E.settings.thankBuffsMessage = nil, nil
+ end
+ -- Name in Chat (Chat & Names > Name in chat), 2026-11-08: off by default,
+ -- experimental, live through its module both ways; its name (a whole line:
+ -- the box and Default, which clears it) and four chat ticks show only
+ -- while it's on, each a row of its own, never indented. The name is saved
+ -- as the module cleans it.
+ do
+  Open(f, "chat")
+  local switch, name = f.checks.nameInChat, f.checks.nameInChatName
+  local CHAT = "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,"
+   .. "thankBuffs,nameInChat"
+  equal(tostring(real.settingDefaults.nameInChat) .. " " .. tostring(real.reloadSettings.nameInChat) .. " " .. tostring(switch.dependencyDisabled)
+   .. " " .. table.concat(switch.tagIds, ",") .. " " .. switch.text:GetText(), "false nil nil  Name in Chat",
+   "Name in Chat: off by default, no reload, needs nothing, seen working (no experimental), its name")
+  equal(Keys(f), CHAT, "Name in Chat alone while it's off")
+  _, help, extras = M.Hover(f, switch)
+  equal(help, "Name in Chat  The name you set goes in brackets before your party, raid and guild messages: (Squirt) Hello. Whispers never change.",
+   "Name in Chat help")
+  equal(extras, "Default: Off.", "Name in Chat off by default")
+  local refreshed, loaded = 0, nil
+  assert(loadfile("Modules/NameInChat.lua"))("EraUI", {RegisterModule = function(_, _, m) loaded = m end})
+  E.modules.NameInChat = {Refresh = function() refreshed = refreshed + 1 end, Clean = loaded.Clean}
+  switch:Click(); Flush()
+  equal(tostring(E.settings.nameInChat) .. " " .. refreshed .. " " .. tostring(status),
+   "true 1 Name in Chat enabled. Type your name in the box under it.", "on, live; with no name yet it says where to type one")
+  equal(Keys(f), CHAT .. ",nameInChatName,nameInChatParty,nameInChatRaid,nameInChatGuild,nameInChatSay",
+   "on: its name box and four chat ticks show under it at once")
+  M.NoOverlaps(f, "Chat & Names with Name in Chat on"); M.Fits(f, "Chat & Names with Name in Chat on")
+  equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01, true, "Chat & Names still fits without scrolling")
+  -- The name row: a whole line, its name, the box and Default inside it.
+  equal(name.wide == true and name.rowKind == "text" and name.text:GetText() == "Your Name" and (name.depth or 0) == 0, true,
+   "Your Name: a whole line of its own, not indented")
+  local box, reset = name.edit, name.resetButton
+  equal(box:GetText() .. "/" .. reset.label:GetText(), "/Default", "the box starts empty, Default beside it")
+  equal(name.text:GetRight() <= box:GetLeft() - 4 and box:GetRight() <= reset:GetLeft() - 4 and reset:GetRight() <= name:GetRight() - 4, true,
+   "name, box and Default side by side inside the row")
+  _, help, extras = M.Hover(f, name)
+  equal(help, "Your Name  Your name in brackets before your messages, say (Squirt).", "the name box's help")
+  equal(extras, "Default: none.", "no name by default")
+  -- Typed: saved as it goes in chat (codes, spaces and its own brackets out);
+  -- Escape puts the saved name back; empty is none; Default clears it.
+  box:SetFocus(); box:SetText("  (|cffff0000Squirt|r)  "); box:Fire("OnEnterPressed")
+  equal(tostring(E.settings.nameInChatName) .. " / " .. box:GetText() .. " / " .. tostring(box:HasFocus()) .. " / " .. tostring(status),
+   "Squirt / Squirt / false / Name in Chat: your messages start with (Squirt).", "Enter saves the name, cleaned, and says so")
+  box:SetFocus(); box:SetText("Someone"); box:Fire("OnEscapePressed")
+  equal(E.settings.nameInChatName .. " / " .. box:GetText(), "Squirt / Squirt", "Escape puts the saved name back")
+  box:SetFocus(); box:SetText("   "); box:ClearFocus()
+  equal(E.settings.nameInChatName .. "/" .. box:GetText() .. "/" .. tostring(status), "//Name in Chat: no name, so nothing goes before your messages.",
+   "an empty name: none, and it says so")
+  E.settings.nameInChatName = "Scarykid"; name:SetChecked(true)
+  equal(box:GetText(), "Scarykid", "the box follows the saved name")
+  reset:Click()
+  equal(E.settings.nameInChatName .. "/" .. box:GetText() .. "/" .. tostring(status), "//Name in Chat: no name, so nothing goes before your messages.",
+   "Default clears the name")
+  -- The keyboard: Space on the name row puts you in its box.
+  f:FocusRow(name); f.keys:Fire("OnSpacePressed")
+  equal(box:HasFocus(), true, "Space on the name row: typing in its box")
+  box:Fire("OnEscapePressed")
+  -- The chat ticks: each a row of its own, live (read at each line sent),
+  -- its default and help.
+  local TICKS = {
+   {"nameInChatParty", "Party", "Your name before your party and instance messages.", "On"},
+   {"nameInChatRaid", "Raid", "Your name before your raid messages and raid warnings.", "On"},
+   {"nameInChatGuild", "Guild", "Your name before your guild and officer messages.", "On"},
+   {"nameInChatSay", "Say", "Your name before what you /say to players near you.", "Off"}}
+  for _, want in ipairs(TICKS) do
+   local key = want[1]
+   local row = f.checks[key]
+   equal(row.rowKind .. " " .. row.text:GetText() .. " " .. (row.depth or 0) .. " " .. table.concat(row.tagIds, ","), "tick " .. want[2] .. " 0 ",
+    key .. ": a tick of its own, not indented, no words after its name")
+   E.settings[key] = real.settingDefaults[key]
+   _, help, extras = M.Hover(f, row)
+   equal(help .. " / " .. extras, want[2] .. "  " .. want[3] .. " / Default: " .. want[4] .. ".", key .. " help and default")
+   row:SetChecked(E.settings[key]); row:Click()
+   equal(tostring(E.settings[key] == not real.settingDefaults[key]) .. " " .. tostring(status),
+    "true Name in Chat: " .. want[2] .. (real.settingDefaults[key] and " off." or " on."), key .. " flips live, says so")
+   E.settings[key] = nil
+  end
+  -- Off: its options fold away, the module stops. On with a name: it says
+  -- where the name goes.
+  switch:Click(); Flush()
+  equal(tostring(E.settings.nameInChat) .. " " .. refreshed .. " " .. tostring(status) .. " " .. tostring(name:IsShown()),
+   "false 2 Name in Chat disabled. false", "off, live: its options fold away")
+  E.settings.nameInChatName = "Squirt"
+  switch:Click(); Flush()
+  equal(refreshed .. " " .. tostring(status), "3 Name in Chat enabled. Your name goes before your party, raid and guild messages.",
+   "on with a name: it says where it goes")
+  switch:Click(); Flush()
+  -- Search finds it by what it does.
+  local found = M.Results(f, "brackets")
+  table.sort(found)
+  equal(table.concat(found, ","), "nameInChat,nameInChatGuild,nameInChatName,nameInChatParty,nameInChatRaid,nameInChatSay",
+   "searching brackets finds the switch and its rows")
+  for _, query in ipairs({"prefix", "nickname"}) do
+   equal(table.concat(M.Results(f, query), ","):find("nameInChat", 1, true) ~= nil, true, "searching " .. query .. " finds Name in Chat")
+  end
+  f.searchBox:SetText(""); Flush()
+  E.modules.NameInChat = nil
+  E.settings.nameInChat, E.settings.nameInChatName = nil, nil
+ end
  -- On Tooltips Too (Chat & Names): right under Hide Surnames, one step in,
  -- greyed while that's off; on by default within it (Hide Surnames itself
  -- off by default); applied live, never a reload.
@@ -1042,9 +1349,10 @@ do
  f.presetChoices[1]:Click(); Flush()
  equal(card.unavailable == true and card.tickMark:IsShown() == false and table.concat(card.tagIds, ","), "SOON", "a preset click keeps a Coming soon row on SOON")
  f:SetSetupMode(false); Flush()
- -- Context Menus is Coming soon too, last on Windows & Tooltips.
+ -- Context Menus is Coming soon too, last on Windows & Tooltips (after
+ -- Plain AddOn List, 2026-11-07).
  Open(f, "windows")
- equal(f.checks.contextMenus.unavailable == true and M.Keys(f)[8], "contextMenus", "Context Menus SOON, last of the windows")
+ equal(f.checks.contextMenus.unavailable == true and M.Keys(f)[9], "contextMenus", "Context Menus SOON, last of the windows")
 end
 
 -- The mage's secure conjure buttons over the class tab.
@@ -1421,12 +1729,12 @@ do
  equal(tostring(E.settings.roundedCastBars) .. " " .. roundedStatus, "true Rounded Cast Bars enabled.", "without the cast bars loaded the tick still saves")
  rounded:Click()
  E.Classic, E.modules.AdvancedCastBar, E.modules.ClassAccents = realClassic, realAdvanced, realAccents
- -- Cast Bars off (Casting): greyed, a note says where to switch it on, and a
- -- click changes nothing.
+ -- Cast Bars off (Casting > Cast Bars): greyed, a note says where to switch
+ -- it on, and a click changes nothing.
  E.settings.castBars = false
  f:RefreshDependencies()
  local _, _, greyExtras = M.Hover(f, rounded)
- equal(tostring(rounded.dependencyDisabled) .. " / " .. greyExtras, "true / Switch on Cast Bars first (Casting).  Default: Off.",
+ equal(tostring(rounded.dependencyDisabled) .. " / " .. greyExtras, "true / Switch on Cast Bars first (Casting > Cast Bars).  Default: Off.",
   "Cast Bars off: greyed, its note names the switch and its tab")
  local clicksBefore = castRefreshes
  rounded:Click()
@@ -1682,7 +1990,8 @@ do
  equal(f.updateNotice, nil, "no Update Notice tick in the corner any more")
  Open(f, "chat")
  local update = f.checks.updateCheck
- equal(update:IsShown() and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck", "Update Notice last on Chat & Names")
+ equal(update:IsShown() and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+  .. "nameInChat", "Update Notice last in Chat & Names' chat section (Thank for Buffs and Name in Chat have their own)")
  local tickSay, tickStatus = E.Status
  E.Status = function(_, m) tickStatus = m end
  E.settings.updateCheck = true; update:SetChecked(true); update:Click()
@@ -1914,12 +2223,19 @@ do
  -- The cursor effects' folded options open, Clean Minimap's (with the
  -- Drawer style), Cast Bar Colour's (with Custom), the Stat Tracker's
  -- (with Stat Name Colour's Custom) and Square Minimap's Square Size, so
- -- every row shows.
+ -- every row shows. Ability Trail's Scrolling Icons on: Speed and Travel
+ -- Distance show, so Show For doesn't (only one of them ever does).
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = true, true, true
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  E.settings.castBarColour = "custom"
  E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
  E.settings.squareMinimap = true
+ E.settings.abilityTrail, E.settings.abilityTrailScroll = true, true
+ E.settings.thankBuffs = true
+ E.settings.nameInChat = true
+ E.settings.classColourFriends = true
+ E.settings.actionRings = true
+ local ONE_OF = {abilityTrailSeconds = true, abilityTrailBorderColour = true}
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
  for g, group in ipairs(EXPECTED) do
@@ -1958,7 +2274,11 @@ do
       equal(f.selectedSub[index] == sub[1] and f.subTabs[s].selected and f.subTabs[s].top:IsShown(), true, id .. " " .. sub[1] .. " selected, its class-colour line on")
      end
      local parts = {}
-     for i, section in ipairs(sub[3]) do parts[i] = section[1] .. ":" .. table.concat(section[2], ",") end
+     for i, section in ipairs(sub[3]) do
+      local shown = {}
+      for _, k in ipairs(section[2]) do if not ONE_OF[k] then shown[#shown + 1] = k end end
+      parts[i] = section[1] .. ":" .. table.concat(shown, ",")
+     end
      equal(PageText(f), table.concat(parts, "|"), id .. " > " .. sub[1] .. " sections and rows, in order")
      equal(table.concat(f.pages[id][sub[1]], ","), table.concat((function() local all = {}; for _, section in ipairs(sub[3]) do for _, k in ipairs(section[2]) do all[#all + 1] = k end end; return all end)(), ","),
       id .. " > " .. sub[1] .. " page list")
@@ -1969,10 +2289,13 @@ do
      M.Fits(f, id .. " > " .. sub[1])
      -- None of the topic pages scrolls at the default size, these folds
      -- open, but Character & Spells with the Stat Tracker's twenty-three
-     -- rows open (switched off it fits: the Stat Tracker's own block below).
-     local long = id == "character"
+     -- rows open (switched off it fits: the Stat Tracker's own block below),
+     -- Casting's Ability Trail page (its own sub-tab, every row of it
+     -- always on show), and Chat & Names with both Thank for Buffs' and Name
+     -- in Chat's rows open (either one open, it fits: their own blocks).
+     local long = id == "character" or (id == "casting" and sub[1] == "trail") or id == "chat"
      equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), not long,
-      id .. " > " .. sub[1] .. (long and " scrolls, the Stat Tracker open" or " fits without scrolling"))
+      id .. " > " .. sub[1] .. (long and " scrolls, its long options open" or " fits without scrolling"))
     end
    end
   end
@@ -1982,6 +2305,11 @@ do
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  E.settings.squareMinimap = nil
+ E.settings.abilityTrail, E.settings.abilityTrailScroll = nil, nil
+ E.settings.thankBuffs = nil
+ E.settings.nameInChat = nil
+ E.settings.classColourFriends = nil
+ E.settings.actionRings = nil
  -- The class tab, per class (its page above); here its place and name.
  equal(Tab(f, "class") .. "," .. Tab(f, "casting"), "6,7", "your class is the sixth tab and Casting the seventh")
  -- Every option is on exactly one sub-page.
@@ -2013,6 +2341,11 @@ do
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = true, true, true
  E.settings.statTracker, E.settings.statTrackerNameColour = true, "custom"
  E.settings.squareMinimap = true
+ E.settings.abilityTrail = true
+ E.settings.thankBuffs = true
+ E.settings.nameInChat = true
+ E.settings.classColourFriends = true
+ E.settings.actionRings = true
  for i, cat in ipairs(f.categories) do
   for _, sub in ipairs(cat.subs) do
    f:SelectCategory(i, sub.id); Flush()
@@ -2038,11 +2371,18 @@ do
  equal(f.checks.comboPointRed.depth == 1 and f.checks.comboPointRed.connV:IsShown(), true, "Red Combo Points sits under Floating Combo Points")
  E.settings.floatingComboPoints = false; f:RefreshDependencies()
  equal(f.checks.comboPointRed.dependencyDisabled, nil, "but is never greyed by it")
+ Open(f, "appearance", "classcol")
+ local friends, level = f.checks.classColourFriends, f.checks.classColourFriendsLevel
+ equal(level.depth == 1 and level.connV:IsShown() and math.abs(level:GetLeft() - friends:GetLeft() - 22) < .01 and level:GetTop() < friends:GetBottom(), true,
+  "Show Their Level sits under Class-coloured Friends, one step in")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.darkMode, E.settings.darkAuraBorders, E.settings.darkWindows = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  E.settings.squareMinimap = nil
+ E.settings.nameInChat = nil
+ E.settings.classColourFriends = nil
+ E.settings.actionRings = nil
  -- Folds: hidden (not greyed) until their switch is on, open right after it
  -- at once keeping the scroll, and fold away again.
  local height = f:GetHeight()
@@ -2090,8 +2430,8 @@ do
    equal(f.settingsScrollHint:IsShown(), f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + 1, cat.id .. " > " .. sub.id .. " scroll hint only when it scrolls")
   end
  end
- equal(table.concat(scrolls, ","), "character>main",
-  "only Character & Spells scrolls at the default size, every fold open: the Stat Tracker's rows (the class tab's boxes are checked per class)")
+ equal(table.concat(scrolls, ","), "casting>trail,character>main",
+  "only Casting's Ability Trail page and Character & Spells scroll at the default size, every fold open: the Stat Tracker's rows (the class tab's boxes are checked per class)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
@@ -2268,18 +2608,19 @@ end
 do
  local E, f = Session("DRUID")
  local function Results(q) local keys, crumbs = M.Results(f, q); return table.concat(keys, ","), crumbs end
- local colours = "thickFrameEdge,darkenClassColours,classColors,tooltipClassColours,classColourBorders,castBarClassBorder,advancedCastClassFill,castBarColour,"
-  .. "statTrackerNameColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
+ local colours = "thickFrameEdge,darkenClassColours,classColors,tooltipClassColours,classColourFriends,classColourFriendsLevel,classColourBorders,castBarClassBorder,"
+  .. "advancedCastClassFill,castBarColour,abilityTrailBorder,statTrackerNameColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
  Open(f, "map")
  equal(Results("class colour"), colours, "class colour finds every class-colour option, in tab then page order (Stat Name Colour folded)")
  equal(Results("class color"), colours, "and so does class color")
  equal(Results("Class Colored"), colours, "and class colored")
- equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 12 options found. Click one to go to it.", "search says how many and what a click does")
+ equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 15 options found. Click one to go to it.", "search says how many and what a click does")
  equal(f.subTabStrip:IsShown(), false, "no sub-tabs in search")
  for _, tab in ipairs(f.tabs) do equal(tab.underline:IsShown(), false, tab.id .. " not highlighted in search") end
  local _, crumbs = Results("class colour")
- equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[3] .. "|" .. crumbs[7] .. "|" .. crumbs[10],
-  "Appearance > Style|Appearance > Dark Mode|Appearance > Class Colours|Casting|Screen & Cursor > Cursor", "each result says where it lives")
+ equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[3] .. "|" .. crumbs[9] .. "|" .. crumbs[11] .. "|" .. crumbs[13],
+  "Appearance > Style|Appearance > Dark Mode|Appearance > Class Colours|Casting > Cast Bars|Casting > Ability Trail|Screen & Cursor > Cursor",
+  "each result says where it lives")
  for i, result in ipairs(f.visibleRows) do
   equal(result.isResult and result:GetHeight() == 40 and result.text:GetText() == result.target.labelText, true, "result " .. i .. " a row with the option's name")
   equal(not Has(result.crumb:GetText(), EM) and Colour(result.crumb.colour), "0.440,0.480,0.530", "result " .. i .. " breadcrumb small and grey, no em dash")
@@ -2300,8 +2641,17 @@ do
  _, crumbs = Results("update notice")
  equal(crumbs[1], "Chat & Names", "on Chat & Names")
  equal(Has(Results("cast bar"), "moreFECM"), true, "cast bar finds More from Squirt")
- equal(Results("casting"), "castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency,advancedCastBatch,castBarColour,castBarCustomColour",
-  "casting finds the Casting tab, its folded Custom Cast Bar Colour too")
+ equal(Results("casting"), "castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency,advancedCastBatch,castBarColour,castBarCustomColour,"
+  .. "abilityTrail,abilityTrailParty,abilityTrailScroll,abilityTrailSpeed,abilityTrailDistance,abilityTrailSeconds,abilityTrailCombatOnly,"
+  .. "abilityTrailBorder,abilityTrailBorderColour,"
+  .. "abilityTrailInWorld,abilityTrailInDungeons,abilityTrailInRaids,abilityTrailInBattlegrounds,abilityTrailTooltip,abilityTrailSpellID,"
+  .. "abilityTrailPauseOnHover,abilityTrailIgnored,abilityTrailUnlock,abilityTrailPlace",
+  "casting finds the Casting tab, its folded Custom Cast Bar Colour and the Ability Trail page's rows too")
+ -- Ability Trail's sub-tab finds its page; a table line's cells are found by their line.
+ local trailRows, trailCrumbs = Results("ability trail")
+ equal(trailRows:match("^[^,]+") .. " " .. trailCrumbs[1], "abilityTrail Casting > Ability Trail", "ability trail finds You first, on its sub-tab")
+ equal(Results("party icon size"), "abilityTrailParty", "party icon size finds the Party line")
+ equal(Results("trail direction"), "abilityTrail,abilityTrailParty", "trail direction finds both lines")
  -- A broad search lists every result in one scrolling list.
  local broad = Results("e")
  local count = select(2, broad:gsub(",", ",")) + 1
@@ -2713,6 +3063,20 @@ local function TagLook(row, label)
  if row.buttons and row.buttons[1] and #row.tagIds > 0 then
   equal(row.text:GetLeft() + width <= row.buttons[1]:GetLeft() - 4, true, label .. " name and words clear its first button")
  end
+ -- And on a slider row, its words stop short of its slider, with its name at
+ -- its widest value clear of its words ("experimental" ran onto Travel
+ -- Distance's slider, 2026-11-08).
+ if row.slider and #row.tagIds > 0 then
+  local last = row.tags[#row.tagIds]
+  local ends = last:GetLeft() + last:GetStringWidth()
+  equal(ends + 4 <= row.slider:GetLeft(), true, label .. " words clear its slider (" .. N(row.slider:GetLeft() - ends) .. ")")
+  local info, now = row.info, row.text:GetText()
+  for _, value in ipairs({info.low, info.high}) do
+   row.text:SetText(row.labelText .. ": " .. (info.format and info.format(value) or tostring(value)))
+   equal(row.text:GetLeft() + row.text:GetStringWidth() + 4 <= row.tags[1]:GetLeft(), true, label .. " name at " .. tostring(value) .. " clears its words")
+  end
+  row.text:SetText(now)
+ end
 end
 -- Whether a choice row's name has room for "just added" and its other words
 -- before its first button, all measured with the glyph widths (never under
@@ -2746,8 +3110,10 @@ do
  -- The data: every option Nav says a release added is a row here, from a
  -- release with notes, and its own rows are exactly the ones written out above.
  local releases = {}
- -- 1.8.2: Open Clams.
- for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2"}) do releases[version] = true end
+ -- 1.8.2: Open Clams. 1.8.3: Ability Trail, Plain AddOn List, Hide Zzz in
+ -- Cities, Class-coloured Friends, Thank for Buffs, Action Rings and Name
+ -- in Chat.
+ for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2", "1.8.3"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
   equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
@@ -2831,8 +3197,8 @@ do
    looked = looked + 1
   end
  end
- equal(newCount, 21, "updated from 1.5.5: the twenty-one options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0 and 1.8.2 say just added")
- equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty-one just added, the Party Outline also experimental, and the coming soon ones)")
+ equal(newCount, 28, "updated from 1.5.5: the twenty-eight options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2 and 1.8.3 say just added")
+ equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty-eight just added, the Party Outline also experimental, and the coming soon ones)")
  -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
  -- they show to an account that updated.
@@ -2871,10 +3237,14 @@ do
  -- "experimental" finds the experimental options, only them.
  local found = M.Results(f, "experimental")
  table.sort(found)
- equal(table.concat(found, ","), "gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,miniGameFlight,miniGameWhack,partyOutline,"
-  .. "spellbookCombatDrag",
-  "searching experimental finds only Herb and Ore Sparkles, On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style"
-  .. " Party Outline and Combat Spell Dragging")
+ local trail = {}
+ for _, key in ipairs(TRAIL_TESTING) do trail[#trail + 1] = key end
+ trail[#trail + 1] = "abilityTrailParty"
+ table.sort(trail)
+ equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
+  .. "miniGameFlight,miniGameWhack,partyOutline,spellbookCombatDrag",
+  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Herb and Ore Sparkles,"
+  .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline and Combat Spell Dragging")
  f.searchBox:SetText(""); Flush()
 end
 
@@ -2989,7 +3359,26 @@ do
  end
  f:SetSetupMode(false); Flush(); f:SetSetupMode(true); Flush(); f.setupPreset = "classicqol"
  Page("Chat & Names")
- equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,showWelcomeOnLogin", "Tooltip IDs on Chat & Names, after Click Links Again to Close")
+ equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,showWelcomeOnLogin,thankBuffs,"
+  .. "nameInChat", "Tooltip IDs on Chat & Names, after Click Links Again to Close; Thank for Buffs and Name in Chat on their own, their options folded while off")
+ -- Switched on in setup, its whisper and skip ticks open under it.
+ E.modules.ThankBuffs = {Refresh = function() end}
+ f.checks.thankBuffs:Click(); Flush()
+ equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,"
+  .. "showWelcomeOnLogin,thankBuffs,thankBuffsMessage,thankBuffsSkipGroup,thankBuffsSkipGuild,thankBuffsSkipFriends,thankBuffsSkipCombat,"
+  .. "thankBuffsSkipInstances,nameInChat", "walkthrough: Thank for Buffs on opens its options")
+ M.NoOverlaps(f, "walkthrough Chat & Names with Thank for Buffs on"); M.Fits(f, "walkthrough Chat & Names with Thank for Buffs on")
+ f.checks.thankBuffs:Click(); Flush()
+ E.modules.ThankBuffs, E.settings.thankBuffs = nil, nil
+ -- Name in Chat the same: its name box and chat ticks open under it.
+ E.modules.NameInChat = {Refresh = function() end}
+ f.checks.nameInChat:Click(); Flush()
+ equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,"
+  .. "showWelcomeOnLogin,thankBuffs,nameInChat,nameInChatName,nameInChatParty,nameInChatRaid,nameInChatGuild,nameInChatSay",
+  "walkthrough: Name in Chat on opens its options")
+ M.NoOverlaps(f, "walkthrough Chat & Names with Name in Chat on"); M.Fits(f, "walkthrough Chat & Names with Name in Chat on")
+ f.checks.nameInChat:Click(); Flush()
+ E.modules.NameInChat, E.settings.nameInChat = nil, nil
  Page("Bags & Vendors")
  equal(f.checks.tooltipIDs:IsShown(), false, "and not on Bags & Vendors")
  E.settings.actionBars = false
@@ -3080,10 +3469,15 @@ do
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = true, "drawer"
  E.settings.statTracker = true
  E.settings.squareMinimap = true
+ E.settings.abilityTrail = true
+ E.settings.actionRings = true
  local sliders = 0
  for key, row in pairs(f.checks) do
   if row.rowKind == "slider" then
    local home = f.rowHome[key]
+   -- Ability Trail's Show For shows only with Scrolling Icons off, Speed
+   -- and Travel Distance only with it on.
+   E.settings.abilityTrailScroll = key ~= "abilityTrailSeconds"
    f:SelectCategory(home.tab, home.sub); Flush()
    equal(row:IsVisible(), true, key .. " on show on its page")
    local info, room = row.info, row.text:GetRight() - row.text:GetLeft()
@@ -3095,12 +3489,14 @@ do
    sliders = sliders + 1
   end
  end
- equal(sliders, 13, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
-  .. " and Stats per Line, Square Minimap's Square Size)")
+ equal(sliders, 17, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
+  .. " and Stats per Line, Square Minimap's Square Size, Ability Trail's Speed, Travel Distance and Show For, Action Rings' Ring Size; its lines' sliders in their own block)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
  E.settings.statTracker = nil
  E.settings.squareMinimap = nil
+ E.settings.abilityTrail, E.settings.abilityTrailScroll = nil, nil
+ E.settings.actionRings = nil
  Open(f, "quests")
  equal(f.checks.rewardProfile.text:GetText():find("^Reward Profile: ") ~= nil, true, "the reward profile row in Title Case")
 end
@@ -3548,7 +3944,7 @@ do
  local row, swatch = f.checks.castBarColour, f.checks.castBarCustomColour
  Open(f, "casting")
  equal(PageText(f), "CAST BARS:castBars,advancedCastBar,advancedCastClassFill,advancedCastTicks,advancedCastLatency,advancedCastBatch|COLOUR:castBarColour",
-  "under its own Colour heading; Custom Cast Bar Colour folded away until Custom")
+  "on Casting's first sub-tab, under its own Colour heading; Custom Cast Bar Colour folded away until Custom")
  local names = {}
  for i, button in ipairs(row.buttons) do names[i] = button.label:GetText() end
  equal(row.rowKind .. " " .. row.labelText .. " " .. table.concat(names, "/"), "choice Cast Bar Colour Match look/Yellow/Grey/Class/Custom",
@@ -4066,5 +4462,336 @@ do
  E.Status = say
  for key in pairs(defaults) do if key:find("^statTracker") then E.settings[key] = nil end end
  E.modules.StatTracker = nil
+end
+
+-- Ability Trail's own page (Casting > Ability Trail; 2026-11-07, Squirt's
+-- mock-up, "sub tab is fine"): a small table of the two trails, You and
+-- Party, each a whole line with its tick, Direction, Icon Size and Icons,
+-- under column titles on the Trails heading's line; then what both share.
+-- Each cell saves its own key and applies at once; hovering a cell describes
+-- that cell. Scrolling Icons swaps Speed and Travel Distance for Show For at
+-- once; Spell ID waits for Tooltip; Move Trails unlocks and locks (the module
+-- can lock it too); Reset Positions; search, jumps, the keyboard and What's
+-- New's step. (The trails themselves: Tools/TestAbilityTrail.lua.)
+do
+ local E, f = Session("MAGE")
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ local defaults = real.settingDefaults
+ local list = {}
+ for _, key in ipairs({"abilityTrail", "abilityTrailDirection", "abilityTrailSize", "abilityTrailCount", "abilityTrailParty",
+  "abilityTrailPartyDirection", "abilityTrailPartySize", "abilityTrailPartyCount", "abilityTrailScroll", "abilityTrailSpeed",
+  "abilityTrailDistance", "abilityTrailSeconds", "abilityTrailCombatOnly", "abilityTrailBorder", "abilityTrailBorderColour",
+  "abilityTrailInWorld", "abilityTrailInDungeons",
+  "abilityTrailInRaids", "abilityTrailInBattlegrounds", "abilityTrailTooltip", "abilityTrailPauseOnHover", "abilityTrailSpellID"}) do
+  list[#list + 1] = tostring(defaults[key])
+  equal(real.reloadSettings[key], nil, key .. " applies live")
+ end
+ equal(table.concat(list, " "), "false right 36 5 false right 29 5 true 12 200 10 false auto C7CCD6 true true true true true true false",
+  "the defaults: both trails off, right, 36 and 29 px, 5 icons; gliding at 12 px a second over 200 px; Show For 10; Border Match look; shown everywhere; tooltip and pause on")
+ for key, value in pairs(defaults) do
+  E.settingDefaults[key] = value
+  if key:find("^abilityTrail") then E.settings[key] = value end
+ end
+ local refreshes, resets, status = 0, 0, nil
+ local module = {Refresh = function() refreshes = refreshes + 1 end, IgnoredCount = function() return 0 end, ClearIgnored = function() end,
+  ResetPosition = function() resets = resets + 1 end}
+ function module:SetUnlocked(on)
+  if on and not (E.settings.abilityTrail or E.settings.abilityTrailParty) then return false end
+  self.unlocked = on
+  return true
+ end
+ E.modules.AbilityTrail = module
+ local say = E.Status
+ E.Status = function(_, m) status = m end
+ f:Hide(); f:Show(); Flush()
+ Open(f, "casting", "trail")
+ equal(f.subTabs[1].label:GetText() .. "/" .. f.subTabs[2].label:GetText() .. " " .. tostring(f.subTabs[2].selected), "Cast Bars/Ability Trail true",
+  "Casting's sub-tabs: Cast Bars and Ability Trail")
+ equal(PageText(f), "TRAILS:abilityTrail,abilityTrailParty|ICONS:abilityTrailScroll,abilityTrailSpeed,abilityTrailDistance,abilityTrailCombatOnly,abilityTrailBorder"
+  .. "|SHOW IN:abilityTrailInWorld,abilityTrailInDungeons,abilityTrailInRaids,abilityTrailInBattlegrounds"
+  .. "|YOUR ICONS:abilityTrailTooltip,abilityTrailSpellID,abilityTrailPauseOnHover,abilityTrailIgnored|POSITION:abilityTrailUnlock,abilityTrailPlace",
+  "the page as it ships: the trails, then what they share, every row on show with both trails off")
+ M.NoOverlaps(f, "Ability Trail page"); M.Fits(f, "Ability Trail page"); M.SubOptionsFollow(f, "Ability Trail page", ParentOf(E))
+ local c = f.checks
+ local you, party = c.abilityTrail, c.abilityTrailParty
+ -- The table: two whole lines, You over Party, right under the Trails heading.
+ local heading
+ for _, fs in ipairs(f.headingPool) do if fs:IsShown() and fs:GetText() == "TRAILS" then heading = fs end end
+ for _, line in ipairs({you, party}) do
+  equal(line.rowKind .. " " .. tostring(line.wide) .. " " .. N(line:GetWidth()) .. " " .. (line.depth or 0), "tick true 718 0", line.labelText .. ": a tick line, the whole width")
+ end
+ equal(you.labelText .. "/" .. party.labelText, "You/Party", "named You and Party")
+ equal(N(heading:GetTop() - you:GetTop()) .. " " .. N(you:GetBottom() - party:GetTop()) .. " " .. N(you:GetLeft() - party:GetLeft()), "18 4 0",
+  "You right under the Trails heading, Party right under You")
+ -- The rest: Speed and Travel Distance under Scrolling Icons, Combat Only
+ -- beside it; the Show In ticks two to a line; Spell ID under Tooltip,
+ -- Pause On Hover beside it; Move Trails beside Reset Positions.
+ local function Beside(a, b) return math.abs(c[a]:GetTop() - c[b]:GetTop()) < .01 and c[b]:GetLeft() > c[a]:GetRight() end
+ local function Under(a, b) return c[b].depth == 1 and c[b]:GetTop() < c[a]:GetBottom() and math.abs(c[b]:GetLeft() - c[a]:GetLeft() - 22) < .01 end
+ equal(tostring(Under("abilityTrailScroll", "abilityTrailSpeed")) .. tostring(Under("abilityTrailScroll", "abilityTrailDistance"))
+  .. tostring(Beside("abilityTrailScroll", "abilityTrailCombatOnly")) .. tostring(Beside("abilityTrailInWorld", "abilityTrailInDungeons"))
+  .. tostring(Beside("abilityTrailInRaids", "abilityTrailInBattlegrounds")) .. tostring(Under("abilityTrailTooltip", "abilityTrailSpellID"))
+  .. tostring(Beside("abilityTrailTooltip", "abilityTrailPauseOnHover")) .. tostring(Beside("abilityTrailUnlock", "abilityTrailPlace")),
+  "truetruetruetruetruetruetruetrue", "Speed and Travel Distance under Scrolling Icons, Spell ID under Tooltip, the rest two to a line")
+ -- Column titles on the heading's line, in its look, over their cells; the
+ -- heading's own word clear of the first.
+ local titles = {}
+ for i, fs in ipairs(you.titles) do
+  titles[i] = fs:GetText()
+  equal(Colour(fs.colour) .. " " .. fs.font[2] .. " " .. N(fs:GetTop()), "0.930,0.750,0.320 11 " .. N(heading:GetTop()), fs:GetText() .. " in the heading's gold, size and line")
+ end
+ equal(table.concat(titles, "/"), "DIRECTION/ICON SIZE/ICONS", "the column titles")
+ local cells = you.cells
+ equal(N(you.titles[1]:GetLeft() - cells[1].buttons[1]:GetLeft()) .. " " .. N(you.titles[2]:GetLeft() - cells[2].slider:GetLeft()) .. " "
+  .. N(you.titles[3]:GetLeft() - cells[3].slider:GetLeft()), "0 0 0", "each title over its cell")
+ equal(heading:GetLeft() + M.Glyphs("TRAILS", 11) <= you.titles[1]:GetLeft() - 8, true, "TRAILS clear of DIRECTION")
+ equal(party.titles, nil, "only the first line has titles")
+ -- Each line's cells: four direction buttons, then the two sliders, each
+ -- value after its slider; nothing runs into the next cell or past the line.
+ for _, line in ipairs({you, party}) do
+  local name = line.labelText
+  local way, big, many = line.cells[1], line.cells[2], line.cells[3]
+  local labels = {}
+  for i, button in ipairs(way.buttons) do
+   labels[i] = button.label:GetText()
+   equal(M.Glyphs(labels[i], 13) <= button:GetWidth() - 8, true, name .. " " .. labels[i] .. " fits its button")
+   if i > 1 then equal(way.buttons[i - 1]:GetRight() <= button:GetLeft() - 3.99, true, name .. " " .. labels[i - 1] .. " clear of " .. labels[i]) end
+  end
+  equal(table.concat(labels, "/"), "Right/Left/Up/Down", name .. " Direction's four")
+  equal(way.buttons[4]:GetRight() <= big.slider:GetLeft() - 16, true, name .. " Direction clear of Icon Size")
+  equal(big.value:GetLeft() + M.Glyphs("64 px", 13) <= many.slider:GetLeft() - 8, true, name .. " Icon Size's widest value clear of Icons")
+  equal(many.value:GetLeft() + M.Glyphs("10", 13) <= line:GetRight() - 4, true, name .. " Icons' widest value inside the line")
+  equal(big.slider:GetWidth() >= 90 and many.slider:GetWidth() >= 90, true, name .. " sliders keep 90 or more to drag")
+  equal(line.text:GetRight() <= way.buttons[1]:GetLeft() - 8, true, name .. " name kept to the first column")
+  -- Its own click (the tick) only on its name, so a click that misses a
+  -- cell flips nothing; the sliders take the mouse the thumb's full height.
+  local hit = line.hitInsets
+  equal(hit and (N(line:GetWidth() - hit[2]) .. " " .. hit[1] .. " " .. hit[3] .. " " .. hit[4]) or "none", "168 0 0 0",
+   name .. " takes its own click only on its name")
+  equal(table.concat(big.slider.hitInsets or {}, ",") .. " " .. table.concat(many.slider.hitInsets or {}, ","), "0,0,-5,-5 0,0,-5,-5",
+   name .. " sliders take the mouse the thumb's full height")
+ end
+ -- As saved: You right, 36 px, 5; Party right, 29 px, 5.
+ local function State(line)
+  local cell = line.cells
+  return cell[1].selected .. " " .. tostring(cell[1].buttons[cell[1].selected].selected) .. " " .. cell[2].value:GetText() .. " " .. cell[3].value:GetText()
+ end
+ equal(State(you) .. " / " .. State(party), "1 true 36 px 5 / 1 true 29 px 5", "the cells show what's saved")
+ -- Each cell saves its own key, applies at once, says so.
+ local before = refreshes
+ party.cells[1].buttons[2]:Click(); Flush()
+ equal(E.settings.abilityTrailPartyDirection .. " " .. State(party) .. " " .. (refreshes - before) .. " " .. tostring(status),
+  "left 2 true 29 px 5 1 Ability Trail: party trails run left.", "Party's Left: saved, chosen, applied, said")
+ equal(E.settings.abilityTrailDirection .. " " .. State(you), "right 1 true 36 px 5", "yours untouched")
+ you.cells[1].buttons[3]:Click(); Flush()
+ equal(E.settings.abilityTrailDirection .. " " .. tostring(status), "up Ability Trail: your trail runs up.", "your Up")
+ before = refreshes
+ you.cells[2].slider:SetValue(48)
+ party.cells[3].slider:SetValue(3)
+ equal(E.settings.abilityTrailSize .. " " .. E.settings.abilityTrailPartyCount .. " " .. you.cells[2].value:GetText() .. " " .. party.cells[3].value:GetText()
+  .. " " .. (refreshes - before), "48 3 48 px 3 2", "Icon Size and Icons saved from their sliders, applied at once")
+ E.settings.abilityTrailPartySize = 40
+ f:Hide(); f:Show(); Flush(); Open(f, "casting", "trail")
+ equal(State(party) .. " " .. party.cells[2].slider:GetValue(), "2 true 40 px 3 40", "opening /era again: the cells follow what's saved")
+ -- Hovering a cell describes that cell (its key's help and default); the
+ -- line itself describes the trail.
+ local function HoverCell(child)
+  child:Fire("OnEnter")
+  local help, extras = M.Text(f.footerHelp:GetText()), f.footerExtras:IsShown() and M.Text(f.footerExtras:GetText()) or ""
+  child:Fire("OnLeave")
+  return help .. " | " .. extras
+ end
+ equal(HoverCell(you.cells[1].buttons[2]), "Direction  Which way your trail runs from its start: right, left, up or down. | Default: Right.", "your Direction's help")
+ equal(HoverCell(party.cells[2].slider), "Icon Size  How big party icons are, in pixels. | Default: 29 px.", "Party's Icon Size's help")
+ equal(HoverCell(you.cells[3].slider), "Icons  How many of your icons show at most. 3 shows just your last three abilities. | Default: 5.", "your Icons' help")
+ equal(HoverCell(party.cells[1].buttons[1]), "Direction  Which way party trails run from their frames: right, left, up or down. | Default: Right.", "Party's Direction's help")
+ equal(you.hovered, false, "the line lets go of its hover after a cell")
+ local _, help, extras = M.Hover(f, party)
+ equal(help .. " | " .. extras, "Party  A trail beside each party member's frame. The game hides which spell they cast, so their icons show only the picture. | Default: Off.",
+  "the Party line's own help says party icons show only the picture")
+ -- Scrolling Icons: off swaps Speed and Travel Distance for Show For at once, under it.
+ local scroll = c.abilityTrailScroll
+ f:SetSettingsScroll(30)
+ local at = f.settingsScroll:GetVerticalScroll()
+ scroll:Click(); Flush()
+ equal(tostring(E.settings.abilityTrailScroll) .. " " .. tostring(c.abilityTrailSpeed:IsShown()) .. " " .. tostring(c.abilityTrailDistance:IsShown())
+  .. " " .. tostring(c.abilityTrailSeconds:IsShown()) .. " " .. c.abilityTrailSeconds.depth .. " " .. tostring(status),
+  "false false false true 1 Ability Trail: Scrolling Icons off.", "Scrolling Icons off: Show For under it instead, at once")
+ equal(f.settingsScroll:GetVerticalScroll(), at, "keeping the scroll")
+ M.NoOverlaps(f, "Ability Trail still"); M.SubOptionsFollow(f, "Ability Trail still", ParentOf(E))
+ equal(f:JumpTo("abilityTrailSpeed"), scroll, "a jump to Speed while it's off lands on Scrolling Icons")
+ scroll:Click(); Flush()
+ equal(tostring(c.abilityTrailSpeed:IsShown()) .. " " .. tostring(c.abilityTrailSeconds:IsShown()), "true false", "on again: Speed back, Show For gone")
+ equal(f:JumpTo("abilityTrailSeconds"), scroll, "a jump to Show For while gliding lands on Scrolling Icons")
+ _, help, extras = M.Hover(f, c.abilityTrailSpeed)
+ equal(help .. " | " .. extras, "Speed  How fast icons glide, in pixels a second. Slower means smaller gaps between abilities used a few seconds apart. | Default: 12 px a second.",
+  "Speed says slower means smaller gaps")
+ equal(c.abilityTrailSpeed.text:GetText() .. " / " .. c.abilityTrailDistance.text:GetText(), "Speed: 12 px/s / Travel Distance: 200 px", "Speed and Travel Distance as saved")
+ c.abilityTrailSpeed.slider:SetValue(6)
+ equal(E.settings.abilityTrailSpeed .. " " .. c.abilityTrailSpeed.text:GetText(), "6 Speed: 6 px/s", "a slower speed saved")
+ -- Spell ID waits for Tooltip.
+ local tooltip, spellID = c.abilityTrailTooltip, c.abilityTrailSpellID
+ equal(tostring(spellID.dependencyDisabled), "false", "Spell ID free while Tooltip is on")
+ tooltip:Click(); Flush()
+ _, _, extras = M.Hover(f, spellID)
+ equal(tostring(E.settings.abilityTrailTooltip) .. " " .. tostring(spellID.dependencyDisabled) .. " " .. extras, "false true Switch on Tooltip first.  Default: Off.",
+  "Tooltip off: Spell ID greyed at once, naming Tooltip")
+ spellID:SetChecked(false); spellID:Click()
+ equal(E.settings.abilityTrailSpellID, false, "and it can't be switched on")
+ tooltip:Click(); Flush()
+ spellID:Click()
+ equal(tostring(spellID.dependencyDisabled) .. " " .. tostring(E.settings.abilityTrailSpellID), "false true", "Tooltip on: Spell ID free again, and on")
+ -- Every shared tick saves, applies at once and says so.
+ for _, key in ipairs({"abilityTrailCombatOnly", "abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids", "abilityTrailInBattlegrounds",
+  "abilityTrailPauseOnHover"}) do
+  local row = c[key]
+  local was = E.settings[key]
+  before = refreshes
+  row:Click(); Flush()
+  equal(tostring(E.settings[key]) .. " " .. (refreshes - before) .. " " .. tostring(status), tostring(not was) .. " 1 Ability Trail: " .. row.labelText
+   .. (was and " off." or " on."), key .. " saved, applied, said")
+  row:Click(); Flush()
+ end
+ -- Move Trails: nothing to unlock with both trails off; then Unlock and Lock,
+ -- the button following the module (a right-click on a box locks it too).
+ local unlock = c.abilityTrailUnlock
+ equal(unlock.rowKind .. " " .. unlock.labelText .. " " .. unlock.button.label:GetText(), "button Move Trails Unlock", "Move Trails, with Unlock")
+ unlock.button:Click()
+ equal(tostring(module.unlocked) .. " " .. unlock.button.label:GetText() .. " " .. tostring(status), "nil Unlock Ability Trail: tick You or Party first, then unlock.",
+  "both trails off: nothing to unlock, it says so")
+ E.settings.abilityTrailParty = true
+ unlock.button:Click()
+ equal(tostring(module.unlocked) .. " " .. unlock.button.label:GetText(), "true Lock", "Party on: unlocked, the button says Lock")
+ module.watch(false)
+ equal(unlock.button.label:GetText(), "Unlock", "locked from a box: the button says Unlock again")
+ module.unlocked = false
+ unlock.button:Click(); unlock.button:Click()
+ equal(tostring(module.unlocked) .. " " .. unlock.button.label:GetText() .. " " .. tostring(status), "false Unlock Ability Trail: trails locked.", "Lock")
+ module.unlocked = true
+ f:Hide(); f:Show(); Flush(); Open(f, "casting", "trail")
+ equal(unlock.button.label:GetText(), "Lock", "on show it follows the module")
+ module.unlocked = false
+ c.abilityTrailPlace.button:Click()
+ equal(c.abilityTrailPlace.labelText .. " " .. resets .. " " .. tostring(status), "Reset Positions 1 Ability Trail: every trail is back where it starts.", "Reset Positions")
+ -- Its own words: "experimental" after Party and after each row not seen in
+ -- game (1.8.3: all but You, Scrolling Icons and Speed); for an account that updated from
+ -- 1.8.2, "just added" after You only (the page is one step), You and Party
+ -- clear of the first direction button, every row's words clear of its own.
+ E.settings.justAddedFrom, E.settings.justAddedVersion = "1.8.2", "9.9.9"
+ f:Hide(); f:Show(); Flush(); Open(f, "casting", "trail")
+ local worded, want = {}, {}
+ for _, key in ipairs(f.pages.casting.trail) do
+  if #c[key].tagIds > 0 then
+   worded[#worded + 1] = key .. ":" .. table.concat(c[key].tagIds, ",")
+   if c[key]:IsShown() then TagLook(c[key], key .. " on the Ability Trail page") end
+  end
+  if key == "abilityTrail" then want[#want + 1] = key .. ":NEW" elseif TESTING[key] then want[#want + 1] = key .. ":TEST" end
+ end
+ equal(table.concat(worded, " "), table.concat(want, " "), "just added after You, experimental after Party and the rows not seen in game, nothing else")
+ equal(#c.abilityTrailSpeed.tagIds .. " " .. #c.abilityTrailScroll.tagIds .. " " .. #c.abilityTrailDistance.tagIds
+  .. " " .. #c.abilityTrailSeconds.tagIds .. " " .. #want, "0 0 0 0 15",
+  "Speed, Scrolling Icons, Travel Distance and Show For say nothing; You, Party and thirteen rows say something")
+ M.NoOverlaps(f, "Ability Trail with its experimental words"); M.Fits(f, "Ability Trail with its experimental words")
+ for _, line in ipairs({you, party}) do
+  local width = M.Glyphs(line.text:GetText(), 13)
+  for i in ipairs(line.tagIds) do width = width + (i == 1 and 6 or 5) + M.Glyphs(line.tags[i]:GetText(), 10) end
+  equal(line.text:GetLeft() + width <= line.cells[1].buttons[1]:GetLeft() - 4, true, line.labelText .. " and its words clear the first direction button")
+  TagLook(line, line.labelText .. " line")
+ end
+ -- What's New's step for the page: titled Ability Trail, on its sub-tab.
+ E.SettingsTour.StartNews(f, "1.8.3"); Flush()
+ local steps = E.SettingsTour.NewsKeys(f, "1.8.3")
+ for i = 1, #steps do
+  if steps[i] == "abilityTrail" then break end
+  f.tour.nextButton:Click(); Flush()
+ end
+ equal(f.tour.title:GetText() .. " / " .. f.tour.text:GetText() .. " / " .. f.categories[f.selectedCategory].id .. " > " .. f.selectedSub[f.selectedCategory],
+  "Ability Trail / Your last abilities as a trail of icons by your frame. / casting > trail", "What's New: one step, Ability Trail, on its page")
+ f:EndTour()
+ E.settings.justAddedFrom, E.settings.justAddedVersion = nil, nil
+ -- Search and the keyboard.
+ for _, query in ipairs({"speed", "glide", "gaps", "combat only", "battlegrounds", "arena", "pause", "spell id", "unlock", "move trails", "still"}) do
+  local found = table.concat(M.Results(f, query), ",")
+  equal(Has(found, "abilityTrail"), true, query .. " finds an Ability Trail row: " .. found)
+ end
+ f.searchBox:SetText(""); Flush()
+ Open(f, "casting", "trail")
+ E.settings.abilityTrail = false; you:SetChecked(false)
+ f:FocusRow(you); f.keys:Fire("OnSpacePressed"); Flush()
+ equal(tostring(E.settings.abilityTrail) .. " " .. tostring(status), "true Ability Trail: your trail on. Your abilities show as you use them; drag one to move it.",
+  "Space on You switches your trail on")
+ f:ClearRowFocus()
+ E.Status = say
+ for key in pairs(defaults) do if key:find("^abilityTrail") then E.settings[key] = nil end end
+ E.modules.AbilityTrail = nil
+end
+
+-- Action Rings (Action Bars > Action Rings, 2026-11-07): its rows show only
+-- with its switch, it says experimental, a click says where the keys go, the
+-- walkthrough leaves it out and search finds it by its words. The editor's
+-- box under Your Rings is Tools/TestRings.lua's (with the rings loaded).
+do
+ local E, f = Session("MAGE")
+ -- Its settings as a new player has them (Core/Init.lua's defaults).
+ local era = _G.EraUI; local real = {}; assert(loadfile("Core/Init.lua"))("EraUI", real); _G.EraUI = era
+ for key, value in pairs(real.settingDefaults) do
+  if key:find("^actionRing") then E.settings[key], E.settingDefaults[key] = value, value end
+ end
+ f:Hide(); f:Show(); Flush()
+ local said, refreshed = nil, 0
+ local say = E.Status
+ E.Status = function(_, text) said = text end
+ E.modules.ActionRings = {Refresh = function() refreshed = refreshed + 1 end, AttachEditor = function() end, HideEditor = function() end}
+ Open(f, "actionBars", "rings")
+ equal(Keys(f), "actionRings", "Action Rings: the switch alone while it's off")
+ equal(table.concat(f.checks.actionRings.tagIds, ","), "TEST", "it says experimental")
+ f.checks.actionRings:Click(); Flush()
+ equal(tostring(E.settings.actionRings) .. " " .. refreshed .. " " .. tostring(said),
+  "true 1 Action Rings enabled. Give each ring a key in Key Bindings > AddOns > EraUI.", "switched on: the rings start, chat says where the keys go")
+ equal(Keys(f), "actionRings,actionRingScale,actionRingNames,actionRingCooldowns,actionRingMotion,actionRingEditor", "its options and Your Rings show")
+ M.NoOverlaps(f, "Action Rings"); M.Fits(f, "Action Rings")
+ equal(f.checks.actionRingEditor.wide and f.checks.actionRingEditor.rowKind, "heading", "Your Rings: a heading on a whole line")
+ equal(tostring(f.checks.actionRingNames:GetChecked()) .. " " .. tostring(f.checks.actionRingCooldowns:GetChecked()) .. " "
+  .. tostring(f.checks.actionRingMotion:GetChecked()) .. " " .. f.checks.actionRingScale.text:GetText(), "true true true Ring Size: 100%",
+  "Slice Names, Cooldowns & Counts and Ring Motion start ticked, Ring Size at 100%")
+ f.checks.actionRingMotion:Click(); Flush()
+ equal(tostring(said) .. " " .. tostring(E.settings.actionRingMotion), "Action Rings: Ring Motion off. false", "a tick says itself (Ring Motion starts on: off)")
+ f.checks.actionRingMotion:Click(); Flush()
+ equal(tostring(said) .. " " .. tostring(E.settings.actionRingMotion), "Action Rings: Ring Motion on. true", "and on again")
+ local size = f.checks.actionRingScale
+ size.slider:SetValue(125)
+ equal(E.settings.actionRingScale .. " " .. size.text:GetText() .. " " .. refreshed, "125 Ring Size: 125% 4", "Ring Size saved in percent, the rings follow")
+ local _, help, extras = M.Hover(f, size)
+ equal(Has(help, "How big your rings are.") and extras, "Default: 100%.", "Ring Size's footer and default")
+ f:SetSetupMode(true); Flush()
+ f.setupPreset = "qol"
+ local offered = {}
+ for page = 1, 40 do
+  f.setupPage = page; f:RenderSetup(); Flush()
+  if f.setupPage < page then break end
+  for key, row in pairs(f.checks) do if key:find("^actionRing") and row:IsShown() then offered[#offered + 1] = key end end
+ end
+ equal(table.concat(offered, ","), "", "the walkthrough leaves Action Rings out")
+ f:SetSetupMode(false); Flush()
+ for _, query in ipairs({"ring", "radial", "quest items", "pie menu", "mounts", "teleports", "keybind"}) do
+  local found = table.concat(M.Results(f, query), ",")
+  equal(Has(found, "actionRings"), true, "searching " .. query .. " finds Action Rings: " .. found)
+ end
+ f.searchBox:SetText(""); Flush()
+ Open(f, "actionBars", "rings")
+ -- In a fight the switch is saved at once, the rings follow when it ends: chat says so.
+ S.combat = true
+ f.checks.actionRings:Click(); Flush()
+ equal(tostring(E.settings.actionRings) .. " " .. tostring(said) .. " " .. Keys(f),
+  "false Action Rings disabled. Your rings stop when this fight ends. actionRings", "off in a fight: its rows fold away, the rings stop when it ends")
+ f.checks.actionRings:Click(); Flush()
+ equal(tostring(said), "Action Rings enabled. Give each ring a key in Key Bindings > AddOns > EraUI. Your rings start when this fight ends.",
+  "on in a fight: they start when it ends")
+ S.combat = false
+ f.checks.actionRings:Click(); Flush()
+ equal(tostring(E.settings.actionRings) .. " " .. tostring(said) .. " " .. Keys(f), "false Action Rings disabled. actionRings", "off: its rows fold away")
+ E.Status = say
+ E.modules.ActionRings = nil
+ for _, key in ipairs({"actionRings", "actionRingScale", "actionRingMotion"}) do E.settings[key] = nil end
 end
 print("Settings layout/combat checks passed: " .. M.checks .. " assertions.")

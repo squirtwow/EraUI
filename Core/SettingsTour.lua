@@ -528,11 +528,12 @@ local function SpotBox(frame)
     return l, t, r, b
 end
 
--- The card's title: the row's name; a short one under an older option on
--- the same page reads with that option's ("Clean Minimap: Style").
+-- The card's title: the row's name (or the feature's, for a row named only
+-- within its page: Ability Trail's You); a short one under an older option
+-- on the same page reads with that option's ("Clean Minimap: Style").
 local function NewsTitle(frame, key)
     local row, owner = frame.checks[key], E.SettingsNav.Owner(key)
-    local name = row.labelText or key
+    local name = row.newsTitle or row.labelText or key
     local parent = owner and frame.checks[owner]
     local mine, theirs = frame.rowHome[key], owner and frame.rowHome[owner]
     if parent and theirs and mine.tab == theirs.tab and mine.sub == theirs.sub then

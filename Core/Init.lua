@@ -2,7 +2,7 @@ local ADDON_NAME, EraUI = ...
 _G.EraUI = EraUI
 
 -- The game's Key Bindings menu, AddOns section (Bindings.xml): the names of
--- EraUI's three entries. Each clicks a window's named button, made in
+-- EraUI's entries. The first three each click a window's named button, made in
 -- Look/SpellLayer.lua, Look/QuestLogOpen.lua and Look/TalentModule.lua. The
 -- player sets the key there himself; EraUI sets one only when he clicks Use N
 -- in the classic talents key offer (Look/TalentKey.lua).
@@ -10,6 +10,17 @@ BINDING_HEADER_ERAUI = "EraUI"
 _G["BINDING_NAME_CLICK EraUIClassicSpellBookBind:LeftButton"] = "Classic Spellbook"
 _G["BINDING_NAME_CLICK EraUIClassicQuestLogBind:LeftButton"] = "Classic Quest Log"
 _G["BINDING_NAME_CLICK EraUIClassicTalentsBind:LeftButton"] = "Classic Talents"
+-- Action Rings (Modules/ActionRings.lua): ten more entries, each clicking a
+-- ring's named button (Modules/RingSecure.lua). EraUI never sets their keys.
+for i = 1, 10 do _G["BINDING_NAME_CLICK EraUIRingButton" .. i .. ":LeftButton"] = "Action Ring " .. i end
+-- A ring's name in Key Bindings: "Action Ring 3: Mage Ring"; nil puts the
+-- plain name back. The game reads it each time the list shows a row.
+function EraUI:SetRingBindingName(slot, ringName)
+    if type(slot) ~= "number" or slot < 1 or slot > 10 or slot % 1 ~= 0 then return end
+    local plain = "Action Ring " .. slot
+    local named = type(ringName) == "string" and ringName ~= ""
+    _G["BINDING_NAME_CLICK EraUIRingButton" .. slot .. ":LeftButton"] = named and (plain .. ": " .. ringName) or plain
+end
 
 EraUI.name = ADDON_NAME
 -- The version is the .toc's own "## Version", read as the addon loads, so it
@@ -83,6 +94,33 @@ local defaults = {
     castBarClassBorder = false,
     castBarColour = "auto", -- Cast Bar Colour: the player's and pet's cast fill; "auto" (Match look: Classic yellow, the light grey in Dark Mode), "classic", "grey", "class" or "custom"; applies live
     castBarCustomColour = "C7CCD6", -- Cast Bar Colour's Custom: a hex colour, the light grey until one is picked
+    -- Ability Trail (Modules/AbilityTrail.lua, /era > Casting > Ability
+    -- Trail): your last abilities as a trail of icons, and your party's;
+    -- off by default, applies live. Its places (abilityTrailPosition, and
+    -- abilityTrailPartyPositions per party slot) and ignore list
+    -- (abilityTrailIgnore) are kept once you move a trail or ignore something.
+    abilityTrail = false, -- You: your own trail
+    abilityTrailDirection = "right", -- "right", "left", "up" or "down"
+    abilityTrailSize = 36, -- your icons' size in pixels, 20 to 64
+    abilityTrailCount = 5, -- how many of your icons, 1 to 10
+    abilityTrailParty = false, -- Party (experimental): a trail beside each party member's frame
+    abilityTrailPartyDirection = "right",
+    abilityTrailPartySize = 29, -- party icons, 20 to 64 (80% of yours before they had their own)
+    abilityTrailPartyCount = 5,
+    abilityTrailScroll = true, -- Scrolling Icons: icons glide away; off, a still row
+    abilityTrailSpeed = 12, -- how fast they glide, 4 to 60 pixels a second
+    abilityTrailDistance = 200, -- how far they glide, 50 to 600 pixels
+    abilityTrailSeconds = 10, -- Show For (still row): how long each stays, 2 to 30 seconds
+    abilityTrailCombatOnly = false, -- new icons only in a fight
+    abilityTrailBorder = "auto", -- the icons' edge: "auto" (Match look: black in Dark Mode, silver in Classic), "black", "class" (each trail's class colour) or "custom"
+    abilityTrailBorderColour = "C7CCD6", -- Border's Custom: a hex colour, light grey until one is picked
+    abilityTrailInWorld = true, -- Show In: the world, dungeons, raids and battlegrounds (arenas too)
+    abilityTrailInDungeons = true,
+    abilityTrailInRaids = true,
+    abilityTrailInBattlegrounds = true,
+    abilityTrailTooltip = true, -- your icons' tooltip
+    abilityTrailPauseOnHover = true, -- your trail holds still while the mouse is on one of your icons
+    abilityTrailSpellID = false, -- the spell ID in your icons' tooltip
     rageBar = false,
     manaBar = false,
     druidResourceBar = false,
@@ -124,6 +162,27 @@ local defaults = {
     fastAutoLoot = false,
     discardCheapestJunk = false,
     openClams = false, -- Open Clams: clams in your bags open one at a time by themselves out of a fight, never at a vendor, bank, mailbox, trade or auction house, and a clam button shows while you carry some (Modules/OpenClams.lua); steps aside while Clam Opener is loaded; off by default, applies live
+    plainAddonList = false, -- Plain AddOn List: the game's AddOn list as one plain list in addon order, no category headings, nothing tucked under another addon (Modules/PlainAddonList.lua); off by default, applies live; seen in game 2026-11-07
+    hideRestInCities = false, -- Hide Zzz in Cities: in a capital city your level shows instead of the resting Zzz, on EraUI's 1.x player frame or the game's own (Modules/RestInCities.lua, Look/UnitPlayer.lua); off by default, applies live; seen in game 2026-11-07
+    classColourFriends = true, -- Class-coloured Friends: online friends' names in their class colour in the friends list, a Battle.net friend's character name only (Modules/ClassFriends.lua); ON by default (Squirt, 2026-11-07: "class colored will be enabled by default"), applies live; seen in game the same day
+    classColourFriendsLevel = false, -- Show Their Level, under Class-coloured Friends: a Battle.net friend's level in the brackets after their character's name, "(Vex, 60)", in the same colour (Modules/ClassFriends.lua); off by default, applies live; seen in game 2026-11-07
+    -- Thank for Buffs (experimental, Modules/ThankBuffs.lua): another player
+    -- who buffs you gets one whisper of thanks (their buffs within two
+    -- seconds in one line), then 30 minutes of quiet; off by default, applies
+    -- live. The whisper's words (%name% their first name, %spell% the buffs)
+    -- and who or when to skip.
+    thankBuffs = false,
+    thankBuffsMessage = "Thanks for the %spell%!",
+    thankBuffsSkipGroup = true, thankBuffsSkipGuild = true, thankBuffsSkipFriends = false,
+    thankBuffsSkipCombat = true, thankBuffsSkipInstances = true,
+    -- Name in Chat (experimental, Modules/NameInChat.lua): the name you set
+    -- goes in brackets before what you send, "(Squirt) Hello"; off by
+    -- default, applies live. The name (empty: nothing added), then which
+    -- chats: party (and instance), raid (and raid warnings), guild (and
+    -- officer) on, say off. Whispers, channels, yell and emotes never.
+    nameInChat = false,
+    nameInChatName = "",
+    nameInChatParty = true, nameInChatRaid = true, nameInChatGuild = true, nameInChatSay = false,
     autoQuests = false,
     mapQuestObjectives = true,
     movableMap = true,
@@ -139,6 +198,16 @@ local defaults = {
     hideKeybindText = false,
     hideMacroText = false,
     upgradeSpellRanks = false, -- Upgrade Spell Ranks: a new rank you learn takes the outgrown rank's place on your action bars, out of combat; lower ranks, macros and items stay; off by default, applies live
+    -- Action Rings (experimental, Modules/ActionRings.lua, /era > Action Bars
+    -- > Action Rings): hold a ring's key (Key Bindings > AddOns > EraUI) for a
+    -- ring of spells, items, mounts and more round your cursor, and let go on
+    -- one to use it. Off by default, applies live (a change in a fight waits
+    -- for its end). The rings are this character's (EraUIClassicCharDB.actionRings).
+    actionRings = false,
+    actionRingScale = 100, -- Ring Size: 75 to 150 (percent)
+    actionRingNames = true, -- Slice Names: the name of the slice you point at, under the ring
+    actionRingCooldowns = true, -- Cooldowns & Counts: cooldown sweeps and item counts on the icons
+    actionRingMotion = true, -- Ring Motion: the icons swirl in as a ring opens and out as it closes
     hideZoneText = false,
     maxCameraZoom = false,
 

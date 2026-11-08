@@ -6,15 +6,19 @@ local _, EraUI = ...
 -- it (or drag it there): a swap that lines up three or more of a race, or
 -- makes a 2 x 2 square of one, clears them, their loot flying to the score;
 -- the pieces above fall into the gaps, new ones drop in, and any match
--- that makes clears too. A swap that matches nothing swaps back. Stuck? The
--- Hint button (or 15 seconds with no move) shows the best move, then rests for 30.
+-- that makes clears too. A swap that matches nothing swaps back, unless a
+-- special is in it. Stuck? The Hint button (or 15 seconds with no move)
+-- shows the best move, then rests for 30.
 --
 -- Specials keep their race (the Hearthstone has none):
 --   four in a line  Charge: clears its row (a line across) or its column (a line down)
 --   an L or a T     Explosive Sheep: clears the 3 x 3 round it
 --   a 2 x 2 square  Gryphon (Alliance players) or Wind Rider (Horde): clears one piece elsewhere
 --   five in a line  Hearthstone: swapped with any piece, clears every piece of that race
--- A special caught in a clear fires too. Two specials swapped together:
+-- Swapped with the piece next to it (a race's or a special, never a relic),
+-- a special fires at once, no match needed, and the swap is a move: a
+-- Charge, Sheep or flyer fires from the cell it lands on, and any match the
+-- swap lines up clears with it. A special caught in a clear fires too. Two specials swapped together:
 -- Charge + Sheep a cross three wide, Charge + Charge a row and a column,
 -- Sheep + Sheep the 5 x 5 round it, Hearthstone + Hearthstone the whole
 -- board, a Gryphon or Wind Rider + any special: both fire.
@@ -163,10 +167,30 @@ function Blast.Locked(piece)
     return nil
 end
 local Locked = Blast.Locked
--- Whether a piece can swap with a Hearthstone: a race's piece or a special.
+-- Whether a piece can swap with a special and set it off, no match needed:
+-- a race's piece or another special (a relic is neither; a locked piece never moves).
 local function Swappable(piece)
     return piece ~= nil and not Locked(piece) and (piece.kind ~= nil or piece.special ~= nil)
 end
+Blast.Swappable = Swappable
+-- A rectangle of the board, cut to fit: {top row, left column, bottom row, right column}.
+local function Clip(r1, c1, r2, c2)
+    return {math.max(1, r1), math.max(1, c1), math.min(N, r2), math.min(N, c2)}
+end
+local function EachIn(rect, fn)
+    for r = rect[1], rect[3] do
+        for c = rect[2], rect[4] do fn(Index(r, c)) end
+    end
+end
+-- The area a Charge or a Sheep at cell i clears as it fires, or nil for a
+-- flyer or a Hearthstone (what they hit is rolled as they go).
+local function Reach(piece, i)
+    local r, c = Cell(i)
+    if piece.special == "charge" then return piece.dir == "col" and {1, c, N, c} or {r, 1, r, N} end
+    if piece.special == "sheep" then return Clip(r - 1, c - 1, r + 1, c + 1) end
+    return nil
+end
+Blast.Reach = Reach
 
 -- Whether kind at (r, c) would be part of a line of three or a 2 x 2 square
 -- with the pieces round it (the piece at (r, c) itself isn't looked at).
@@ -390,16 +414,17 @@ local function Anchor(group, special, prefer)
 end
 Blast.Anchor = Anchor
 
--- A move that would match, as two cells, or nil: any Hearthstone (it swaps with
--- anything), two specials side by side (they always fire), or a swap lining
--- up three or a square. A level's locked pieces (Blast.Locked) never move,
--- its holes hold nothing, and a Hearthstone can't swap with a relic.
+-- A move, as two cells, or nil: any special with a piece beside it that can
+-- set it off (a Hearthstone, a special on its own, two specials together:
+-- swapped, they fire), or a swap lining up three or a square. A level's
+-- locked pieces (Blast.Locked) never move, its holes hold nothing, and a
+-- special swapped with a relic needs a match like any piece.
 local AROUND, AHEAD = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}}, {{0, 1}, {1, 0}}
 Blast.AROUND, Blast.AHEAD = AROUND, AHEAD
 function Blast.FindMove(board)
     for i = 1, CELLS do
         local piece = board[i]
-        if piece and piece.special == "hearth" then
+        if piece and piece.special and not Locked(piece) then
             local r, c = Cell(i)
             for _, step in ipairs(AROUND) do
                 local rr, cc = r + step[1], c + step[2]
@@ -415,7 +440,6 @@ function Blast.FindMove(board)
                     local a, b = Index(r, c), Index(r2, c2)
                     local pa, pb = board[a], board[b]
                     if pa and pb and not Locked(pa) and not Locked(pb) then
-                        if pa.special and pb.special then return a, b end
                         board[a], board[b] = pb, pa
                         local works = Blast.Makes(board, r, c, pb.kind) or Blast.Makes(board, r2, c2, pa.kind)
                         board[a], board[b] = pa, pb
@@ -433,10 +457,18 @@ end
 Blast.HINT_AFTER = 15     -- seconds with no move before a hint shows by itself
 Blast.HINT_COOLDOWN = 30  -- seconds after any hint before the next, asked for or by itself
 
+-- 1 when cell i holds a piece not yet in hit (now it is), else 0.
+local function Hit(board, hit, i)
+    if board[i] == nil or hit[i] then return 0 end
+    hit[i] = true
+    return 1
+end
 -- How good swapping a and b would be, or nil when it's no move: a
 -- Hearthstone first (more for each piece of the race it would clear), then
--- two specials, then a swap's matches (each piece they clear, and more for
--- each special they make). The board is left as it was.
+-- two specials, then one special fired with a piece and a swap's matches:
+-- each piece they clear, once (a Charge's line, a Sheep's 3 x 3, a flyer
+-- and the one piece it hits, the matched pieces), and 4 more for each
+-- special a match makes. The board is left as it was.
 function Blast.MoveValue(board, a, b)
     if not Blast.Adjacent(a, b) then return nil end
     local pa, pb = board[a], board[b]
@@ -453,12 +485,27 @@ function Blast.MoveValue(board, a, b)
     if pa.special and pb.special then return 90 end
     local ra, ca = Cell(a)
     local rb, cb = Cell(b)
+    -- One special with a piece that sets it off: it fires from where it
+    -- lands (one from a ends on b, one from b on a).
+    local at = (pa.special and Swappable(pb) and b) or (pb.special and Swappable(pa) and a) or nil
     board[a], board[b] = pb, pa
     local value
-    if Blast.Makes(board, ra, ca, pb.kind) or Blast.Makes(board, rb, cb, pa.kind) then
+    if at or Blast.Makes(board, ra, ca, pb.kind) or Blast.Makes(board, rb, cb, pa.kind) then
+        local hit = {}
         value = 0
+        if at then
+            local rect = Reach(board[at], at)
+            if rect then
+                for r = rect[1], rect[3] do
+                    for c = rect[2], rect[4] do value = value + Hit(board, hit, Index(r, c)) end
+                end
+            else
+                value = 1 + Hit(board, hit, at)   -- a flyer: itself and the one piece it hits
+            end
+        end
         for _, group in ipairs(Blast.FindGroups(board)) do
-            value = value + #group.cells + (Blast.Shape(group) and 4 or 0)
+            for _, i in ipairs(group.cells) do value = value + Hit(board, hit, i) end
+            if Blast.Shape(group) then value = value + 4 end
         end
     end
     board[a], board[b] = pa, pb
@@ -485,29 +532,15 @@ end
 
 -- A move ---------------------------------------------------------------------------------
 
-local function Clip(r1, c1, r2, c2)
-    return {math.max(1, r1), math.max(1, c1), math.min(N, r2), math.min(N, c2)}
-end
-local function EachIn(rect, fn)
-    for r = rect[1], rect[3] do
-        for c = rect[2], rect[4] do fn(Index(r, c)) end
-    end
-end
-
 -- A special firing from cell i: what it clears goes through add. Its record
 -- goes in step.fired (a flyer's target, the race a Hearthstone picked) and
 -- the area it lit in step.flashes ({top row, left column, bottom row, right column}).
 local function Fire(state, step, i, piece, clear, add)
     local board = state.board
-    local r, c = Cell(i)
     local shot = {i = i, special = piece.special, dir = piece.dir, kind = piece.kind}
     step.fired[#step.fired + 1] = shot
-    local rect
-    if piece.special == "charge" then
-        rect = piece.dir == "col" and {1, c, N, c} or {r, 1, r, N}
-    elseif piece.special == "sheep" then
-        rect = Clip(r - 1, c - 1, r + 1, c + 1)
-    elseif piece.special == "flyer" then
+    local rect = Reach(piece, i)
+    if piece.special == "flyer" then
         -- In a level it goes for blockers first (Blast.FlyerTarget).
         local spots = {}
         if state.mode == "level" then spots = Blast.FlyerTarget(state, clear)
@@ -677,9 +710,12 @@ local function Run(state, plan, result)
 end
 Blast.Run = Run
 
--- Two specials swapped together, or a Hearthstone with any piece: what goes
--- (no match needed). nil: an ordinary swap. After the swap board[b] is the
--- piece you moved (from a) and board[a] the other; areas centre on b.
+-- Two specials swapped together, a Hearthstone with any piece, or one
+-- special with a race's piece: what goes (no match needed). nil: an
+-- ordinary swap. After the swap board[b] is the piece you moved (from a)
+-- and board[a] the other; areas centre on b. One special on its own
+-- (plan.lone: the cell it's in now) fires from where it landed, with any
+-- match the swap lines up in the same clear.
 function Blast.Combo(state, a, b)
     local board = state.board
     local moved, other = board[b], board[a]
@@ -707,7 +743,15 @@ function Blast.Combo(state, a, b)
         end
         return plan
     end
-    if not (first and second) then return nil end
+    if not (first and second) then
+        local at, piece = b, other
+        if not first then at, piece = a, moved end
+        -- A relic has no race: with it a special needs a match like any piece.
+        if piece.kind == nil then return nil end
+        plan.lone, plan.seeds[1] = at, at
+        plan.groups, plan.prefer = Blast.FindGroups(board), {b, a}
+        return plan
+    end
     plan.seeds[1], plan.seeds[2] = b, a
     if first == "flyer" or second == "flyer" then
         plan.combo = "flyer"
@@ -732,8 +776,9 @@ end
 
 -- Swaps the piece at a with its neighbour at b. Returns {ok = false, why =
 -- "far" or "nomatch"} (the board as it was), or {ok = true, steps (each
--- clear), swapped (the board just after the swap), combo, hearthKind,
--- lustStep, settled, reshuffled, points, scoreBefore, meterBefore}.
+-- clear), swapped (the board just after the swap), combo, hearthKind, lone
+-- (the cell a special on its own fired from), lustStep, settled,
+-- reshuffled, points, scoreBefore, meterBefore}.
 -- A level's swap is Blast.LevelSwap (opts.free: a Free swap).
 function Blast.Swap(state, a, b, opts)
     if state.mode == "level" then return Blast.LevelSwap(state, a, b, opts) end
@@ -751,7 +796,7 @@ function Blast.Swap(state, a, b, opts)
         plan = {groups = groups, prefer = {b, a}}
     end
     local result = {ok = true, a = a, b = b, steps = {}, swapped = Copy(board), combo = plan.combo, hearthKind = plan.hearthKind,
-        scoreBefore = state.score, meterBefore = state.meter}
+        lone = plan.lone, scoreBefore = state.score, meterBefore = state.meter}
     Run(state, plan, result)
     result.reshuffled = Blast.Unstick(state)
     result.points = state.score - result.scoreBefore

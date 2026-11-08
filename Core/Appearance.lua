@@ -16,7 +16,9 @@ ns.DARKNESS_MIN, ns.DARKNESS_MAX, ns.DARKNESS_DEFAULT = 40, 90, 58
 -- Art that takes only part of the Darkness (1, all of it, for every other
 -- key). The action bar gryphons take half, so their detail still shows: about
 -- half bright at 90 (.55) while the stone band under them is near black (.10).
-local SHARE = { endCap = .5 }
+-- The scroll bars' knob takes half too: at full darkness it vanished into
+-- the dark column it slides along.
+local SHARE = { endCap = .5, scrollKnob = .5 }
 
 -- Dark Mode's grey for a share of the Darkness.
 local function GreyFor(share)

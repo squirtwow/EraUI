@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.3
+
+### Added
+- Ability Trail: your recent casts glide by as icons.
+- Ability Trail for your party.
+- Ability Trail border colours.
+- Action Rings: hold a key for a ring of spells round your cursor.
+- Plain AddOn List: no category headings.
+- Hide Zzz in Cities: shows your level instead.
+- Class-coloured friends, with their levels.
+- Thank for Buffs: whispers thanks when someone buffs you.
+- Name in Chat: your name before your party, raid and guild messages.
+
+### Changed
+- Azeroth Blast: specials fire when swapped with any piece.
+- Azeroth Blast: some levels rebalanced to match.
+- Azeroth Blast: clearer special pieces.
+
+### Fixed
+- Minimap drawer: catches a guide's missed map button.
+- Minimap drawer: opens in busy cities.
+- Dark Mode: scroll bar knobs no longer vanish.
+
 ## 1.8.2
 
 ### Added

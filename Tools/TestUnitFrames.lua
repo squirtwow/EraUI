@@ -620,6 +620,17 @@ do
     State(false, false)
     equal(State(false, false, nil, SECRET), "false false true", "a hidden hate-list flag changes nothing")
     State(false, false)
+    -- Hide Zzz in Cities (Modules/RestInCities.lua says when): resting in a
+    -- capital, the level instead of the Zzz; fights and elsewhere as before.
+    local inCity = true
+    E.modules = { RestInCities = { Hides = function() return inCity end } }
+    equal(State(true, false), "false false true", "resting in a capital with Hide Zzz in Cities: the level, no Zzz")
+    equal(State(false, true), "false true false", "a fight in a capital: the crossed swords as before")
+    inCity = false
+    equal(State(true, false), "true false false", "resting outside a capital: the Zzz as before")
+    E.modules = nil
+    equal(State(true, false), "true false false", "without the module: the Zzz as before")
+    State(false, false)
     equal(S[ctx.RoleIcon].shown, false, "the modern role icon hidden")
 
     local function Name(text, hide)

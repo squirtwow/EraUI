@@ -60,15 +60,25 @@ local TABS = {
                 S("Borders", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}),
                 S("Bars and windows", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"})}},
             {id = "classcol", name = "Class Colours", sections = {
-                S("Class colours", {"classColors", "tooltipClassColours", "classColourBorders", "castBarClassBorder"})}},
+                S("Class colours", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel", "classColourBorders",
+                    "castBarClassBorder"})}},
         }},
+    -- Action Rings on a sub-tab of its own (a new tab would renumber the
+    -- saved new-player hints): its switch and options, then Your Rings with
+    -- the editor's box under it (Modules/RingRows.lua, RingEditor.lua). All
+    -- but the switch show only while it's on (SHOWN_WITH).
     actionBars = {name = "Action Bars", icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
-        about = "The stone dock and the Classic action buttons.", sections = {
-            S("Action bars", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText", "upgradeSpellRanks"})}},
+        about = "The stone dock, the Classic action buttons and action rings.", subs = {
+            {id = "bars", name = "Action Bars", sections = {
+                S("Action bars", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText", "upgradeSpellRanks"})}},
+            {id = "rings", name = "Action Rings", sections = {
+                S("Action rings", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion"}),
+                S("Your rings", {"actionRingEditor"})}},
+        }},
     frames = {name = "Frames & Nameplates", icon = "Interface\\Icons\\INV_Helmet_03",
         about = "Unit frames, portraits and nameplates.", subs = {
             {id = "unit", name = "Unit Frames", sections = {S("Unit frames", {"unitFrames", "matchFocusSize",
-                "disableAggroHighlight", "portraitDebuffs", "classIconPortraitMine", "classIconPortraitOthers"})}},
+                "disableAggroHighlight", "portraitDebuffs", "classIconPortraitMine", "classIconPortraitOthers", "hideRestInCities"})}},
             {id = "plates", name = "Nameplates", sections = {S("Nameplates", {"friendlyNameplates", "enemyNameplates"})}},
         }},
     map = {name = "Map & Minimap", icon = "Interface\\Icons\\INV_Misc_Map_01",
@@ -79,7 +89,7 @@ local TABS = {
     windows = {name = "Windows & Tooltips", icon = "Interface\\Icons\\INV_Misc_Gear_01",
         about = "Classic frames for the game's windows, and tooltips.", sections = {
             S("Windows", {"gameMenu", "popups", "blizzardSettings", "mailSkin", "auctionHouse", "damageMeterSkin",
-                "otherWindows", "contextMenus"}),
+                "otherWindows", "plainAddonList", "contextMenus"}),
             S("Tooltips", {"tooltipSkin", "tooltipIDs"})}},
     class = {about = "Tools for your class. Each class sees its own.", sections = {
             S("Reminders", {"classReminders"}),
@@ -87,9 +97,25 @@ local TABS = {
             S("%RESOURCES%", {"floatingComboPoints", "comboPointRed", "energyBar", "rageBar", "manaBar", "druidResourceBar"}),
             S("Timers", {"swingTimer", "rangedSwingTimer"})}},
     casting = {name = "Casting", icon = "Interface\\Icons\\Spell_Arcane_Blast",
-        about = "Cast bars for you and everyone else.", sections = {
-            S("Cast bars", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency", "advancedCastBatch"}),
-            S("Colour", {"castBarColour", "castBarCustomColour"})}},
+        about = "Cast bars, and the abilities you and your party use.", subs = {
+            {id = "castbars", name = "Cast Bars", sections = {
+                S("Cast bars", {"castBars", "advancedCastBar", "advancedCastClassFill", "advancedCastTicks", "advancedCastLatency",
+                    "advancedCastBatch"}),
+                S("Colour", {"castBarColour", "castBarCustomColour"})}},
+            -- Ability Trail's own page: the table of the two trails (You and
+            -- Party, each a whole line: its tick, Direction, Icon Size and
+            -- Icons, under column titles on the heading's line), then the
+            -- options both share. Speed and Travel Distance show while
+            -- Scrolling Icons is on, Show For while it's off (SHOWN_WITH,
+            -- SHOWN_WITHOUT), all three under it; Spell ID under Tooltip.
+            {id = "trail", name = "Ability Trail", sections = {
+                S("Trails", {"abilityTrail", "abilityTrailParty"}),
+                S("Icons", {"abilityTrailScroll", "abilityTrailSpeed", "abilityTrailDistance", "abilityTrailSeconds",
+                    "abilityTrailCombatOnly", "abilityTrailBorder", "abilityTrailBorderColour"}),
+                S("Show in", {"abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids", "abilityTrailInBattlegrounds"}),
+                S("Your icons", {"abilityTrailTooltip", "abilityTrailSpellID", "abilityTrailPauseOnHover", "abilityTrailIgnored"}),
+                S("Position", {"abilityTrailUnlock", "abilityTrailPlace"})}},
+        }},
     quests = {name = "Quests", icon = "Interface\\GossipFrame\\AvailableQuestIcon",
         about = "The quest log, dialogue and tracker.", sections = {
             S("Quests", {"questLog", "questDialogs", "questTracker", "questLevels"}),
@@ -119,7 +145,15 @@ local TABS = {
     chat = {name = "Chat & Names", icon = "Interface\\Icons\\INV_Letter_15",
         about = "Chat, names and EraUI's own messages.", sections = {
             S("Chat", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle",
-                "hideStatusMessages", "showWelcomeOnLogin", "updateCheck"})}},
+                "hideStatusMessages", "showWelcomeOnLogin", "updateCheck"}),
+            -- Thank for Buffs, then its whisper and skip ticks, shown while
+            -- it's on (SHOWN_WITH).
+            S("Thank for buffs", {"thankBuffs", "thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild",
+                "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}),
+            -- Name in Chat, then its name box and chat ticks, shown while
+            -- it's on (SHOWN_WITH).
+            S("Name in chat", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild",
+                "nameInChatSay"})}},
     group = {name = "Group & Invites", icon = "Interface\\Icons\\INV_Misc_GroupLooking",
         about = "Friends, guild, group finder and invites.", sections = {
             S("Windows", {"socialWindows", "groupFinderPvp"}),
@@ -152,11 +186,14 @@ Nav.RESOURCES = {ROGUE = "Combo points and energy", DRUID = "Combo points and re
 -- Cast Bar Colour's five choices don't fit half a line, nor the Stat
 -- Tracker's Always, In a fight and Out of a fight, nor Stat Name Colour's
 -- five; Panel Size and Stats per Line are full sliders, like Darkness. On a
--- Flight Path's three choices (two of them game names) need a line too.
+-- Flight Path's three choices (two of them game names) need a line too, and
+-- so do Ability Trail's two table lines (You and Party). Action Rings' Your
+-- Rings heading does, with the editor's box under it.
 Nav.WIDE = {appearanceChoice = true, presets = true, darkModeDarkness = true, classReminders = true,
     damageFont = true, damageTextScale = true, afkScreen = true, moreFECM = true, moreFEC = true, moreFECP = true,
     castBarColour = true, statTrackerShow = true, statTrackerScale = true, statTrackerPerLine = true, statTrackerNameColour = true,
-    miniGameFlight = true}
+    miniGameFlight = true, abilityTrail = true, abilityTrailParty = true, thankBuffsMessage = true, abilityTrailBorder = true,
+    actionRingEditor = true, nameInChatName = true}
 -- The release each option came in (only options added since the grouped
 -- layout, 1.6.0). It drives the quiet "just added" after a name
 -- (Nav.JustAdded) and What's New's Show me walkthrough, one step per new
@@ -179,6 +216,19 @@ Added("1.7.3", {"advancedCastBatch"})
 Added("1.8.0", {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips",
     "miniGameFlight"})
 Added("1.8.2", {"openClams"})
+-- Ability Trail's page is one step: its rows go with You (BELONGS). Its
+-- Direction, Icon Size and Icons are cells of the You and Party lines, not
+-- rows of their own, so they aren't listed.
+Added("1.8.3", {"abilityTrail", "abilityTrailParty", "abilityTrailScroll", "abilityTrailSpeed", "abilityTrailDistance",
+    "abilityTrailSeconds", "abilityTrailCombatOnly", "abilityTrailBorder", "abilityTrailBorderColour", "abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids",
+    "abilityTrailInBattlegrounds", "abilityTrailTooltip", "abilityTrailSpellID", "abilityTrailPauseOnHover", "abilityTrailIgnored",
+    "abilityTrailUnlock", "abilityTrailPlace", "plainAddonList", "hideRestInCities", "classColourFriends", "classColourFriendsLevel",
+    "thankBuffs", "thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild", "thankBuffsSkipFriends", "thankBuffsSkipCombat",
+    "thankBuffsSkipInstances"})
+-- Action Rings' page is one step: its rows show with the switch (SHOWN_WITH).
+Added("1.8.3", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion", "actionRingEditor"})
+-- Name in Chat is one step too: its name box and ticks show with the switch.
+Added("1.8.3", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"})
 Nav.ADDED = ADDED
 -- Rows with no room for "just added" and their other words between their
 -- name and their buttons (Tools/TestSettingsLayout measures every row that
@@ -190,13 +240,15 @@ Nav.TIGHT = {}
 local function Rows() return E.SettingsRows end
 local function Rules() return E.SettingsRules end
 
--- The option a row sits under or shows with: a stat tick with Stat Tracker,
--- Icons per Row with Clean Minimap's Style, a tick under Thick Frames with
--- Thick Frames, Clean Minimap's Style with Clean Minimap.
+-- The option a row sits under, shows with or belongs to: a stat tick with
+-- Stat Tracker, Icons per Row with Clean Minimap's Style, a tick under Thick
+-- Frames with Thick Frames, Clean Minimap's Style with Clean Minimap, the
+-- rows of Ability Trail's page with You.
 local function Owner(key)
     local rules = Rules()
     local choice = rules.FOLD_CHOICES and rules.FOLD_CHOICES[key]
-    return (rules.SHOWN_WITH and rules.SHOWN_WITH[key]) or (choice and choice[1]) or rules.GroupParent(key)
+    return (rules.SHOWN_WITH and rules.SHOWN_WITH[key]) or (choice and choice[1]) or (rules.BELONGS and rules.BELONGS[key])
+        or rules.GroupParent(key)
 end
 Nav.Owner = Owner
 -- A new option's own row: not under, or shown with, an option that came in
@@ -809,7 +861,8 @@ local function JumpTo(frame, key)
     local target = frame.checks[key]
     local rules = Rules()
     if target and not target:IsShown() then
-        local fold, with = frame.checks[rules.FOLDS[key] or ""], frame.checks[rules.SHOWN_WITH and rules.SHOWN_WITH[key] or ""]
+        local shownBy = (rules.SHOWN_WITH and rules.SHOWN_WITH[key]) or (rules.SHOWN_WITHOUT and rules.SHOWN_WITHOUT[key])
+        local fold, with = frame.checks[rules.FOLDS[key] or ""], frame.checks[shownBy or ""]
         target = (fold and fold:IsShown()) and fold or with or fold
     end
     if not (target and target:IsShown()) then return end
@@ -855,6 +908,7 @@ local function Activate(frame, row)
     if kind == "tick" or kind == "link" or kind == "colour" or kind == "result" then row:Click()
     elseif kind == "button" then row.button:Click()
     elseif kind == "font" then row.fontButton:Click()
+    elseif kind == "text" then row.edit:SetFocus()
     elseif kind == "choice" then row.buttons[(row.selected or 1) % #row.buttons + 1]:Click()
     elseif kind == "more" then
         local button = row.open:IsShown() and row.open or row.getIt

@@ -39,6 +39,9 @@ local DEPENDS = {
     squareMinimap="minimap", squareMinimapScale="squareMinimap",
     -- On Tooltips Too: greyed while Hide Surnames is off, indented under it.
     hideSecondaryNamesTooltips="hideSecondaryNames",
+    -- Ability Trail's Spell ID is a line in its tooltip: greyed while
+    -- Tooltip is off, indented under it.
+    abilityTrailSpellID="abilityTrailTooltip",
 }
 -- The names on the rows, so a description points at a switch the player can find.
 local DEPEND_NAMES = {
@@ -46,7 +49,7 @@ local DEPEND_NAMES = {
     unitFrames = "Unit Frames", actionBars = "Action Bars",
     afkScreen = "AFK Screen", darkMode = "Dark Mode", darkAuraBorders = "Dark Aura Borders",
     darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames", minimap = "Minimap",
-    squareMinimap = "Square Minimap", hideSecondaryNames = "Hide Surnames",
+    squareMinimap = "Square Minimap", hideSecondaryNames = "Hide Surnames", abilityTrailTooltip = "Tooltip",
 }
 -- The row each of those switches is on (Dark Mode is the Classic / Dark Mode choice).
 local DEPEND_ROWS = {darkMode = "appearanceChoice"}
@@ -95,6 +98,9 @@ local FOLDS = {
     cursorTrailLength="cursorTrail", cursorTrailColour="cursorTrail",
     cleanMinimapStyle="cleanMinimap", minimapDrawerColumns="cleanMinimap",
     castBarCustomColour="castBarColour", statTrackerNameCustomColour="statTrackerNameColour",
+    abilityTrailBorderColour="abilityTrailBorder",
+    -- Show Their Level, under Class-coloured Friends.
+    classColourFriendsLevel="classColourFriends",
 }
 local FOLD_PARENTS = {}
 for _, parentKey in pairs(FOLDS) do FOLD_PARENTS[parentKey] = true end
@@ -104,7 +110,7 @@ for _, parentKey in pairs(FOLDS) do FOLD_PARENTS[parentKey] = true end
 -- Colour's Custom (folded under that choice row itself, so the choice alone
 -- opens it).
 local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, castBarCustomColour = {"castBarColour", "custom"},
-    statTrackerNameCustomColour = {"statTrackerNameColour", "custom"}}
+    statTrackerNameCustomColour = {"statTrackerNameColour", "custom"}, abilityTrailBorderColour = {"abilityTrailBorder", "custom"}}
 -- Shown only while their switch is on, like a fold, but each a row of its
 -- own, never indented under it (no layout parent): the Stat Tracker's
 -- options beside and under it, and its stat ticks two to a line under their
@@ -116,12 +122,27 @@ local FOLD_CHOICES = {minimapDrawerColumns = {"cleanMinimapStyle", "drawer"}, ca
 local SHOWN_WITH = {statTrackerLayout = "statTracker", statTrackerShow = "statTracker", statTrackerGains = "statTracker",
     statTrackerTitle = "statTracker", statTrackerScale = "statTracker", statTrackerPerLine = "statTracker",
     statTrackerNameColour = "statTracker", statTrackerNameCustomColour = "statTracker", squareMinimapScale = "squareMinimap"}
+-- Ability Trail's Speed and Travel Distance, while Scrolling Icons is on.
+-- Show For is the other way round (SHOWN_WITHOUT): only while it's off,
+-- for the still row. All three sit under it (GROUPS).
+SHOWN_WITH.abilityTrailSpeed, SHOWN_WITH.abilityTrailDistance = "abilityTrailScroll", "abilityTrailScroll"
+local SHOWN_WITHOUT = {abilityTrailSeconds = "abilityTrailScroll"}
+-- Thank for Buffs' whisper and skip ticks, shown while it's on.
+for _, key in ipairs({"thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild", "thankBuffsSkipFriends",
+    "thankBuffsSkipCombat", "thankBuffsSkipInstances"}) do
+    SHOWN_WITH[key] = "thankBuffs"
+end
+-- Name in Chat's name box and chat ticks, shown while it's on.
+for _, key in ipairs({"nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"}) do
+    SHOWN_WITH[key] = "nameInChat"
+end
 for _, stat in ipairs({"Strength", "Agility", "Stamina", "Intellect", "Spirit", "AttackPower", "Crit", "Hit", "SpellPower",
     "SpellCrit", "Armor", "Dodge", "Parry", "Block", "Speed", "Durability"}) do
     SHOWN_WITH["statTracker" .. stat] = "statTracker"
 end
 local function Folded(key)
     if SHOWN_WITH[key] and EraUI:GetSavedSetting(SHOWN_WITH[key]) ~= true then return true end
+    if SHOWN_WITHOUT[key] and EraUI:GetSavedSetting(SHOWN_WITHOUT[key]) == true then return true end
     local parent = FOLDS[key]
     if parent == nil then return false end
     local choice = FOLD_CHOICES[key]
@@ -136,7 +157,22 @@ end
 -- Cast Bars, never indented under it. Square Size sits under Minimap, right
 -- after Square Minimap, at its indent (it shows with Square Minimap and is
 -- greyed through it: SHOWN_WITH, DEPENDS).
-local GROUPS = {rewardProfile = "rewardUpgradeHighlight", comboPointRed = "floatingComboPoints", squareMinimapScale = "minimap"}
+local GROUPS = {rewardProfile = "rewardUpgradeHighlight", comboPointRed = "floatingComboPoints", squareMinimapScale = "minimap",
+    abilityTrailSpeed = "abilityTrailScroll", abilityTrailDistance = "abilityTrailScroll", abilityTrailSeconds = "abilityTrailScroll"}
+-- Options that go with another one but show on their own, never under it
+-- (Ability Trail's page, with You): "just added" and What's New's step are
+-- that option's, and the rest of its page goes with it.
+local BELONGS = {}
+for _, key in ipairs({"abilityTrailParty", "abilityTrailScroll", "abilityTrailCombatOnly", "abilityTrailBorder", "abilityTrailInWorld", "abilityTrailInDungeons",
+    "abilityTrailInRaids", "abilityTrailInBattlegrounds", "abilityTrailTooltip", "abilityTrailPauseOnHover", "abilityTrailIgnored",
+    "abilityTrailUnlock", "abilityTrailPlace"}) do
+    BELONGS[key] = "abilityTrail"
+end
+-- Action Rings' options and its Your Rings heading (with the editor's box):
+-- shown only while it's on, each a row of its own, and its page's own.
+for _, key in ipairs({"actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion", "actionRingEditor"}) do
+    SHOWN_WITH[key], BELONGS[key] = "actionRings", "actionRings"
+end
 local function GroupParent(key)
     if Nav.WIDE[key] then return FOLDS[key] or GROUPS[key] end
     return FOLDS[key] or GROUPS[key] or Parents(key)[1]
@@ -237,6 +273,23 @@ local classIconCoords = CLASS_ICON_TCOORDS or {
 local settingHelp = {
     discardCheapestJunk = "With full bags, looting deletes your cheapest grey stack to make room and says which in chat. Never in combat; hold Shift to skip.",
     openClams = "Clams in your bags open by themselves out of a fight, never at a vendor or bank. A clam button shows while you carry some.",
+    plainAddonList = "The game's AddOn list as one plain list, without category headings or addons tucked under others. Search and ticks work as before.",
+    hideRestInCities = "In a capital city your level shows instead of the resting Zzz on your player frame. Everywhere else the Zzz shows as before.",
+    classColourFriends = "Online friends' names in their class colour in the friends list. For Battle.net friends, only the character's name.",
+    classColourFriendsLevel = "A Battle.net friend's level after their character's name, in the same colour. Friends added by name show it already.",
+    thankBuffs = "Another player who buffs you gets one whisper of thanks, all their buffs in one line. Then nothing more to them for 30 minutes.",
+    thankBuffsMessage = "What the whisper says. %name% is their first name, %spell% their buffs. Default puts the first words back.",
+    thankBuffsSkipGroup = "No whisper to players in your party or raid.",
+    thankBuffsSkipGuild = "No whisper to players in your guild.",
+    thankBuffsSkipFriends = "No whisper to your friends, character or Battle.net.",
+    thankBuffsSkipCombat = "No whisper while you're in a fight. A buff then is let go, not thanked later.",
+    thankBuffsSkipInstances = "No whisper in dungeons, raids or battlegrounds.",
+    nameInChat = "The name you set goes in brackets before your party, raid and guild messages: (Squirt) Hello. Whispers never change.",
+    nameInChatName = "Your name in brackets before your messages, say (Squirt).",
+    nameInChatParty = "Your name before your party and instance messages.",
+    nameInChatRaid = "Your name before your raid messages and raid warnings.",
+    nameInChatGuild = "Your name before your guild and officer messages.",
+    nameInChatSay = "Your name before what you /say to players near you.",
     cursorCastRing = "A ring round your cursor that fills as you cast and drains as you channel. With Cursor Ring on, it sits just outside it.",
     portraitDebuffs = "Crowd control on player, target, focus and party portraits, with a countdown on all but your own. Covers the level badge.",
     classColourBorders = "Player, target and focus frame borders in each player's class colour. Needs Dark Mode and Unit Frames.",
@@ -306,6 +359,31 @@ local settingHelp = {
     statTrackerPerLine = "For One line: how many stats go on each line, the rest in neat rows under it. All keeps them on one line.",
     statTrackerNameColour = "The colour of the stat names. Match look: gold in Classic, grey in Dark Mode. The numbers keep theirs, green when they go up.",
     statTrackerNameCustomColour = "Click to pick the colour of the stat names.",
+    abilityTrail = "Your trail: each ability you use shows as an icon by your frame. Drag one to move it; right-click one to ignore that ability.",
+    abilityTrailParty = "A trail beside each party member's frame. The game hides which spell they cast, so their icons show only the picture.",
+    abilityTrailDirection = "Which way your trail runs from its start: right, left, up or down.",
+    abilityTrailSize = "How big your icons are, in pixels.",
+    abilityTrailCount = "How many of your icons show at most. 3 shows just your last three abilities.",
+    abilityTrailPartyDirection = "Which way party trails run from their frames: right, left, up or down.",
+    abilityTrailPartySize = "How big party icons are, in pixels.",
+    abilityTrailPartyCount = "How many icons each party trail shows at most.",
+    abilityTrailScroll = "On, icons glide away from the start and fade near the end. Off, they stay in a still row, newest first.",
+    abilityTrailSpeed = "How fast icons glide, in pixels a second. Slower means smaller gaps between abilities used a few seconds apart.",
+    abilityTrailDistance = "How far icons glide before they're gone, in pixels.",
+    abilityTrailSeconds = "How long each icon stays in the still row. It fades out over its last second.",
+    abilityTrailCombatOnly = "New icons only while you're in a fight. Ones already showing finish as usual.",
+    abilityTrailBorder = "The icons' edge. Match look: black in Dark Mode, silver in Classic. Or black, class colour, or your own.",
+    abilityTrailBorderColour = "Click to pick the colour of the icons' edge.",
+    abilityTrailInWorld = "Icons out in the world, away from dungeons, raids and battlegrounds.",
+    abilityTrailInDungeons = "Icons in dungeons.",
+    abilityTrailInRaids = "Icons in raids.",
+    abilityTrailInBattlegrounds = "Icons in battlegrounds and arenas.",
+    abilityTrailTooltip = "Hovering one of your icons names the ability. The game hides which spell a party member cast, so theirs show only the picture.",
+    abilityTrailPauseOnHover = "While the mouse is on one of your icons, your trail stops moving and fading. It carries on when the mouse leaves.",
+    abilityTrailSpellID = "The ability's spell ID in your icon's tooltip. Your icons only: the game hides party members' spells.",
+    abilityTrailIgnored = "Abilities you right-clicked on your trail stay off it. Clear puts them all back.",
+    abilityTrailUnlock = "A labelled box on each trail that's on, yours and each party member's, to drag it anywhere. Lock, or right-click a box, hides them.",
+    abilityTrailPlace = "Puts every trail back: yours under your frame, each party trail beside its member's frame.",
     statTrackerStrength = "Your strength, as your character window shows it: gear and buffs included.",
     statTrackerAgility = "Your agility, as your character window shows it: gear and buffs included.",
     statTrackerStamina = "Your stamina, as your character window shows it: gear and buffs included.",
@@ -371,6 +449,12 @@ local settingHelp = {
     hideKeybindText = "Hides the key labels on your action buttons. Your keybinds still work. A change made in combat waits until it ends.",
     hideMacroText = "Hides macro names on your action buttons. A change made in combat waits until it ends.",
     upgradeSpellRanks = "A new rank you learn replaces the rank it outgrew on your action bars, after any fight. Lower ranks you placed, macros and items stay.",
+    actionRings = "Hold a ring's key to open it round your cursor. Point at a slice and let go to use it; let go in the middle to cancel.",
+    actionRingScale = "How big your rings are. A change in a fight waits for it to end.",
+    actionRingNames = "The name of the slice you point at, under the ring.",
+    actionRingCooldowns = "Cooldown sweeps on the icons, and how many of each item you carry.",
+    actionRingMotion = "The icons swirl in as a ring opens and swirl out as it closes, and the slice you pick glows. Off, rings just show and go.",
+    actionRingEditor = "Up to 10 rings of 16 slices. Make one, fill it, then give it a key in Key Bindings > AddOns > EraUI.",
     matchFocusSize = "Your focus frame takes the target frame's size. Off, it keeps the game's own layout.",
     advancedCastLatency = "A red zone at the end of the bar, as long as your world latency. It shows whenever the cast's length can be read.",
     advancedCastBatch = "With Create All or a number of crafts, the bar shows which one you're on, like 4 / 133, and the time left for them all.",
@@ -437,9 +521,33 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- and Play rows got it on 2026-10-31 (new, off by default). Herb and Ore
 -- Sparkles got it on 2026-11-04 (new, off by default, ore not seen in game).
 -- Open Clams (new 2026-11-07) was seen working in game the same day, so it
--- never needed it.
+-- never needed it. Ability Trail's Party line got it on 2026-11-07 (new, off
+-- by default; the game hides party spells, not seen in a group yet). Squirt
+-- has seen You's gliding icons (Scrolling Icons on, its default), the Speed
+-- setting's gaps and the Match look border in game; the page's other options
+-- got it for 1.8.3 (2026-11-08, the release tidy-up): Show For (the still row), Travel
+-- Distance, Combat Only, Border (Class and Custom not tried) and its Custom
+-- Colour, the four Show In ticks, Tooltip, Spell ID, Pause On Hover,
+-- Ignored Abilities, Move Trails and Reset Positions. So did Thank for
+-- Buffs (new the same day: the game may hide who cast a buff). Plain
+-- AddOn List, Hide Zzz in Cities and Class-coloured Friends (new the same
+-- day) lost it that evening: Squirt saw all three working in game. Show
+-- Their Level (under Class-coloured Friends, new the same night) lost it
+-- for 1.8.3: Squirt saw it working ("level shows for my friends").
+-- Action Rings (new the same day, off by default) has it until Squirt sees
+-- its rings work in game. Show For and Travel Distance lost it for 1.8.3
+-- (2026-11-08): the word sat on their sliders, and sliders under an option
+-- don't need it (the tag goes where a feature is switched on). Thank for
+-- Buffs lost it the same day: Squirt saw its whisper go to a stranger.
+-- Name in Chat (new the same day, off by default) has it on its switch
+-- until Squirt sees "(Name) " go out in game.
 local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
-    miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true}
+    miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
+    abilityTrailCombatOnly = true,
+    abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
+    abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
+    abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
+    actionRings = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -447,6 +555,17 @@ end
 local function DefaultText(key)
     if key == "presets" or key == "rewardProfile" or key == "classTools" or key:find("^more") then return nil end
     if key == "miniGameWhack" or key == "miniGameBlast" or key == "miniGameReset" then return nil end
+    if key == "abilityTrailIgnored" or key == "abilityTrailPlace" or key == "abilityTrailUnlock" or key == "actionRingEditor" then return nil end
+    if key == "abilityTrailDirection" or key == "abilityTrailPartyDirection" then return "Default: Right." end
+    if key == "abilityTrailSeconds" then return "Default: 10 sec." end
+    if key == "abilityTrailBorder" then return "Default: Match look." end
+    if key == "abilityTrailBorderColour" then return "Default: light grey." end
+    if key == "abilityTrailSpeed" then return "Default: 12 px a second." end
+    if key == "abilityTrailDistance" then return "Default: 200 px." end
+    if key == "abilityTrailSize" or key == "abilityTrailPartySize" then return key == "abilityTrailSize" and "Default: 36 px." or "Default: 29 px." end
+    if key == "abilityTrailCount" or key == "abilityTrailPartyCount" then return "Default: 5." end
+    if key == "thankBuffsMessage" then return "Default: " .. (EraUI.settingDefaults[key] or "Thanks for the %spell%!") end
+    if key == "nameInChatName" then return "Default: none." end
     if key == "miniGameFlight" then return "Default: Off." end
     if key == "appearanceChoice" then return "Default: Classic." end
     if key == "cleanMinimapStyle" then return "Default: Hover." end
@@ -455,7 +574,7 @@ local function DefaultText(key)
     if key == "castBarCustomColour" then return "Default: light grey." end
     if key == "statTrackerLayout" then return "Default: List." end
     if key == "statTrackerShow" then return "Default: Always." end
-    if key == "statTrackerScale" or key == "squareMinimapScale" then return "Default: 100%." end
+    if key == "statTrackerScale" or key == "squareMinimapScale" or key == "actionRingScale" then return "Default: 100%." end
     if key == "statTrackerPerLine" then return "Default: All." end
     if key == "statTrackerNameColour" then return "Default: Match look." end
     if key == "statTrackerNameCustomColour" then return "Default: gold." end
@@ -692,6 +811,95 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             end
             return
         end
+        -- Show Their Level: the friend rows showing are done afresh at once
+        -- (Modules/ClassFriends.lua).
+        if key=="classColourFriendsLevel" then
+            if EraUI.modules.ClassFriends then EraUI.modules.ClassFriends:Refresh(true) end
+            EraUI:Status("Class-coloured Friends: Show Their Level "..(value and "on." or "off."))
+            return
+        end
+        -- Plain AddOn List, Hide Zzz in Cities and Class-coloured Friends
+        -- follow at once (Modules/PlainAddonList.lua, RestInCities.lua and
+        -- ClassFriends.lua); Class-coloured Friends opens or folds away Show
+        -- Their Level under it.
+        if key=="plainAddonList" or key=="hideRestInCities" or key=="classColourFriends" then
+            if key=="classColourFriends" and parent.RefreshFolds then parent:RefreshFolds() end
+            local module=EraUI.modules[key=="plainAddonList" and "PlainAddonList" or key=="hideRestInCities" and "RestInCities" or "ClassFriends"]
+            if module then module:Refresh() end
+            local said=key=="plainAddonList" and (value and " The AddOn list shows as one plain list." or " The grouped list is back next time it opens.")
+                or key=="hideRestInCities" and (value and " In a capital city your level shows instead of the Zzz." or "")
+                or (value and " Open your friends list to see it." or "")
+            EraUI:Status(label..(value and " enabled." or " disabled.")..said)
+            return
+        end
+        -- Ability Trail's ticks (Modules/AbilityTrail.lua): each trail starts,
+        -- or stops and clears, at once; the shared ones are read as icons
+        -- come. Scrolling Icons swaps Speed and Travel Distance for Show For;
+        -- Tooltip frees or greys Spell ID.
+        if key:find("^abilityTrail") then
+            if key=="abilityTrailScroll" and parent.RefreshFolds then parent:RefreshFolds() end
+            if key=="abilityTrailTooltip" then parent:RefreshDependencies() end
+            if EraUI.modules.AbilityTrail then EraUI.modules.AbilityTrail:Refresh() end
+            if key=="abilityTrail" then
+                EraUI:Status("Ability Trail: your trail "..(value and "on. Your abilities show as you use them; drag one to move it." or "off."))
+            elseif key=="abilityTrailParty" then
+                EraUI:Status("Ability Trail: party trails "..(value and "on." or "off."))
+            else
+                EraUI:Status("Ability Trail: "..label..(value and " on." or " off."))
+            end
+            return
+        end
+        -- Action Rings and its ticks (Modules/ActionRings.lua): the switch opens
+        -- or closes its rows and starts or stops the rings at once (in a
+        -- fight, when it ends, and chat says so, once that fight); the ticks
+        -- are read as a ring opens.
+        if key:find("^actionRing") then
+            if key=="actionRings" and parent.RefreshFolds then parent:RefreshFolds() end
+            if EraUI.modules.ActionRings then EraUI.modules.ActionRings:Refresh() end
+            if key=="actionRings" then
+                local later=""
+                if InCombatLockdown() then
+                    later=value and " Your rings start when this fight ends." or " Your rings stop when this fight ends."
+                    if EraUI.RingSecure then EraUI.RingSecure.told=true end
+                end
+                EraUI:Status("Action Rings "..(value and "enabled. Give each ring a key in Key Bindings > AddOns > EraUI." or "disabled.")..later)
+            else
+                EraUI:Status("Action Rings: "..label..(value and " on." or " off."))
+            end
+            return
+        end
+        -- Thank for Buffs: listens, or stops, at once (Modules/ThankBuffs.lua),
+        -- its whisper and skip ticks showing while it's on. A skip tick is
+        -- read at each whisper; Skip Your Guild on asks for the guild's
+        -- member list, so a guildmate passing by is found by name.
+        if key:find("^thankBuffs") then
+            if key=="thankBuffs" then
+                if parent.RefreshFolds then parent:RefreshFolds() end
+                if EraUI.modules.ThankBuffs then EraUI.modules.ThankBuffs:Refresh() end
+                EraUI:Status("Thank for Buffs "..(value and "enabled. A player who buffs you gets one whisper of thanks." or "disabled."))
+            else
+                if key=="thankBuffsSkipGuild" and value and EraUI.modules.ThankBuffs and EraUI.modules.ThankBuffs.AskRoster then
+                    EraUI.modules.ThankBuffs:AskRoster()
+                end
+                EraUI:Status("Thank for Buffs: "..label..(value and " on." or " off."))
+            end
+            return
+        end
+        -- Name in Chat: listens, or stops, at once (Modules/NameInChat.lua),
+        -- its name box and chat ticks showing while it's on. A tick is read
+        -- at each line you send.
+        if key:find("^nameInChat") then
+            if key=="nameInChat" then
+                if parent.RefreshFolds then parent:RefreshFolds() end
+                if EraUI.modules.NameInChat then EraUI.modules.NameInChat:Refresh() end
+                local named=type(EraUI:GetSavedSetting("nameInChatName"))=="string" and EraUI:GetSavedSetting("nameInChatName"):find("%S")
+                EraUI:Status("Name in Chat "..(value and (named and "enabled. Your name goes before your party, raid and guild messages."
+                    or "enabled. Type your name in the box under it.") or "disabled."))
+            else
+                EraUI:Status("Name in Chat: "..label..(value and " on." or " off."))
+            end
+            return
+        end
         -- Mini-game Sounds: the games read it each time they play a sound.
         if key=="miniGameSounds" then
             EraUI:Status("Mini-game Sounds "..(value and "on." or "off."))
@@ -920,6 +1128,7 @@ EraUI.SettingsRules = {
     DEPENDS = DEPENDS, DEPEND_NAMES = DEPEND_NAMES, DEPEND_ROWS = DEPEND_ROWS, Parents = Parents,
     MissingParent = MissingParent, NEEDS_CHOICE = NEEDS_CHOICE, HANDED_OVER = HANDED_OVER, HANDED_OVER_HELP = HANDED_OVER_HELP,
     MAP_HANDED_OVER_HELP = MAP_HANDED_OVER_HELP, HandedOver = HandedOver, FOLDS = FOLDS, Folded = Folded, SHOWN_WITH = SHOWN_WITH,
+    SHOWN_WITHOUT = SHOWN_WITHOUT, BELONGS = BELONGS,
     FOLD_CHOICES = FOLD_CHOICES, GROUPS = GROUPS, GroupParent = GroupParent, OLD_NAMES = OLD_NAMES, Normalise = Normalise,
     ComingSoon = ComingSoon, settingHelp = settingHelp, HELP_KEY = HELP_KEY, NeedsTesting = NeedsTesting,
     EXPERIMENTAL = EXPERIMENTAL, WaitingFor = WaitingFor,
@@ -1017,6 +1226,11 @@ local function BuildLookRows(frame)
     MakeCheck(frame, "Black Pages", "blackPages", nil, "Black spellbook and professions pages instead of brown-grey.", false)
     MakeCheck(frame, "Class-coloured Chat Names", "classColors", nil, "Colour new player names by class.", false)
     MakeCheck(frame, "Class-coloured Tooltips", "tooltipClassColours", nil, "Player tooltips: border, name and class in the player's class colour.", false)
+    local friends = MakeCheck(frame, "Class-coloured Friends", "classColourFriends", nil, "Online friends' names in their class colour.", false)
+    friends.searchText = friends.searchText .. " friend friends list social battle.net battlenet bnet character names online"
+    -- Show Their Level, folded under it (FOLDS).
+    local level = MakeCheck(frame, "Show Their Level", "classColourFriendsLevel", nil, "A Battle.net friend's level after their character's name.", false)
+    level.searchText = level.searchText .. " class coloured friends level levels friend list social battle.net battlenet bnet character"
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", nil, "Class-coloured unit frame borders. Needs Dark Mode and Unit Frames.", false)
     MakeCheck(frame, "Class-coloured Cast Border", "castBarClassBorder", nil, "Class-coloured outlines on players' cast bars. NPCs keep theirs.", false)
 end
@@ -1097,6 +1311,9 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Important Debuffs on Portraits", "portraitDebuffs", nil, "CC icons, even in combat, with countdowns on other portraits. Covers the level badge.", false)
     MakeCheck(frame, "Class Icon Portraits: Mine", "classIconPortraitMine", nil, "Your class icon instead of your face.", false)
     MakeCheck(frame, "Class Icon Portraits: Others", "classIconPortraitOthers", nil, "Other players' class icons instead of faces.", false)
+    local cities = MakeCheck(frame, "Hide Zzz in Cities", "hideRestInCities", nil, "Your level instead of the Zzz in capital cities.", false)
+    cities.searchText = cities.searchText .. " zzz rest resting rested sleep sleeping level city capital capitals stormwind orgrimmar"
+        .. " ironforge undercity thunder bluff darnassus player portrait"
     MakeCheck(frame, "Friendly Nameplates", "friendlyNameplates", nil, "Classic look on friendly nameplates.", false)
     MakeCheck(frame, "Enemy Nameplates", "enemyNameplates", nil, "Classic look on enemy and neutral nameplates.", false)
     -- Casting.
@@ -1186,6 +1403,9 @@ local function BuildToggleRows(frame)
     MakeCheck(frame, "Auction House", "auctionHouse", nil, "Classic auction house window.", false)
     MakeCheck(frame, "Damage Meter", "damageMeterSkin", nil, "Classic frame, bars and text for Blizzard's damage meter.", false)
     MakeCheck(frame, "Other Windows", "otherWindows", nil, "Trade, taxi, macros, calendar and other windows.", false)
+    local addons = MakeCheck(frame, "Plain AddOn List", "plainAddonList", nil, "The AddOn list as one plain list, no category headings.", false)
+    addons.searchText = addons.searchText .. " addon addons add-on add-ons list plain flat category categories heading headings"
+        .. " grouped nested old"
     MakeCheck(frame, "Context Menus", "contextMenus", nil, "Not implemented yet.", true)
     MakeCheck(frame, "Tooltips", "tooltipSkin", nil, "Dark tooltips with grey borders, item comparisons included.", false)
     MakeCheck(frame, "Tooltip IDs", "tooltipIDs", nil, "Item, spell and NPC IDs when exposed by this client. Re-hover to update.", false)
@@ -1246,6 +1466,261 @@ local function CursorColour(frame, key, classKey, label)
         OpenPicker(r, g, b, function() Save(PickedHex(), false) end, function() Save(old, oldClass) end)
     end)
     return row
+end
+
+-- Casting > Ability Trail (Modules/AbilityTrail.lua), its own page, all live.
+-- First a small table of the two trails, each a whole line: You
+-- (abilityTrail) and Party (abilityTrailParty), its tick, then its
+-- Direction (four small buttons), Icon Size and Icons (sliders), under
+-- column titles on the Trails heading's line. Then what both share:
+-- Scrolling Icons with Speed and Travel Distance under it (Show For while
+-- it's off), Combat Only, the four Show In ticks, your icons' Tooltip (Spell
+-- ID under it) and Pause On Hover, and three button rows: Ignored Abilities
+-- (Clear), Move Trails (Unlock, then Lock) and Reset Positions (Reset).
+local TRAIL_DIRECTIONS = {"right", "left", "up", "down"}
+local TRAIL_BORDERS = {"auto", "black", "class", "custom"}
+local TRAIL_BORDER_SAID = {auto = "look-matching", black = "black", class = "class-coloured", custom = "your own colour"}
+local function TrailRefresh()
+    if EraUI.modules.AbilityTrail then EraUI.modules.AbilityTrail:Refresh() end
+end
+local function BuildTrailRows(frame)
+    local function Kept(key, default)
+        local value = EraUI:GetSavedSetting(key)
+        if value == nil then return default end
+        return value
+    end
+    local function Save(key)
+        return function(value)
+            EraUI:SetSetting(key, value)
+            TrailRefresh()
+        end
+    end
+    local function Pixels(value) return value .. " px" end
+    -- A line's cells: Direction at 176, Icon Size at 398, Icons at 584 (its
+    -- name keeps to the first 168).
+    local function Cells(who, size)
+        local way, big, many = "abilityTrail" .. who .. "Direction", "abilityTrail" .. who .. "Size", "abilityTrail" .. who .. "Count"
+        return {
+            {kind = "choice", key = way, label = "Direction", x = 176, width = 48, names = {"Right", "Left", "Up", "Down"},
+                values = TRAIL_DIRECTIONS, read = function() return Kept(way, "right") end,
+                save = function(value)
+                    Save(way)(value)
+                    EraUI:Status("Ability Trail: " .. (who == "" and "your trail runs " or "party trails run ") .. value .. ".")
+                end},
+            {kind = "slider", key = big, label = "Icon Size", x = 398, width = 120, low = 20, high = 64, step = 1, format = Pixels,
+                read = function() return tonumber(Kept(big, size)) end, save = Save(big)},
+            {kind = "slider", key = many, label = "Icons", x = 584, width = 96, low = 1, high = 10, step = 1,
+                read = function() return tonumber(Kept(many, 5)) end, save = Save(many)},
+        }
+    end
+    local you = MakeCheck(frame, "You", "abilityTrail", nil, "Your last abilities as a trail of icons by your frame.", false)
+    you.searchText = you.searchText .. " ability abilities trail your own last used spells casts history recent icons"
+        .. " direction right left up down icon size how many count"
+    you.newsTitle = "Ability Trail"
+    Rows.Cells(you, Cells("", 36))
+    Rows.Titles(you, {{"Direction", 176}, {"Icon Size", 398}, {"Icons", 584}})
+    local party = MakeCheck(frame, "Party", "abilityTrailParty", nil, "A trail beside each party member's frame.", false)
+    party.searchText = party.searchText .. " ability abilities trail party group members last used spells casts"
+        .. " direction right left up down icon size how many count"
+    Rows.Cells(party, Cells("Party", 29))
+    -- What both trails share.
+    for _, tick in ipairs({
+        {"abilityTrailScroll", "Scrolling Icons", "Icons glide away from the start. Off, a still row.", "scroll scrolling glide gliding move moving still"},
+        {"abilityTrailCombatOnly", "Combat Only", "New icons only in a fight.", "combat fight fighting only"},
+        {"abilityTrailInWorld", "World", "Icons out in the world.", "show in where world outdoors zones"},
+        {"abilityTrailInDungeons", "Dungeons", "Icons in dungeons.", "show in where dungeon dungeons instance"},
+        {"abilityTrailInRaids", "Raids", "Icons in raids.", "show in where raid raids instance"},
+        {"abilityTrailInBattlegrounds", "Battlegrounds", "Icons in battlegrounds and arenas.", "show in where battleground battlegrounds pvp arena"},
+        {"abilityTrailTooltip", "Tooltip", "Hover one of your icons to name its ability.", "tooltip hover name"},
+        {"abilityTrailSpellID", "Spell ID", "The spell ID in your icons' tooltip.", "number"},
+        {"abilityTrailPauseOnHover", "Pause On Hover", "Your trail holds still under the mouse.", "pause hover hold stop mouse freeze"},
+    }) do
+        local row = MakeCheck(frame, tick[2], tick[1], nil, tick[3], false)
+        row.searchText = row.searchText .. " ability trail " .. tick[4]
+    end
+    local function Slider(key, label, low, high, step, default, format, summary, words)
+        local row = Rows.Slider(frame, key, label, {low = low, high = high, step = step, format = format,
+            read = function() return tonumber(EraUI:GetSavedSetting(key)) or default end, save = Save(key)})
+        row.searchText = "ability trail " .. string.lower(label) .. " " .. words
+        row.summary = summary
+        return row
+    end
+    Slider("abilityTrailSpeed", "Speed", 4, 60, 1, 12, function(value) return value .. " px/s" end,
+        "How fast icons glide.", "fast slow slower faster gap gaps pixels second glide")
+    Slider("abilityTrailDistance", "Travel Distance", 50, 600, 10, 200, Pixels, "How far icons glide.", "far length long glide pixels")
+    Slider("abilityTrailSeconds", "Show For", 2, 30, 1, 10, function(value) return value .. " sec" end,
+        "How long each icon stays.", "time seconds fade out how long duration still")
+    -- Border: the icons' edge. Match look (black in Dark Mode, silver in the
+    -- Classic look), Black, Class or Custom. A whole line: four choices.
+    -- Custom opens the colour picker; Custom Border Colour, folded under the
+    -- row until Custom is chosen, opens it again. Cancelling the picker puts
+    -- back the colour and the choice from before.
+    local border, swatch
+    local function BorderIndex()
+        local saved = EraUI:GetSavedSetting("abilityTrailBorder")
+        for i, id in ipairs(TRAIL_BORDERS) do if id == saved then return i end end
+        return 1
+    end
+    local function BorderRGB() return HexRGB(EraUI:GetSavedSetting("abilityTrailBorderColour"), "C7CCD6") end
+    local function SaveBorder(id, hex)
+        local moved = EraUI:GetSavedSetting("abilityTrailBorder") ~= id
+        EraUI:SetSetting("abilityTrailBorder", id)
+        if hex then EraUI:SetSetting("abilityTrailBorderColour", hex) end
+        border:SetChecked(); swatch:SetChecked()
+        if moved and frame.RefreshFolds then frame:RefreshFolds() end
+        TrailRefresh()
+    end
+    local function PickBorder(before)
+        local old = EraUI:GetSavedSetting("abilityTrailBorderColour") or "C7CCD6"
+        local r, g, b = BorderRGB()
+        OpenPicker(r, g, b, function() SaveBorder("custom", PickedHex()) end, function() SaveBorder(before, old) end)
+    end
+    border = Rows.Choice(frame, "abilityTrailBorder", "Border", {"Match look", "Black", "Class", "Custom"}, function(index)
+        if border.dependencyDisabled then border:SetChecked(); return end
+        local before, id = TRAIL_BORDERS[BorderIndex()], TRAIL_BORDERS[index]
+        SaveBorder(id)
+        EraUI:Status("Ability Trail: " .. TRAIL_BORDER_SAID[id] .. " borders.")
+        if id == "custom" then PickBorder(before) end
+    end)
+    border.searchText = "ability trail border edge colour color black class class-coloured custom picker wheel frame outline match look dark mode silver"
+    border.summary = "The icons' edge."
+    border.SetChecked = function() Rows.SelectChoice(border, BorderIndex()) end
+    border:HookScript("OnShow", function() border:SetChecked() end)
+    swatch = Rows.Colour(frame, "abilityTrailBorderColour", "Custom Border Colour", BorderRGB)
+    swatch.searchText = "ability trail custom border edge colour color picker wheel pick own"
+    swatch.summary = "Pick the icons' edge colour."
+    swatch:SetScript("OnClick", function()
+        if swatch.dependencyDisabled then return end
+        PickBorder(TRAIL_BORDERS[BorderIndex()])
+    end)
+    local ignored
+    local function IgnoredSummary()
+        local module = EraUI.modules.AbilityTrail
+        local count = module and module:IgnoredCount() or 0
+        if count == 0 then return "None yet. Right-click an icon to ignore it." end
+        return count .. (count == 1 and " ability" or " abilities") .. " ignored."
+    end
+    ignored = Rows.ButtonRow(frame, "abilityTrailIgnored", "Ignored Abilities", "Clear", function()
+        local module = EraUI.modules.AbilityTrail
+        if module then module:ClearIgnored() end
+        ignored.summary = IgnoredSummary()
+        EraUI:Status("Ability Trail: the ignore list is cleared.")
+    end)
+    ignored.summary = IgnoredSummary()
+    ignored:HookScript("OnShow", function() ignored.summary = IgnoredSummary() end)
+    ignored.searchText = "ability trail ignore ignored list clear hide abilities spells"
+    -- Move Trails: Unlock shows a box on each trail that's on; the button
+    -- says Lock while they show (a right-click on a box, or a fight, locks
+    -- them too: the module says so through watch).
+    local unlock
+    local function Label(on) unlock.button.label:SetText(on and "Lock" or "Unlock") end
+    local function Module()
+        local module = EraUI.modules.AbilityTrail
+        if module then module.watch = Label end
+        return module
+    end
+    unlock = Rows.ButtonRow(frame, "abilityTrailUnlock", "Move Trails", "Unlock", function()
+        local module = Module()
+        if not module then return end
+        local on = not module.unlocked
+        if module:SetUnlocked(on) == false then
+            EraUI:Status("Ability Trail: tick You or Party first, then unlock.")
+            return
+        end
+        Label(on)
+        EraUI:Status(on and "Ability Trail: drag a box to move its trail. Lock, or right-click a box, when you're done." or "Ability Trail: trails locked.")
+    end)
+    unlock:HookScript("OnShow", function() local module = Module(); Label(module and module.unlocked) end)
+    unlock.summary = "A box on each trail to drag it."
+    unlock.searchText = "ability trail move unlock lock drag boxes position place party"
+    local place = Rows.ButtonRow(frame, "abilityTrailPlace", "Reset Positions", "Reset", function()
+        local module = EraUI.modules.AbilityTrail
+        if module then module:ResetPosition() end
+        EraUI:Status("Ability Trail: every trail is back where it starts.")
+    end)
+    place.summary = "Every trail back where it starts."
+    place.searchText = "ability trail position positions place reset move back party"
+end
+
+-- Chat & Names > Thank for buffs (Modules/ThankBuffs.lua): the switch, its
+-- whisper (a whole line: the words, and Default for the first ones) and the
+-- five skip ticks, read at each whisper. All but the switch show only while
+-- it's on (SHOWN_WITH).
+local THANK_SKIPS = {
+    {"thankBuffsSkipGroup", "Skip Your Group", "No thanks to your party or raid.", "group party raid"},
+    {"thankBuffsSkipGuild", "Skip Your Guild", "No thanks to your guild.", "guild"},
+    {"thankBuffsSkipFriends", "Skip Your Friends", "No thanks to your friends.", "friend friends battle.net bnet"},
+    {"thankBuffsSkipCombat", "Skip in Combat", "No thanks while you're in a fight.", "combat fight fighting"},
+    {"thankBuffsSkipInstances", "Skip in Dungeons", "No thanks in dungeons, raids or battlegrounds.", "dungeon dungeons instance raid battleground"},
+}
+local function BuildThankRows(frame)
+    local thanks = MakeCheck(frame, "Thank for Buffs", "thankBuffs", nil, "A whisper of thanks when another player buffs you.", false)
+    thanks.searchText = thanks.searchText .. " thank thanks thank-you buff buffs whisper polite mark of the wild thorns"
+    local first = EraUI.settingDefaults.thankBuffsMessage or "Thanks for the %spell%!"
+    local function Words()
+        local text = EraUI:GetSavedSetting("thankBuffsMessage")
+        if type(text) ~= "string" or not text:find("%S") then return first end
+        return text
+    end
+    local words = Rows.TextBox(frame, "thankBuffsMessage", "Thank-you Whisper", {maxLetters = 120, read = Words,
+        -- Empty words are the first ones again.
+        save = function(text)
+            text = (text or ""):match("^%s*(.-)%s*$")
+            if text == "" then text = first end
+            if text == Words() then return end
+            EraUI:SetSetting("thankBuffsMessage", text)
+            EraUI:Status("Thank for Buffs: your whisper is saved.")
+        end,
+        reset = function()
+            EraUI:SetSetting("thankBuffsMessage", first)
+            EraUI:Status("Thank for Buffs: the whisper is back to \"" .. first .. "\".")
+        end})
+    words.summary = "What the whisper says."
+    words.searchText = "thank thanks thank-you whisper message words text say name spell buffs"
+    for _, skip in ipairs(THANK_SKIPS) do
+        local row = MakeCheck(frame, skip[2], skip[1], nil, skip[3], false)
+        row.searchText = row.searchText .. " thank thanks buff buffs whisper skip " .. skip[4]
+    end
+end
+
+-- Chat & Names > Name in chat (Modules/NameInChat.lua): the switch, the
+-- name (a whole line: the box, and Default to clear it) and a tick for each
+-- chat it goes in, read at each line you send. All but the switch show only
+-- while it's on (SHOWN_WITH). The name is saved as it goes in chat (the
+-- module's Clean: no chat codes, one line, at most 24 letters).
+local function BuildNameRows(frame)
+    local ticks = {
+        {"nameInChatParty", "Party", "Party and instance chat.", "party group instance"},
+        {"nameInChatRaid", "Raid", "Raid chat and raid warnings.", "raid warning"},
+        {"nameInChatGuild", "Guild", "Guild and officer chat.", "guild officer"},
+        {"nameInChatSay", "Say", "What you /say near you.", "say near"},
+    }
+    local switch = MakeCheck(frame, "Name in Chat", "nameInChat", nil, "Your name in brackets before your messages.", false)
+    switch.searchText = switch.searchText .. " name names brackets prefix nickname party raid guild say"
+    local function Clean(text)
+        local module = EraUI.modules.NameInChat
+        if module and module.Clean then return module.Clean(text) end
+        return type(text) == "string" and text:match("^%s*(.-)%s*$") or ""
+    end
+    local function Saved() return Clean(EraUI:GetSavedSetting("nameInChatName")) end
+    local name = Rows.TextBox(frame, "nameInChatName", "Your Name", {maxLetters = 24, read = Saved,
+        save = function(text)
+            text = Clean(text)
+            if text == Saved() then return end
+            EraUI:SetSetting("nameInChatName", text)
+            EraUI:Status(text == "" and "Name in Chat: no name, so nothing goes before your messages."
+                or "Name in Chat: your messages start with (" .. text .. ").")
+        end,
+        reset = function()
+            EraUI:SetSetting("nameInChatName", "")
+            EraUI:Status("Name in Chat: no name, so nothing goes before your messages.")
+        end})
+    name.summary = "The name before your messages."
+    name.searchText = "name in chat your name brackets prefix nickname"
+    for _, tick in ipairs(ticks) do
+        local row = MakeCheck(frame, tick[2], tick[1], nil, tick[3], false)
+        row.searchText = row.searchText .. " name in chat brackets " .. tick[4]
+    end
 end
 
 -- Cast Bar Colour (Casting): Match look, Yellow, Grey, Class or Custom on a
@@ -1905,10 +2380,11 @@ local PRESETS = {
     {id = "qol", name = "Quality of Life only", look = "qol", detail = "Keep Blizzard's modern interface and pick Quality of Life options."},
 }
 -- Left out of the walkthrough's option pages (Update Notice never was on
--- one; the mini-games are a pastime, found on their own sub-tab).
+-- one; the mini-games are a pastime, found on their own sub-tab; Action
+-- Rings needs keys set and rings made, found on its own sub-tab too).
 local function LeftOut(key)
     return (reloadSettings[key] and key ~= "classicChatDragging") or key == "damageFont" or key == "damageTextScale"
-        or key == "updateCheck" or key:find("^miniGame") ~= nil
+        or key == "updateCheck" or key:find("^miniGame") ~= nil or key:find("^actionRing") ~= nil
 end
 local function WalkthroughItems(frame, walk)
     local extra = {}
@@ -2371,6 +2847,11 @@ function SettingsModule:Initialize()
     BuildLookRows(frame)
     BuildToggleRows(frame)
     BuildCastColourRows(frame)
+    BuildTrailRows(frame)
+    BuildThankRows(frame)
+    BuildNameRows(frame)
+    -- Action Bars > Action Rings (Modules/RingRows.lua), with this file's ticks.
+    if EraUI.RingRows then EraUI.RingRows.Build(frame, MakeCheck) end
     BuildStatRows(frame)
     BuildCursorRows(frame)
     BuildScreenRows(frame)
