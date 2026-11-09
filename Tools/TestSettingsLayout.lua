@@ -287,7 +287,7 @@ local TRAIL_TESTING = {"abilityTrailCombatOnly",
  "abilityTrailUnlock", "abilityTrailPlace"}
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
- actionRings = true, bagArrowArmourColour = true, bagBigCounts = true}
+ actionRings = true, bagBigCounts = true}
 for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
@@ -873,7 +873,7 @@ do
   equal(arrow.category == Tab(f, "bags") and arrow.subId, "bagsloot", "Arrow Colour by Armour on Bags & Vendors > Bags & Loot")
   equal(tostring(real.settingDefaults.bagArrowArmourColour) .. " " .. tostring(real.reloadSettings.bagArrowArmourColour) .. " "
    .. tostring(arrow.dependencyDisabled) .. " [" .. table.concat(arrow.tagIds, ",") .. "] " .. arrow.text:GetText(),
-   "false nil nil [TEST] Arrow Colour by Armour", "Arrow Colour by Armour: off by default, no reload, never greyed, experimental, its name")
+   "false nil nil [] Arrow Colour by Armour", "Arrow Colour by Armour: off by default, no reload, never greyed, seen working so no tag, its name")
   equal(arrow:IsShown(), false, "folded away while Bag Item Levels is off")
   local refreshed = 0
   local realBags = E.modules.BagItemLevels
@@ -3295,9 +3295,9 @@ do
  for _, key in ipairs(TRAIL_TESTING) do trail[#trail + 1] = key end
  trail[#trail + 1] = "abilityTrailParty"
  table.sort(trail)
- equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagArrowArmourColour,bagBigCounts,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
+ equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagBigCounts,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
   .. "miniGameFlight,miniGameWhack,partyOutline,spellbookCombatDrag",
-  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Arrow Colour by Armour, Herb and Ore Sparkles,"
+  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Big Bag Numbers, Herb and Ore Sparkles,"
   .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline and Combat Spell Dragging")
  f.searchBox:SetText(""); Flush()
 end

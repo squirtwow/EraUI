@@ -553,7 +553,7 @@ local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecon
     abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
     abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
     abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
-    actionRings = true, bagArrowArmourColour = true, bagBigCounts = true}
+    actionRings = true, bagBigCounts = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end

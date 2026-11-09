@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.5
+
+### Changed
+- Arrow Colour by Armour: tested and ready.
+
 ## 1.8.4
 
 ### Added

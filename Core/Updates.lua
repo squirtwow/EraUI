@@ -6,6 +6,14 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.5",
+        sections = {
+            { "Changed", {
+                "Arrow Colour by Armour: tested and ready.",
+            } },
+        },
+    },
+    {
         version = "1.8.4",
         sections = {
             { "Added", {
