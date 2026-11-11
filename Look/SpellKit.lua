@@ -205,6 +205,85 @@ local function LineSlots(line, needle, into)
     return into
 end
 
+-- A castable, active spell that opens a crafting window.
+local function Crafting(info)
+    local kinds = Enum and Enum.SpellBookItemType
+    if not kinds or Look.Secret(info.itemType) or info.itemType ~= kinds.Spell then return false end
+    if S.Yes(info.isPassive) or Look.Secret(info.isPassive) then return false end
+    local id = Look.Number(info.spellID)
+    local api = C_TradeSkillUI
+    local fn = id and type(api) == "table" and api.CanTradeSkillShowCraftingUI
+    if type(fn) ~= "function" then return false end
+    local fine, yes = pcall(fn, id)
+    return fine and S.Yes(yes)
+end
+
+-- From the lines without a tab, only their crafting spells (such as a
+-- rogue's Poisons); they join the General page and the search. Forever
+-- counts only the lines with a tab and keeps Poisons on a line past them
+-- (a rogue: four lines counted, Poisons at slot 39 on line 5), so the
+-- slots after the counted lines are read too, till the book ends.
+local PAST_LINES = 200 -- at most this many slots after the counted lines
+-- The five professions the Professions window shows (the game's first
+-- five: two main ones, First Aid, Fishing, Cooking): their slots, and their
+-- names and their spells' names, for the copies Forever keeps elsewhere
+-- past the counted lines (one per profession, under its own name). They
+-- have that window, so they stay off General.
+local function Professions()
+    local skip, names = {}, {}
+    if type(GetProfessions) ~= "function" or type(GetProfessionInfo) ~= "function" then return skip, names end
+    local fine, first, second, aid, fish, cook = pcall(GetProfessions)
+    if not fine then return skip, names end
+    for _, index in pairs({ first, second, aid, fish, cook }) do
+        if Look.Number(index) then
+            local ok, name, _, _, _, count, offset = pcall(GetProfessionInfo, index)
+            name, count, offset = ok and S.Text(name), ok and Look.Number(count), ok and Look.Number(offset)
+            if name then names[name] = true end
+            if count and offset then
+                for slot = offset + 1, offset + count do
+                    skip[slot] = true
+                    local item = S.Info(slot, false)
+                    local spell = item and S.Text(item.name)
+                    if spell then names[spell] = true end
+                end
+            end
+        end
+    end
+    return skip, names
+end
+local function CraftingSlots(lines, needle, into)
+    local shown = {}
+    for _, line in ipairs(lines) do shown[line.index] = true end
+    local skip, names = Professions()
+    local function Take(slot)
+        local item = S.Info(slot, false)
+        if not item then return false end
+        local name = S.Text(item.name)
+        if not skip[slot] and not (name and names[name]) and Crafting(item) and (not needle or Matches(item, needle)) then
+            into[#into + 1] = slot
+        end
+        return true
+    end
+    local count = Look.Number((Call("GetNumSpellBookSkillLines")))
+    local last = (count and count > 0) and count or 30
+    local finish = 0
+    for index = 1, last do
+        local info = Call("GetSpellBookSkillLineInfo", index)
+        if type(info) ~= "table" then break end
+        local offset, size = Look.Number(info.itemIndexOffset), Look.Number(info.numSpellBookItems)
+        if offset and size then
+            finish = math.max(finish, offset + size)
+            if not shown[index] then
+                for slot = offset + 1, offset + size do Take(slot) end
+            end
+        end
+    end
+    for slot = finish + 1, finish + PAST_LINES do
+        if not Take(slot) then break end
+    end
+    return into
+end
+
 -- The slots a view lists: { pet, line (index into S.Lines()), search }.
 -- topRank: the highest-rank rule (the player's pages only).
 function S.ListFor(view, topRank)
@@ -221,8 +300,10 @@ function S.ListFor(view, topRank)
     local lines = S.Lines()
     if needle then
         for _, line in ipairs(lines) do LineSlots(line, needle, slots) end
+        CraftingSlots(lines, needle, slots)
     elseif lines[view.line] then
         LineSlots(lines[view.line], nil, slots)
+        if view.line == 1 then CraftingSlots(lines, nil, slots) end
     end
     if topRank then slots = TopRanks(slots) end
     return slots

@@ -81,6 +81,9 @@ function C.LayWindow(sheet, paper)
         Look.Fade(paper[key])
         if model then Look.Fade(model[key]) end
     end
+    -- Forever's gold swirl after a poison or enchant lands on your gear
+    -- (not in 1.x): faded only, its scripts and events left to the game.
+    if model then Look.Fade(model.GearEnchantAnimation) end
     -- Forever's grey strip behind its level line (a tiled rock strip and its
     -- edge, across the left pane), newer than the 1.x window: faded as a
     -- whole, so the strip never shows across the top of the 1.x art. Its

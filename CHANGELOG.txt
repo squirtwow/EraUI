@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.6
+
+### Fixed
+- Character window: no modern glow after poisons or enchants.
+- Spellbook: Poisons now shows on the General page.
+
 ## 1.8.5
 
 ### Changed

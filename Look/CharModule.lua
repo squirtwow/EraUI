@@ -169,6 +169,8 @@ local function SheetOff()
     C.HideRepBox()
     Look.Try(C.RestoreEquipment)
     Look.Alpha(PaperDollSidebarTabs, 1)
+    local model = C.Model()
+    Look.Alpha(model and model.GearEnchantAnimation, 1)
     ns.needsReload = true
 end
 

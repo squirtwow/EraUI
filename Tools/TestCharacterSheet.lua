@@ -68,6 +68,7 @@ do
     for _, key in ipairs({ "BackgroundTopLeft", "BackgroundTopRight", "BackgroundBotLeft", "BackgroundBotRight", "BackgroundOverlay" }) do
         Equal(env.CharacterModelScene[key]:GetAlpha(), 0, "the model's " .. key .. " faded")
     end
+    Equal(env.CharacterModelScene.GearEnchantAnimation:GetAlpha(), 0, "the enchant swirl faded (not in 1.x)")
     Equal(paper.BackgroundTopLeft:GetAlpha(), 0, "the paper doll's own backdrop faded")
     Equal(paper.TopBackgroundStripHost:GetAlpha(), 0, "Forever's grey level-line strip faded (it ran across the 1.x art)")
     Equal(select(1, sheet.LeftPaneHost:GetRegions()):GetAlpha(), 0, "the left pane's art faded")
@@ -787,6 +788,7 @@ do
     Equal(C.resistColumn:IsShown(), false, "the resistances hidden")
     Equal(C.rotate[1]:IsShown(), false, "the rotate buttons hidden")
     Equal(env.PaperDollSidebarTabs:GetAlpha(), 1, "the sidebar tabs' alpha back")
+    Equal(env.CharacterModelScene.GearEnchantAnimation:GetAlpha(), 1, "the enchant swirl back")
     for _, region in ipairs({ env.ReputationFrame:GetRegions() }) do
         if region:GetObjectType() == "FontString" then Equal(region:IsShown(), false, "the reputation labels hidden") end
     end

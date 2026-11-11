@@ -97,6 +97,63 @@ do
     Equal(s.game.ns.SpellBookPetTitle(), "Cat", "and through ns.SpellBookPetTitle")
 end
 
+-- A crafting spell on a line without a tab (a rogue's Poisons) joins the
+-- General page and the search; that line's other spells never do.
+do
+    local function Book(withHidden)
+        local lines = { { name = "General", count = 2 }, { name = "Combat", count = 1 } }
+        if withHidden then
+            lines[3] = { name = "Hidden", count = 3, hidden = true, items = Items({ { name = "Poisons", subName = "" },
+                { name = "Other Thing", subName = "" }, { name = "Poison Lore", subName = "", passive = true } }) }
+        end
+        return lines
+    end
+    local function Crafts(game)
+        game.env.C_TradeSkillUI = { CanTradeSkillShowCraftingUI = function(id) return id == 5004 or id == 5006 end }
+    end
+    local s = Session(Book(true), nil, Crafts)
+    local S = s.S
+    local function List(view) return table.concat(S.ListFor(view, true), ",") end
+    Equal(#S.Lines(), 2, "the hidden line still gets no tab")
+    Equal(List({ pet = false, line = 1, search = "" }), "1,2,4", "a hidden line's crafting spell shows on General")
+    Equal(List({ pet = false, line = 2, search = "" }), "3", "and only on General")
+    Equal(List({ pet = false, line = 2, search = "poi" }), "4", "the search finds it (never a passive)")
+    Equal(List({ pet = false, line = 1, search = "other" }), "", "a hidden line's other spells stay out")
+    local plain = Session(Book(false), nil, Crafts)
+    Equal(table.concat(plain.S.ListFor({ pet = false, line = 1, search = "" }, true), ","), "1,2",
+        "a character without one: General unchanged")
+    local noApi = Session(Book(true))
+    Equal(table.concat(noApi.S.ListFor({ pet = false, line = 1, search = "" }, true), ","), "1,2",
+        "no crafting check in the game: General unchanged")
+    -- As Forever has it for a rogue: the line holding Poisons isn't counted
+    -- and gives no line info, so its spells are found by slot past the others.
+    local lines = Book(true)
+    lines[3].hidden, lines[3].uncounted = nil, true
+    local past = Session(lines, nil, Crafts)
+    local function Past(view) return table.concat(past.S.ListFor(view, true), ",") end
+    Equal(#past.S.Lines() .. " " .. Past({ pet = false, line = 1, search = "" }), "2 1,2,4",
+        "a crafting spell on an uncounted line: on General, still no tab for its line")
+    Equal(Past({ pet = false, line = 2, search = "poi" }) .. " | " .. Past({ pet = false, line = 1, search = "other" }), "4 | ",
+        "the search finds it; that line's other spells stay out")
+    -- The professions sit past the counted lines too (First Aid here, slot
+    -- 7, and its own crafting spell): they have the Professions window, so
+    -- only Poisons joins General.
+    local withAid = Book(true)
+    withAid[3].hidden, withAid[3].uncounted = nil, true
+    withAid[4] = { name = "First Aid", count = 1, items = Items({ { name = "First Aid", subName = "Journeyman" } }) }
+    -- And the copy Forever keeps elsewhere, under the profession's name (slot 8).
+    withAid[5] = { name = "Elsewhere", count = 1, items = Items({ { name = "First Aid", subName = "Journeyman" } }) }
+    local aid = Session(withAid, nil, function(game)
+        game.env.C_TradeSkillUI = { CanTradeSkillShowCraftingUI = function(id) return id == 5004 or id == 5007 or id == 5008 end }
+        game.env.GetProfessions = function() return nil, nil, 9 end
+        game.env.GetProfessionInfo = function(index) if index == 9 then return "First Aid", 1, 150, 225, 1, 6, 129 end end
+    end)
+    Equal(table.concat(aid.S.ListFor({ pet = false, line = 1, search = "" }, true), ","), "1,2,4",
+        "a profession's crafting spell stays in the Professions window")
+    Equal(table.concat(aid.S.ListFor({ pet = false, line = 1, search = "first" }, true), ","), "",
+        "and out of the search")
+end
+
 ---------------------------------------------------------------------------
 -- Containers, page sets and pads
 ---------------------------------------------------------------------------

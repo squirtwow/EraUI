@@ -669,6 +669,13 @@ function Mock.SpellBook(game, lines, pet)
         offset = offset + line.count
     end
     game.items = items
+    -- A line marked uncounted (and every one after it) is left out of the
+    -- count and has no line info, as Forever does with a rogue's Poisons:
+    -- only its spells can be read, by slot.
+    local counted = #info
+    for index, line in ipairs(lines) do
+        if line.uncounted then counted = math.min(counted, index - 1) end
+    end
     local pets = pet or {}
     for slot, item in ipairs(pets) do
         if item.itemType == nil then item.itemType = 3 end
@@ -676,8 +683,8 @@ function Mock.SpellBook(game, lines, pet)
     end
     game.petItems = pets
     env.C_SpellBook = {
-        GetNumSpellBookSkillLines = function() return #info end,
-        GetSpellBookSkillLineInfo = function(i) return info[i] end,
+        GetNumSpellBookSkillLines = function() return counted end,
+        GetSpellBookSkillLineInfo = function(i) if i > counted then return nil end return info[i] end,
         GetSpellBookItemInfo = function(slot, bank)
             if bank == 1 then return pets[slot] end
             return items[slot]

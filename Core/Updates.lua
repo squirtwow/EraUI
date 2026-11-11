@@ -6,6 +6,15 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.6",
+        sections = {
+            { "Fixed", {
+                "Character window: no modern glow after poisons or enchants.",
+                "Spellbook: Poisons now shows on the General page.",
+            } },
+        },
+    },
+    {
         version = "1.8.5",
         sections = {
             { "Changed", {

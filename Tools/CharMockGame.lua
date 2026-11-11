@@ -718,6 +718,7 @@ function Mock.New(options)
         "BackgroundOverlay" }) do Own(scene, key, scene:CreateTexture(nil, "BACKGROUND")) end
     Own(scene, "ControlFrame", New("Frame", nil, scene))
     scene.ControlFrame:EnableMouse(true)
+    Own(scene, "GearEnchantAnimation", New("Frame", nil, scene))
     local function Camera(name)
         local camera = setmetatable({}, Meta)
         st[camera] = { kind = "Camera", name = name, game = true, scripts = {}, hooks = {} }
