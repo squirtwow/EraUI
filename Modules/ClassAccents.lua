@@ -13,6 +13,8 @@ local function HideOutline(outline)
 end
 local function PlayerColour(unit)
  if not EraUI:GetSetting("enabled") or not EraUI:GetSetting("unitFrames") then return end
+ -- Plain Target Name Strip: the game's own colour stays (a player asked, 2026-11-13).
+ if EraUI:GetSetting("plainNameStrip") then return end
  local player=UnitIsPlayer(unit)
  if not Public(player) or not player then return end
  local _,class=UnitClass(unit)

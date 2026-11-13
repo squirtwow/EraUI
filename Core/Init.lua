@@ -92,6 +92,7 @@ local defaults = {
     advancedCastTicks = true,
     advancedCastBatch = false, -- crafting a batch: which one of how many, and the time left for them all
     castBarClassBorder = false,
+    plainNameStrip = false, -- Plain Target Name Strip: the target/focus name strip keeps the game's colour (Modules/ClassAccents.lua)
     castBarColour = "auto", -- Cast Bar Colour: the player's and pet's cast fill; "auto" (Match look: Classic yellow, the light grey in Dark Mode), "classic", "grey", "class" or "custom"; applies live
     castBarCustomColour = "C7CCD6", -- Cast Bar Colour's Custom: a hex colour, the light grey until one is picked
     -- Ability Trail (Modules/AbilityTrail.lua, /era > Casting > Ability

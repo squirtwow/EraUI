@@ -27,7 +27,7 @@ local EXPECTED = {
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
     {"BARS AND WINDOWS", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"}}}},
    {"classcol", "Class Colours", {{"CLASS COLOURS", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel",
-    "classColourBorders", "castBarClassBorder"}}}}}},
+    "classColourBorders", "castBarClassBorder", "plainNameStrip"}}}}}},
   -- Action Rings on a sub-tab of its own (2026-11-07): its switch and
   -- options, then Your Rings (the editor's box opens under it: Tools/TestRings.lua).
   {"actionBars", "Action Bars", "The stone dock, the Classic action buttons and action rings.", {
@@ -287,7 +287,7 @@ local TRAIL_TESTING = {"abilityTrailCombatOnly",
  "abilityTrailUnlock", "abilityTrailPlace"}
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
- actionRings = true, bagBigCounts = true}
+ actionRings = true, bagBigCounts = true, plainNameStrip = true}
 for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
@@ -2662,17 +2662,17 @@ end
 do
  local E, f = Session("DRUID")
  local function Results(q) local keys, crumbs = M.Results(f, q); return table.concat(keys, ","), crumbs end
- local colours = "thickFrameEdge,darkenClassColours,classColors,tooltipClassColours,classColourFriends,classColourFriendsLevel,classColourBorders,castBarClassBorder,"
+ local colours = "thickFrameEdge,darkenClassColours,classColors,tooltipClassColours,classColourFriends,classColourFriendsLevel,classColourBorders,castBarClassBorder,plainNameStrip,"
   .. "advancedCastClassFill,castBarColour,abilityTrailBorder,statTrackerNameColour,cursorRingClassColour,cursorCastClassColour,cursorTrailClassColour"
  Open(f, "map")
  equal(Results("class colour"), colours, "class colour finds every class-colour option, in tab then page order (Stat Name Colour folded)")
  equal(Results("class color"), colours, "and so does class color")
  equal(Results("Class Colored"), colours, "and class colored")
- equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 15 options found. Click one to go to it.", "search says how many and what a click does")
+ equal(f.sectionTitle:GetText() .. " / " .. f.sectionAbout:GetText(), "Search / 16 options found. Click one to go to it.", "search says how many and what a click does")
  equal(f.subTabStrip:IsShown(), false, "no sub-tabs in search")
  for _, tab in ipairs(f.tabs) do equal(tab.underline:IsShown(), false, tab.id .. " not highlighted in search") end
  local _, crumbs = Results("class colour")
- equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[3] .. "|" .. crumbs[9] .. "|" .. crumbs[11] .. "|" .. crumbs[13],
+ equal(crumbs[1] .. "|" .. crumbs[2] .. "|" .. crumbs[3] .. "|" .. crumbs[10] .. "|" .. crumbs[12] .. "|" .. crumbs[14],
   "Appearance > Style|Appearance > Dark Mode|Appearance > Class Colours|Casting > Cast Bars|Casting > Ability Trail|Screen & Cursor > Cursor",
   "each result says where it lives")
  for i, result in ipairs(f.visibleRows) do
@@ -3296,9 +3296,9 @@ do
  trail[#trail + 1] = "abilityTrailParty"
  table.sort(trail)
  equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagBigCounts,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
-  .. "miniGameFlight,miniGameWhack,partyOutline,spellbookCombatDrag",
+  .. "miniGameFlight,miniGameWhack,partyOutline,plainNameStrip,spellbookCombatDrag",
   "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Big Bag Numbers, Herb and Ore Sparkles,"
-  .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline and Combat Spell Dragging")
+  .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline, Plain Target Name Strip and Combat Spell Dragging")
  f.searchBox:SetText(""); Flush()
 end
 

@@ -19,7 +19,7 @@ local DEPENDS = {
     advancedCastBatch = "advancedCastBar",
     trainingGuide = "spellbook", spellbookCombatDrag = "spellbook",
     portraitDebuffs = "unitFrames", matchFocusSize = "unitFrames", disableAggroHighlight = "unitFrames",
-    classColourBorders = {"darkMode", "unitFrames"}, gryphons = "actionBars",
+    classColourBorders = {"darkMode", "unitFrames"}, plainNameStrip = "unitFrames", gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
     -- Dark Bag Buttons isn't here: it shows with or without Dark Mode.
@@ -424,6 +424,7 @@ local settingHelp = {
     advancedCastClassFill = "A muted class colour instead of gold. Priests get dark silver so the text stays readable.",
     advancedCastTicks = "Marks each tick on channelled spells whose description gives the ticks. Not every channel does.",
     castBarClassBorder = "Class-coloured outlines on player, target, focus and your nameplate cast bars. NPCs keep theirs.",
+    plainNameStrip = "The strip behind the target's and focus's names keeps the game's colour instead of a player's class colour.",
     castBarColour = "Your own and your pet's cast bar fill. Match look: yellow in Classic, light grey in Dark Mode. Interrupted casts stay red, uninterruptible ones grey.",
     castBarCustomColour = "Click to pick the colour of your own and your pet's cast bar.",
     mapQuestObjectives = "Blizzard's quest objectives on the world map, using the game's own map filter.",
@@ -553,7 +554,7 @@ local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecon
     abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
     abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
     abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
-    actionRings = true, bagBigCounts = true}
+    actionRings = true, bagBigCounts = true, plainNameStrip = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -1003,6 +1004,10 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:Refresh() end
             return
         end
+        if key=="plainNameStrip" then
+            if EraUI.modules.ClassAccents then EraUI.modules.ClassAccents:RefreshFrames() end
+            return
+        end
         if key=="hunterFeed" or key=="mageSupplies" or key=="mageAutoTrade" or key=="roguePoisons" or key=="classReminders" then
             local tools=EraUI.modules.ClassTools
             if tools then tools:Refresh() end
@@ -1251,6 +1256,8 @@ local function BuildLookRows(frame)
     level.searchText = level.searchText .. " class coloured friends level levels friend list social battle.net battlenet bnet character"
     MakeCheck(frame, "Class-coloured Unit Borders", "classColourBorders", nil, "Class-coloured unit frame borders. Needs Dark Mode and Unit Frames.", false)
     MakeCheck(frame, "Class-coloured Cast Border", "castBarClassBorder", nil, "Class-coloured outlines on players' cast bars. NPCs keep theirs.", false)
+    local strip = MakeCheck(frame, "Plain Target Name Strip", "plainNameStrip", nil, "The target's and focus's name strip keeps the game's colour, not a class colour.", false)
+    strip.searchText = strip.searchText .. " class coloured colored name background bar reputation reaction"
 end
 
 -- Clean Minimap's two styles, and the drawer's icons per row: folded under

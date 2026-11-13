@@ -61,7 +61,7 @@ local TABS = {
                 S("Bars and windows", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"})}},
             {id = "classcol", name = "Class Colours", sections = {
                 S("Class colours", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel", "classColourBorders",
-                    "castBarClassBorder"})}},
+                    "castBarClassBorder", "plainNameStrip"})}},
         }},
     -- Action Rings on a sub-tab of its own (a new tab would renumber the
     -- saved new-player hints): its switch and options, then Your Rings with
