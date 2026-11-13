@@ -230,6 +230,7 @@ Added("1.8.3", {"actionRings", "actionRingScale", "actionRingNames", "actionRing
 -- Name in Chat is one step too: its name box and ticks show with the switch.
 Added("1.8.3", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"})
 Added("1.8.4", {"bagArrowArmourColour", "bagBigCounts"})
+Added("1.8.7", {"plainNameStrip"})
 Nav.ADDED = ADDED
 -- Rows with no room for "just added" and their other words between their
 -- name and their buttons (Tools/TestSettingsLayout measures every row that

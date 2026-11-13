@@ -6,6 +6,14 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.7",
+        sections = {
+            { "Added", {
+                "Plain Target Name Strip: target and focus names keep the game's colour.",
+            } },
+        },
+    },
+    {
         version = "1.8.6",
         sections = {
             { "Fixed", {
