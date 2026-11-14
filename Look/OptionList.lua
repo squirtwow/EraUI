@@ -102,7 +102,7 @@ Row("guildRoster", "Classic guild roster",
     "The old guild tab: the member count, the message of the day, four sortable columns and the old buttons.")
 Row("spellBook", "Classic spellbook",
     "The 1.x parchment spellbook. The spellbook button opens it; the spellbook key opens the game's own.")
-Row("spellDrag", "Drag spells to the bars in a fight (experimental)",
+Row("spellDrag", "Drag spells to the bars in a fight",
     "Keeps the game's own spellbook open out of sight under this one, so a spell dragged in a fight still lands on the bars.",
     "spellBook")
 Row("spellBookTopRank", "Highest spell ranks only",
@@ -117,5 +117,5 @@ Row("professionsBook", "Classic professions book", "The professions overview as 
 Row("panels", "Classic window frames",
     "The old metal border, round portrait, small red X, stone title strip and character sheet tabs on the game's windows.")
 -- Added 2026-10-22, last so the old page's two columns keep their places.
-Row("legacyWindow", "Classic Legacy window (experimental)",
+Row("legacyWindow", "Classic Legacy window",
     "The Legacy window (Y) in the 1.x look, like the spellbook: stone frame, parchment pages, red-brown tabs, the challenges as a quest log and the Legacy Tree as old talents. Everything in it works as before. Turning this off takes full effect after a reload.")

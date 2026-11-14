@@ -353,7 +353,7 @@ local settingHelp = {
     afkShowDate = "Today's date on the AFK screen.",
     afkShowQuote = "A famous Classic line for your class, like a loading screen tip. A new one each time you're away.",
     tooltipClassColours = "A player's tooltip border, name and class in their class colour, on EraUI's tooltips or the game's own. NPCs keep theirs.",
-    bagItemLevels = "Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too (experimental).",
+    bagItemLevels = "Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too.",
     bagArrowArmourColour = "Upgrade arrows on armour show its type: cloth purple, leather orange, mail blue, plate silver. Weapons, jewellery and cloaks stay green.",
     bagBigCounts = "Stack counts and cooldowns in your bags in the same big number as item levels.",
     characterItemLevels = "Item levels on the gear you wear, in quality colours, in EraUI's character window or Blizzard's. They match Bag Item Levels.",
@@ -521,49 +521,9 @@ settingHelp.miniGameReset = "Starts both games' levels again. Coins, power-ups a
 -- Rows whose description is another setting's (the Classic / Dark Mode choice).
 local HELP_KEY = {appearanceChoice = "darkMode"}
 
--- Not seen working in game yet: the row says "experimental" after its name
--- (Core/SettingsRows.lua), so its description doesn't have to. The user
--- checked the rest in game on 2026-10-15 and they lost the tag; Craft Batch
--- Countdown lost it on 2026-10-20 (the user: "drop the experimental").
--- Combat Spell Dragging got it on 2026-10-21 (Squirt's call for the
--- spellbook's rewrite: off unless chosen, experimental). On Tooltips Too
--- (under Hide Surnames) got it on 2026-10-28. The mini-games' flight choice
--- and Play rows got it on 2026-10-31 (new, off by default). Herb and Ore
--- Sparkles got it on 2026-11-04 (new, off by default, ore not seen in game).
--- Open Clams (new 2026-11-07) was seen working in game the same day, so it
--- never needed it. Ability Trail's Party line got it on 2026-11-07 (new, off
--- by default; the game hides party spells, not seen in a group yet). Squirt
--- has seen You's gliding icons (Scrolling Icons on, its default), the Speed
--- setting's gaps and the Match look border in game; the page's other options
--- got it for 1.8.3 (2026-11-08, the release tidy-up): Show For (the still row), Travel
--- Distance, Combat Only, Border (Class and Custom not tried) and its Custom
--- Colour, the four Show In ticks, Tooltip, Spell ID, Pause On Hover,
--- Ignored Abilities, Move Trails and Reset Positions. So did Thank for
--- Buffs (new the same day: the game may hide who cast a buff). Plain
--- AddOn List, Hide Zzz in Cities and Class-coloured Friends (new the same
--- day) lost it that evening: Squirt saw all three working in game. Show
--- Their Level (under Class-coloured Friends, new the same night) lost it
--- for 1.8.3: Squirt saw it working ("level shows for my friends").
--- Action Rings (new the same day, off by default) has it until Squirt sees
--- its rings work in game. Show For and Travel Distance lost it for 1.8.3
--- (2026-11-08): the word sat on their sliders, and sliders under an option
--- don't need it (the tag goes where a feature is switched on). Thank for
--- Buffs lost it the same day: Squirt saw its whisper go to a stranger.
--- Name in Chat (new the same day, off by default) has it on its switch
--- until Squirt sees "(Name) " go out in game. Arrow Colour by Armour (new
--- 2026-11-08, off by default) has it until he sees the colours in game.
--- Bag Addon Windows (under Dark Bag Buttons, new 2026-11-13, off by default)
--- has it until he sees a bag addon's bag icons grey in game.
-local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
-    miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
-    abilityTrailCombatOnly = true,
-    abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
-    abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
-    abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
-    actionRings = true, bagBigCounts = true, plainNameStrip = true, darkBagAddonSlots = true}
-local function NeedsTesting(key)
-    return EXPERIMENTAL[key] == true
-end
+-- No row says "experimental" any more (Squirt, 2026-11-14: he tries every
+-- new option in game right away). Rows used to carry it after their name
+-- until he had seen them work; new options still start off.
 
 local function DefaultText(key)
     if key == "presets" or key == "rewardProfile" or key == "classTools" or key:find("^more") then return nil end
@@ -1171,8 +1131,7 @@ EraUI.SettingsRules = {
     MAP_HANDED_OVER_HELP = MAP_HANDED_OVER_HELP, HandedOver = HandedOver, FOLDS = FOLDS, Folded = Folded, SHOWN_WITH = SHOWN_WITH,
     SHOWN_WITHOUT = SHOWN_WITHOUT, BELONGS = BELONGS,
     FOLD_CHOICES = FOLD_CHOICES, GROUPS = GROUPS, GroupParent = GroupParent, OLD_NAMES = OLD_NAMES, Normalise = Normalise,
-    ComingSoon = ComingSoon, settingHelp = settingHelp, HELP_KEY = HELP_KEY, NeedsTesting = NeedsTesting,
-    EXPERIMENTAL = EXPERIMENTAL, WaitingFor = WaitingFor,
+    ComingSoon = ComingSoon, settingHelp = settingHelp, HELP_KEY = HELP_KEY, WaitingFor = WaitingFor,
     Describe = Describe, DefaultText = DefaultText, HINTS_VERSION = HINTS_VERSION,
 }
 

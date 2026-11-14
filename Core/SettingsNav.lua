@@ -743,12 +743,11 @@ end
 -- The words after a row's name ----------------------------------------------
 
 -- "just added" for an account that updated (Nav.JustAdded), never in the
--- setup walkthrough; "experimental", "coming soon" and "log out to apply"
--- always.
+-- setup walkthrough; "coming soon" and "log out to apply" always. Nothing
+-- says "experimental" (2026-11-14).
 local function TagsFor(frame, key, row, show)
     local list = {}
     if show and Nav.JustAdded(key) then list[#list + 1] = "NEW" end
-    if Rules().NeedsTesting(key) then list[#list + 1] = "TEST" end
     if row.unavailable then list[#list + 1] = "SOON" end
     if row.logoutPending then list[#list + 1] = "LOGOUT" end
     return list
@@ -1057,7 +1056,7 @@ function Nav.Build(frame, className, classToken, classCoords)
 end
 
 -- Once every row exists: where each lives (rowHome), each row's tab and
--- sub-tab, wide rows, and earlier names (and "experimental") for search.
+-- sub-tab, wide rows, and earlier names for search.
 function Nav.Index(frame)
     local OLD_NAMES = Rules().OLD_NAMES
     frame.rowHome, frame.pages = {}, {}
@@ -1084,8 +1083,6 @@ function Nav.Index(frame)
     for key, row in pairs(frame.checks) do
         row.settingKey = key
         if Nav.WIDE[key] or row.wideRow then row.wide = true; row:SetWidth(Rows().WIDE) end
-        -- "experimental" after its name finds it too.
-        if row.searchText and Rules().NeedsTesting(key) then row.searchText = row.searchText .. " experimental" end
         local old = OLD_NAMES[key]
         if old and row.searchText then
             for _, name in ipairs(type(old) == "table" and old or {old}) do

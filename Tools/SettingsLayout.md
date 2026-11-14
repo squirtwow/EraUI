@@ -94,16 +94,13 @@ damage font list and buttons (Presets, Get it) sit in rows of the same look.
 
 Right after a row's name, a small plain word or two (10 point, lower case,
 no box, no border, no capitals; 5 apart, 6 after the name, on the name's
-line): "just added" in the game's gold (1, .82, 0), "experimental" in a
-muted warm grey (.66, .61, .53) for options not seen working in game yet
-(`EXPERIMENTAL` in Core/Settings.lua: only the Raid-style Party Outline,
-which needs a party to check; the user saw the other eighteen working in game
-on 2026-10-15 and they lost the word: Aura Shadows, Thin Debuff Colours,
-Dark Windows, Black Pages, Dark Bag Buttons, Character Item Levels, Flat
-Bars, Thick Aura Borders, Rounded Cast Bars, Thick Frames, Portrait Rings,
-Classic Party Frames, Edge, Cast Bar Colour, Clean Minimap's Style, Square
-Minimap, Upgrade Spell Ranks, Stat Tracker), "coming soon" and "log out to
-apply" (a new damage font, after the font button) in the muted grey.
+line): "just added" in the game's gold (1, .82, 0), "coming soon" and "log
+out to apply" (a new damage font, after the font button) in the muted grey.
+No row says "experimental" any more (Squirt, 2026-11-14: he tries every new
+option in game right away). Options not yet seen working in game used to
+carry it in a muted warm grey (`EXPERIMENTAL` in Core/Settings.lua); the
+list, its rule and the word are gone, and TestSettingsLayout checks that no
+row, search result or description says it.
 
 "just added" is per release. `ADDED` in `Core/SettingsNav.lua` says which
 release brought each option (1.6.0: Flat Bars, Dark Windows, Black Pages,
@@ -140,9 +137,8 @@ added", checked by TestSettingsLayout); its Square Size
 
 Nothing says an option moved any more (the user, 2026-10-11: the boxed
 capital labels "looked too AI generated"). Search results carry the same
-words, and searching "experimental" finds the option that says it. The class
-box's Click to apply poisons says "experimental" the same way (its own tag,
-`T.TickTag` in Modules/ClassReminders.lua, not the `EXPERIMENTAL` list).
+words. The class box's Click to apply poisons has no word after its name
+either (its own "experimental" tag, `T.TickTag`, went on 2026-11-14).
 
 A slider row shows "Name: value" in 194 (12 to 206; the slider from 214), so
 the longest, "Cast Ring Opacity (%): 100", fits whole; the wide sliders keep
@@ -233,7 +229,7 @@ widths in `Tools/SettingsMock.lua`, never under the game's; roughly 150
 letters). They were rewritten short on 2026-10-11 (the user: "descriptions
 are too long, shorten them"): plain, British spelling, no em dashes, the one
 caveat that matters (Discard Junk When Full: never in combat, Shift skips),
-no "Needs testing" (the row's "experimental" says it), no reload, "applies
+no "Needs testing" or "experimental", no reload, "applies
 immediately" or default (the footer adds those), Shift always "Hold Shift to
 skip" (never "bypass"), no other addon's name (Quest Tracker: "another quest
 addon's tracker"; Squirt's own addons may be named), and location words that

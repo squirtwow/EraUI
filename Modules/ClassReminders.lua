@@ -1118,8 +1118,6 @@ local function BuildOptions(parent,anchor)
   local poisonClick,mainPoison,offPoison
   if poisonSupported then
    poisonClick=ToggleRow(dropdown,"Click to apply poisons",PoisonClick,function(v)SetOpt("reminderPoisonClick",v)end)
-   -- Not seen working in game yet: a small "experimental" after its name.
-   T.TickTag(poisonClick,"experimental")
    Needs(poisonClick,Clickable,"Turn on Clickable reminders to use this.")
    Explain(poisonClick,"Click to apply poisons",Poisons.ClickHelp,function()return "Default: Off."end)
    mainPoison,offPoison=PoisonButton(dropdown,"main"),PoisonButton(dropdown,"off")

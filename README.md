@@ -29,7 +29,7 @@ or off in the settings.
 - Frame Style (Classic or Dark Mode): Flat Bars, Thick Frames (thick dark
   frames with round corners and taller bars, with portrait rings, Classic
   party frames and a fine class-colour edge if you like), Thick Aura Borders,
-  Rounded Cast Bars and an experimental Raid-style Party Outline for the
+  Rounded Cast Bars and a Raid-style Party Outline for the
   game's raid-style party frames
 - Tooltips: translucent dark backgrounds and thin, bevelled grey borders
   with softened corners, including linked items and item comparisons, and
@@ -95,7 +95,7 @@ or off in the settings.
   reminders hide while you're on a flight path. Paladins can pick a seal and
   aura under Advanced, and hunters and warlocks can turn on PET LOW HEALTH!
   Rogues get POISON! with a poison picked for each hand in /era; Click to
-  apply poisons (experimental, off by default) puts it on outside combat,
+  apply poisons (off by default) puts it on outside combat,
   left-click for the main hand and right-click for the off hand
 - Class tools: hunter feeding, mage supplies, rogue poisons
 - Optional Training Guide tab inside the Classic spellbook: bundled Forever
@@ -107,8 +107,8 @@ or off in the settings.
   Existing saved choices are respected; change either option in `/era` and reload.
 - Quest Item Sparkles (on by default): lootable quest items sparkle so they're
   easy to spot; the game's outlines are off while it's on. Herb and Ore Sparkles
-  (experimental, off by default): the nearest herb or ore sparkles as you get close
-- Flight mini-games (experimental, off by default): Whack-a-Gnome (Whack-a-Peon
+  (off by default): the nearest herb or ore sparkles as you get close
+- Flight mini-games (off by default): Whack-a-Gnome (Whack-a-Peon
   for the Alliance) and Azeroth Blast, with levels, bosses and saved progress
 - Coordinates, clean minimap (addon buttons hidden until you hover, or tucked
   into one drawer button), a square minimap you can resize, Remember Minimap

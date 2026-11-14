@@ -1803,7 +1803,7 @@ do
     p.new:Click()
     kinds = {}
     for _, entry in ipairs(p.menu.entries) do if entry.shown then kinds[#kinds + 1] = entry.label:GetText() end end
-    equal(table.concat(kinds, ","), "Empty Ring,Quest Items,Raid Markers,World Markers (experimental),Mounts,Mage Ring", "with them: World Markers (experimental)")
+    equal(table.concat(kinds, ","), "Empty Ring,Quest Items,Raid Markers,World Markers,Mounts,Mage Ring", "with them: World Markers, no (experimental)")
     p.menu.entries[1]:Click()
     equal(Ed.slot .. " " .. D.Ring(1).kind .. " " .. D.Ring(1).name .. " " .. tostring(p.menu.shown), "1 custom My Ring false", "Empty Ring made in slot 1")
     equal(p.list[1].shown and p.list[1].name:GetText() .. " | " .. p.list[1].key:GetText(), "1  My Ring | no key", "listed with no key yet")
@@ -2067,7 +2067,8 @@ do
     M:Edited(world)
     Ed.slot = world
     Ed.Refresh()
-    equal(p.note:GetText(), Ed.NOTES.world, "World Markers: its note, (experimental) and all")
+    equal(p.note:GetText(), Ed.NOTES.world, "World Markers: its note")
+    equal(p.note:GetText(), "Ground markers where you aim, in a group you lead or assist.", "World Markers' note says what it does, no (experimental)")
     Fits("World Markers")
     PlaceRaidMarker = nil
     M:Edited(world)
@@ -2144,7 +2145,7 @@ do
     SM.Fits(f, "Action Rings")
     SM.equal(f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + .01 and f.settingsScrollHint:IsShown(), true, "the page scrolls with the box open")
     SM.equal(panel:GetTop() <= heading:GetBottom() - 5.99 and panel:GetLeft() == f.settingsContent:GetLeft(), true, "6 under its row, at the page's left")
-    SM.equal(f.checks.actionRings.tagIds[1], "TEST", "Action Rings says experimental")
+    SM.equal(table.concat(f.checks.actionRings.tagIds, ","), "", "Action Rings says nothing after its name (no experimental)")
     -- /era closed: the box goes with its row (the row's OnHide), so a fight
     -- starting or ending, a key changed or the rings switched off and on
     -- redraw nothing nobody sees; opening /era again redraws it.

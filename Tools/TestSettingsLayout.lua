@@ -241,10 +241,10 @@ for parent, kids in pairs(FOLDED) do for _, kid in ipairs(kids) do PARENT[kid] =
 -- before its buttons would say only those (TIGHT, measured below): none now.
 -- Clean Minimap's Style and Cast Bar Colour were, while they said
 -- "experimental"; seen working in game (2026-10-15), they have room.
--- Then those not seen working in game yet ("experimental", always): since
--- the user's check in game on 2026-10-15, only the Raid-style Party Outline,
--- and Combat Spell Dragging since 2026-10-21 (Squirt's call: off unless
--- chosen, experimental). Nothing says it moved any more.
+-- No row says "experimental" any more (Squirt, 2026-11-14: he tries every
+-- new option in game right away); WAS_TESTING below is the rows that said
+-- it until then, each checked to say nothing now. Nothing says it moved
+-- any more.
 local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
  ["1.7.0"] = {"thickFrames", "thickAuraBorders", "roundedCastBars", "partyOutline", "darkBagButtons", "upgradeSpellRanks",
   "cleanMinimapStyle", "castBarColour", "statTracker"},
@@ -266,29 +266,20 @@ local function NewSince(from)
  end
  return out
 end
--- On Tooltips Too (under Hide Surnames) since 2026-10-28. The mini-games'
--- flight choice and Play rows since 2026-10-31 (new, off by default). Herb and
--- Ore Sparkles since 2026-11-04 (new, off by default, ore not seen in game).
--- Open Clams (new 2026-11-07) was seen working in game that day: never.
--- Ability Trail's Party line since 2026-11-07 (new, off by default, not seen in a group),
--- and Thank for Buffs (new the same day: the game may hide who cast a buff).
--- Ability Trail's rows not seen in game since 2026-11-08 (the 1.8.3 tidy-up:
--- every row but You, Party's own, Scrolling Icons (on by default, the gliding
--- Squirt saw) and Speed). Plain AddOn List, Hide Zzz in
--- Cities and Class-coloured Friends were seen working in game that evening:
--- never. Show Their Level (under Class-coloured Friends, new that night) was
--- seen too, so never since 1.8.3. Action Rings (new the same day, off by
--- default) until he sees its rings work. Show For and Travel Distance never
--- since 2026-11-08: the word sat on their sliders. Name in Chat (new the
--- same day) never: Squirt saw "(Squirt)" go out in game that day.
+-- The rows that said "experimental" until 2026-11-14: the Raid-style Party
+-- Outline, Combat Spell Dragging, On Tooltips Too, the mini-games' flight
+-- choice and Play rows, Herb and Ore Sparkles, Ability Trail's Party line
+-- and its rows not seen in game then (all but You, Party's own, Scrolling
+-- Icons, Speed, Show For and Travel Distance), Action Rings, Big Bag
+-- Numbers, Plain Target Name Strip and Bag Addon Windows. None says it now.
 local TRAIL_TESTING = {"abilityTrailCombatOnly",
  "abilityTrailBorder", "abilityTrailBorderColour", "abilityTrailInWorld", "abilityTrailInDungeons", "abilityTrailInRaids",
  "abilityTrailInBattlegrounds", "abilityTrailTooltip", "abilityTrailSpellID", "abilityTrailPauseOnHover", "abilityTrailIgnored",
  "abilityTrailUnlock", "abilityTrailPlace"}
-local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
+local WAS_TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
  actionRings = true, bagBigCounts = true, plainNameStrip = true, darkBagAddonSlots = true}
-for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
+for _, key in ipairs(TRAIL_TESTING) do WAS_TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
  "flatBars", "thickAuraBorders", "roundedCastBars", "thickFrames", "thickFrameRings", "thickFrameParty", "thickFrameEdge",
@@ -450,10 +441,13 @@ for _, c in ipairs(CLASSES) do
  if c == "ROGUE" then
   local pc, main, off = p.poisonClick, p.mainPoison, p.offPoison
   equal(pc.label:GetText(), "Click to apply poisons", "Click to apply poisons: a plain name")
-  equal(pc.tag:GetText() .. " " .. Colour(pc.tag.colour), "experimental 0.660,0.610,0.530", "with a small warm grey experimental after it")
-  equal(pc.tag.font[2] == 10 and pc.tag:GetText() == pc.tag:GetText():lower(), true, "small, lower case")
-  equal(pc.tag:GetLeft() >= pc.label:GetLeft() + pc.label:GetStringWidth() + 4 and pc.tag:GetLeft() + pc.tag:GetStringWidth() <= pc:GetRight(), true,
-   "right after the name, inside its switch")
+  equal(pc.tag, nil, "no experimental word after its name")
+  local pcWords = {}
+  for _, region in ipairs(pc.children or {}) do
+   local text = region.GetText and region:GetText()
+   if type(text) == "string" then pcWords[#pcWords + 1] = text end
+  end
+  equal(#pcWords > 0 and not Has(table.concat(pcWords, " "):lower(), "experimental"), true, "its words (" .. table.concat(pcWords, " / ") .. ") never say experimental")
   equal(pc.label:GetStringWidth() <= pc.label:GetWidth(), true, "its label fits its width")
   equal(pc.dependencyDisabled, true, "greyed out until Clickable reminders is on")
   -- The rogue's box: Show during combat | Clickable reminders, Click to apply
@@ -484,8 +478,8 @@ for _, c in ipairs(CLASSES) do
   equal(Hover(pc, "Click to apply poisons"), "Click to apply poisons\nTurn on Clickable reminders to use this.\n"
    .. "With Clickable reminders on, a left-click on POISON!'s icon puts your main hand's poison on your main hand, and a right-click puts your off hand's poison on your off hand. "
    .. "It uses the game's own item use, outside combat only, with the highest rank you carry that your level allows. "
-   .. "Pick each hand's poison with the buttons below. Experimental: not seen working in game yet.\nDefault: Off.",
-   "Click to apply poisons: its title, what to turn on while greyed, what each click does, experimental, off by default")
+   .. "Pick each hand's poison with the buttons below.\nDefault: Off.",
+   "Click to apply poisons: its title, what to turn on while greyed, what each click does, off by default, no experimental")
   equal(Hover(off, "off hand pick"), "Off hand poison\nPicks the poison a right-click on POISON! puts on your off hand: the highest rank you carry that your level allows. "
    .. "Only poisons your level allows are offered, from level 20. With none in your bags, POISON! says so. Each rogue keeps its own picks.\n"
    .. "Default: Spell2835, or Spell8681 before level 30.", "the off hand's pick, in its own words, with its default from Forever's data")
@@ -727,7 +721,7 @@ do
  equal(E.settings.darkBagButtons, true, "without Classic loaded, the Dark Bag Buttons tick still saves")
  bagRow:Click()
  -- Bag Addon Windows (under Dark Bag Buttons): its words (no addon named),
- -- greyed while Dark Bag Buttons is off, experimental, off by default, live
+ -- greyed while Dark Bag Buttons is off, no experimental, off by default, live
  -- through the bag buttons' own refresh with its own chat line.
  local addonRow = f.checks.darkBagAddonSlots
  E.settings.darkBagButtons = false; f:RefreshDependencies()
@@ -737,7 +731,7 @@ do
  equal(Has(help, EM) or Has(addonRow.summary, EM), false, "no em dash")
  equal(extras, "Switch on Dark Bag Buttons first.  Default: Off.", "Bag Addon Windows names Dark Bag Buttons (same sub-tab, no place) while it's off")
  equal(addonRow.summary, "Bag icons on bag addon windows in the same grey.", "Bag Addon Windows: its summary")
- equal(table.concat(addonRow.tagIds or {}, ","), "TEST", "Bag Addon Windows says experimental")
+ equal(table.concat(addonRow.tagIds or {}, ","), "", "Bag Addon Windows says nothing after its name (no experimental)")
  E.settings.darkBagButtons = true; f:RefreshDependencies()
  _, _, extras = M.Hover(f, addonRow)
  equal(extras, "Default: Off.", "with Dark Bag Buttons on: off by default, no reload line")
@@ -762,7 +756,7 @@ do
  for _, word in ipairs({"bag addon", "addons", "window", "quiver", "herb", "satchel", "profession", "section", "icons", "grey", "gray", "dark", "experimental"}) do
   local hit = false
   for _, key in ipairs(M.Results(f, word)) do if key == "darkBagAddonSlots" then hit = true end end
-  equal(hit, true, "searching " .. word .. " finds Bag Addon Windows")
+  equal(hit, word ~= "experimental", "searching " .. word .. (word ~= "experimental" and " finds Bag Addon Windows" or " no longer finds Bag Addon Windows"))
  end
  for _, word in ipairs({"bag", "backpack", "icon", "grey", "gray", "colour", "color", "open", "dark"}) do
   local hit = false
@@ -811,8 +805,8 @@ do
  E.modules.AuraStyle = nil
  -- Bag Item Levels and Character Item Levels.
  _, help, extras = M.Hover(f, f.checks.bagItemLevels)
- equal(help, "Bag Item Levels  Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too (experimental).",
-  "Bag Item Levels help: the levels, the arrow, not the bank, bag addons")
+ equal(help, "Bag Item Levels  Item levels on bag gear, in quality colours, with a green arrow on upgrades. Not the bank yet. Works in popular bag addons too.",
+  "Bag Item Levels help: the levels, the arrow, not the bank, bag addons, no (experimental)")
  equal(extras, "Default: Off.", "Bag Item Levels off by default, no Coming soon")
  local count = 0
  local realBags = E.modules.BagItemLevels
@@ -2027,7 +2021,7 @@ do
  equal(f.rowHome.partyOutline.tab == f.rowHome.flatBars.tab and f.rowHome.partyOutline.sub == f.rowHome.flatBars.sub, true,
   "Raid-style Party Outline on Flat Bars' page")
  equal(Keys(f):find("roundedCastBars,partyOutline$") ~= nil, true, "the Raid-style Party Outline last, right after Rounded Cast Bars")
- equal(table.concat(outlineRow.tagIds or {}, ","), "TEST", "it says experimental (just added too for returning players: checked with the rest below)")
+ equal(table.concat(outlineRow.tagIds or {}, ","), "", "no experimental after its name (just added for returning players: checked with the rest below)")
  local _, outlineHelp, outlineExtras = M.Hover(f, outlineRow)
  equal(outlineHelp, "Raid-style Party Outline  Flat bars and one thick dark outline round the game's raid-style party frames. The outline shows while Edit Mode's Display Border is on.",
   "Raid-style Party Outline: its words")
@@ -3045,8 +3039,8 @@ end
 -- Descriptions: every option's footer description (its name, then its help)
 -- fits two of the footer's lines at the default window size, for every
 -- class, every row kind and every reward profile; no em dash, no "Needs
--- testing" (the row says experimental), no other addon's name, British
--- spelling. The extras always fit two lines too.
+-- testing" or "experimental" (since 2026-11-14 nothing says either), no
+-- other addon's name, British spelling. The extras always fit two lines too.
 local DESCRIBED = {}
 for _, run in ipairs({{"DRUID", true}, {"HUNTER"}, {"MAGE"}, {"ROGUE"}, {"WARRIOR"}, {"PALADIN"}, {"SHAMAN"}, {"PRIEST"}, {"WARLOCK"}, {"DRUID", nil, true}}) do
  local c = run[1]
@@ -3069,6 +3063,7 @@ for _, run in ipairs({{"DRUID", true}, {"HUNTER"}, {"MAGE"}, {"ROGUE"}, {"WARRIO
     equal(#body > 0 and not Has(help, EM) and not Has(help, EN), true, where .. " has a description, no em or en dash")
     equal(M.LinesIn(help, WIDTH, SIZE) <= 2, true, where .. " fits two footer lines: " .. help)
     equal(Has(help:lower(), "needs testing") or Has(help, "Questie") or Has(help:lower(), "color"), false, where .. " no Needs testing, no other addon, British spelling")
+    equal(Has(help:lower(), "experimental") or Has(extras:lower(), "experimental"), false, where .. " no experimental in its description or extras")
     equal(M.LinesIn(extras, WIDTH, SIZE) <= 2 and not Has(extras, EM), true, where .. " extras fit two lines: " .. extras)
     -- The footer adds the reload line and the default itself, so the help
     -- never says them; Shift always "skips".
@@ -3147,11 +3142,11 @@ end
 -- The words after a row's name: "just added" (the game's gold) for an
 -- account that updated, on the options added since the version it updated
 -- from, while it runs the version it updated into (none for a fresh
--- install); "experimental" (muted warm grey) always; never "moved"; never
+-- install); never "experimental" (since 2026-11-14); never "moved"; never
 -- in setup.
 -- Plain small lower-case words right after the name: no box, no border, no
 -- capitals, no spaced-out letters, on the name's line, inside the row.
-local WORDS = {NEW = {"just added", "1.000,0.820,0.000"}, TEST = {"experimental", "0.660,0.610,0.530"},
+local WORDS = {NEW = {"just added", "1.000,0.820,0.000"},
  SOON = {"coming soon", "0.580,0.620,0.680"}, LOGOUT = {"log out to apply", "0.580,0.620,0.680"}}
 local function TagLook(row, label)
  local x = row.text:GetLeft() + row.text:GetStringWidth()
@@ -3213,7 +3208,6 @@ do
   for key in pairs(f.checks) do
    local want = {}
    if new[key] then want[#want + 1] = "NEW" end
-   if TESTING[key] then want[#want + 1] = "TEST" end
    if f.checks[key].unavailable then want[#want + 1] = "SOON" end
    equal(Tags(key), table.concat(want, ","), label .. " " .. key)
   end
@@ -3246,19 +3240,31 @@ do
  equal(tostring(Nav.Lead("squareMinimap")) .. " " .. tostring(Nav.Lead("squareMinimapScale")), "true false",
   "Square Size goes with Square Minimap (shown only with it): one lead for 1.7.1")
  Expect(nil, "no version saved:")
- -- Only the Raid-style Party Outline says experimental; the eighteen the
- -- user saw working in game (2026-10-15) don't, here or in a release.
+ -- No row says experimental (2026-11-14): not the eighteen the user saw
+ -- working in game (2026-10-15), not the rows that said it until then, and
+ -- the rule behind the word is gone.
  local seen = {}
  for _, key in ipairs(SEEN_WORKING) do
-  equal(f.checks[key] ~= nil and E.SettingsRules.NeedsTesting(key) == false and TESTING[key] == nil, true, key .. ": seen working, not experimental")
+  equal(f.checks[key] ~= nil and WAS_TESTING[key] == nil, true, key .. ": seen working, never experimental")
   if Tags(key) == "" then seen[#seen + 1] = key end
  end
- equal(#seen .. " " .. Tags("partyOutline") .. " " .. tostring(E.SettingsRules.NeedsTesting("partyOutline")), "18 TEST true",
-  "the eighteen say nothing, the Raid-style Party Outline still says experimental")
+ local quiet = {}
+ for key in pairs(WAS_TESTING) do
+  equal(f.checks[key] ~= nil, true, key .. ": said experimental until 2026-11-14 and is still a row")
+  if f.checks[key] and Tags(key) == "" then quiet[#quiet + 1] = key end
+ end
+ local wasCount = 0
+ for _ in pairs(WAS_TESTING) do wasCount = wasCount + 1 end
+ equal(#seen .. " " .. #quiet .. "/" .. wasCount .. " " .. Tags("partyOutline") .. " " .. tostring(E.SettingsRules.NeedsTesting) .. " "
+  .. tostring(E.SettingsRules.EXPERIMENTAL) .. " " .. tostring(E.SettingsRows.TAGS.TEST),
+  "18 25/25  nil nil nil", "the eighteen say nothing, nor do the twenty-five that said experimental; no rule or word for it is left")
+ for id, info in pairs(E.SettingsRows.TAGS) do
+  equal(Has(info[1]:lower(), "experimental"), false, id .. ": no row word says experimental")
+ end
  Updated("1.5.5", "9.9.9")
  Expect("1.5.5", "updated from 1.5.5:")
  equal(Tags("darkWindows") .. " " .. Tags("blackPages") .. " " .. Tags("thickFrames") .. " " .. Tags("thickFrameRings") .. " " .. Tags("partyOutline"),
-  "NEW  NEW  NEW,TEST", "for example: Dark Windows and Thick Frames say it, the ticks under them don't; the Party Outline says experimental too")
+  "NEW  NEW  NEW", "for example: Dark Windows, Thick Frames and the Party Outline say it, the ticks under them don't; nothing says experimental")
  Updated("1.6.0", "9.9.9")
  Expect("1.6.0", "updated from 1.6.0:")
  equal(Tags("flatBars") .. " " .. Tags("statTracker") .. " " .. Tags("castBarColour"), " NEW NEW", "from 1.6.0 only 1.7.0's options say it")
@@ -3271,7 +3277,7 @@ do
  -- with 1.7.0's rows in it): only up to the version it runs.
  E.version = "1.6.0"
  Updated("1.5.5", "1.6.0")
- equal(Tags("darkWindows") .. " " .. Tags("thickFrames") .. " " .. Tags("statTracker") .. " " .. Tags("partyOutline"), "NEW   TEST",
+ equal(Tags("darkWindows") .. " " .. Tags("thickFrames") .. " " .. Tags("statTracker") .. " " .. Tags("partyOutline"), "NEW   ",
   "running 1.6.0: its own options, not 1.7.0's")
  E.version = "9.9.9"
  Updated("1.5.5", "9.9.9")
@@ -3304,7 +3310,7 @@ do
  local saying = NewSince("1.5.5")
  for _ in pairs(saying) do newCount = newCount + 1 end
  for key, row in pairs(f.checks) do
-  if TESTING[key] or row.unavailable or saying[key] then worded = worded + 1 end
+  if row.unavailable or saying[key] then worded = worded + 1 end
   if #row.tagIds > 0 then
    local home = f.rowHome[key]
    f:SelectCategory(home.tab, home.sub); Flush()
@@ -3313,7 +3319,7 @@ do
   end
  end
  equal(newCount, 31, "updated from 1.5.5: the thirty-one options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2, 1.8.3, 1.8.4 and 1.8.7 say just added")
- equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the twenty-eight just added, the Party Outline also experimental, and the coming soon ones)")
+ equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the thirty-one just added and the coming soon ones, none experimental)")
  -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as
  -- they show to an account that updated.
@@ -3350,20 +3356,15 @@ do
  M.Results(f, "raid-style party outline")
  result = nil
  for _, shown in ipairs(f.visibleRows) do if shown.target and shown.target.settingKey == "partyOutline" then result = shown end end
- equal(result and (result.target.settingKey .. " " .. table.concat(result.tagIds, ",")), "partyOutline NEW,TEST", "the Party Outline's result: just added and experimental")
+ equal(result and (result.target.settingKey .. " " .. table.concat(result.tagIds, ",")), "partyOutline NEW", "the Party Outline's result: just added, no experimental")
  TagLook(result, "the Raid-style Party Outline result")
- -- "experimental" finds the experimental options, only them.
+ -- "experimental" finds nothing: no row says it, and no row's search words
+ -- hold it (the rows that said it until 2026-11-14 included).
  local found = M.Results(f, "experimental")
- table.sort(found)
- local trail = {}
- for _, key in ipairs(TRAIL_TESTING) do trail[#trail + 1] = key end
- trail[#trail + 1] = "abilityTrailParty"
- table.sort(trail)
- equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagBigCounts,darkBagAddonSlots,gatherSparkles,hideSecondaryNamesTooltips,"
-  .. "miniGameBlast,miniGameFlight,miniGameWhack,partyOutline,plainNameStrip,spellbookCombatDrag",
-  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Big Bag Numbers, Bag Addon Windows,"
-  .. " Herb and Ore Sparkles, On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline, Plain Target Name Strip"
-  .. " and Combat Spell Dragging")
+ equal(table.concat(found, ","), "", "searching experimental finds nothing")
+ for key, row in pairs(f.checks) do
+  equal(row.searchText and Has(row.searchText:lower(), "experimental") or false, false, key .. ": no experimental in its search words")
+ end
  f.searchBox:SetText(""); Flush()
 end
 
@@ -4792,10 +4793,11 @@ do
  module.unlocked = false
  c.abilityTrailPlace.button:Click()
  equal(c.abilityTrailPlace.labelText .. " " .. resets .. " " .. tostring(status), "Reset Positions 1 Ability Trail: every trail is back where it starts.", "Reset Positions")
- -- Its own words: "experimental" after Party and after each row not seen in
- -- game (1.8.3: all but You, Scrolling Icons and Speed); for an account that updated from
- -- 1.8.2, "just added" after You only (the page is one step), You and Party
- -- clear of the first direction button, every row's words clear of its own.
+ -- Its own words: for an account that updated from 1.8.2, "just added"
+ -- after You only (the page is one step), nothing after any other row (Party
+ -- and the rows not seen in game said "experimental" until 2026-11-14), You
+ -- and Party clear of the first direction button, every row's words clear
+ -- of its own.
  E.settings.justAddedFrom, E.settings.justAddedVersion = "1.8.2", "9.9.9"
  f:Hide(); f:Show(); Flush(); Open(f, "casting", "trail")
  local worded, want = {}, {}
@@ -4804,13 +4806,15 @@ do
    worded[#worded + 1] = key .. ":" .. table.concat(c[key].tagIds, ",")
    if c[key]:IsShown() then TagLook(c[key], key .. " on the Ability Trail page") end
   end
-  if key == "abilityTrail" then want[#want + 1] = key .. ":NEW" elseif TESTING[key] then want[#want + 1] = key .. ":TEST" end
+  if key == "abilityTrail" then want[#want + 1] = key .. ":NEW" end
  end
- equal(table.concat(worded, " "), table.concat(want, " "), "just added after You, experimental after Party and the rows not seen in game, nothing else")
+ equal(table.concat(worded, " "), table.concat(want, " "), "just added after You, nothing else (no experimental after Party or the other rows)")
+ local trailQuiet = 0
+ for _, key in ipairs(TRAIL_TESTING) do if #c[key].tagIds == 0 then trailQuiet = trailQuiet + 1 end end
  equal(#c.abilityTrailSpeed.tagIds .. " " .. #c.abilityTrailScroll.tagIds .. " " .. #c.abilityTrailDistance.tagIds
-  .. " " .. #c.abilityTrailSeconds.tagIds .. " " .. #want, "0 0 0 0 15",
-  "Speed, Scrolling Icons, Travel Distance and Show For say nothing; You, Party and thirteen rows say something")
- M.NoOverlaps(f, "Ability Trail with its experimental words"); M.Fits(f, "Ability Trail with its experimental words")
+  .. " " .. #c.abilityTrailSeconds.tagIds .. " " .. #c.abilityTrailParty.tagIds .. " " .. trailQuiet .. " " .. #want, "0 0 0 0 0 13 1",
+  "Speed, Scrolling Icons, Travel Distance, Show For, Party and the thirteen that said experimental say nothing; only You says something")
+ M.NoOverlaps(f, "Ability Trail with its words"); M.Fits(f, "Ability Trail with its words")
  for _, line in ipairs({you, party}) do
   local width = M.Glyphs(line.text:GetText(), 13)
   for i in ipairs(line.tagIds) do width = width + (i == 1 and 6 or 5) + M.Glyphs(line.tags[i]:GetText(), 10) end
@@ -4846,7 +4850,7 @@ do
 end
 
 -- Action Rings (Action Bars > Action Rings, 2026-11-07): its rows show only
--- with its switch, it says experimental, a click says where the keys go, the
+-- with its switch, no experimental after its name, a click says where the keys go, the
 -- walkthrough leaves it out and search finds it by its words. The editor's
 -- box under Your Rings is Tools/TestRings.lua's (with the rings loaded).
 do
@@ -4863,7 +4867,7 @@ do
  E.modules.ActionRings = {Refresh = function() refreshed = refreshed + 1 end, AttachEditor = function() end, HideEditor = function() end}
  Open(f, "actionBars", "rings")
  equal(Keys(f), "actionRings", "Action Rings: the switch alone while it's off")
- equal(table.concat(f.checks.actionRings.tagIds, ","), "TEST", "it says experimental")
+ equal(table.concat(f.checks.actionRings.tagIds, ","), "", "nothing after its name (no experimental)")
  f.checks.actionRings:Click(); Flush()
  equal(tostring(E.settings.actionRings) .. " " .. refreshed .. " " .. tostring(said),
   "true 1 Action Rings enabled. Give each ring a key in Key Bindings > AddOns > EraUI.", "switched on: the rings start, chat says where the keys go")

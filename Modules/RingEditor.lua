@@ -25,11 +25,11 @@ Ed.LATER = "Saved. Your ring changes when this fight ends."
 -- New Ring's list: {kind, its name in the list}; the class ring's name is
 -- your class's, World Markers only on a client that has them.
 Ed.KINDS = {{"custom", "Empty Ring"}, {"quest", "Quest Items"}, {"raid", "Raid Markers"},
-    {"world", "World Markers (experimental)"}, {"mounts", "Mounts"}, {"class", "Class Ring"}}
+    {"world", "World Markers"}, {"mounts", "Mounts"}, {"class", "Class Ring"}}
 -- What a ready-made ring fills itself with (the line under its name).
 Ed.NOTES = {quest = "Fills itself with quest items you can use and items that start a quest.",
     raid = "Marks your target. Pick a mark again to take it off.",
-    world = "Ground markers where you aim, in a group you lead or assist. (experimental)",
+    world = "Ground markers where you aim, in a group you lead or assist.",
     mounts = "Your mounts, favourites first.",
     class = "Your class's spells, at the highest rank you know.",
     rogue = "Your poisons, for each hand."}

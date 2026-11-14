@@ -66,7 +66,7 @@ local defaults = {
     darkDebuffLines = false, -- Thin Debuff Colours: debuffs get the dark border with a thin line in their type's colour; off by default
     darkMenuBar = true, -- Dark Menu Bar: shows only in Dark Mode, so choosing Dark Mode gives it
     darkBagButtons = false, -- Dark Bag Buttons: grey, darker bag bar icons and a dark open-bag line, with or without Dark Mode; off by default, applies live
-    darkBagAddonSlots = false, -- Bag Addon Windows (experimental, under Dark Bag Buttons): a bag addon's bag icons (its bag slots and special bags' buttons) grey the same way, every kind of bag; needs Dark Bag Buttons; off by default, applies live (Look/BarArt.lua)
+    darkBagAddonSlots = false, -- Bag Addon Windows (under Dark Bag Buttons): a bag addon's bag icons (its bag slots and special bags' buttons) grey the same way, every kind of bag; needs Dark Bag Buttons; off by default, applies live (Look/BarArt.lua)
     darkWindows = true, -- Dark Windows: shows only in Dark Mode, so choosing Dark Mode gives it
     blackPages = false, -- Black Pages: near-black spellbook and professions pages under Dark Windows; off by default
     flatBars = false, -- Flat Bars: a plain, solid fill on unit-frame and cast bars, Classic or Dark Mode; off by default, applies live
@@ -76,7 +76,7 @@ local defaults = {
     thickFrameParty = false, -- Classic Party Frames (under Thick Frames): the same plates on EraUI's Classic-style party frames; off by default, applies live
     thickAuraBorders = false, -- Thick Aura Borders: thick dark borders round your own buff and debuff icons, Classic or Dark Mode; wins over Dark Aura Borders; off by default, applies live
     roundedCastBars = false, -- Rounded Cast Bars: thick soft-cornered player, pet, target and focus cast bars with the spell icon in its own tile; needs Cast Bars; off by default, applies live
-    partyOutline = false, -- Raid-style Party Outline (experimental): a flat fill and one thick dark outline round the game's raid-style party frames (the outline while Edit Mode's Display Border is on); steps aside while Forever Enhanced Raid Frames draws the party; off by default, applies live (a change in a fight waits for its end)
+    partyOutline = false, -- Raid-style Party Outline: a flat fill and one thick dark outline round the game's raid-style party frames (the outline while Edit Mode's Display Border is on); steps aside while Forever Enhanced Raid Frames draws the party; off by default, applies live (a change in a fight waits for its end)
     floatingComboPoints = false,
     comboPointRed = false,
     energyBar = false,
@@ -105,7 +105,7 @@ local defaults = {
     abilityTrailDirection = "right", -- "right", "left", "up" or "down"
     abilityTrailSize = 36, -- your icons' size in pixels, 20 to 64
     abilityTrailCount = 5, -- how many of your icons, 1 to 10
-    abilityTrailParty = false, -- Party (experimental): a trail beside each party member's frame
+    abilityTrailParty = false, -- Party: a trail beside each party member's frame
     abilityTrailPartyDirection = "right",
     abilityTrailPartySize = 29, -- party icons, 20 to 64 (80% of yours before they had their own)
     abilityTrailPartyCount = 5,
@@ -133,7 +133,7 @@ local defaults = {
     actionBars = true,
     hideEmptyActionSlots = false,
     hideSecondaryNames = false,
-    hideSecondaryNamesTooltips = true, -- On Tooltips Too (experimental, under Hide Surnames): players' names on unit tooltips without the surname; on within Hide Surnames, which stays off by default; applies live
+    hideSecondaryNamesTooltips = true, -- On Tooltips Too (under Hide Surnames): players' names on unit tooltips without the surname; on within Hide Surnames, which stays off by default; applies live
     gryphons = true,
     minimap = true,
     unitFrames = true,
@@ -160,7 +160,7 @@ local defaults = {
     coordinates = false,
     rememberMinimapZoom = false, -- Remember Minimap Zoom: keeps this character's minimap zoom, indoors and outdoors apart, and puts it back after logging in (Modules/MinimapZoom.lua); off by default, applies live
     questSparkles = true, -- Quest Item Sparkles: the game's own sparkle on lootable quest items, which needs its outlines off (Modules/QuestSparkles.lua); on by default (Squirt's call, 2026-11-04), applies live
-    gatherSparkles = false, -- Herb and Ore Sparkles (experimental): the same, plus the game's soft targeting picking out the nearest herb or ore as you get close; off by default, applies live
+    gatherSparkles = false, -- Herb and Ore Sparkles: the same, plus the game's soft targeting picking out the nearest herb or ore as you get close; off by default, applies live
     fastAutoLoot = false,
     discardCheapestJunk = false,
     openClams = false, -- Open Clams: clams in your bags open one at a time by themselves out of a fight, never at a vendor, bank, mailbox, trade or auction house, and a clam button shows while you carry some (Modules/OpenClams.lua); steps aside while Clam Opener is loaded; off by default, applies live
@@ -168,7 +168,7 @@ local defaults = {
     hideRestInCities = false, -- Hide Zzz in Cities: in a capital city your level shows instead of the resting Zzz, on EraUI's 1.x player frame or the game's own (Modules/RestInCities.lua, Look/UnitPlayer.lua); off by default, applies live; seen in game 2026-11-07
     classColourFriends = true, -- Class-coloured Friends: online friends' names in their class colour in the friends list, a Battle.net friend's character name only (Modules/ClassFriends.lua); ON by default (Squirt, 2026-11-07: "class colored will be enabled by default"), applies live; seen in game the same day
     classColourFriendsLevel = false, -- Show Their Level, under Class-coloured Friends: a Battle.net friend's level in the brackets after their character's name, "(Vex, 60)", in the same colour (Modules/ClassFriends.lua); off by default, applies live; seen in game 2026-11-07
-    -- Thank for Buffs (experimental, Modules/ThankBuffs.lua): another player
+    -- Thank for Buffs (Modules/ThankBuffs.lua): another player
     -- who buffs you gets one whisper of thanks (their buffs within two
     -- seconds in one line), then 30 minutes of quiet; off by default, applies
     -- live. The whisper's words (%name% their first name, %spell% the buffs)
@@ -177,7 +177,7 @@ local defaults = {
     thankBuffsMessage = "Thanks for the %spell%!",
     thankBuffsSkipGroup = true, thankBuffsSkipGuild = true, thankBuffsSkipFriends = false,
     thankBuffsSkipCombat = true, thankBuffsSkipInstances = true,
-    -- Name in Chat (experimental, Modules/NameInChat.lua): the name you set
+    -- Name in Chat (Modules/NameInChat.lua): the name you set
     -- goes in brackets before what you send, "(Squirt) Hello"; off by
     -- default, applies live. The name (empty: nothing added), then which
     -- chats: party (and instance), raid (and raid warnings), guild (and
@@ -200,7 +200,7 @@ local defaults = {
     hideKeybindText = false,
     hideMacroText = false,
     upgradeSpellRanks = false, -- Upgrade Spell Ranks: a new rank you learn takes the outgrown rank's place on your action bars, out of combat; lower ranks, macros and items stay; off by default, applies live
-    -- Action Rings (experimental, Modules/ActionRings.lua, /era > Action Bars
+    -- Action Rings (Modules/ActionRings.lua, /era > Action Bars
     -- > Action Rings): hold a ring's key (Key Bindings > AddOns > EraUI) for a
     -- ring of spells, items, mounts and more round your cursor, and let go on
     -- one to use it. Off by default, applies live (a change in a fight waits
@@ -275,7 +275,7 @@ local defaults = {
     afkShowZone = true,
     afkShowDate = true,
     afkShowQuote = true,     -- a famous Classic line for your class above the hint
-    miniGameFlight = "off",  -- Mini-games, On a Flight Path (experimental): "off", "whack" or "blast", the game that opens as you take off (Modules/MiniGames.lua); off by default, applies live
+    miniGameFlight = "off",  -- Mini-games, On a Flight Path: "off", "whack" or "blast", the game that opens as you take off (Modules/MiniGames.lua); off by default, applies live
     miniGameSounds = true,   -- Mini-game Sounds: the games' sounds and voices; applies live
 }
 

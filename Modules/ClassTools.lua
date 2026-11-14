@@ -258,15 +258,6 @@ function T.TickToggle(b,label,width)
  end
  return b
 end
--- A small plain word after a switch's name, as the rows have ("experimental":
--- not seen working in game yet).
-function T.TickTag(b,word)
- b.tag=T.Text(b,word,10);b.tag:SetShadowOffset(0,0)
- b.tag:SetTextColor(.66,.61,.53)
- b.tag:SetPoint("LEFT",b.label,"LEFT",math.floor(b.label:GetStringWidth()+.5)+6,-1)
- return b.tag
-end
-
 -- Sub-category panel shown under a settings row by a class tool.
 function T.BindInlinePanel(panel,anchor)
  anchor.inlinePanel=panel

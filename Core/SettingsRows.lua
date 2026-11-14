@@ -5,8 +5,7 @@ local _, E = ...
 -- A row is EraUI's own frame inside the settings window: a square tick box
 -- (dark, with an inner square in your class colour when on), its name and,
 -- right after the name, a small plain word or two ("just added",
--- "experimental", "coming soon"). A
--- click anywhere on a tick row flips it. Hovering a row, or reaching it with
+-- "coming soon"). A click anywhere on a tick row flips it. Hovering a row, or reaching it with
 -- Tab, shows its description in the window's footer: rows never use the
 -- game's tooltip. Every function here takes the row (or the window) as an
 -- argument, so no function holds more than a few values from outside.
@@ -32,11 +31,10 @@ Rows.CRUMB = {.44, .48, .53}
 
 -- The small words right after a row's name: plain lower-case text, a size
 -- smaller, no box and no border. "just added" is in the game's own gold;
--- "experimental" (not seen working in game yet) a muted warm grey; "coming
--- soon" and "log out to apply" the muted grey of the row's other notes.
+-- "coming soon" and "log out to apply" the muted grey of the row's other
+-- notes. No row says "experimental" any more (2026-11-14).
 local TAGS = {
     NEW = {"just added", {1, .82, 0}},
-    TEST = {"experimental", {.66, .61, .53}},
     SOON = {"coming soon", {.58, .62, .68}},
     LOGOUT = {"log out to apply", {.58, .62, .68}},
 }
@@ -275,8 +273,8 @@ function Rows.PlaceTags(row)
     end
     if row.slider then Rows.PlaceSlider(row) end
 end
--- A slider row's slider: in its usual place, or after the row's words
--- ("experimental") when they reach that far, so they never sit on it.
+-- A slider row's slider: in its usual place, or after the row's words when
+-- they reach that far, so they never sit on it.
 function Rows.PlaceSlider(row)
     local slider, info = row.slider, row.info
     local left = info.wide and 222 or 214
@@ -300,7 +298,7 @@ local function Tag(row, index)
     row.tags[index] = tag
     return tag
 end
--- ids in their order from left to right, for example {"NEW", "TEST"}.
+-- ids in their order from left to right, for example {"NEW", "SOON"}.
 function Rows.SetTags(row, ids)
     row.tagKey, row.tagIds = table.concat(ids, ","), ids
     local width, last = 0, nil

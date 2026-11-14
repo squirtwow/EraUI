@@ -28,7 +28,7 @@ local OURS = "CLICK EraUIClassicTalentsBind:LeftButton"
 local WORDS = {
     title = "Classic Talents",
     question = "Use N to open the classic talents?",
-    quiet = "N will no longer open the game's own talent window. (experimental)",
+    quiet = "N will no longer open the game's own talent window.",
     fight = "Use N works once you're out of combat.",
     blocked = "Use N can't change keys here right now. Try again later.",
     failed = "The game didn't take N. Nothing was changed.",
@@ -160,7 +160,8 @@ do
     Equal(state.backdrop.bgFile, "Interface\\DialogFrame\\UI-DialogBox-Background", "and its background")
     Equal(s.Line("title"):GetText(), WORDS.title, "the title")
     Equal(s.Line("question"):GetText(), WORDS.question, "the question")
-    Equal(s.Line("quiet"):GetText(), WORDS.quiet, "the quiet line, experimental")
+    Equal(s.Line("quiet"):GetText(), WORDS.quiet, "the quiet line")
+    Equal(s.Line("quiet"):GetText():find("experimental", 1, true), nil, "no experimental on the quiet line")
     Equal(table.concat(game.State(s.Line("quiet")).textColour, ","), "0.7,0.7,0.7", "in grey")
     Equal(s.Note(), "", "no note")
     for _, purpose in ipairs({ "question", "quiet", "note" }) do
