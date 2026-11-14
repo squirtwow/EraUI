@@ -251,7 +251,8 @@ local LEADS = {["1.6.0"] = {"flatBars", "darkDebuffLines", "darkWindows"},
  ["1.7.1"] = {"squareMinimap"}, ["1.7.3"] = {"advancedCastBatch"},
  ["1.8.0"] = {"questSparkles", "gatherSparkles", "legacyWindow", "rememberMinimapZoom", "hideSecondaryNamesTooltips", "miniGameFlight"},
  ["1.8.2"] = {"openClams"}, ["1.8.3"] = {"abilityTrail", "plainAddonList", "hideRestInCities", "classColourFriends", "thankBuffs",
-  "actionRings", "nameInChat"}, ["1.8.4"] = {"bagArrowArmourColour", "bagBigCounts"}, ["1.8.7"] = {"plainNameStrip"}}
+  "actionRings", "nameInChat"}, ["1.8.4"] = {"bagArrowArmourColour", "bagBigCounts"}, ["1.8.7"] = {"plainNameStrip"},
+  ["1.8.8"] = {"chatArrowKeys", "darkBagAddonSlots"}}
 local TIGHT = {}
 -- The options saying "just added" for an account that updated from this version.
 local function NewSince(from)
@@ -3222,7 +3223,7 @@ do
  -- 1.8.2: Open Clams. 1.8.3: Ability Trail, Plain AddOn List, Hide Zzz in
  -- Cities, Class-coloured Friends, Thank for Buffs, Action Rings and Name
  -- in Chat.
- for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2", "1.8.3", "1.8.4", "1.8.7"}) do releases[version] = true end
+ for _, version in ipairs({"1.6.0", "1.7.0", "1.7.1", "1.7.3", "1.8.0", "1.8.2", "1.8.3", "1.8.4", "1.8.7", "1.8.8"}) do releases[version] = true end
  local leads = {}
  for key, version in pairs(Nav.ADDED) do
   equal(f.checks[key] ~= nil, true, key .. ": a release added a row that exists")
@@ -3318,7 +3319,7 @@ do
    looked = looked + 1
   end
  end
- equal(newCount, 31, "updated from 1.5.5: the thirty-one options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2, 1.8.3, 1.8.4 and 1.8.7 say just added")
+ equal(newCount, 33, "updated from 1.5.5: the thirty-three options of 1.6.0, 1.7.0, 1.7.1, 1.7.3, 1.8.0, 1.8.2, 1.8.3, 1.8.4, 1.8.7 and 1.8.8 say just added")
  equal(looked == worded and looked > newCount, true, "every row with words checked (" .. looked .. ": the thirty-one just added and the coming soon ones, none experimental)")
  -- Clean Minimap's Style row: its name and "just added" stop short of its
  -- Hover and Drawer buttons (the glyph widths, never under the game's), as

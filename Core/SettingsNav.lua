@@ -231,6 +231,7 @@ Added("1.8.3", {"actionRings", "actionRingScale", "actionRingNames", "actionRing
 Added("1.8.3", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"})
 Added("1.8.4", {"bagArrowArmourColour", "bagBigCounts"})
 Added("1.8.7", {"plainNameStrip"})
+Added("1.8.8", {"chatArrowKeys", "darkBagAddonSlots"})
 Nav.ADDED = ADDED
 -- Rows with no room for "just added" and their other words between their
 -- name and their buttons (Tools/TestSettingsLayout measures every row that

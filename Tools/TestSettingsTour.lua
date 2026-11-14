@@ -5,7 +5,8 @@
 local M = dofile("Tools/SettingsMock.lua")
 local equal, Session, Flush, Open, Tab = M.equal, M.Session, M.Flush, M.Open, M.Tab
 local S = M.S
--- 1.8.7 (the newest notes) added one: Plain Target Name Strip, under Class Colours.
+-- 1.8.8 (the newest notes) added two: Arrow Keys in Chat and Bag Addon Windows, in page order.
+-- 1.8.7 added one: Plain Target Name Strip, under Class Colours.
 -- 1.8.6 and 1.8.5 added none. 1.8.4 added two: Arrow Colour by Armour and Big Bag
 -- Numbers, both under Bag Item Levels. 1.8.3 added seven options to lead to: Class-coloured
 -- Friends, Action Rings (one step for its page), Hide Zzz in Cities, Plain
@@ -17,7 +18,8 @@ local S = M.S
 do
  local E, f = Session("ROGUE")
  local keys = E.SettingsTour.NewsKeys(f)
- equal(E.SettingsTour.Release() .. " " .. table.concat(keys, ","), "1.8.7 plainNameStrip", "1.8.7: Show me what's new leads to Plain Target Name Strip")
+ equal(E.SettingsTour.Release() .. " " .. table.concat(keys, ","), "1.8.8 darkBagAddonSlots,chatArrowKeys", "1.8.8: Show me what's new leads to Bag Addon Windows and Arrow Keys in Chat, in page order")
+ equal(table.concat(E.SettingsTour.NewsKeys(f, "1.8.7"), ","), "plainNameStrip", "1.8.7: Show me what's new leads to Plain Target Name Strip")
  equal(#E.SettingsTour.NewsKeys(f, "1.8.6"), 0, "1.8.6: no new options, so no Show me what's new")
  equal(table.concat(E.SettingsTour.NewsKeys(f, "1.8.4"), ","), "bagArrowArmourColour,bagBigCounts",
   "1.8.4: Show me what's new leads to Arrow Colour by Armour and Big Bag Numbers, in page order")

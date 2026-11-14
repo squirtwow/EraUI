@@ -6,6 +6,22 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.8",
+        sections = {
+            { "Added", {
+                "Arrow Keys in Chat: move along your line without holding Alt.",
+                "Dark Bag Buttons can also grey the bag icons on bag addon windows.",
+            } },
+            { "Changed", {
+                "Options no longer say experimental.",
+            } },
+            { "Fixed", {
+                "Bags: watched currencies no longer sit on top of your gold.",
+                "Currency tab: clicking a currency shows its Show on Backpack box again.",
+            } },
+        },
+    },
+    {
         version = "1.8.7",
         sections = {
             { "Added", {
