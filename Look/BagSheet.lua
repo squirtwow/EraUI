@@ -15,7 +15,15 @@ local B = Look.Bags
 
 local BAG_ROWS, BAG_COLS = 512, 256 -- UI-Bag-Components
 local PACK_SPLIT = 210 / 255        -- UI-BackpackBackground: top part, money strip below
+-- The money strip cut for more strips under it: its box with the two dark
+-- rows above it (sheet rows 212 to 230; the gold edge is rows 214 to 229)
+-- drawn once more per strip between the strip and its bottom edge (rows 230
+-- on).
+local STRIP_CUT, BOX_TOP = 230 / 256, 212 / 256
 local SLOT_ACROSS, SLOT_DOWN = 42, 41
+
+-- One more strip's height (the box's 18 sheet rows, 1:1).
+B.STRIP_TALL = 18
 
 -- Sheet columns of the three kinds of piece: left edge, right edge, width.
 local PIECES = {
@@ -73,11 +81,12 @@ local function OrdinaryBands(plan)
 end
 
 -- The backpack and the One Bag window: the backpack sheet whole; or, with
--- rows past four, its top, the extra rows in bands of up to five, then its
--- money strip.
+-- rows past four or more strips, its top, the extra rows in bands of up to
+-- five, then its money strip (with more strips: the strip down to its box's
+-- end, the box again once per strip, the strip's bottom edge).
 local function BackpackBands(plan)
     local bands = plan.bands
-    if plan.extra == 0 then
+    if plan.extra == 0 and plan.strips == 0 then
         bands[1] = PackBand(0, 1, 255)
         return
     end
@@ -85,22 +94,31 @@ local function BackpackBands(plan)
     Bands(plan.extra, 5, function(n)
         bands[#bands + 1] = BagBand(215, n * SLOT_DOWN)
     end)
-    bands[#bands + 1] = PackBand(PACK_SPLIT, 1, 45)
+    if plan.strips == 0 then
+        bands[#bands + 1] = PackBand(PACK_SPLIT, 1, 45)
+        return
+    end
+    bands[#bands + 1] = PackBand(PACK_SPLIT, STRIP_CUT, 19)
+    for _ = 1, plan.strips do bands[#bands + 1] = PackBand(BOX_TOP, STRIP_CUT, B.STRIP_TALL) end
+    bands[#bands + 1] = PackBand(STRIP_CUT, 1, 26)
 end
 
 -- What a window of `size` slots wears. backpack: the backpack style (the
--- backpack, or the One Bag window); reversed: the One Bag window's fill.
-function B.Plan(size, columns, backpack, reversed)
+-- backpack, or the One Bag window); reversed: the One Bag window's fill;
+-- strips: how many more money strips go under the gold's (backpack style
+-- only), the window that much taller.
+function B.Plan(size, columns, backpack, reversed, strips)
     local plan = {
         size = size, columns = columns, backpack = backpack and true or false, reversed = reversed and true or false,
         rows = math.ceil(size / columns), wider = SLOT_ACROSS * (columns - 4), bands = {},
     }
     plan.twoSlot = not plan.backpack and size % 4 == 2
     plan.extra = plan.backpack and math.max(0, plan.rows - 4) or 0
+    plan.strips = plan.backpack and type(strips) == "number" and math.max(0, math.floor(strips)) or 0
     plan.width = 192 + plan.wider
     if plan.backpack then
         BackpackBands(plan)
-        plan.height = 240 + SLOT_DOWN * plan.extra
+        plan.height = 240 + SLOT_DOWN * plan.extra + B.STRIP_TALL * plan.strips
     else
         OrdinaryBands(plan)
         local tall = 0
@@ -130,6 +148,60 @@ function B.Cell(plan, i, count)
     end
     local k = i - 1
     return k % columns, math.floor(k / columns)
+end
+
+---------------------------------------------------------------------------
+-- The gold strip and the watched currencies on it
+---------------------------------------------------------------------------
+
+-- The money strip's box is the backpack sheet's columns 81 to 243 and rows
+-- 214 to 229 (gold edge included). Hung from the window's top-right, the
+-- inside of its gold edge runs from 18 past the window's left edge to 13
+-- short of its right: 161 across at four columns, 42 more per column. The
+-- gold is pinned 6 in from the window's right and 215 down (41 more per
+-- extra row); its last coin ends 13 further in, 6 inside the box. The
+-- currencies keep the same 6 on the left (from 24 across), end 19 short of
+-- the window's right on the strips under the gold's, and stay 6 apart, from
+-- each other and from the gold.
+B.MONEY_RIGHT, B.MONEY_TOP = 6, 215
+local TOKEN_LEFT, TOKEN_END, TOKEN_GAP = 24, 19, 6
+
+-- How far down the gold's top is.
+function B.MoneyTop(plan)
+    return B.MONEY_TOP + SLOT_DOWN * plan.extra
+end
+
+-- Where the watched currencies go: `widths` holds each one's width (amount
+-- and icon) in the game's watched order, `gold` the gold's width (0: none
+-- shown). Each gets { x, strip } (x from the window's left edge; strip 1 is
+-- the gold's, 2 the one under it, and so on), or false when it is wider
+-- than a whole strip. The gold's strip takes them from its left while the
+-- next one fits left of the gold; the rest go on the strips under it, each
+-- from its left, a new strip whenever the next one would run past the end.
+-- Returns the spots and how many strips under the gold's are needed.
+function B.TokenSpots(plan, widths, gold)
+    local spots, count = {}, #widths
+    local edge = plan.width - TOKEN_END
+    if gold > 0 then edge = plan.width - B.MONEY_RIGHT - gold - TOKEN_GAP end
+    local x, i = TOKEN_LEFT, 1
+    while i <= count and x + widths[i] <= edge do
+        spots[i] = { x, 1 }
+        x = x + widths[i] + TOKEN_GAP
+        i = i + 1
+    end
+    local last, strip = plan.width - TOKEN_END, 1
+    x = math.huge
+    for j = i, count do
+        local wide = widths[j]
+        if TOKEN_LEFT + wide > last then
+            spots[j] = false
+        else
+            if x + wide > last then strip, x = strip + 1, TOKEN_LEFT end
+            spots[j] = { x, strip }
+            x = x + wide + TOKEN_GAP
+        end
+    end
+    return spots, strip - 1
 end
 
 ---------------------------------------------------------------------------

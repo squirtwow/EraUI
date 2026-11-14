@@ -20,7 +20,8 @@ P.LOOK = {
 -- Raid-style Party Outline, Square Minimap and Dark Bag Buttons are: they
 -- show in Classic or Dark Mode.
 -- Thick Frames' own two ticks and its Edge choice are left as chosen: they
--- do nothing while it's off. So is Square Minimap's Square Size.
+-- do nothing while it's off. So is Square Minimap's Square Size, and Dark
+-- Bag Buttons' Bag Addon Windows tick.
 P.LOOK_EXTRAS = { "damageMeterSkin", "classColourBorders", "darkMode", "flatBars", "thickAuraBorders", "roundedCastBars", "thickFrames",
     "partyOutline", "squareMinimap", "darkBagButtons" }
 

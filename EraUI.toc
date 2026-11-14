@@ -108,6 +108,7 @@ Look\CharTabs.lua
 Look\CharLists.lua
 Look\CharSkill.lua
 Look\CharRep.lua
+Look\CharCurrency.lua
 Look\CharEquip.lua
 Look\CharModule.lua
 Look\CharPanes.lua

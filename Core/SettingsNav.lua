@@ -58,7 +58,7 @@ local TABS = {
             {id = "dark", name = "Dark Mode", sections = {
                 S("Darkness", {"darkModeDarkness", "darkenClassColours"}),
                 S("Borders", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}),
-                S("Bars and windows", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"})}},
+                S("Bars and windows", {"darkMenuBar", "darkBagButtons", "darkBagAddonSlots", "darkWindows", "blackPages"})}},
             {id = "classcol", name = "Class Colours", sections = {
                 S("Class colours", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel", "classColourBorders",
                     "castBarClassBorder", "plainNameStrip"})}},

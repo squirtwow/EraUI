@@ -8,7 +8,8 @@
 -- and rotate buttons; the 1.x stat boxes by the bonus rule and the
 -- resistances (Forever only); the bottom tabs over the game's own; the side
 -- pane muted and unmuted, the hit inset and the CVar; the list skins, the
--- skill detail pane, the reputation box and the equipment pane; turning the
+-- skill detail pane, the reputation box, the currency box (the game's own
+-- detail and Show on Backpack tick in a 1.x box) and the equipment pane; turning the
 -- window off and on; a fight; EraUIClassic_CharacterSheetSize and
 -- EraUIClassic_SkinCharacterCopy. No GameTooltip, no error.
 -- Run: fengari Tools/TestCharacterSheet.lua
@@ -707,6 +708,255 @@ do
     Equal(box:IsShown(), false, "the box hides when the tab hides")
     Equal(mark:IsShown(), false, "and every mark with it")
     s.Clean("reputation box")
+end
+
+---------------------------------------------------------------------------
+-- The currency detail box: the game's own detail (name, count, the Unused
+-- and Show on Backpack ticks) in a 1.x box beside the window. Found 14 Nov:
+-- the side-pane pass kept that detail muted, so a click showed nothing.
+---------------------------------------------------------------------------
+do
+    local s = Session()
+    local game, env, sheet, C = s.game, s.env, s.sheet, s.C
+    local honor = { name = "Honor Points", currencyID = 1901, quantity = 102, discovered = true, isShowInBackpack = false, isTypeUnused = false }
+    game.currencies = { { name = "Miscellaneous", isHeader = true }, honor,
+        { name = "Arena Points", currencyID = 1900, quantity = 7, discovered = true, isShowInBackpack = true } }
+    game.Fill("currency", { { name = "Miscellaneous", header = true, collapsed = false },
+        { name = "Honor Points", currencyIndex = 2, quantity = 102 },
+        { name = "Arena Points", currencyIndex = 3, quantity = 7, isShowInBackpack = true } }, true)
+    game.State(sheet).collapsed = true -- the game's right pane starts closed (EraUI's CVar)
+    game.Pass()
+    game.Open("TokenFrame")
+    local coins, pane = env.TokenFrame, env.TokenFrame.DetailFrame
+    local backpack, unused, transfer = pane.BackpackCheckbox, pane.InactiveCheckbox, pane.CurrencyTransferToggleButton
+    local rows = game.Rows("currency")
+    Equal(coins.selectedID, 2, "the game chooses the first currency as the tab shows")
+    Equal(C.CurrencyBox(), nil, "no box before a click")
+    True(not pane:IsShown() or pane:GetAlpha() == 0, "the game's detail out of sight before a click")
+    -- A plain click: the game chooses the currency and opens its right pane;
+    -- EraUI's box opens with the game's detail in it. The game's click
+    -- refills the list, so the clicked row may hold another currency after.
+    game.reuseRows = true
+    rows[2]:Click()
+    Equal(rows[2].elementData.name, "Arena Points", "the clicked row holds another currency after the refill")
+    coins:Update()
+    game.reuseRows = nil
+    Equal(rows[2].elementData.name, "Honor Points", "(the next refill puts them back)")
+    Equal(game.paneOpens, 1, "the game opened its right pane for the click")
+    local box = C.CurrencyBox()
+    True(box, "a plain click makes the box")
+    Equal(box:GetName(), "EraUIClassicCurrencyDetail", "the box's name")
+    Equal(box:IsShown(), true, "and opens it")
+    Equal(C.CurrencyOpen(), true, "the box reports open")
+    Equal(select(2, C.CurrencyBox()), "Honor Points", "for the clicked currency")
+    Equal(box:GetParent(), coins, "the Currency tab's own frame")
+    Equal(box:GetFrameLevel(), sheet:GetFrameLevel() + 30, "30 above the window")
+    Equal(box:IsMouseEnabled(), true, "the box takes the mouse")
+    -- Beside the window: just right of the art, never over it.
+    local x, y = s.Spot(box)
+    Near(x, C.ART_RIGHT, "just right of the art (349, -48)")
+    Near(y, -48, "its y")
+    True(box:GetLeft() >= sheet:GetLeft() + C.ART_RIGHT - 1e-6, "the box never over the window's art")
+    Near(box:GetWidth(), 236, "236 wide")
+    Near(box:GetHeight(), 350, "350 tall")
+    -- The game's own detail laid in it: in sight and within reach.
+    Equal(select(2, pane:GetPoint(1)), box, "the game's detail laid in the box")
+    Equal(pane:GetNumPoints(), 2, "by two corners")
+    Near(pane:GetLeft() - box:GetLeft(), 16, "16 in from the left")
+    Near(box:GetRight() - pane:GetRight(), 14, "14 in from the right")
+    Near(box:GetTop() - pane:GetTop(), 28, "28 down, under the X")
+    Near(pane:GetBottom() - box:GetBottom(), 10, "10 up from the foot")
+    Equal(pane:GetParent(), coins, "never re-parented")
+    Equal(pane:GetFrameStrata(), "HIGH", "its strata left alone")
+    Equal(pane:GetAlpha(), 1, "the detail in sight")
+    Equal(pane:IsMouseEnabled(), true, "and within reach")
+    Equal(pane:IsVisible(), true, "and shown")
+    Equal(pane.Title:GetText(), "Honor Points", "the game's detail names the chosen currency")
+    Equal(backpack.Label:GetText(), "Show on Backpack", "the Show on Backpack box")
+    Equal(backpack:IsVisible(), true, "shows")
+    Equal(backpack:IsMouseEnabled(), true, "and takes the click")
+    Equal(backpack:GetChecked(), false, "not watched yet")
+    Equal(unused:IsVisible(), true, "the Unused box shows too")
+    Equal(unused:IsMouseEnabled(), true, "and takes the click")
+    -- The box: two dialog boxes, the upper one parchment, the ticks in the
+    -- lower one.
+    local dialogs, close = {}, nil
+    for _, child in ipairs({ box:GetChildren() }) do
+        if s.State(child).backdrop then dialogs[#dialogs + 1] = child end
+        if child:GetObjectType() == "Button" then close = child end
+    end
+    Equal(#dialogs, 2, "two dialog boxes")
+    local upper, lower = dialogs[1], dialogs[2]
+    True(select(1, upper:GetRegions()):GetTexture():find("QuestBG"), "the upper one parchment")
+    Near(lower:GetHeight(), 110, "the lower one 110 tall")
+    Near(lower:GetTop() - upper:GetBottom(), 12, "over the upper one's foot by 12")
+    True(unused:GetTop() <= lower:GetTop() - 8, "the ticks below the lower box's top edge")
+    True(backpack:GetBottom() >= lower:GetBottom() + 8, "and above its foot")
+    True(close and close:GetFrameLevel() > lower:GetFrameLevel(), "the X over the boxes")
+    Near(box:GetRight() - close:GetRight(), 3, "the X in the top right")
+    -- 1.x art, and every piece handed to Dark Mode.
+    local dark, cross, red = 0, false, false
+    for _, entry in ipairs(game.darkened) do
+        if entry[1] == "DarkBackdrop" and entry[2]:GetParent() == box then dark = dark + 1 end
+        if entry[1] == "DarkCloseButton" and entry[2] == close then cross = true end
+        if entry[1] == "DarkRedButton" and entry[2] == transfer then red = true end
+    end
+    Equal(dark, 2, "both dialog boxes handed to Dark Windows")
+    True(cross, "the X handed to Dark Windows")
+    True(red, "the transfer button's 1.x red handed to Dark Windows")
+    True(backpack:GetNormalTexture():GetTexture():find("UI%-CheckBox%-Up"), "the tick in the 1.x check art")
+    True(backpack:GetCheckedTexture():GetTexture():find("UI%-CheckBox%-Check"), "its check mark too")
+    True(unused:GetNormalTexture():GetTexture():find("UI%-CheckBox%-Up"), "the Unused tick as well")
+    Equal(pane.Divider:GetAlpha(), 0, "the modern divider faded")
+    Equal(transfer.Left:GetAlpha(), 0, "the transfer button's modern slices faded")
+    Equal(transfer:IsShown(), false, "the transfer button left to the game (hidden here)")
+    -- Ticking: the game's own clicks.
+    backpack:Click()
+    Equal(game.coinCalls[#game.coinCalls], "backpack 2 true", "ticking Show on Backpack watches the chosen currency")
+    Equal(honor.isShowInBackpack, true, "watched")
+    Equal(backpack:GetChecked(), true, "the tick stays")
+    Equal(game.sounds[#game.sounds], "on", "with the game's tick sound")
+    Equal(box:IsShown(), true, "the box stays open")
+    backpack:Click()
+    Equal(game.coinCalls[#game.coinCalls], "backpack 2 false", "unticked: no longer watched")
+    game.watchFull = true
+    backpack:Click()
+    Equal(backpack:GetChecked(), false, "too many watched: the game takes the tick back")
+    game.watchFull = nil
+    unused:Click()
+    Equal(game.coinCalls[#game.coinCalls], "unused 2 true", "Unused ticked through the game's own click")
+    unused:Click()
+    Equal(game.coinCalls[#game.coinCalls], "unused 2 false", "and unticked")
+    -- The side-pane pass and its watch leave the open box's detail alone.
+    C.HideSidePane()
+    Equal(pane:GetAlpha(), 1, "the side-pane pass leaves the open box's detail in sight")
+    Equal(sheet.RightPaneHost:GetAlpha(), 0, "the right pane itself still muted")
+    sheet.RightPaneHost:SetAlpha(1)
+    game.Tick(0.05)
+    Equal(sheet.RightPaneHost:GetAlpha(), 0, "the watch mutes the right pane again")
+    Equal(pane:GetAlpha(), 1, "but never the open box's detail")
+    Equal(backpack:IsMouseEnabled(), true, "its ticks still within reach")
+    sheet:RefreshRightPane()
+    Equal(pane:GetAlpha(), 1, "nor the game's own pass")
+    for _, other in ipairs({ env.ReputationFrame.ReputationDetailFrame, env.SkillsFrame.SkillDetailFrame }) do
+        Equal(other:GetAlpha(), 0, "the other tabs' detail panes stay muted")
+    end
+    -- Another currency, then the same one again.
+    rows[3]:Click()
+    Equal(box:IsShown(), true, "another currency: the box stays")
+    Equal(pane.Title:GetText(), "Arena Points", "and the game's detail follows")
+    Equal(select(2, C.CurrencyBox()), "Arena Points", "open for it")
+    Equal(backpack:GetChecked(), true, "a watched currency shows ticked")
+    Equal(game.paneOpens, 1, "the game's right pane opened once")
+    rows[3]:Click()
+    Equal(box:IsShown(), false, "the same currency again closes it")
+    Equal(C.CurrencyOpen(), false, "the box reports closed")
+    Equal(pane:GetAlpha(), 0, "the game's detail muted again")
+    Equal(backpack:IsMouseEnabled(), false, "its ticks out of reach")
+    -- Shift-clicks are the game's (watch from the list, a chat link).
+    game.modified = "TOKENWATCHTOGGLE"
+    rows[2]:Click()
+    Equal(game.coinCalls[#game.coinCalls], "backpack 2 true", "Shift-click still watches from the list")
+    Equal(box:IsShown(), false, "and opens no box")
+    game.modified = nil
+    rows[2]:Click()
+    Equal(box:IsShown(), true, "a plain click opens it again")
+    Equal(pane:GetAlpha(), 1, "the detail back in sight")
+    for _, held in ipairs({ "TOKENWATCHTOGGLE", "CHATLINK" }) do
+        game.modified = held
+        rows[2]:Click()
+        Equal(box:IsShown(), true, held .. " on the open currency leaves the box open")
+    end
+    game.modified = nil
+    -- The X.
+    game.Run(close, "OnClick")
+    Equal(box:IsShown(), false, "the X closes it")
+    Equal(pane:GetAlpha(), 0, "the detail muted with it")
+    -- The chosen currency leaves the list (a header folded): closed at once
+    -- after the game's own refresh; nothing chosen at all: within 0.2 s.
+    rows[2]:Click()
+    table.remove(game.currencies, 2)
+    pane:ClearSelectionIfMissing()
+    Equal(box:IsShown(), false, "the chosen currency folded away: the box goes")
+    table.insert(game.currencies, 2, honor)
+    rows[2]:Click()
+    Equal(box:IsShown(), true, "open again")
+    game.Own(coins, "selectedID", nil)
+    game.Tick(0.3)
+    Equal(box:IsShown(), false, "nothing chosen: the box goes")
+    -- Another tab, closing the window.
+    rows[2]:Click()
+    Equal(box:IsShown(), true, "open again")
+    sheet:ShowSubFrame("ReputationFrame")
+    Equal(box:IsShown(), false, "another tab closes it")
+    Equal(pane:GetAlpha(), 0, "the game's detail muted on the other tabs")
+    Equal(pane:IsMouseEnabled(), false, "and out of reach")
+    sheet:RefreshRightPane()
+    Equal(pane:GetAlpha(), 0, "still muted after the game's own pass")
+    Equal(sheet.RightPaneHost:GetAlpha(), 0, "and the right pane with it")
+    sheet:ShowSubFrame("TokenFrame")
+    Equal(box:IsShown(), false, "back on Currency: closed until a click")
+    Equal(pane:GetAlpha(), 0, "the detail still out of sight")
+    rows[3]:Click()
+    Equal(box:IsShown(), true, "a click opens it")
+    env.HideUIPanel(sheet)
+    Equal(box:IsShown(), false, "closing the window closes it")
+    game.Open("TokenFrame")
+    Equal(box:IsShown(), false, "opening the window again: still closed")
+    -- In a fight the detail isn't guarded, so the box still opens.
+    game.combat = true
+    rows[3]:Click()
+    Equal(box:IsShown(), true, "a click in a fight opens it")
+    Equal(pane:GetAlpha(), 1, "with the detail in sight")
+    game.combat = false
+    -- EraUI's own windows (the spellbook, the talents, the quest log) open
+    -- right of the window, over the box's spot. They are toplevel, so they
+    -- would cover the box, but the game's detail in it is HIGH and would
+    -- float over them and take their clicks: the box gives way.
+    assert(loadfile("Look/Windows.lua", "t", env))("EraUI", game.E)
+    local Look = game.Look
+    local book = Look.Build("Frame", env.UIParent, nil, { size = { 352, 512 }, mouse = true, hidden = true })
+    game.ns.RegisterClassicWindow(book, true)
+    rows[2]:Click()
+    Equal(box:IsShown(), true, "open for another currency")
+    book:Show()
+    Near(book:GetLeft() - sheet:GetLeft(), 352, "the window manager puts the book beside the window, over the box's spot")
+    Equal(box:IsShown(), false, "one of EraUI's windows opening over the spot closes the box at once")
+    Equal(pane:GetAlpha(), 0, "the game's detail muted with it")
+    Equal(pane:IsMouseEnabled(), false, "so it takes none of the book's clicks")
+    Equal(backpack:IsMouseEnabled(), false, "nor do its ticks")
+    Equal(unused:IsMouseEnabled(), false, "nor the Unused tick")
+    rows[3]:Click()
+    Equal(box:IsShown(), false, "no box while the book stands over its spot")
+    Equal(pane:GetAlpha(), 0, "the detail still out of sight")
+    game.Tick(0.3)
+    Equal(box:IsShown(), false, "nor after a while")
+    book:Hide()
+    rows[3]:Click()
+    Equal(box:IsShown(), true, "the book closed: a click opens the box again")
+    Equal(pane:GetAlpha(), 1, "with the detail in sight")
+    -- A window kept clear of the spot leaves the box alone; one moved over
+    -- it outside the manager's pass closes it within 0.2 s.
+    Look.WindowTraits(book, { hold = function() return 700 end })
+    Look.Pin(book, "TOPLEFT", env.UIParent, "TOPLEFT", 700, -104)
+    book:Show()
+    Equal(box:IsShown(), true, "a window clear of the spot leaves the box open")
+    game.Tick(0.3)
+    Equal(box:IsShown(), true, "and so does the box's watch")
+    Look.Pin(book, "TOPLEFT", env.UIParent, "TOPLEFT", 500, -104)
+    game.Tick(0.3)
+    Equal(box:IsShown(), false, "moved over the spot: the box goes within 0.2 s")
+    Equal(pane:IsMouseEnabled(), false, "and the detail out of reach")
+    book:Hide()
+    -- Character Window off: closed, the game's detail back in its own place.
+    game.ns.db.characterSheet = false
+    game.Pass()
+    Equal(box:IsShown(), false, "Character Window off: the box closed")
+    Equal(select(2, pane:GetPoint(1)), sheet.RightPaneHost, "the game's detail back on its own anchors")
+    Equal(pane:GetNumPoints(), 2, "both of them")
+    rows[2]:Click()
+    Equal(box:IsShown(), false, "no box while off")
+    s.Clean("currency box")
 end
 
 ---------------------------------------------------------------------------

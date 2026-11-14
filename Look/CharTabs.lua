@@ -264,15 +264,19 @@ local function Sidebars(each)
 end
 
 -- The right pane out of sight and out of reach, but for the Skills detail
--- (while Skills shows) and the game's set list (while EraUI's equipment
--- pane is open). The window's invisible right side takes no clicks.
+-- (while Skills shows), the currency detail (while EraUI's currency box is
+-- open, Look/CharCurrency.lua) and the game's set list (while EraUI's
+-- equipment pane is open). The window's invisible right side takes no clicks.
 function C.HideSidePane()
     local sheet = CharacterFrame
     if not (C.active and sheet) then return end
     C.Mute(sheet.RightPaneHost)
     local skillPane = SkillsFrame and SkillsFrame.SkillDetailFrame
+    local coinPane = TokenFrame and TokenFrame.DetailFrame
+    local coinOpen = C.CurrencyOpen ~= nil and C.CurrencyOpen()
     for _, pane in ipairs(type(sheet.SidePanes) == "table" and sheet.SidePanes or {}) do
-        if pane == skillPane and SkillsFrame:IsShown() then C.Unmute(pane) else C.Mute(pane) end
+        local kept = (pane == skillPane and SkillsFrame:IsShown()) or (pane == coinPane and coinOpen)
+        if kept then C.Unmute(pane) else C.Mute(pane) end
     end
     for _, frame in ipairs({ CharacterStatsPane or false, CharacterStatsPaneScrollBox or false, PaperDollSidebarTabs or false,
         PaperDollLevelInfo or false }) do

@@ -2,7 +2,8 @@
 -- Reputation, Skills, Currency and Statistics put in the 1.x list area with
 -- the old scroll column, 20-unit rows, the 1.x skill and reputation bars,
 -- plus and minus headers; the Reputation column labels; the PvP panel moved
--- into the window's upper area.
+-- into the window's upper area. A faction's or a currency's row opens its
+-- 1.x detail box when clicked (Look/CharRep.lua, Look/CharCurrency.lua).
 --
 -- Blizzard's rows are about 33 tall. The Skills and Reputation boxes are
 -- shrunk so their rows come out about 20 tall, as in 1.x, and each row's
@@ -16,7 +17,7 @@ local SKILL_SCALE, REP_SCALE = 20 / 33, 0.76
 C.LISTS = {
     { name = "SkillsFrame", kind = "skills", scale = SKILL_SCALE, foot = 224 },
     { name = "ReputationFrame", kind = "reputation", scale = REP_SCALE, foot = 86 },
-    { name = "TokenFrame", foot = 86 },
+    { name = "TokenFrame", foot = 86, rowClick = "CurrencyRowClicked" },
     { name = "StatisticsFrame", foot = 86 },
 }
 local BAR_LOOK = {
@@ -29,6 +30,7 @@ local barHooked = Look.Weak()    -- game bar: true once its post-hooks are in
 local covers = Look.Weak()       -- header row: EraUI's frame over it
 local listsSet = Look.Weak()     -- list frame: true once its poll and hooks are in
 local repClickHooked = Look.Weak()
+local rowClickHooked = Look.Weak() -- a list's entry row: true once its spec's click is hooked
 
 ---------------------------------------------------------------------------
 -- Bars
@@ -238,12 +240,23 @@ local function DressPlainHeader(row)
     Look.Pin(icon, "LEFT", row, "LEFT", 7, 0)
 end
 
+-- An entry row whose list has a detail box of its own (a currency's): the
+-- box's handler after the game's own click, hooked once per row.
+local function WatchRowClick(row, handler)
+    if rowClickHooked[row] then return end
+    rowClickHooked[row] = true
+    Look.HookScript(row, "OnClick", function(clicked)
+        if C.active and C[handler] then Look.Try(C[handler], clicked) end
+    end)
+end
+
 local function DressRow(spec, row)
     local data = C.RowData(row)
     if not data then return end
     dressedFor[row] = data
     if row.Content then
-        if spec.kind then DressEntry(row, spec.kind) end
+        if spec.kind then DressEntry(row, spec.kind)
+        elseif spec.rowClick then WatchRowClick(row, spec.rowClick) end
     elseif spec.kind then
         DressListHeader(row, spec.kind)
     else

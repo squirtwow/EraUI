@@ -12,7 +12,20 @@
 --     row filled from its right; plain stone over leftover cells (none on a
 --     two-slot top);
 --   * the backpack at 16 and 20 slots (sheet, money strip, close, money,
---     rows); the One Bag window's columns (rounded, kept within 4 to 16), its
+--     rows);
+--   * watched currencies (the game's BackpackTokenFrame, mocked from the
+--     Camelot TokenUI): on the gold's strip from its left, each after the
+--     last in the game's order, in the gold's font, as wide as amount and
+--     icon; the ones with no room left of the gold on strips under it (the
+--     box drawn again per strip, the window 18 taller each) only while
+--     needed; one, two, three, the game's own limit kept; the game's
+--     Update, its UpdateCurrencyFrames, CURRENCY_DISPLAY_UPDATE and the
+--     gold's width changing all followed; Shift-click and the tooltip the
+--     game's own; every One Bag column count with narrow to widest gold, the
+--     game's limit at least its own One Bag window's eight (the row's right
+--     anchor past a narrower window), before and after the bags are first
+--     opened; unwatching all; off: the game's own row;
+--   * the One Bag window's columns (rounded, kept within 4 to 16), its
 --     width, its column copies and its reversed fill with stone at the
 --     bottom-right; SetOneBagColumns; the One Bag reader;
 --   * empty slots' icons, the game's art faded, the kept pieces untouched,
@@ -119,7 +132,22 @@ local function NewGame(setup)
     function Methods:SetSize(w, h) Moving(self, "SetSize") S[self].width, S[self].height = w, h end
     function Methods:SetWidth(w) Moving(self, "SetWidth") S[self].width = w end
     function Methods:SetHeight(h) Moving(self, "SetHeight") S[self].height = h end
-    function Methods:GetWidth() return S[self].width or 0 end
+    -- Pinned by a left and a right point to one frame's left and right: as
+    -- wide as that frame (with the offsets), as the game lays it out.
+    local function Side(point)
+        if point:find("LEFT") then return -1 elseif point:find("RIGHT") then return 1 end
+    end
+    function Methods:GetWidth()
+        local p = S[self].points
+        if #p == 2 and p[1][2] == p[2][2] and p[1][2] ~= nil then
+            local a, b = p[1], p[2]
+            if Side(a[1]) == 1 then a, b = b, a end
+            if Side(a[1]) == -1 and Side(b[1]) == 1 and Side(a[3]) == -1 and Side(b[3]) == 1 then
+                return a[2]:GetWidth() + b[4] - a[4]
+            end
+        end
+        return S[self].width or 0
+    end
     function Methods:GetHeight() return S[self].height or 0 end
     function Methods:ClearAllPoints() Moving(self, "ClearAllPoints") S[self].points = {} end
     function Methods:SetPoint(point, relative, relativePoint, x, y)
@@ -203,12 +231,27 @@ local function NewGame(setup)
     function Methods:SetHorizTile(on) S[self].horizTile = on end
     function Methods:SetVertTile(on) S[self].vertTile = on end
     function Methods:SetBlendMode(mode) S[self].blend = mode end
-    -- Font strings
+    function Methods:SetID(id) S[self].id = id end
+    function Methods:GetID() return S[self].id or 0 end
+    -- Font strings (a font's characters `across` wide each, `size` high)
     function Methods:SetFontObject(font) S[self].font = font end
+    function Methods:GetFontObject() return S[self].font end
+    function Methods:GetFont()
+        local font = S[self].font
+        return "Fonts\\" .. tostring(font and font.fontName), font and font.size or 12, ""
+    end
+    function Methods:GetStringWidth()
+        local font = S[self].font
+        return #tostring(S[self].text or "") * (font and font.across or 6)
+    end
     function Methods:SetText(text) S[self].text = text end
     function Methods:GetText() return S[self].text end
     function Methods:SetJustifyH(way) S[self].justify = way end
     function Methods:SetTextColor(r, g, b) S[self].textColour = { r, g, b } end
+    function Methods:GetTextColor()
+        local c = S[self].textColour or { 1, 1, 1 }
+        return c[1], c[2], c[3], 1
+    end
     -- Buttons
     for _, state in ipairs({ "Normal", "Pushed", "Disabled", "Highlight" }) do
         Methods["Set" .. state .. "Texture"] = function(self, file)
@@ -259,6 +302,9 @@ local function NewGame(setup)
     for _, font in ipairs({ "GameFontNormal", "GameFontHighlight", "GameFontDisable", "GameFontNormalLarge" }) do
         env[font] = { fontName = font }
     end
+    -- The currency row's small font and the gold's number font (14 high).
+    env.GameFontHighlightSmall = { fontName = "GameFontHighlightSmall", size = 10, across = 5 }
+    env.NumberFontNormalRight = { fontName = "NumberFontNormalRight", size = 14, across = 7 }
     env.CreateFont = function(name)
         local font = { fontName = name }
         function font:CopyFontObject(other) self.copied = other end
@@ -385,12 +431,22 @@ local function MakeWindow(game, name, kind)
     Give(window, "Bg", bg)
     parts.bg = GameTexture(game, bg)
     if kind ~= "bag" then
-        local money = Widget("Frame", nil, window)
+        -- The game's gold: 99 wide (sized to its coins), 13 high; its coins'
+        -- text in the number font.
+        local money = Widget("Frame", name .. "MoneyFrame", window)
+        S[money].width, S[money].height = 99, 13
         Give(window, "MoneyFrame", money)
         parts.coin = GameTexture(game, money)
         local border = Widget("Frame", nil, money)
         Give(money, "Border", border)
         parts.border = GameTexture(game, border)
+        for _, coin in ipairs({ "GoldButton", "SilverButton", "CopperButton" }) do
+            local button = Widget("Button", nil, money)
+            local text = Widget("FontString", nil, button)
+            S[text].font, S[text].textColour = env.NumberFontNormalRight, { 1, 1, 1 }
+            Give(button, "Text", text)
+            Give(money, coin, button)
+        end
     end
     Give(window, "Items", {})
     Give(window, "GetBagSize", function(self) return rawget(self, "size") or 0 end)
@@ -403,8 +459,11 @@ local function MakeWindow(game, name, kind)
             if type(size) == "number" and i <= size then return i, items[i] end
         end
     end)
-    -- The game's own updates (straight into its state, as the game's code).
-    Give(window, "UpdateFrameSize", function(self) S[self].width, S[self].height = 178, 100 end)
+    -- The game's own width (CONTAINER_WIDTH 178; the One Bag window always 10
+    -- columns: 10 x 37 + 9 x 5 + 15 = 430) and its own updates (straight into
+    -- its state, as the game's code).
+    Give(window, "CalculateWidth", function() return kind == "combined" and 430 or 178 end)
+    Give(window, "UpdateFrameSize", function(self) S[self].width, S[self].height = self:CalculateWidth(), 100 end)
     Give(window, "UpdateItemLayout", function(self)
         for _, button in self:EnumerateValidItems() do S[button].points = { { "BOTTOMRIGHT", self, "BOTTOMRIGHT", -7, 9 } } end
     end)
@@ -423,6 +482,41 @@ local function MakeWindow(game, name, kind)
         end
     end)
     Give(window, "UpdateMiscellaneousFrames", function() S[parts.face].file = "game portrait" end)
+    if kind ~= "bag" then
+        -- ContainerFrameTokenWatcherMixin: the currency row (while it shows
+        -- any) on the window's bottom edge 8 in, the gold above it; else the
+        -- gold on the bottom edge.
+        local function Showing(self)
+            local tracker = env.BackpackTokenFrame
+            if tracker and S[tracker].parent == self and S[tracker].shown and S[self].shown
+                and (rawget(tracker, "numWatchedTokens") or 0) > 0 then
+                return tracker
+            end
+        end
+        Give(window, "UpdateCurrencyFrames", function(self)
+            local tracker, money = Showing(self), rawget(self, "MoneyFrame")
+            if tracker then
+                S[tracker].points = { { "BOTTOMLEFT", self, "BOTTOMLEFT", 8, 8 }, { "BOTTOMRIGHT", self, "BOTTOMRIGHT", -8, 8 } }
+                S[money].points = { { "BOTTOMRIGHT", tracker, "TOPRIGHT", 0, 3 }, { "BOTTOMLEFT", tracker, "TOPLEFT", 0, 3 } }
+            else
+                S[money].points = { { "BOTTOMLEFT", self, "BOTTOMLEFT", 8, 8 }, { "BOTTOMRIGHT", self, "BOTTOMRIGHT", -8, 8 } }
+            end
+            S[money].shown = true
+        end)
+        Give(window, "UpdateTokenTracker", function(self)
+            local tracker = env.BackpackTokenFrame
+            if tracker and S[tracker].parent == self then
+                tracker:SetShown((rawget(tracker, "numWatchedTokens") or 0) > 0 and S[self].shown)
+            end
+            self:UpdateCurrencyFrames()
+        end)
+        -- TokenFrame.OnTokenWatchChanged (the row's Update counted a change).
+        Give(window, "OnTokenWatchChanged", function(self)
+            self:UpdateTokenTracker()
+            self:UpdateFrameSize()
+            if kind == "combined" then self:UpdateItemLayout() end
+        end)
+    end
     return window, parts
 end
 
@@ -438,6 +532,99 @@ local function Open(game, window, size)
     window:UpdateFrameSize()
     window:UpdateItemLayout()
     window:UpdateSearchBox()
+end
+
+-- The game's watched-currency row (Camelot Blizzard_TokenUI's
+-- BackpackTokenFrame): 1 x 17 with its own box (Border), on `owner`. Its
+-- Update takes the amounts in game.watched (as many as 50-wide slots fit in
+-- its width, or before it was ever laid out in ContainerFrame_GetApproximateWidth:
+-- the game's own One Bag window's 430 with Combine Bags on, else the
+-- backpack's 178), each on a pooled 50 x 12 button (Icon 12 square at its RIGHT +4 +1,
+-- Count in the small font from its TOPLEFT to the icon), lays them in a row
+-- leftwards from its RIGHT -17 -1 one button's width apart, and tells the
+-- owner when the count changed. Shift-click unwatches (OnClick), the tooltip
+-- is the game's (OnEnter); CURRENCY_DISPLAY_UPDATE runs Update while shown.
+local function MakeTracker(game, owner)
+    local S, Give, env = game.S, game.Give, game.env
+    local tracker = game.Widget("Frame", "BackpackTokenFrame", owner)
+    S[tracker].width, S[tracker].height, S[tracker].shown = 1, 17, false
+    local box = game.Widget("Frame", nil, tracker)
+    Give(tracker, "Border", box)
+    local edges = {}
+    for _, key in ipairs({ "Left", "Right", "Middle" }) do
+        edges[#edges + 1] = GameTexture(game, box, "common-currencybox-" .. key)
+        Give(box, key, edges[#edges])
+    end
+    game.watched = {}
+    local free, made = {}, 0
+    local tip = function() end
+    local function Unwatch(self)
+        table.remove(game.watched, self:GetID())
+        self:GetParent():Update()
+    end
+    local function NewToken()
+        made = made + 1
+        local button = game.Widget("Button", "BackpackToken" .. made, tracker)
+        S[button].width, S[button].height, S[button].shown = 50, 12, false
+        local icon = GameTexture(game, button)
+        S[icon].width, S[icon].height, S[icon].points = 12, 12, { { "RIGHT", button, "RIGHT", 4, 1 } }
+        local count = game.Widget("FontString", nil, button)
+        S[count].font, S[count].height, S[count].justify = env.GameFontHighlightSmall, 10, "RIGHT"
+        S[count].points = { { "TOPLEFT", button, "TOPLEFT", 0, 0 }, { "RIGHT", icon, "LEFT", 0, 0 } }
+        Give(button, "Icon", icon)
+        Give(button, "Count", count)
+        S[button].scripts.OnEnter, S[button].scripts.OnClick = tip, Unwatch
+        return button
+    end
+    env.ContainerFrame_GetApproximateWidth = function()
+        local window = game.cvars.combinedBags == "1" and env.ContainerFrameCombinedBags or env.ContainerFrame1
+        return window:CalculateWidth()
+    end
+    Give(tracker, "GetMaxTokensWatched", function(self)
+        local wide = self:GetWidth()
+        if wide <= 1 then wide = env.ContainerFrame_GetApproximateWidth() end
+        return math.max(math.floor(wide / 50), 1)
+    end)
+    Give(tracker, "Update", function(self)
+        local before = rawget(self, "numWatchedTokens")
+        for _, button in pairs(rawget(self, "Tokens") or {}) do
+            S[button].shown, S[button].points = false, {}
+            free[#free + 1] = button
+        end
+        local tokens, count = {}, 0
+        Give(self, "Tokens", tokens)
+        for i = 1, self:GetMaxTokensWatched() do
+            local amount = game.watched[i]
+            if amount then
+                local button = table.remove(free) or NewToken()
+                button:SetID(i)
+                S[button.Count].text = amount
+                S[button].shown = true
+                tokens[i] = button
+                count = i
+            end
+        end
+        Give(self, "numWatchedTokens", count)
+        local step = tokens[1] and tokens[1]:GetWidth()
+        for i, button in ipairs(tokens) do S[button].points = { { "RIGHT", self, "RIGHT", -17 - (i - 1) * step, -1 } } end
+        if before ~= count then
+            local parent = S[self].parent
+            local changed = rawget(parent, "OnTokenWatchChanged")
+            if changed then changed(parent) end
+        end
+    end)
+    S[tracker].scripts.OnEvent = function(self, event)
+        if event == "CURRENCY_DISPLAY_UPDATE" and S[self].shown then self:Update() end
+    end
+    tracker:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+    return tracker, edges, tip
+end
+
+-- The tracker's buttons in use, in watched order.
+local function TokenList(tracker)
+    local list = {}
+    for i, button in pairs(rawget(tracker, "Tokens") or {}) do list[i] = button end
+    return list
 end
 
 -- The sheet's bands on a window: from the right end hung at the window's
@@ -665,6 +852,246 @@ Equal(Point(game, pack.MoneyFrame) .. " | " .. Point(game, packItems[1]), "TOPRI
     .. "BOTTOMRIGHT ContainerFrame1 TOPRIGHT -12 -252", "the money and the bottom row one row lower")
 
 ---------------------------------------------------------------------------
+-- Watched currencies on the gold's strip (Discord report 13 Nov: they sat
+-- on the gold; Squirt 14 Nov: on the gold's row, from the left, each one
+-- next to the last; the ones with no room on a second strip under it)
+---------------------------------------------------------------------------
+
+local tracker, trackerBox, tokenTip = MakeTracker(game, pack)
+local function Watch(...)
+    game.watched = { ... }
+    tracker:Update()
+end
+-- The game's gold changing width (MoneyFrame_Update sizing it to its coins).
+local function ResizeGold(window, across)
+    local money = window.MoneyFrame
+    S[money].width = across
+    for _, fn in ipairs(S[money].hooks.OnSizeChanged or {}) do fn(money) end
+end
+local function Spots(list)
+    local out = {}
+    for i, button in ipairs(list) do out[i] = Point(game, button) .. " w" .. S[button].width end
+    return table.concat(out, " | ")
+end
+local PACK_BOX = { [212] = 212 / 256, [230] = 230 / 256 }
+
+Open(game, pack, 16)
+Watch("102")
+local list = TokenList(tracker)
+local first = list[1]
+Equal(Spots(list), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33", "one: at the gold strip's left, on the gold's middle, as wide as 102 and its icon")
+Equal(S[pack].width .. " x " .. S[pack].height .. " " .. #Bands(game, pack), "192 x 240 1", "one: no extra strip, the usual height")
+Equal(Point(game, pack.MoneyFrame), "TOPRIGHT ContainerFrame1 TOPRIGHT -6 -215", "the gold kept where it was (the game had put it above the row)")
+local count, icon = S[first.Count], S[first.Icon]
+Equal(count.font.fontName .. " " .. count.height .. " " .. table.concat(count.textColour, " "), "NumberFontNormalRight 16 1 1 1",
+    "the amount in the gold's font and colour, as tall as the font")
+Equal(#count.points .. " " .. count.points[1][1] .. " " .. tostring(count.points[1][2] == first.Icon) .. " " .. count.points[1][3]
+    .. " " .. count.points[1][4], "1 RIGHT true LEFT 0", "the amount right against its icon")
+Equal(#icon.points .. " " .. Point(game, first.Icon), "1 RIGHT BackpackToken1 RIGHT 0 0", "the icon at the button's right")
+Equal(Point(game, tracker, 1) .. " | " .. Point(game, tracker, 2), "BOTTOMLEFT ContainerFrame1 BOTTOMLEFT 8 8 | "
+    .. "BOTTOMRIGHT ContainerFrame1 BOTTOMRIGHT -8 8", "the row itself left where the game put it")
+Equal(tracker:GetWidth() .. " " .. tracker:GetMaxTokensWatched(), "176 3",
+    "the game still allows three, as on its own 178-wide backpack (162 / 50)")
+for i, edge in ipairs(trackerBox) do Equal(S[edge].alpha, 0, "the row's modern box faded (" .. i .. ")") end
+Equal(S[first].alphaSets, 0, "the currency itself never faded")
+-- The game's UpdateCurrencyFrames alone (the gold pinned above the row, as
+-- wide as it): the gold is pinned back before its width is read.
+pack:UpdateCurrencyFrames()
+Equal(Spots(TokenList(tracker)) .. " " .. S[pack].height, "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 240",
+    "the game pinning the gold over the row: the currency still beside it")
+
+-- Two: the gold 99 wide (its left 87 across) leaves 24 to 81; 37 doesn't fit
+-- after 102, so it starts the second strip.
+Watch("102", "37")
+list = TokenList(tracker)
+Equal(Spots(list), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 | LEFT ContainerFrame1 TOPLEFT 24 -239.5 w26",
+    "two: the second on a strip under the gold's, from its left")
+local packBands = Bands(game, pack)
+Equal(S[pack].height .. " " .. #packBands .. " " .. packBands[1].tall .. " " .. packBands[2].tall .. " " .. packBands[3].tall .. " "
+    .. packBands[4].tall, "258 4 210 19 18 26", "the window 18 taller: top, the strip to its box's end, the box again, the bottom edge")
+Near(packBands[2].coords[3], 210 / 255, "the strip from 210/255")
+Near(packBands[2].coords[4], PACK_BOX[230], "to sheet row 230")
+Near(packBands[3].coords[3], PACK_BOX[212], "the second box from sheet row 212")
+Near(packBands[3].coords[4], PACK_BOX[230], "to row 230")
+Near(packBands[4].coords[3], PACK_BOX[230], "then the bottom edge from row 230")
+Equal(packBands[2].key .. " " .. packBands[3].key .. " " .. packBands[4].key, "backpackBg backpackBg backpackBg",
+    "all the backpack sheet, greyed by Dark Mode like the strip")
+
+-- The gold shrinking (52s 10c, 40 wide): both fit beside it, the strip goes.
+ResizeGold(pack, 40)
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 | LEFT ContainerFrame1 TOPLEFT 63 -221.5 w26",
+    "the gold narrower: the second right after the first, 6 apart")
+Equal(S[pack].height .. " " .. #Bands(game, pack), "240 1", "the second strip gone, the usual height again")
+
+-- Three, the most the game allows here; a fourth refused by the game.
+Watch("102", "37", "1,234")
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 | LEFT ContainerFrame1 TOPLEFT 63 -221.5 w26 | "
+    .. "LEFT ContainerFrame1 TOPLEFT 24 -239.5 w47", "three: the third (to 142, the room ends at 140) on the second strip")
+Equal(tostring(S[pack].height), "258", "the strip back")
+Watch("102", "37", "1,234", "5")
+Equal(#TokenList(tracker), 3, "a fourth: the game's own limit, unchanged")
+ResizeGold(pack, 30)
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 | LEFT ContainerFrame1 TOPLEFT 63 -221.5 w26 | "
+    .. "LEFT ContainerFrame1 TOPLEFT 95 -221.5 w47", "the gold 30 wide: all three on its strip, left to right")
+Equal(tostring(S[pack].height), "240", "no second strip")
+
+-- The game laying its row out again after ours (its Update's grid from the
+-- row's right): ours still wins; so after CURRENCY_DISPLAY_UPDATE.
+tracker:Update()
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w33 | LEFT ContainerFrame1 TOPLEFT 63 -221.5 w26 | "
+    .. "LEFT ContainerFrame1 TOPLEFT 95 -221.5 w47", "the game's own Update: laid out again on the strip")
+game.watched[1] = "10.1K"
+game.Fire("CURRENCY_DISPLAY_UPDATE")
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w47 | LEFT ContainerFrame1 TOPLEFT 77 -221.5 w26 | "
+    .. "LEFT ContainerFrame1 TOPLEFT 24 -239.5 w47", "an amount grew: the rest move along, the last to the second strip")
+Equal(tostring(S[pack].height), "258", "the window follows")
+
+-- Shift-click (the game's own click) unwatches; the tooltip stays the game's.
+list = TokenList(tracker)
+for _, button in ipairs(list) do
+    Equal(S[button].scripts.OnEnter == tokenTip and S[button].scripts.OnClick ~= nil, true, "the game's tooltip and click kept")
+end
+S[list[1]].scripts.OnClick(list[1])
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -221.5 w26 | LEFT ContainerFrame1 TOPLEFT 56 -221.5 w47 | "
+    .. "LEFT ContainerFrame1 TOPLEFT 109 -221.5 w19", "the first unwatched: the others move up from the left, the one refused before joins")
+Equal(tostring(S[pack].height), "240", "and fit beside the gold")
+
+-- One with no room even on the second strip (a far too long amount): left
+-- out (hidden) rather than over the edge, shown again once it fits.
+Watch("37", string.rep("9", 30))
+list = TokenList(tracker)
+Equal(tostring(S[list[1]].shown) .. " " .. tostring(S[list[2]].shown) .. " " .. S[pack].height, "true false 240",
+    "too wide for any strip: hidden, no empty second strip")
+Watch("37", "5")
+list = TokenList(tracker)
+Equal(tostring(S[list[2]].shown) .. " " .. Spots(list), "true LEFT ContainerFrame1 TOPLEFT 24 -221.5 w26 | LEFT ContainerFrame1 TOPLEFT 56 -221.5 w19",
+    "back once it fits")
+
+-- More rows: the strip one row lower.
+ResizeGold(pack, 99)
+Open(game, pack, 20)
+Watch("102", "37")
+Equal(Spots(TokenList(tracker)), "LEFT ContainerFrame1 TOPLEFT 24 -262.5 w33 | LEFT ContainerFrame1 TOPLEFT 24 -280.5 w26",
+    "20 slots: both strips one row lower")
+packBands = Bands(game, pack)
+Equal(S[pack].height .. " " .. #packBands .. " " .. packBands[2].tall .. " " .. packBands[4].tall, "299 5 41 18",
+    "top, the extra row, the strip, the second box, the edge")
+
+-- Unwatching all: nothing shown, the usual window.
+Watch()
+Equal(tostring(S[tracker].shown) .. " " .. S[pack].height .. " " .. #Bands(game, pack), "false 281 3", "none watched: the usual 20-slot backpack")
+Equal(Point(game, pack.MoneyFrame), "TOPRIGHT ContainerFrame1 TOPRIGHT -6 -256", "the gold kept on its strip")
+Open(game, pack, 16)
+
+-- The One Bag window, at every column count (70 slots), with the gold 40,
+-- 99 and 168 wide (the widest the game lets it be) and one more currency
+-- than the game allows, each 47 wide (1,234): the game's limit at least its
+-- own One Bag window's (430 wide: eight; the review of 14 Nov: 8 across gave
+-- six), every one shown, left to right, none over the one before, clear of
+-- the gold and the strips' ends, a new strip only when the one before is
+-- full, as many strips under the gold's as used and no more.
+tracker:SetParent(one)
+ns.db.oneBagColumns = 8
+Open(game, one, 70)
+Watch("1")
+Open(game, pack, 16)
+Equal(S[pack].height .. " " .. tostring(S[TokenList(tracker)[1]].points[1][2] == one), "240 true",
+    "the row on another window: this one left as it was, the currency on the One Bag window")
+local OWN_MOST = math.floor((430 - 16) / 50)
+local mostStrips = 0
+for columns = 4, 16 do
+    ns.db.oneBagColumns = columns
+    Open(game, one, 70)
+    local wide = 192 + 42 * (columns - 4)
+    local extra = math.ceil(70 / columns) - 4
+    local most = tracker:GetMaxTokensWatched()
+    Equal(most .. " " .. tostring(most >= OWN_MOST), math.floor((math.max(wide, 430) - 16) / 50) .. " true",
+        columns .. " across: the game's limit from the row's width, at least its own One Bag window's eight")
+    Equal(Point(game, tracker, 1) .. " | " .. Point(game, tracker, 2), "BOTTOMLEFT ContainerFrameCombinedBags BOTTOMLEFT 8 8 | "
+        .. "BOTTOMRIGHT ContainerFrameCombinedBags BOTTOMRIGHT " .. (math.max(0, 430 - wide) - 8) .. " 8",
+        columns .. " across: the game's anchors, the right one past a window narrower than the game's own")
+    for _, gold in ipairs({ 40, 99, 168 }) do
+        local label = columns .. " across, gold " .. gold
+        ResizeGold(one, gold)
+        local amounts = {}
+        for i = 1, most + 1 do amounts[i] = "1,234" end
+        Watch(table.unpack(amounts))
+        local middle = -(215 + 41 * extra) - 6.5
+        local lastRight, lastRow = -math.huge, 1
+        list = TokenList(tracker)
+        Equal(#list, most, label .. ": as many as the game allows")
+        for i, button in ipairs(list) do
+            local p = S[button].points[1]
+            local x, y, w = p[4], p[5], S[button].width
+            local row = math.floor((middle - y) / 18 + 0.5) + 1
+            if row < 1 or middle - (row - 1) * 18 ~= y then row = 0 end
+            Equal(tostring(S[button].shown) .. " " .. p[1] .. " " .. tostring(p[2] == one) .. " " .. p[3] .. " " .. row .. " " .. w,
+                "true LEFT true TOPLEFT " .. (row > 0 and row or "?") .. " 47", label .. ": currency " .. i .. " on a strip")
+            Equal(x >= 24, true, label .. ": " .. i .. " inside the strip's left")
+            if row == 1 then
+                Equal(x + w <= wide - 6 - gold - 6, true, label .. ": " .. i .. " clear of the gold")
+            else
+                Equal(x + w <= wide - 19, true, label .. ": " .. i .. " inside its strip's end")
+            end
+            Equal(row > lastRow or x >= lastRight, true, label .. ": " .. i .. " after the one before")
+            Equal(row == lastRow or row == lastRow + 1, true, label .. ": " .. i .. " on the same strip or the next")
+            if row == lastRow + 1 then
+                local from = lastRight == -math.huge and 24 or lastRight + 6
+                local ends = lastRow == 1 and (wide - 6 - gold - 6) or (wide - 19)
+                Equal(from + w > ends, true, label .. ": " .. i .. " starts a strip only when the one before is full")
+            end
+            lastRight, lastRow = x + w, row
+        end
+        local strips = lastRow - 1
+        mostStrips = math.max(mostStrips, strips)
+        local bands, boxes = Bands(game, one), 0
+        for _, band in ipairs(bands) do if band.tall == 18 then boxes = boxes + 1 end end
+        Equal(S[one].width .. " x " .. S[one].height .. " " .. bands[#bands].tall .. " " .. boxes,
+            wide .. " x " .. (240 + 41 * extra + 18 * strips) .. " " .. (strips > 0 and 26 or 45) .. " " .. strips,
+            label .. ": the box drawn once per strip used, the window that much taller")
+    end
+end
+Equal(mostStrips, 4, "the narrowest window with the widest gold: eight currencies on four strips under it, none left out")
+Watch()
+Equal(tostring(S[tracker].shown) .. " " .. S[one].height, "false 281", "none watched: the One Bag window back to its size (16 across)")
+
+-- Before the bags are first opened (the row never laid out) the game counts
+-- in its own One Bag window's width (430 / 50: eight). Eight ticked then,
+-- the 8-across One Bag window (360) opened: all eight shown and eight still
+-- allowed (the row's right pinned 70 past the window's: 414 wide), a ninth
+-- refused as on the game's own window.
+ns.db.oneBagColumns = 8
+ResizeGold(one, 99)
+one:Hide()
+S[tracker].points, S[tracker].width = {}, 1
+game.cvars.combinedBags = "1"
+Equal(tracker:GetMaxTokensWatched(), 8, "never laid out: the game's estimate from its own One Bag window")
+Watch("37", "37", "37", "37", "37", "37", "37", "37")
+Equal(#TokenList(tracker) .. " " .. tostring(S[tracker].shown), "8 false", "eight ticked with the bags closed")
+Open(game, one, 70)
+one:UpdateTokenTracker() -- the game's OnShow: the row shown, pinned 8 in
+tracker:Update()         -- then its CleanDirty
+list = TokenList(tracker)
+Equal(#list .. " " .. tracker:GetMaxTokensWatched() .. " " .. tracker:GetWidth() .. " " .. Point(game, tracker, 2),
+    "8 8 414 BOTTOMRIGHT ContainerFrameCombinedBags BOTTOMRIGHT 62 8", "opened: all eight kept, the game's limit still eight")
+Equal(Spots(list), "LEFT ContainerFrameCombinedBags TOPLEFT 24 -426.5 w26 | LEFT ContainerFrameCombinedBags TOPLEFT 56 -426.5 w26 | "
+    .. "LEFT ContainerFrameCombinedBags TOPLEFT 88 -426.5 w26 | LEFT ContainerFrameCombinedBags TOPLEFT 120 -426.5 w26 | "
+    .. "LEFT ContainerFrameCombinedBags TOPLEFT 152 -426.5 w26 | LEFT ContainerFrameCombinedBags TOPLEFT 184 -426.5 w26 | "
+    .. "LEFT ContainerFrameCombinedBags TOPLEFT 216 -426.5 w26 | LEFT ContainerFrameCombinedBags TOPLEFT 24 -444.5 w26",
+    "seven beside the gold (its left at 255), the eighth on a strip under it")
+Equal(S[one].width .. " x " .. S[one].height, "360 x 463", "the window 18 taller for that strip")
+Watch("37", "37", "37", "37", "37", "37", "37", "37", "5")
+Equal(#TokenList(tracker), 8, "a ninth: the game's limit, as on its own One Bag window")
+Watch()
+game.cvars.combinedBags = "0"
+ns.db.oneBagColumns = 16
+Open(game, one, 70)
+ResizeGold(one, 99)
+Equal(game.hookCount["BackpackTokenFrame:Update"] .. " " .. game.hookCount["ContainerFrame1MoneyFrame:OnSizeChanged"] .. " "
+    .. game.hookCount["ContainerFrameCombinedBagsMoneyFrame:OnSizeChanged"], "1 1 1", "the row's Update and each gold hooked once")
+Equal(table.concat(game.violations, ", "), "", "no script set on the game's buttons")
+
+---------------------------------------------------------------------------
 -- One Bag
 ---------------------------------------------------------------------------
 
@@ -788,6 +1215,12 @@ Equal(S[one].shown, true, "(the One Bag window still open)")
 local oneWidth = S[one].width
 Equal(ns.SetOneBagColumns(12) .. " " .. ns.db.oneBagColumns .. " " .. S[one].width, "12 12 " .. oneWidth,
     "off: the columns saved, the open One Bag window left alone")
+Watch("102", "37")
+list = TokenList(tracker)
+Equal(Point(game, list[1]) .. " | " .. Point(game, list[2]) .. " | " .. Point(game, tracker), "RIGHT BackpackTokenFrame RIGHT -17 -1 | "
+    .. "RIGHT BackpackTokenFrame RIGHT -" .. (17 + S[list[1]].width) .. " -1 | BOTTOMLEFT ContainerFrameCombinedBags BOTTOMLEFT 8 8",
+    "off: the game's own currency row, the hooks still")
+Watch()
 ns.SetOneBagColumns(8)
 ns.db.bags = true
 game.Pass()
@@ -1035,5 +1468,18 @@ quiet.Pass()
 quiet.Pass()
 Equal(quiet.ns.needsReload, nil, "Bags & Bank off from login: no reload note")
 Equal(quiet.E.Look.Bags.active, false, "and nothing active")
+-- Its watched currencies: the game's own row, untouched.
+local quietPack = MakeWindow(quiet, "ContainerFrame1", "backpack")
+local quietTracker, quietBox = MakeTracker(quiet, quietPack)
+Open(quiet, quietPack, 16)
+quiet.watched = { "102", "37" }
+quietTracker:Update()
+local quietList, QS = TokenList(quietTracker), quiet.S
+Equal(Point(quiet, quietList[1]) .. " | " .. Point(quiet, quietList[2]) .. " | " .. Point(quiet, quietTracker) .. " | "
+    .. Point(quiet, quietPack.MoneyFrame), "RIGHT BackpackTokenFrame RIGHT -17 -1 | RIGHT BackpackTokenFrame RIGHT -67 -1 | "
+    .. "BOTTOMLEFT ContainerFrame1 BOTTOMLEFT 8 8 | BOTTOMRIGHT BackpackTokenFrame TOPRIGHT 0 3", "off from login: the game's own layout")
+Equal(QS[quietPack].width .. " x " .. QS[quietPack].height .. " " .. QS[quietList[1]].width .. " " .. QS[quietList[1].Count].font.fontName
+    .. " " .. QS[quietBox[1]].alpha, "178 x 100 50 GameFontHighlightSmall 1", "its size, the 50-wide slots, the small font, the box")
+Equal(table.concat(quiet.Strays(), ", ") .. table.concat(quiet.violations, ", "), "", "nothing written there")
 
 print("TestBags: " .. checks .. " checks passed")

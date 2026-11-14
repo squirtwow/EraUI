@@ -289,6 +289,19 @@ P:Apply("classic")
 Equal(saved.darkBagButtons, true, "the Classic look keeps a switched-on Dark Bag Buttons")
 saved.darkBagButtons = nil
 Equal(P:Current(), "classic", "and off, still the Classic look")
+-- Its Bag Addon Windows tick is left as chosen, like Thick Frames' own
+-- ticks: it does nothing while Dark Bag Buttons is off.
+for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do
+    for _, key in ipairs(list) do Equal(key ~= "darkBagAddonSlots", true, "Bag Addon Windows is not a preset look") end
+end
+for _, value in ipairs({ true, false }) do
+    saved.darkBagButtons, saved.darkBagAddonSlots = true, value
+    Equal(P:Changes("qol").darkBagAddonSlots, nil, "Quality of Life only leaves Bag Addon Windows alone")
+    P:Apply("qol"); P:Apply("classic")
+    Equal(saved.darkBagAddonSlots, value, "Bag Addon Windows stays as chosen through both presets")
+    Equal(P:Current(), "classic", "Bag Addon Windows never changes which preset you're on")
+end
+saved.darkBagButtons, saved.darkBagAddonSlots = nil, nil
 -- Upgrade Spell Ranks is a quality-of-life choice, not a look: presets leave
 -- it alone, on or off, and it never changes which preset you're on.
 for _, list in ipairs({ P.LOOK, P.LOOK_EXTRAS }) do

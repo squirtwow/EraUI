@@ -25,7 +25,7 @@ local EXPECTED = {
     "thickFrameEdge", "thickAuraBorders", "roundedCastBars", "partyOutline"}}}},
    {"dark", "Dark Mode", {{"DARKNESS", {"darkModeDarkness", "darkenClassColours"}},
     {"BORDERS", {"darkAuraBorders", "darkAuraShadows", "darkDebuffLines"}},
-    {"BARS AND WINDOWS", {"darkMenuBar", "darkBagButtons", "darkWindows", "blackPages"}}}},
+    {"BARS AND WINDOWS", {"darkMenuBar", "darkBagButtons", "darkBagAddonSlots", "darkWindows", "blackPages"}}}},
    {"classcol", "Class Colours", {{"CLASS COLOURS", {"classColors", "tooltipClassColours", "classColourFriends", "classColourFriendsLevel",
     "classColourBorders", "castBarClassBorder", "plainNameStrip"}}}}}},
   -- Action Rings on a sub-tab of its own (2026-11-07): its switch and
@@ -287,7 +287,7 @@ local TRAIL_TESTING = {"abilityTrailCombatOnly",
  "abilityTrailUnlock", "abilityTrailPlace"}
 local TESTING = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
  miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
- actionRings = true, bagBigCounts = true, plainNameStrip = true}
+ actionRings = true, bagBigCounts = true, plainNameStrip = true, darkBagAddonSlots = true}
 for _, key in ipairs(TRAIL_TESTING) do TESTING[key] = true end
 -- The eighteen the user saw working in game on 2026-10-15: no "experimental".
 local SEEN_WORKING = {"darkAuraShadows", "darkDebuffLines", "darkWindows", "blackPages", "darkBagButtons", "characterItemLevels",
@@ -311,21 +311,27 @@ for _, c in ipairs(CLASSES) do
  equal(f.checks.matchFocusSize:IsShown(), true, c .. " focus sizing on Frames & Nameplates > Unit Frames")
  -- Appearance > Dark Mode: Darkness, then Dark Aura Borders with Aura Shadows
  -- and Thin Debuff Colours under it, then Dark Menu Bar beside Dark Bag
- -- Buttons, and Dark Windows with Black Pages under it.
+ -- Buttons with Bag Addon Windows under it, and Dark Windows with Black
+ -- Pages under it.
  do
   local aura, shade, lines = f.checks.darkAuraBorders, f.checks.darkAuraShadows, f.checks.darkDebuffLines
   local bar, bags, windows, black = f.checks.darkMenuBar, f.checks.darkBagButtons, f.checks.darkWindows, f.checks.blackPages
-  for _, row in ipairs({aura, shade, lines, bar, bags, windows, black}) do
+  local addons = f.checks.darkBagAddonSlots
+  for _, row in ipairs({aura, shade, lines, bar, bags, addons, windows, black}) do
    equal(row.category == Tab(f, "appearance") and row.subId, "dark", c .. " " .. row.settingKey .. " on Appearance > Dark Mode")
   end
   equal(aura.text:GetText() .. "/" .. shade.text:GetText() .. "/" .. lines.text:GetText() .. "/" .. bags.text:GetText() .. "/"
-   .. windows.text:GetText() .. "/" .. black.text:GetText(),
-   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Bag Buttons/Dark Windows/Black Pages", c .. " plain labels (any words are small ones after the name)")
+   .. addons.text:GetText() .. "/" .. windows.text:GetText() .. "/" .. black.text:GetText(),
+   "Dark Aura Borders/Aura Shadows/Thin Debuff Colours/Dark Bag Buttons/Bag Addon Windows/Dark Windows/Black Pages",
+   c .. " plain labels (any words are small ones after the name)")
   Open(f, "appearance", "dark")
   M.NoOverlaps(f, c .. " Appearance > Dark Mode")
   M.Fits(f, c .. " Appearance > Dark Mode")
-  equal(Keys(f), "darkModeDarkness,darkenClassColours,darkAuraBorders,darkAuraShadows,darkDebuffLines,darkMenuBar,darkBagButtons,darkWindows,blackPages",
-   c .. " Dark Mode in the approved order")
+  equal(Keys(f), "darkModeDarkness,darkenClassColours,darkAuraBorders,darkAuraShadows,darkDebuffLines,darkMenuBar,darkBagButtons,"
+   .. "darkBagAddonSlots,darkWindows,blackPages", c .. " Dark Mode in the approved order")
+  equal(addons.depth == 1 and math.abs(addons:GetLeft() - bags:GetLeft() - 22) < .01 and addons:GetTop() < bags:GetBottom(), true,
+   c .. " Bag Addon Windows indented under Dark Bag Buttons")
+  equal(windows:GetTop() < addons:GetBottom(), true, c .. " Dark Windows starts under Bag Addon Windows")
   for _, row in ipairs({shade, lines}) do
    equal(row.depth == 1 and math.abs(row:GetLeft() - aura:GetLeft() - 22) < .01 and row:GetTop() < aura:GetBottom(), true,
     c .. " " .. row.settingKey .. " indented under Dark Aura Borders")
@@ -342,11 +348,22 @@ for _, c in ipairs(CLASSES) do
    equal(row.dependencyDisabled == true and row.alpha, .45, c .. " " .. row.settingKey .. " greyed while Dark Mode is off")
   end
   equal(not bags.dependencyDisabled and bags.alpha, 1, c .. " Dark Bag Buttons not greyed while Dark Mode is off")
+  -- Bag Addon Windows needs Dark Bag Buttons (never Dark Mode): greyed, and
+  -- can't be switched on, while it's off; available with it, Dark Mode or not.
+  equal(addons.dependencyDisabled == true and addons.alpha, .45, c .. " Bag Addon Windows greyed while Dark Bag Buttons is off")
+  addons:SetChecked(true); addons:Fire("OnClick")
+  equal(E.settings.darkBagAddonSlots == nil and addons:GetChecked() == false, true,
+   c .. " Bag Addon Windows can't be switched on without Dark Bag Buttons; its tick goes back")
   bags:SetChecked(true); bags:Fire("OnClick")
   equal(E.settings.darkBagButtons == true and bags:GetChecked() == true, true, c .. " Dark Bag Buttons can be switched on without Dark Mode")
+  equal(addons.dependencyDisabled == false and addons.alpha, 1, c .. " Dark Bag Buttons on frees Bag Addon Windows at once, without Dark Mode")
+  addons:SetChecked(true); addons:Fire("OnClick")
+  equal(E.settings.darkBagAddonSlots == true and addons:GetChecked() == true, true, c .. " Bag Addon Windows switched on")
   bags:SetChecked(false); bags:Fire("OnClick")
   equal(E.settings.darkBagButtons == false and bags:GetChecked() == false, true, c .. " and off again")
-  E.settings.darkBagButtons = nil
+  equal(addons.dependencyDisabled == true and addons.alpha == .45 and E.settings.darkBagAddonSlots == true, true,
+   c .. " Bag Addon Windows greyed again at once, its choice kept")
+  E.settings.darkBagButtons, E.settings.darkBagAddonSlots = nil, nil
   aura:SetChecked(false); aura:Click()
   equal(E.settings.darkAuraBorders == true and aura:GetChecked() == true, true, c .. " a click on a greyed row changes nothing and keeps its tick")
   shade:SetChecked(true); shade:Fire("OnClick")
@@ -709,6 +726,44 @@ do
  bagRow:Click()
  equal(E.settings.darkBagButtons, true, "without Classic loaded, the Dark Bag Buttons tick still saves")
  bagRow:Click()
+ -- Bag Addon Windows (under Dark Bag Buttons): its words (no addon named),
+ -- greyed while Dark Bag Buttons is off, experimental, off by default, live
+ -- through the bag buttons' own refresh with its own chat line.
+ local addonRow = f.checks.darkBagAddonSlots
+ E.settings.darkBagButtons = false; f:RefreshDependencies()
+ _, help, extras = M.Hover(f, addonRow)
+ equal(help, "Bag Addon Windows  Bag icons on a bag addon's window turn grey like your bag buttons: its bag slots and the small quiver, herb and other bag buttons.",
+  "Bag Addon Windows: what it does, the slots and the special bags' buttons")
+ equal(Has(help, EM) or Has(addonRow.summary, EM), false, "no em dash")
+ equal(extras, "Switch on Dark Bag Buttons first.  Default: Off.", "Bag Addon Windows names Dark Bag Buttons (same sub-tab, no place) while it's off")
+ equal(addonRow.summary, "Bag icons on bag addon windows in the same grey.", "Bag Addon Windows: its summary")
+ equal(table.concat(addonRow.tagIds or {}, ","), "TEST", "Bag Addon Windows says experimental")
+ E.settings.darkBagButtons = true; f:RefreshDependencies()
+ _, _, extras = M.Hover(f, addonRow)
+ equal(extras, "Default: Off.", "with Dark Bag Buttons on: off by default, no reload line")
+ bagPasses = 0
+ E.Classic.RefreshDarkBagButtons = function() bagPasses = bagPasses + 1 end
+ addonRow:SetChecked(false); addonRow:Click()
+ equal(tostring(E.settings.darkBagAddonSlots) .. " " .. bagPasses .. " " .. status, "true 1 Dark Bag Buttons: Bag Addon Windows enabled.",
+  "Bag Addon Windows on, live through the bag buttons' refresh")
+ addonRow:Click()
+ equal(tostring(E.settings.darkBagAddonSlots) .. " " .. bagPasses .. " " .. status, "false 2 Dark Bag Buttons: Bag Addon Windows disabled.",
+  "and off, live")
+ E.GetSetting = function(self, key) if key == "darkMode" then return false end; return get(self, key) end
+ addonRow:Click()
+ equal(status, "Dark Bag Buttons: Bag Addon Windows enabled.", "Bag Addon Windows never waits for Dark Mode")
+ E.GetSetting = get
+ addonRow:Click()
+ E.Classic.RefreshDarkBagButtons = nil
+ addonRow:Click()
+ equal(E.settings.darkBagAddonSlots, true, "without Classic loaded, the Bag Addon Windows tick still saves")
+ addonRow:Click()
+ E.settings.darkBagButtons = false; f:RefreshDependencies()
+ for _, word in ipairs({"bag addon", "addons", "window", "quiver", "herb", "satchel", "profession", "section", "icons", "grey", "gray", "dark", "experimental"}) do
+  local hit = false
+  for _, key in ipairs(M.Results(f, word)) do if key == "darkBagAddonSlots" then hit = true end end
+  equal(hit, true, "searching " .. word .. " finds Bag Addon Windows")
+ end
  for _, word in ipairs({"bag", "backpack", "icon", "grey", "gray", "colour", "color", "open", "dark"}) do
   local hit = false
   for _, key in ipairs(M.Results(f, word)) do if key == "darkBagButtons" then hit = true end end
@@ -3278,9 +3333,12 @@ do
  Expect(nil, "in setup:")
  f:SetSetupMode(false); Flush()
  Expect("1.5.5", "after setup:")
- -- Search results carry the same words, after the option's name.
- M.Results(f, "dark windows")
- local result = f.visibleRows[1]
+ -- Search results carry the same words, after the option's name. (Dark Bag
+ -- Buttons' Bag Addon Windows comes first: it's on Dark Mode too and says
+ -- windows.)
+ equal(table.concat(M.Results(f, "dark windows"), ","), "darkBagAddonSlots,darkWindows,tooltipSkin",
+  "dark windows finds Bag Addon Windows, Dark Windows (and Tooltip Skin, on Windows & Tooltips)")
+ local result = f.visibleRows[2]
  equal(result.target.settingKey .. " " .. table.concat(result.tagIds, ","), "darkWindows NEW", "a result shows its option's words")
  TagLook(result, "the Dark Windows result")
  M.Results(f, "raid-style party outline")
@@ -3295,10 +3353,11 @@ do
  for _, key in ipairs(TRAIL_TESTING) do trail[#trail + 1] = key end
  trail[#trail + 1] = "abilityTrailParty"
  table.sort(trail)
- equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagBigCounts,gatherSparkles,hideSecondaryNamesTooltips,miniGameBlast,"
-  .. "miniGameFlight,miniGameWhack,partyOutline,plainNameStrip,spellbookCombatDrag",
-  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Big Bag Numbers, Herb and Ore Sparkles,"
-  .. " On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline, Plain Target Name Strip and Combat Spell Dragging")
+ equal(table.concat(found, ","), table.concat(trail, ",") .. ",actionRings,bagBigCounts,darkBagAddonSlots,gatherSparkles,hideSecondaryNamesTooltips,"
+  .. "miniGameBlast,miniGameFlight,miniGameWhack,partyOutline,plainNameStrip,spellbookCombatDrag",
+  "searching experimental finds only Ability Trail's Party line and its rows not seen in game, Action Rings, Big Bag Numbers, Bag Addon Windows,"
+  .. " Herb and Ore Sparkles, On Tooltips Too, the mini-games' flight choice and Play rows, the Raid-style Party Outline, Plain Target Name Strip"
+  .. " and Combat Spell Dragging")
  f.searchBox:SetText(""); Flush()
 end
 

@@ -7,7 +7,8 @@
 --   * the key ring's own art
 --   * Dark Menu Bar: the modern micro buttons' bronze frames in Dark Mode's grey
 --   * Dark Bag Buttons: the bag icons grey and the open-bag line dark, with or
---     without Dark Mode
+--     without Dark Mode; its Bag Addon Windows tick greys a bag addon's bag
+--     icons too (its bag slots and its special bags' buttons)
 -- Other files call the public functions on the Classic namespace; the band
 -- (Look/Band*.lua) uses them for every button it lays out.
 local _, EraUI = ...
@@ -276,10 +277,10 @@ local function GiveBack(texture)
 end
 
 -- One button's look, on or off. Off it touches only what EraUI painted.
-local function DarkenBag(slot)
+local function ShadeBag(slot, dark)
     if type(slot) ~= "table" then return end
     local icon, line = slot.icon or slot.Icon, slot.SlotHighlightTexture
-    if DarkBags() then
+    if dark then
         if icon then
             PaintBag(icon, BAG_GREY, BAG_GREY, BAG_GREY)
             icon:SetDesaturated(true)
@@ -290,17 +291,39 @@ local function DarkenBag(slot)
     if icon and GiveBack(icon) then icon:SetDesaturated(bagGrey[icon] == true) end
     if line then GiveBack(line) end
 end
+
+local function DarkenBag(slot)
+    ShadeBag(slot, DarkBags())
+end
 Look.DarkenBag = DarkenBag
 
-local function AfterGameColour(slot)
-    if OnBagBar(slot) then DarkenBag(slot) end
+-- Bag Addon Windows (darkBagAddonSlots, under Dark Bag Buttons): the bag
+-- icons a bag addon shows on its window take the same look. Each button EraUI
+-- follows is kept here (the rest of it is further down).
+local addonSlots = setmetatable({}, { __mode = "k" }) -- a bag addon's bag button: its updates followed
+
+local function AddonSlotsDark()
+    return DarkBags() and EraUI:GetSetting("darkBagAddonSlots") and true or false
 end
 
+local function ShadeAddonSlot(slot)
+    if addonSlots[slot] then ShadeBag(slot, AddonSlotsDark()) end
+end
+
+local function AfterGameColour(slot)
+    if type(slot) ~= "table" then return end
+    if OnBagBar(slot) then DarkenBag(slot) else ShadeAddonSlot(slot) end
+end
+
+-- The grey the game or the bag addon gives (a bag being moved, the addon's
+-- slots in a fight) is the button's own, given back when the look goes.
 local function AfterGameGrey(slot, desaturated)
-    if not OnBagBar(slot) then return end
+    if type(slot) ~= "table" then return end
+    local onBar = OnBagBar(slot)
+    if not onBar and not addonSlots[slot] then return end
     local icon = slot.icon or slot.Icon
     if icon then bagGrey[icon] = desaturated and true or false end
-    DarkenBag(slot)
+    if onBar then DarkenBag(slot) else ShadeAddonSlot(slot) end
 end
 
 local GAME_CALLS = { SetItemButtonTextureVertexColor = AfterGameColour, SetItemButtonDesaturated = AfterGameGrey }
@@ -324,6 +347,108 @@ end
 local function BagIconGrey(icon, grey)
     bagGrey[icon] = grey and true or false
     icon:SetDesaturated(grey and true or false)
+end
+
+---------------------------------------------------------------------------
+-- Bag Addon Windows: a bag addon's bag icons grey like the bag bar while
+-- Dark Bag Buttons is on too:
+--   * its bag slots (the row it can show along its window's top: each bag
+--     worn, quivers, ammo pouches and profession bags alike, and another
+--     character's bags)
+--   * its special bags' buttons, the small ones beside the coin under its
+--     items (each folds one kind of bag's section away and shows that kind:
+--     a quiver's arrows, an herb bag's leaf, a profession bag's sign). They
+--     are on its window by default; the slot row is not.
+-- Found through the addon's own skin API, which names every button it makes
+-- and tags these; EraUI never walks its frames or changes its files. Colour
+-- and desaturation calls only, after each of the addon's own updates, and
+-- the addon's own look given back exactly when the tick goes off. Nothing is
+-- hooked until the tick is first on; with no bag addon, nothing happens. The
+-- coin opens currencies and isn't a bag, so it keeps its look.
+---------------------------------------------------------------------------
+
+local SLOT_ADDON = "Baganator"
+-- Each kind of button the addon names, and the tag it gives its bag ones.
+local BAG_KINDS = { ItemButton = "containerBag", IconButton = "collapsingBagSection" }
+-- Every update that may set a slot's icon or its colour: a live slot's own
+-- refresh, another character's slot, and the item-button calls they make.
+local SLOT_UPDATES = Look.Words("Init SetItemDetails UpdateTextures SetItemButtonTexture SetItemButtonQuality "
+    .. "SetItemButtonTextureVertexColor")
+local slotsJoined, slotsWaiting = false, nil
+
+-- The grey a slot already has when EraUI first meets it (the addon greys its
+-- slots in a fight) is its own. A value the game keeps secret is never read.
+local function OwnGrey(icon)
+    if bagGrey[icon] ~= nil or type(icon.IsDesaturated) ~= "function" then return end
+    local fine, grey = pcall(icon.IsDesaturated, icon)
+    if fine and not Look.Secret(grey) and type(grey) == "boolean" then bagGrey[icon] = grey end
+end
+
+local function IsBagSlot(details)
+    local tag = type(details) == "table" and BAG_KINDS[details.regionType]
+    if not tag or type(details.region) ~= "table" or type(details.tags) ~= "table" then return false end
+    for _, given in ipairs(details.tags) do
+        if given == tag then return true end
+    end
+    return false
+end
+
+local function AdoptSlot(details)
+    if not IsBagSlot(details) then return end
+    local slot = details.region
+    if not addonSlots[slot] then
+        addonSlots[slot] = true
+        local icon = slot.icon or slot.Icon
+        if type(icon) == "table" then OwnGrey(icon) end
+        for _, method in ipairs(SLOT_UPDATES) do
+            if type(slot[method]) == "function" then Look.Hook(slot, method, ShadeAddonSlot, "darkBagAddonSlots") end
+        end
+        -- A special bag's button has no update of its own: the addon reuses
+        -- it for another kind of bag, setting its icon while it's hidden,
+        -- then shows it.
+        if details.regionType == "IconButton" then Look.HookScript(slot, "OnShow", ShadeAddonSlot, "darkBagAddonSlots") end
+    end
+    ShadeAddonSlot(slot)
+end
+
+local function SlotSkins()
+    local addon = _G[SLOT_ADDON]
+    local api = type(addon) == "table" and addon.API
+    local skins = type(api) == "table" and api.Skins
+    if type(skins) == "table" and type(skins.RegisterListener) == "function" and type(skins.GetAllFrames) == "function" then
+        return skins
+    end
+end
+
+-- Every bag slot the addon has made, and each one it makes later (a new
+-- window, a new skin's windows). Once.
+local function JoinSlots()
+    if slotsJoined then return true end
+    local skins = SlotSkins()
+    if not skins then return false end
+    slotsJoined = true
+    if slotsWaiting then slotsWaiting:UnregisterAllEvents() end
+    pcall(skins.RegisterListener, function(details) pcall(AdoptSlot, details) end)
+    local fine, made = pcall(skins.GetAllFrames)
+    if fine and type(made) == "table" then
+        for _, details in ipairs(made) do pcall(AdoptSlot, details) end
+    end
+    return true
+end
+
+-- A bag addon loading after EraUI: joined as it loads, while the tick is on.
+local function WaitForSlots()
+    if slotsWaiting then return end
+    slotsWaiting = CreateFrame("Frame")
+    slotsWaiting:SetScript("OnEvent", function(_, _, name)
+        if name == SLOT_ADDON and AddonSlotsDark() then JoinSlots() end
+    end)
+    Look.Listen(slotsWaiting, "ADDON_LOADED")
+end
+
+local function RefreshAddonSlots()
+    if AddonSlotsDark() and not JoinSlots() then WaitForSlots() end
+    for slot in pairs(addonSlots) do ShadeAddonSlot(slot) end
 end
 
 ---------------------------------------------------------------------------
@@ -546,7 +671,8 @@ local function UndressKeyRing(ring)
 end
 
 -- The tick in /era: each bag button's look again, and the 1.x art again on
--- a button wearing it (its open-bag art differs with the tick).
+-- a button wearing it (its open-bag art differs with the tick); then the bag
+-- addon's slots (Bag Addon Windows).
 local function RefreshBags()
     if DarkBags() then WatchBags() end
     for _, bagName in ipairs(BAG_NAMES) do
@@ -557,6 +683,7 @@ local function RefreshBags()
             else DarkenBag(bag) end
         end
     end
+    RefreshAddonSlots()
 end
 
 ---------------------------------------------------------------------------

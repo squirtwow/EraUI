@@ -9,7 +9,9 @@
 --     controls) and Equipment Manager pane; the stats panes and sidebars;
 --   * the Skills, Reputation, Currency and Statistics lists (scroll box,
 --     minimal scroll bar, pooled rows built from the game's templates), the
---     skill detail pane and its rank bar, the PvP panel;
+--     skill detail pane and its rank bar, the PvP panel; the Currency tab's
+--     selection, row clicks, watch toggle and detail pane (TokenDetailFrame
+--     with its Unused and Show on Backpack ticks), and SetRightPaneCollapsed;
 --   * ColoredProgressBarMixin, SkillsBarMixin and ReputationBarMixin with the
 --     game's SetFillPercent (it sizes against FillArea);
 --   * the stat, item, skill, reputation and timer APIs, secret values, and
@@ -524,6 +526,26 @@ function Mock.New(options)
             for index, faction in ipairs(game.factions) do faction.isWatched = index == i end
         end,
     }
+    -- The Currency tab's lines (C_CurrencyInfo.GetCurrencyListInfo): { name,
+    -- isHeader, currencyID, quantity, discovered, isShowInBackpack,
+    -- isTypeUnused }; the game's calls that change them, in order.
+    game.currencies = {}
+    game.coinCalls = {}
+    env.C_CurrencyInfo = {
+        GetCurrencyListSize = function() return #game.currencies end,
+        GetCurrencyListInfo = function(i) return game.currencies[i] end,
+        SetCurrencyBackpack = function(i, on)
+            table.insert(game.coinCalls, "backpack " .. tostring(i) .. " " .. tostring(on))
+            if game.currencies[i] then game.currencies[i].isShowInBackpack = on end
+        end,
+        SetCurrencyUnused = function(i, on)
+            table.insert(game.coinCalls, "unused " .. tostring(i) .. " " .. tostring(on))
+            if game.currencies[i] then game.currencies[i].isTypeUnused = on end
+        end,
+    }
+    -- The modifier held for a click: game.modified names the action it
+    -- matches ("CHATLINK", "TOKENWATCHTOGGLE"), nil for a plain click.
+    env.IsModifiedClick = function(action) return game.modified ~= nil and game.modified == action end
     env.PaperDollStatTooltip = function(self)
         game.gameTips = game.gameTips + 1
         game.lastStatTip = { self.tooltip, self.tooltip2, self.tooltip3 }
@@ -646,6 +668,15 @@ function Mock.New(options)
     function sheet:RefreshRightPane()
         self.RightPaneHost:SetShown(not st[self].collapsed)
         for _, pane in ipairs(self.SidePanes) do pane:SetShown(not st[self].collapsed) end
+    end
+    -- The game's own open or close of its right pane (a currency's click opens
+    -- it): its panes shown or hidden, then the window sized.
+    function sheet:SetRightPaneCollapsed(collapsed)
+        if st[self].collapsed == collapsed then return end
+        st[self].collapsed = collapsed
+        game.paneOpens = (game.paneOpens or 0) + (collapsed and 0 or 1)
+        self:RefreshRightPane()
+        self:UpdateSize()
     end
     Own(sheet, "SidePanes", {})
 
@@ -830,6 +861,132 @@ function Mock.New(options)
     repPane:EnableMouse(true)
     table.insert(sheet.SidePanes, repPane)
 
+    -- The Currency tab (Camelot Blizzard_TokenUI): its detail pane
+    -- (TokenDetailFrame, from CharacterFrameSidePaneTemplate: HIGH strata, on
+    -- the right pane) with the Unused and Show on Backpack ticks and the
+    -- transfer button; the tab's selection (first currency on show, cleared
+    -- on hide), Update and SetTokenWatched. Every click below is the game's.
+    local coins = env.TokenFrame
+    local coinPane = New("Frame", "TokenDetailFrame", coins)
+    Own(coins, "DetailFrame", coinPane)
+    table.insert(sheet.SidePanes, coinPane)
+    coinPane:SetFrameStrata("HIGH")
+    coinPane:EnableMouse(true)
+    coinPane:SetPoint("TOPLEFT", sheet.RightPaneHost, "TOPLEFT", 16, -14)
+    coinPane:SetPoint("BOTTOMRIGHT", sheet.RightPaneHost, "BOTTOMRIGHT", -12, 14)
+    for _, key in ipairs({ "Title", "Subtitle", "EmptyText" }) do Own(coinPane, key, coinPane:CreateFontString(nil, "ARTWORK")) end
+    Own(coinPane, "Divider", coinPane:CreateTexture(nil, "BORDER"))
+    coinPane.Divider:SetAtlas("UI-Character-Info-ScrollLine", true)
+    Own(coinPane, "Description", New("Frame", nil, coinPane))
+    Own(coinPane, "DescriptionScrollBar", ScrollBar(coinPane))
+    Own(coinPane, "Content", New("Frame", nil, coinPane))
+    Own(coinPane, "Footer", New("Frame", nil, coinPane))
+    coinPane.Footer:SetHeight(90)
+    coinPane.Footer:SetPoint("BOTTOMLEFT", coinPane, "BOTTOMLEFT")
+    coinPane.Footer:SetPoint("BOTTOMRIGHT", coinPane, "BOTTOMRIGHT")
+    local function Tick(key, words)
+        local tick = New("CheckButton", nil, coinPane)
+        tick:SetSize(26, 26)
+        tick:EnableMouse(true)
+        for _, state in ipairs({ "Normal", "Pushed", "Checked", "DisabledChecked" }) do
+            tick["Set" .. state .. "Texture"](tick)
+            tick["Get" .. state .. "Texture"](tick):SetAtlas(state:find("Checked") and "checkmark-minimal" or "checkbox-minimal", true)
+        end
+        Own(tick, "Label", tick:CreateFontString(nil, "ARTWORK", "GameFontNormal"))
+        tick.Label:SetText(words)
+        tick.Label:SetPoint("LEFT", tick, "RIGHT", 2, 0)
+        Own(coinPane, key, tick)
+        return tick
+    end
+    local unused, backpack = Tick("InactiveCheckbox", "Unused"), Tick("BackpackCheckbox", "Show on Backpack")
+    unused:SetPoint("TOPLEFT", coinPane.Footer, "TOPLEFT", -4, 0)
+    backpack:SetPoint("TOPLEFT", unused, "BOTTOMLEFT", 0, -2)
+    unused:SetScript("OnClick", function(self)
+        env.PlaySound(self:GetChecked() and env.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or env.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+        env.C_CurrencyInfo.SetCurrencyUnused(coins.selectedID, self:GetChecked())
+        coins:Update()
+    end)
+    backpack:SetScript("OnClick", function(self)
+        local watched = self:GetChecked()
+        if not coins:SetTokenWatched(coins.selectedID, watched) then
+            self:SetChecked(false)
+            return
+        end
+        env.PlaySound(watched and env.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or env.SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_OFF)
+    end)
+    local transfer = New("Button", nil, coinPane)
+    transfer:SetSize(120, 22)
+    transfer:EnableMouse(true)
+    for _, key in ipairs({ "Left", "Middle", "Right" }) do Own(transfer, key, transfer:CreateTexture(nil, "BACKGROUND")) end
+    transfer:SetPoint("TOP", backpack, "BOTTOM", 60, -8)
+    st[transfer].shown = false
+    Own(coinPane, "CurrencyTransferToggleButton", transfer)
+    function coinPane:Refresh()
+        game.coinRefreshes = (game.coinRefreshes or 0) + 1
+        local info = coins.selectedID and game.currencies[coins.selectedID]
+        if not info then
+            self.Title:SetText("")
+            self.EmptyText:SetText("Select a currency")
+            self.EmptyText:Show()
+            self.InactiveCheckbox:Hide()
+            self.BackpackCheckbox:Hide()
+            return
+        end
+        self.EmptyText:Hide()
+        self.Title:SetText(info.name)
+        self.Subtitle:SetText(tostring(info.quantity or 0))
+        self.InactiveCheckbox:SetShown(info.discovered ~= false)
+        self.InactiveCheckbox:SetChecked(info.isTypeUnused == true)
+        self.BackpackCheckbox:SetShown(info.discovered ~= false)
+        self.BackpackCheckbox:SetChecked(info.isShowInBackpack == true)
+    end
+    function coinPane:ClearSelectionIfMissing()
+        local found = false
+        for _, info in ipairs(game.currencies) do if info.name == coins.selectedToken then found = true end end
+        if not found then
+            Own(coins, "selectedToken", nil)
+            Own(coins, "selectedID", nil)
+        end
+        self:Refresh()
+    end
+    coinPane:SetScript("OnShow", function(self) self:Refresh() end)
+    -- game.reuseRows: the refill hands the entry rows each other's currency
+    -- (the scroll box's pool gives frames back in another order).
+    function coins:Update()
+        game.updates = (game.updates or 0) + 1
+        if game.reuseRows then
+            local entries, held = {}, {}
+            for _, row in ipairs(st[self.ScrollBox].rows) do
+                if row.Content and row:IsShown() then entries[#entries + 1] = row end
+            end
+            for i, row in ipairs(entries) do held[i] = row.elementData end
+            for i, row in ipairs(entries) do row:Initialize(held[#entries + 1 - i]) end
+        end
+        self.DetailFrame:Refresh()
+    end
+    function coins:SetTokenWatched(id, watched)
+        if watched and game.watchFull then return false end
+        env.C_CurrencyInfo.SetCurrencyBackpack(id, watched)
+        self:Update()
+        return true
+    end
+    coins:SetScript("OnShow", function(self)
+        if not self.selectedID then
+            for i, info in ipairs(game.currencies) do
+                if not info.isHeader then
+                    Own(self, "selectedToken", info.name)
+                    Own(self, "selectedID", i)
+                    break
+                end
+            end
+        end
+        self:Update()
+    end)
+    coins:SetScript("OnHide", function(self)
+        Own(self, "selectedToken", nil)
+        Own(self, "selectedID", nil)
+    end)
+
     local pvp = New("Frame", "PVPRankFrame", sheet)
     pvp:SetAllPoints(sheet)
     st[pvp].shown = false
@@ -848,6 +1005,26 @@ function Mock.New(options)
         if kind == "skills" then
             Own(content, "SkillsBar", game.Bar(content, env.SkillsBarMixin, 160))
             content.SkillsBar:SetPoint("RIGHT", content, "RIGHT", -3, 0)
+        elseif kind == "currency" then
+            -- TokenEntryTemplate: count, icon, the watched tick; its click is
+            -- TokenEntryMixin:OnClick (select, or Shift to watch; a chosen
+            -- currency opens the right pane; then the tab's Update).
+            Own(content, "Count", content:CreateFontString(nil, "BORDER", "GameFontHighlightRight"))
+            Own(content, "CurrencyIcon", content:CreateTexture(nil, "BORDER"))
+            Own(content, "WatchedCurrencyCheck", content:CreateTexture(nil, "BORDER"))
+            row:EnableMouse(true)
+            row:SetScript("OnClick", function(self)
+                local coins = env.TokenFrame
+                if env.IsModifiedClick("TOKENWATCHTOGGLE") then
+                    coins:SetTokenWatched(self.currencyIndex, not self.elementData.isShowInBackpack)
+                elseif not env.IsModifiedClick("CHATLINK") then
+                    Own(coins, "selectedToken", self.Content.Name:GetText())
+                    Own(coins, "selectedID", self.currencyIndex)
+                end
+                if self.elementData.name == coins.selectedToken then sheet:SetRightPaneCollapsed(false) end
+                coins:Update()
+                coins.DetailFrame:ClearSelectionIfMissing()
+            end)
         else
             Own(content, "ReputationBar", game.Bar(content, env.ReputationBarMixin, 120))
             content.ReputationBar:SetPoint("RIGHT", content, "RIGHT", -3, 0)
@@ -856,6 +1033,12 @@ function Mock.New(options)
         function row:Initialize(data)
             Own(self, "elementData", data)
             self.Content.Name:SetText(data.name)
+            if kind == "currency" then
+                Own(self, "currencyIndex", data.currencyIndex)
+                self.Content.Count:SetText(tostring(data.quantity or 0))
+                self.Content.WatchedCurrencyCheck:SetShown(data.isShowInBackpack == true)
+                return
+            end
             local bar = self.Content.SkillsBar or self.Content.ReputationBar
             if self.Content.SkillsBar then
                 bar:SetFillTextureByColorType(3)
@@ -1000,7 +1183,7 @@ function Mock.New(options)
     game.E = E
 
     local FILES = { "Look/Base.lua", "Look/CharKit.lua", "Look/CharFrame.lua", "Look/CharStats.lua", "Look/CharTabs.lua",
-        "Look/CharLists.lua", "Look/CharSkill.lua", "Look/CharRep.lua", "Look/CharEquip.lua", "Look/CharModule.lua",
+        "Look/CharLists.lua", "Look/CharSkill.lua", "Look/CharRep.lua", "Look/CharCurrency.lua", "Look/CharEquip.lua", "Look/CharModule.lua",
         "Look/CharPanes.lua" }
     game.FILES = FILES
     -- Loads the look as the game does, after its own UI; the engine's

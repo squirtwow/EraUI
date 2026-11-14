@@ -3,13 +3,15 @@
 -- it, moves its slots onto the old grid (never resizing, re-parenting or
 -- replacing an item button), fades the game's own art (alpha, which survives
 -- the game showing its pieces again) and places the portrait, name, close
--- button, money, search box and sort button where the art has room for them.
+-- button, money, search box and sort button where the art has room for them,
+-- and the watched currencies beside the gold.
 --
 -- A dressing starts from scratch every time, so it can follow the game's own
 -- updates (a bag opening, changing size, laying its items out again, moving
--- its search box). It may run in a fight (a bag opened mid-fight must look
--- right); a frame the game guards is then left alone and the window is
--- dressed again when the fight ends.
+-- its search box, laying out its currencies, its gold changing width). It
+-- may run in a fight (a bag opened mid-fight must look right); a frame the
+-- game guards is then left alone and the window is dressed again when the
+-- fight ends.
 local _, EraUI = ...
 local Look = EraUI.Look
 local B = Look.Bags
@@ -19,6 +21,7 @@ local KEPT = { "PortraitButton", "MoneyFrame", "CloseButton", "FilterIcon" }
 local skinnedCloses = Look.Weak() -- close button: given the 1.x X
 local readySlots = Look.Weak()    -- item button: hooked and ringed
 local waiting = Look.Weak()       -- window: to dress again after the fight
+local following = Look.Weak()     -- window: its updates hooked
 
 ---------------------------------------------------------------------------
 -- After a fight
@@ -175,7 +178,7 @@ end
 local function PlaceMoney(window, plan)
     local money = window.MoneyFrame
     if not plan.backpack or not money then return end
-    if B.Free(window, money) then Look.Pin(money, "TOPRIGHT", window, "TOPRIGHT", -6, -215 - 41 * plan.extra) end
+    if B.Free(window, money) then Look.Pin(money, "TOPRIGHT", window, "TOPRIGHT", -B.MONEY_RIGHT, -B.MoneyTop(plan)) end
     FadeTextures(money.Border)
 end
 
@@ -197,7 +200,7 @@ local function PlaceSearch(window)
 end
 
 ---------------------------------------------------------------------------
--- One dressing
+-- Asking a window
 ---------------------------------------------------------------------------
 
 local function Says(window, method)
@@ -213,14 +216,171 @@ local function SlotCount(window)
     return fine and Look.Number(size) or 0
 end
 
+---------------------------------------------------------------------------
+-- Watched currencies, on the gold's strip
+---------------------------------------------------------------------------
+
+-- The game's watched-currency row (BackpackTokenFrame, one per UI), while
+-- this backpack-style window holds it and shows it. The game pins the row to
+-- the window's bottom edge, 8 in from each side, and lets as many
+-- currencies be watched as 50-wide slots fit in its width (before the bags
+-- are first opened: in its own window's width, 430 for the One Bag window).
+-- The row keeps the game's anchors, its right one moved out past the 1.x
+-- window's right when that window is narrower than the game's own (the One
+-- Bag window under ten columns), so the game allows at least as many as on
+-- its own window. The row draws nothing of its own: its box is faded and
+-- its buttons are moved onto the art.
+local TOKEN_SLOT = 50  -- the game's slot for one currency, when its width can't be read
+local MONEY_MOST = 168 -- the widest the game lets the bag's gold grow
+local ROW_IN = 8       -- the game's row, in from the window's sides and bottom
+
+local function Tracker(window, plan)
+    local tracker = BackpackTokenFrame
+    if not plan.backpack or type(tracker) ~= "table" then return nil end
+    local fine, parent = Look.Ask(tracker, "GetParent")
+    if not fine or parent ~= window or not Says(tracker, "IsShown") then return nil end
+    return tracker
+end
+
+-- The row's buttons in the game's watched order: its own list of them (the
+-- ones in use, re-made by every Update), else its shown children by ID.
+local function Watched(tracker)
+    local found = {}
+    local listed = tracker.Tokens
+    if type(listed) == "table" then
+        for i, button in pairs(listed) do
+            if type(i) == "number" and type(button) == "table" then found[#found + 1] = { i, button } end
+        end
+    else
+        for _, child in ipairs({ tracker:GetChildren() }) do
+            local fine, id = Look.Ask(child, "GetID")
+            id = fine and Look.Number(id)
+            if id and child.Count and child.Icon and Says(child, "IsShown") then found[#found + 1] = { id, child } end
+        end
+    end
+    table.sort(found, function(a, b) return a[1] < b[1] end)
+    local buttons = {}
+    for k, pair in ipairs(found) do buttons[k] = pair[2] end
+    return buttons
+end
+
+-- The gold's text (its coins share one font), for the currencies' look.
+local function GoldText(money)
+    for _, coin in ipairs({ "GoldButton", "SilverButton", "CopperButton" }) do
+        local text = Look.Path(money, coin, "Text")
+        if text then return text end
+    end
+end
+
+-- How wide the gold is: the game sizes it to its coins (0 when it isn't
+-- shown; the widest it may be when its width can't be read).
+local function GoldWidth(money)
+    if not money or not Says(money, "IsShown") then return 0 end
+    local fine, across = Look.Ask(money, "GetWidth")
+    return fine and Look.Number(across) or MONEY_MOST
+end
+
+-- One currency in the gold's font and colour: its icon at the button's
+-- right, its amount right against the icon, both on the button's middle,
+-- the amount as tall as its font (the game's is 10 high, for a smaller
+-- font). Returns how wide the two are.
+local function StyleToken(button, gold)
+    local count, icon = button.Count, button.Icon
+    if not count or not icon then return nil end
+    if gold then
+        local fine, font = Look.Ask(gold, "GetFontObject")
+        if fine and type(font) == "table" then count:SetFontObject(font) end
+        local read, r, g, b = pcall(gold.GetTextColor, gold)
+        if read and Look.Number(r) and Look.Number(g) and Look.Number(b) then count:SetTextColor(r, g, b) end
+    end
+    local read, _, tall = pcall(count.GetFont, count)
+    tall = read and Look.Number(tall)
+    if tall then count:SetHeight(math.ceil(tall) + 2) end
+    Look.Pin(icon, "RIGHT", button, "RIGHT", 0, 0)
+    Look.Pin(count, "RIGHT", icon, "LEFT", 0, 0)
+    local fine, across = Look.Ask(count, "GetStringWidth")
+    across = fine and Look.Number(across)
+    if not across then return TOKEN_SLOT end
+    local _, side = Look.Ask(icon, "GetWidth")
+    return math.ceil(across) + (Look.Number(side) or 12)
+end
+
+-- The row as wide as the game's own window would make it, when the 1.x
+-- window is narrower (its width is how many currencies the game lets be
+-- watched); else just where the game pins it. Never sized or re-parented.
+local function RowWidth(window, plan, tracker)
+    if not B.Free(window, tracker) then return end
+    local _, own = Look.Ask(window, "CalculateWidth")
+    local past = math.max(0, (Look.Number(own) or 0) - plan.width)
+    tracker:ClearAllPoints()
+    tracker:SetPoint("BOTTOMLEFT", window, "BOTTOMLEFT", ROW_IN, ROW_IN)
+    tracker:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", past - ROW_IN, ROW_IN)
+end
+
+-- After the row's own Update (a currency watched or unwatched, an amount
+-- changed: CURRENCY_DISPLAY_UPDATE runs it, Shift-click runs it), whose grid
+-- put its buttons back in a row from its right: the window dressed again.
+local function TrackerUpdated(tracker)
+    if not B.active then return end
+    local fine, window = Look.Ask(tracker, "GetParent")
+    if fine and following[window] and Says(window, "IsShown") then Look.Try(B.Dress, window) end
+end
+
+-- The currencies this window shows, styled and measured, and where they go
+-- (B.TokenSpots, with how many strips under the gold's they need); nothing
+-- when it shows none.
+local function Currencies(window, plan)
+    local tracker = Tracker(window, plan)
+    if not tracker then return nil, nil, nil, 0 end
+    Look.HookOwn(tracker, "Update", TrackerUpdated)
+    RowWidth(window, plan, tracker)
+    FadeTextures(tracker.Border)
+    local money = window.MoneyFrame
+    local gold = money and GoldText(money)
+    local tokens, widths = Watched(tracker), {}
+    for i, button in ipairs(tokens) do widths[i] = StyleToken(button, gold) or TOKEN_SLOT end
+    local spots, strips = B.TokenSpots(plan, widths, GoldWidth(money))
+    return tokens, widths, spots, strips
+end
+
+-- Each currency as wide as its amount and icon (so none covers another's
+-- mouse-over), its middle on the gold's (or a strip under it); one wider
+-- than a whole strip hidden until the game shows it again.
+local function PlaceTokens(window, plan, tokens, widths, spots)
+    if not tokens then return end
+    local _, tall = Look.Ask(window.MoneyFrame, "GetHeight")
+    local middle = -B.MoneyTop(plan) - (Look.Number(tall) or 13) / 2
+    for i, button in ipairs(tokens) do
+        local spot = spots[i]
+        if B.Free(window, button) then
+            if spot then
+                button:SetWidth(widths[i])
+                Look.Pin(button, "LEFT", window, "TOPLEFT", spot[1], middle - (spot[2] - 1) * B.STRIP_TALL)
+            end
+            Look.Shown(button, spot and true or false)
+        end
+    end
+end
+
+---------------------------------------------------------------------------
+-- One dressing, and when
+---------------------------------------------------------------------------
+
+-- The gold is placed first: its width is read (single-pinned, the width the
+-- game gave it) to fit the currencies beside it, and strips under it change
+-- the plan.
 function B.Dress(window)
     if not B.active or not window or type(window.GetBagSize) ~= "function" then return end
     local size = SlotCount(window)
     if not size or size <= 1 then return end
     local combined = Says(window, "IsCombinedBagContainer")
     local columns = combined and B.Columns(Look.Saved().oneBagColumns) or 4
-    local plan = B.Plan(size, columns, combined or Says(window, "IsBackpack"), combined)
+    local backpack = combined or Says(window, "IsBackpack")
+    local plan = B.Plan(size, columns, backpack, combined)
     local items = Items(window)
+    PlaceMoney(window, plan)
+    local tokens, widths, spots, strips = Currencies(window, plan)
+    if strips > 0 then plan = B.Plan(size, columns, backpack, combined, strips) end
     if B.Free(window, window) then window:SetSize(plan.width, plan.height) end
     B.DrawSheet(window, plan)
     LaySlots(window, plan, items)
@@ -229,7 +389,7 @@ function B.Dress(window)
     PlacePortrait(window, plan)
     PlaceName(window, plan)
     PlaceClose(window, plan)
-    PlaceMoney(window, plan)
+    PlaceTokens(window, plan, tokens, widths, spots)
     PlaceSearch(window)
 end
 
@@ -239,16 +399,25 @@ local function Again(window)
     if B.active then Look.Try(B.Dress, window) end
 end
 
-local GAME_UPDATES = { "UpdateFrameSize", "UpdateItemLayout", "UpdateSearchBox", "UpdateMiscellaneousFrames" }
-local following = Look.Weak()
+-- UpdateCurrencyFrames: the game showing or hiding the currency row, and
+-- pinning the gold back above it.
+local GAME_UPDATES = { "UpdateFrameSize", "UpdateItemLayout", "UpdateSearchBox", "UpdateMiscellaneousFrames",
+    "UpdateCurrencyFrames" }
 
 -- Once per window: post-hooks on its own update methods (each only when the
--- window carries it itself) and on its showing.
+-- window carries it itself) and on its showing; on a backpack-style window,
+-- its gold changing width (more digits) too, so the currencies stay clear.
 function B.Watch(window)
     if following[window] then return end
     following[window] = true
     for _, method in ipairs(GAME_UPDATES) do Look.HookOwn(window, method, Again) end
     Look.HookScript(window, "OnShow", Again, "bags")
+    local money = window.MoneyFrame
+    if money and (Says(window, "IsBackpack") or Says(window, "IsCombinedBagContainer")) then
+        Look.HookScript(money, "OnSizeChanged", function()
+            if Says(window, "IsShown") then Again(window) end
+        end, "bags")
+    end
 end
 
 -- Every bag window the game has: its container's list, the numbered ones

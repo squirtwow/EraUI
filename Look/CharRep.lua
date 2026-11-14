@@ -294,6 +294,7 @@ function C.RepRowClicked(row)
 end
 
 C.HideRepBox = HideBox
+C.DialogBox = DialogBox -- the currency box's too (Look/CharCurrency.lua)
 
 -- What the tests read.
 function C.RepBox()

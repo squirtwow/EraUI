@@ -66,6 +66,7 @@ local defaults = {
     darkDebuffLines = false, -- Thin Debuff Colours: debuffs get the dark border with a thin line in their type's colour; off by default
     darkMenuBar = true, -- Dark Menu Bar: shows only in Dark Mode, so choosing Dark Mode gives it
     darkBagButtons = false, -- Dark Bag Buttons: grey, darker bag bar icons and a dark open-bag line, with or without Dark Mode; off by default, applies live
+    darkBagAddonSlots = false, -- Bag Addon Windows (experimental, under Dark Bag Buttons): a bag addon's bag icons (its bag slots and special bags' buttons) grey the same way, every kind of bag; needs Dark Bag Buttons; off by default, applies live (Look/BarArt.lua)
     darkWindows = true, -- Dark Windows: shows only in Dark Mode, so choosing Dark Mode gives it
     blackPages = false, -- Black Pages: near-black spellbook and professions pages under Dark Windows; off by default
     flatBars = false, -- Flat Bars: a plain, solid fill on unit-frame and cast bars, Classic or Dark Mode; off by default, applies live

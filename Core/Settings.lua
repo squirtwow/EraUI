@@ -22,7 +22,9 @@ local DEPENDS = {
     classColourBorders = {"darkMode", "unitFrames"}, plainNameStrip = "unitFrames", gryphons = "actionBars",
     afkCameraNormal="afkScreen", afkTurnRight="afkScreen", afkZoom="afkScreen", afk24Hour="afkScreen",
     afkShowGuild="afkScreen", afkShowZone="afkScreen", afkShowDate="afkScreen", afkShowQuote="afkScreen",
-    -- Dark Bag Buttons isn't here: it shows with or without Dark Mode.
+    -- Dark Bag Buttons isn't here: it shows with or without Dark Mode. Its
+    -- Bag Addon Windows tick is: greyed while it's off, indented under it.
+    darkBagAddonSlots="darkBagButtons",
     darkAuraBorders="darkMode", darkAuraShadows="darkAuraBorders", darkMenuBar="darkMode",
     darkWindows="darkMode", blackPages="darkWindows", darkDebuffLines="darkAuraBorders",
     -- On Appearance > Style, its parent on Casting: greyed there, never indented.
@@ -48,7 +50,7 @@ local DEPEND_NAMES = {
     advancedCastBar = "Advanced Cast Bar", spellbook = "Spellbook",
     unitFrames = "Unit Frames", actionBars = "Action Bars",
     afkScreen = "AFK Screen", darkMode = "Dark Mode", darkAuraBorders = "Dark Aura Borders",
-    darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames", minimap = "Minimap",
+    darkBagButtons = "Dark Bag Buttons", darkWindows = "Dark Windows", castBars = "Cast Bars", thickFrames = "Thick Frames", minimap = "Minimap",
     squareMinimap = "Square Minimap", hideSecondaryNames = "Hide Surnames", abilityTrailTooltip = "Tooltip",
 }
 -- The row each of those switches is on (Dark Mode is the Classic / Dark Mode choice).
@@ -410,6 +412,7 @@ local settingHelp = {
     darkDebuffLines = "Your debuffs get the dark border, with a thin line inside in the debuff's colour, like blue for magic. Target and focus keep theirs.",
     darkMenuBar = "Darkens the bronze frames behind the menu bar buttons with the Darkness slider. The icons keep their colours.",
     darkBagButtons = "Your bag buttons' icons in a darker grey, all alike, instead of each bag's colours. An open bag shows a dark line, not a bright one.",
+    darkBagAddonSlots = "Bag icons on a bag addon's window turn grey like your bag buttons: its bag slots and the small quiver, herb and other bag buttons.",
     darkWindows = "Darkens the red buttons, pop-ups, window edges and book pages Dark Mode left light, with the Darkness slider. Gold text stays gold.",
     blackPages = "Near black spellbook and Professions pages instead of Dark Windows' brown-grey. Names keep their gold and text stays readable.",
     flatBars = "A plain, even fill instead of Classic's shaded one on unit-frame and cast bars. Their colours stay. Works with Classic or Dark Mode.",
@@ -548,13 +551,15 @@ local HELP_KEY = {appearanceChoice = "darkMode"}
 -- Name in Chat (new the same day, off by default) has it on its switch
 -- until Squirt sees "(Name) " go out in game. Arrow Colour by Armour (new
 -- 2026-11-08, off by default) has it until he sees the colours in game.
+-- Bag Addon Windows (under Dark Bag Buttons, new 2026-11-13, off by default)
+-- has it until he sees a bag addon's bag icons grey in game.
 local EXPERIMENTAL = {partyOutline = true, spellbookCombatDrag = true, hideSecondaryNamesTooltips = true,
     miniGameFlight = true, miniGameWhack = true, miniGameBlast = true, gatherSparkles = true, abilityTrailParty = true,
     abilityTrailCombatOnly = true,
     abilityTrailBorder = true, abilityTrailBorderColour = true, abilityTrailInWorld = true, abilityTrailInDungeons = true,
     abilityTrailInRaids = true, abilityTrailInBattlegrounds = true, abilityTrailTooltip = true, abilityTrailSpellID = true,
     abilityTrailPauseOnHover = true, abilityTrailIgnored = true, abilityTrailUnlock = true, abilityTrailPlace = true,
-    actionRings = true, bagBigCounts = true, plainNameStrip = true}
+    actionRings = true, bagBigCounts = true, plainNameStrip = true, darkBagAddonSlots = true}
 local function NeedsTesting(key)
     return EXPERIMENTAL[key] == true
 end
@@ -719,6 +724,14 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             local later=key=="darkBagButtons" and "" or key=="darkMenuBar" and " It shows once Dark Mode is applied."
                 or " They show once Dark Mode is applied."
             EraUI:Status(name..(value and "enabled." or "disabled.")..(value and not EraUI:GetSetting("darkMode") and later or ""))
+            return
+        end
+        -- Bag Addon Windows (under Dark Bag Buttons): the bag addon's bag
+        -- icons repaint at once with the bag bar's refresh (Look/BarArt.lua).
+        if key=="darkBagAddonSlots" then
+            local classic=EraUI.Classic or {}
+            if classic.RefreshDarkBagButtons then classic.RefreshDarkBagButtons() end
+            EraUI:Status("Dark Bag Buttons: "..label..(value and " enabled." or " disabled."))
             return
         end
         -- Flat Bars changes the unit-frame and cast bars' fill at once
@@ -1245,6 +1258,9 @@ local function BuildLookRows(frame)
     MakeCheck(frame, "Dark Menu Bar", "darkMenuBar", nil, "Dark frames behind the menu bar buttons. Dark Mode only.", false)
     local bagButtons = MakeCheck(frame, "Dark Bag Buttons", "darkBagButtons", nil, "Grey, darker bag icons and a dark line on open bags.", false)
     bagButtons.searchText = bagButtons.searchText .. " bag bar backpack button icon colour grey darker open highlight"
+    -- Bag Addon Windows, indented under it (DEPENDS).
+    local bagAddons = MakeCheck(frame, "Bag Addon Windows", "darkBagAddonSlots", nil, "Bag icons on bag addon windows in the same grey.", false)
+    bagAddons.searchText = bagAddons.searchText .. " dark bag buttons addon addons window slot slots icon icons grey darker quiver ammo pouch herb satchel profession section"
     MakeCheck(frame, "Dark Windows", "darkWindows", nil, "Darker buttons, pop-ups, frames and book pages. Dark Mode only.", false)
     MakeCheck(frame, "Black Pages", "blackPages", nil, "Black spellbook and professions pages instead of brown-grey.", false)
     MakeCheck(frame, "Class-coloured Chat Names", "classColors", nil, "Colour new player names by class.", false)
