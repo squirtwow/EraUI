@@ -80,7 +80,7 @@ local EXPECTED = {
  }},
  {group = "SOCIAL", tabs = {
   {"chat", "Chat & Names", "Chat, names and EraUI's own messages.", {
-   {"main", nil, {{"CHAT", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle", "hideStatusMessages",
+   {"main", nil, {{"CHAT", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle", "chatArrowKeys", "hideStatusMessages",
     "showWelcomeOnLogin", "updateCheck"}}, {"THANK FOR BUFFS", {"thankBuffs", "thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild",
     "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}}, {"NAME IN CHAT", {"nameInChat", "nameInChatName",
     "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"}}}}}},
@@ -974,7 +974,7 @@ do
   local SKIP_KEYS = {"thankBuffsSkipGroup", "thankBuffsSkipGuild", "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}
   equal(tostring(real.settingDefaults.thankBuffs) .. " " .. tostring(real.reloadSettings.thankBuffs) .. " " .. tostring(thanks.dependencyDisabled)
    .. " " .. table.concat(thanks.tagIds, ","), "false nil nil ", "Thank for Buffs: off by default, no reload, needs nothing, seen working (no experimental)")
-  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,chatArrowKeys,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
    .. "nameInChat", "Thank for Buffs alone while it's off (Name in Chat's switch after it)")
   _, help, extras = M.Hover(f, thanks)
   equal(help, "Thank for Buffs  Another player who buffs you gets one whisper of thanks, all their buffs in one line. Then nothing more to them for 30 minutes.",
@@ -985,11 +985,14 @@ do
   thanks:Click(); Flush()
   equal(tostring(E.settings.thankBuffs) .. " " .. refreshed .. " " .. tostring(status),
    "true 1 Thank for Buffs enabled. A player who buffs you gets one whisper of thanks.", "on, live, says so")
-  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+  equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,chatArrowKeys,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
    .. "thankBuffsMessage,thankBuffsSkipGroup,thankBuffsSkipGuild,thankBuffsSkipFriends,thankBuffsSkipCombat,thankBuffsSkipInstances,nameInChat",
    "on: its whisper and five skip ticks show under it at once")
   M.NoOverlaps(f, "Chat & Names with Thank for Buffs on"); M.Fits(f, "Chat & Names with Thank for Buffs on")
-  equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01, true, "Chat & Names still fits without scrolling")
+  -- Since Arrow Keys in Chat (14 Nov 2026) the page is a row past the window
+  -- with a fold open, so it may scroll, and says so with the hint.
+  equal(f.settingsScrollHint:IsShown(), f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + 1,
+   "Chat & Names with Thank for Buffs on: the scroll hint only when it scrolls")
   -- The whisper row: a whole line, its name, the box and Default inside it.
   equal(words.wide == true and words.rowKind == "text" and words.text:GetText() == "Thank-you Whisper" and (words.depth or 0) == 0, true,
    "Thank-you Whisper: a whole line of its own, not indented")
@@ -1063,7 +1066,7 @@ do
  do
   Open(f, "chat")
   local switch, name = f.checks.nameInChat, f.checks.nameInChatName
-  local CHAT = "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,"
+  local CHAT = "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,chatArrowKeys,hideStatusMessages,showWelcomeOnLogin,updateCheck,"
    .. "thankBuffs,nameInChat"
   equal(tostring(real.settingDefaults.nameInChat) .. " " .. tostring(real.reloadSettings.nameInChat) .. " " .. tostring(switch.dependencyDisabled)
    .. " " .. table.concat(switch.tagIds, ",") .. " " .. switch.text:GetText(), "false nil nil  Name in Chat",
@@ -1082,7 +1085,8 @@ do
   equal(Keys(f), CHAT .. ",nameInChatName,nameInChatParty,nameInChatRaid,nameInChatGuild,nameInChatSay",
    "on: its name box and four chat ticks show under it at once")
   M.NoOverlaps(f, "Chat & Names with Name in Chat on"); M.Fits(f, "Chat & Names with Name in Chat on")
-  equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01, true, "Chat & Names still fits without scrolling")
+  equal(f.settingsScrollHint:IsShown(), f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + 1,
+   "Chat & Names with Name in Chat on: the scroll hint only when it scrolls")
   -- The name row: a whole line, its name, the box and Default inside it.
   equal(name.wide == true and name.rowKind == "text" and name.text:GetText() == "Your Name" and (name.depth or 0) == 0, true,
    "Your Name: a whole line of its own, not indented")
@@ -2095,7 +2099,7 @@ do
  equal(f.updateNotice, nil, "no Update Notice tick in the corner any more")
  Open(f, "chat")
  local update = f.checks.updateCheck
- equal(update:IsShown() and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
+ equal(update:IsShown() and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,chatArrowKeys,hideStatusMessages,showWelcomeOnLogin,updateCheck,thankBuffs,"
   .. "nameInChat", "Update Notice last in Chat & Names' chat section (Thank for Buffs and Name in Chat have their own)")
  local tickSay, tickStatus = E.Status
  E.Status = function(_, m) tickStatus = m end
@@ -2397,8 +2401,8 @@ do
      -- open, but Character & Spells with the Stat Tracker's twenty-three
      -- rows open (switched off it fits: the Stat Tracker's own block below),
      -- Casting's Ability Trail page (its own sub-tab, every row of it
-     -- always on show), and Chat & Names with both Thank for Buffs' and Name
-     -- in Chat's rows open (either one open, it fits: their own blocks).
+     -- always on show), and Chat & Names with Thank for Buffs' or Name in
+     -- Chat's rows open (one row past the window since Arrow Keys in Chat).
      local long = id == "character" or (id == "casting" and sub[1] == "trail") or id == "chat"
      equal(f.settingsContent:GetHeight() <= f.settingsScroll:GetHeight() + .01 and not f.settingsScrollHint:IsShown(), not long,
       id .. " > " .. sub[1] .. (long and " scrolls, its long options open" or " fits without scrolling"))
@@ -2539,8 +2543,10 @@ do
    equal(f.settingsScrollHint:IsShown(), f.settingsContent:GetHeight() > f.settingsScroll:GetHeight() + 1, cat.id .. " > " .. sub.id .. " scroll hint only when it scrolls")
   end
  end
- equal(table.concat(scrolls, ","), "casting>trail,character>main",
-  "only Casting's Ability Trail page and Character & Spells scroll at the default size, every fold open: the Stat Tracker's rows (the class tab's boxes are checked per class)")
+ -- Chat & Names too: Thank for Buffs is still on from its own block, and
+ -- since Arrow Keys in Chat its open rows go one row past the window.
+ equal(table.concat(scrolls, ","), "casting>trail,character>main,chat>main",
+  "only Casting's Ability Trail page, Character & Spells and Chat & Names (Thank for Buffs open) scroll at the default size, every fold open: the Stat Tracker's rows (the class tab's boxes are checked per class)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail, E.settings.afkScreen = nil, nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle, E.settings.castBarColour = nil, nil, nil
  E.settings.statTracker, E.settings.statTrackerNameColour = nil, nil
@@ -3472,12 +3478,12 @@ do
  end
  f:SetSetupMode(false); Flush(); f:SetSetupMode(true); Flush(); f.setupPreset = "classicqol"
  Page("Chat & Names")
- equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,showWelcomeOnLogin,thankBuffs,"
+ equal(Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,chatArrowKeys,hideStatusMessages,showWelcomeOnLogin,thankBuffs,"
   .. "nameInChat", "Tooltip IDs on Chat & Names, after Click Links Again to Close; Thank for Buffs and Name in Chat on their own, their options folded while off")
  -- Switched on in setup, its whisper and skip ticks open under it.
  E.modules.ThankBuffs = {Refresh = function() end}
  f.checks.thankBuffs:Click(); Flush()
- equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,"
+ equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,chatArrowKeys,hideStatusMessages,"
   .. "showWelcomeOnLogin,thankBuffs,thankBuffsMessage,thankBuffsSkipGroup,thankBuffsSkipGuild,thankBuffsSkipFriends,thankBuffsSkipCombat,"
   .. "thankBuffsSkipInstances,nameInChat", "walkthrough: Thank for Buffs on opens its options")
  M.NoOverlaps(f, "walkthrough Chat & Names with Thank for Buffs on"); M.Fits(f, "walkthrough Chat & Names with Thank for Buffs on")
@@ -3486,7 +3492,7 @@ do
  -- Name in Chat the same: its name box and chat ticks open under it.
  E.modules.NameInChat = {Refresh = function() end}
  f.checks.nameInChat:Click(); Flush()
- equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,hideStatusMessages,"
+ equal(f.setupMode and Keys(f), "hideSecondaryNames,hideSecondaryNamesTooltips,classicChatDragging,linkToggle,tooltipIDs,chatArrowKeys,hideStatusMessages,"
   .. "showWelcomeOnLogin,thankBuffs,nameInChat,nameInChatName,nameInChatParty,nameInChatRaid,nameInChatGuild,nameInChatSay",
   "walkthrough: Name in Chat on opens its options")
  M.NoOverlaps(f, "walkthrough Chat & Names with Name in Chat on"); M.Fits(f, "walkthrough Chat & Names with Name in Chat on")

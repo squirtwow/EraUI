@@ -162,6 +162,39 @@ function Module:SetupLinkToggle()
     end)
 end
 
+-- Arrow Keys in Chat: left and right move along the line being typed, up and
+-- down bring back lines already sent. The game's chat boxes only do that with
+-- Alt held; this flips that one switch on each box (a call, no keys written
+-- on Blizzard frames) and off puts Alt back. With the option never on, the
+-- boxes are left alone. Whisper windows opened later get it as they open. The
+-- name list that pops up while typing a name turns the switch off while it
+-- shows and puts back what it found, so it agrees with this.
+local function ChatBoxes()
+    local boxes,seen={},{}
+    local function Add(box)
+        if box and not seen[box] and box.SetAltArrowKeyMode then seen[box]=true;boxes[#boxes+1]=box end
+    end
+    for i=1,(NUM_CHAT_WINDOWS or 10) do Add(_G["ChatFrame"..i.."EditBox"]) end
+    for _,name in pairs(CHAT_FRAMES or {}) do
+        if type(name)=="string" then Add(_G[name.."EditBox"]) end
+    end
+    return boxes
+end
+function Module:ApplyChatArrows()
+    local plain=EraUI:GetSetting("chatArrowKeys") and true or false
+    if not plain and not self.chatArrowsSet then return end
+    for _,box in ipairs(ChatBoxes()) do box:SetAltArrowKeyMode(not plain) end
+    self.chatArrowsSet=plain or nil
+end
+function Module:SetupChatArrows()
+    if hooksecurefunc and FCF_OpenTemporaryWindow then
+        hooksecurefunc("FCF_OpenTemporaryWindow",function()
+            if self.chatArrowsSet then self:ApplyChatArrows() end
+        end)
+    end
+    self:ApplyChatArrows()
+end
+
 function Module:Initialize()
     self.events=CreateFrame("Frame")
     for _,event in ipairs({"LOOT_READY","LOOT_OPENED","LOOT_CLOSED","LOOT_BIND_CONFIRM","UI_ERROR_MESSAGE","GOSSIP_SHOW","UPDATE_INVENTORY_DURABILITY","PLAYER_ENTERING_WORLD","MERCHANT_SHOW"}) do
@@ -174,8 +207,12 @@ function Module:Initialize()
         elseif event=="LOOT_BIND_CONFIRM" or event=="UI_ERROR_MESSAGE" then self:RevealLoot()
         elseif event=="GOSSIP_SHOW" then self:AutoGossip()
         elseif event=="MERCHANT_SHOW" then self:JunkSummary()
-        else self:CheckDurability() end
+        else
+            if event=="PLAYER_ENTERING_WORLD" then self:ApplyChatArrows() end
+            self:CheckDurability()
+        end
     end)
     self:SetupTooltipIDs()
     self:SetupLinkToggle()
+    self:SetupChatArrows()
 end

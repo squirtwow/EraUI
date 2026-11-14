@@ -144,7 +144,7 @@ local TABS = {
         }},
     chat = {name = "Chat & Names", icon = "Interface\\Icons\\INV_Letter_15",
         about = "Chat, names and EraUI's own messages.", sections = {
-            S("Chat", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle",
+            S("Chat", {"hideSecondaryNames", "hideSecondaryNamesTooltips", "classicChatDragging", "linkToggle", "chatArrowKeys",
                 "hideStatusMessages", "showWelcomeOnLogin", "updateCheck"}),
             -- Thank for Buffs, then its whisper and skip ticks, shown while
             -- it's on (SHOWN_WITH).

@@ -217,6 +217,7 @@ local defaults = {
     durabilityWarning = false,
     tooltipIDs = false,
     linkToggle = true, -- click a chat link again to close its tooltip
+    chatArrowKeys = false, -- Arrow Keys in Chat: plain arrows move along the line and bring back sent lines (Modules/ExtraQoL.lua)
     updateCheck = true, -- Update Notice: say in chat when a newer EraUI is out (Core/SquirtVersions.lua)
     damageFont = "pepsi", -- the font of the damage and healing numbers
     junkValueSummary = false,

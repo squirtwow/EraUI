@@ -471,6 +471,7 @@ local settingHelp = {
     junkValueSummary = "When you open a merchant, says in chat how many grey items you carry and what they sell for.",
     durabilityWarning = "Warns you once when any gear you wear drops to 20% durability or less. Repairing resets it.",
     linkToggle = "Clicking an item or spell link in chat a second time closes its tooltip.",
+    chatArrowKeys = "While you type in chat, left and right move along your line and up and down bring back what you sent. Without it the game wants Alt held for these.",
     showWelcomeOnLogin = "Shows the EraUI welcome each time you log in. A /reload doesn't show it.",
     blockDuels = "Declines duel requests for you. Hold Shift to skip.",
     blockPartyInvites = "Declines group invites for you. With Party from Friends on, your friends' invites are still accepted. Hold Shift to skip.",
@@ -1058,6 +1059,10 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
             return
         end
         if key == "durabilityWarning" and EraUI.modules.ExtraQoL then EraUI.modules.ExtraQoL:CheckDurability() end
+        if key == "chatArrowKeys" then
+            if EraUI.modules.ExtraQoL then EraUI.modules.ExtraQoL:ApplyChatArrows() end
+            EraUI:Status(label .. (value and " enabled." or " disabled.")); return
+        end
         if key == "fastAutoLoot" or key == "discardCheapestJunk" or key == "autoGossip" or key == "durabilityWarning" or key == "tooltipIDs" or key == "junkValueSummary" or key == "showWelcomeOnLogin" or key == "linkToggle" then
             EraUI:Status(label .. (value and " enabled." or " disabled.")); return
         end
@@ -1428,6 +1433,8 @@ local function BuildToggleRows(frame)
     onTooltips.searchText = onTooltips.searchText .. " surname surnames last name secondary tooltip tooltips hover player name"
     MakeCheck(frame, "Classic Chat Dragging", "classicChatDragging", nil, "Right-click a chat tab to unlock, drag and lock chat. Reload to apply.", false)
     MakeCheck(frame, "Click Links Again to Close", "linkToggle", nil, "Click an item or spell link in chat again to close its tooltip.", false)
+    local arrows = MakeCheck(frame, "Arrow Keys in Chat", "chatArrowKeys", nil, "Arrow keys move along what you type and bring back what you sent, no Alt.", false)
+    arrows.searchText = arrows.searchText .. " cursor typing typo history alt left right up down"
     MakeCheck(frame, "Quiet Mode", "hideStatusMessages", nil, "Hide EraUI startup and change notices.", false)
     MakeCheck(frame, "Welcome on Login", "showWelcomeOnLogin", nil, "Show the EraUI welcome on login, not ordinary UI reloads.", false)
     local update = MakeCheck(frame, "Update Notice", "updateCheck", nil, "In chat, when a newer EraUI is out. Uses a hidden chat channel slot.", false)
