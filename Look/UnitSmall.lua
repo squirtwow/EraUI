@@ -43,6 +43,44 @@ function UF.RepaintPet()
     end
 end
 
+-- In 1.x the pet's art lay over its bars, its metal edges framing them. In
+-- Forever it lies under them, on the frame itself, so the bars covered its
+-- top edge and looked too high. The art and the attack glow go onto a frame
+-- of EraUI's over the bars, the name and hit numbers onto the text holder
+-- over that. Thick Frames dresses the pet its own way: each piece goes back
+-- where the game had it.
+local OVER_BARS = { "PetFrameTexture", "PetAttackModeTexture" }
+local ON_TOP = { "PetName", "PetHitIndicator" }
+
+local function LiftPetArt(frame, record, holder, on)
+    local art = record.artHolder
+    if on then
+        art = art or UF.Cover(frame)
+        record.artHolder = art
+        local top = UF.Level(frame)
+        for bar in pairs(UF.petBars) do top = math.max(top, UF.Level(bar)) end
+        UF.SetLevel(art, top + 1)
+        UF.SetLevel(holder, math.max(UF.Level(holder), top + 2))
+        art:Show()
+    elseif art then
+        art:Hide()
+    end
+    record.petHomes = record.petHomes or {}
+    local homes = record.petHomes
+    local function Move(names, to)
+        for _, called in ipairs(names) do
+            local region = _G[called]
+            if region then
+                if homes[region] == nil then homes[region] = region:GetParent() end
+                local where = on and to or homes[region]
+                if where and region:GetParent() ~= where then region:SetParent(where) end
+            end
+        end
+    end
+    Move(OVER_BARS, art)
+    Move(ON_TOP, holder)
+end
+
 function UF.DressPet()
     if Look.InFight() then
         UF.waiting = true
@@ -80,12 +118,34 @@ function UF.DressPet()
     UF.RepaintPet()
     UF.Dress(PetAttackModeTexture, "petAttackStatus", { 0.703125, 1, 0, 1 }, 76, 64, "TOPLEFT", frame, "TOPLEFT", 6, -9)
     if PetHitIndicator then Look.Pin(PetHitIndicator, "CENTER", frame, "TOPLEFT", 28, -27) end
-    if UF.ThickWant("pet") then UF.ThickCall("Pet", frame) else UF.ThickCall("Off", frame) end
+    local thick = UF.ThickWant("pet")
+    LiftPetArt(frame, record, holder, not thick)
+    if thick then UF.ThickCall("Pet", frame) else UF.ThickCall("Off", frame) end
+end
+
+-- False when one of the pet's bars has left the spot DressPet gave it (one
+-- anchor, TOPLEFT on the frame); a secret read counts as in place.
+local function PetBarsHome()
+    for _, entry in ipairs(PET_BARS) do
+        local bar = _G[entry[1]]
+        if bar then
+            local point, relative, relativePoint, x, y = bar:GetPoint(1)
+            if Look.Secret(point) or Look.Secret(relative) or Look.Secret(relativePoint) or Look.Secret(x) or Look.Secret(y) then
+                return true
+            end
+            x, y = Look.Number(x), Look.Number(y)
+            if point ~= "TOPLEFT" or relative ~= PetFrame or relativePoint ~= "TOPLEFT" or not x or not y
+                or math.abs(x - 47) > 0.5 or math.abs(y - entry[3]) > 0.5 then
+                return false
+            end
+        end
+    end
+    return true
 end
 
 function UF.KeepPet()
     if not UF.petDressed or not PetFrame or not PetFrameTexture then return end
-    if UF.ArtState(PetFrameTexture, PetFrame, 0, -2) == "fine" then return end
+    if UF.ArtState(PetFrameTexture, PetFrame, 0, -2) == "fine" and (UF.ThickWorn(PetFrame) or PetBarsHome()) then return end
     if Look.InFight() then UF.waiting = true else UF.DressPet() end
 end
 

@@ -6,6 +6,14 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.9",
+        sections = {
+            { "Fixed", {
+                "The pet frame's bars sit inside the frame art again.",
+            } },
+        },
+    },
+    {
         version = "1.8.8",
         sections = {
             { "Added", {

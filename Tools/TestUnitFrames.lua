@@ -520,6 +520,28 @@ do
         "47,-22,116,-30 47,-29,116,-37 0", "pet: its own bars restyled, their masks faded")
     equal(S[PetFrameHealthBar].barColour .. " " .. S[PetFrameManaBar].barColour, "0,1,0 0,0,1", "pet: green and mana blue")
     equal(Rel(PetAttackModeTexture, f) .. " " .. Centre(PetHitIndicator, f), "6,-9,82,-73 28,-27", "pet: attack glow and hit numbers")
+    -- 1.x layering: the art over the bars, the name and hit numbers over the art.
+    local petArt, petHolder = Own(f, "artHolder"), Own(f, "holder")
+    equal(S[petArt].level > math.max(S[PetFrameHealthBar].level, S[PetFrameManaBar].level), true, "pet: the art over its bars")
+    equal(tostring(S[PetFrameTexture].parent == petArt) .. " " .. tostring(S[PetAttackModeTexture].parent == petArt),
+        "true true", "pet: art and attack glow on the frame over the bars")
+    equal(tostring(S[PetName].parent == petHolder) .. " " .. tostring(S[PetHitIndicator].parent == petHolder)
+        .. " " .. tostring(S[petHolder].level > S[petArt].level), "true true true", "pet: name and hit numbers over the art")
+    equal(S[petArt].mouse, false, "pet: the art frame takes no clicks")
+    -- The pet's bars: in place, left alone; moved off the art, put back on
+    -- the next keeper pass (out of a fight; in one, after it).
+    local barPoints = S[PetFrameHealthBar].points
+    Tick()
+    equal(S[PetFrameHealthBar].points == barPoints, true, "pet: bars in place, not re-anchored by a keeper pass")
+    PetFrameHealthBar:ClearAllPoints(); PetFrameHealthBar:SetPoint("BOTTOMLEFT", PetPortrait, "RIGHT", 3, -5)
+    PetFrameManaBar:ClearAllPoints(); PetFrameManaBar:SetPoint("TOPLEFT", PetFrameHealthBar, "BOTTOMLEFT", -3, -1)
+    combat = true
+    Tick()
+    equal(Rel(PetFrameHealthBar, f) == "47,-22,116,-30", false, "pet: bars moved in a fight, left until it ends")
+    combat = false
+    Tick()
+    equal(Rel(PetFrameHealthBar, f) .. " " .. Rel(PetFrameManaBar, f), "47,-22,116,-30 47,-29,116,-37",
+        "pet: bars moved off the art, put back on the next keeper pass")
     local m = game.member
     equal(Rel(m.Texture, m) .. " " .. S[m.Texture].layer .. S[m.Texture].sub .. " " .. Rel(m.Portrait, m) .. " " .. Rel(m.Name, m),
         "0,-10,128,-74 ARTWORK7 7,-14,44,-51 49,-7,49,-19", "party: art, portrait, name")
