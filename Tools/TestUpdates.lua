@@ -186,8 +186,10 @@ E.version="1.8.8"
 check(E.ReleaseVersion()=="1.8.8" and E.PreviousRelease()=="1.8.7","1.8.8: its own notes, and 1.8.7 before it")
 E.version="1.8.9"
 check(E.ReleaseVersion()=="1.8.9" and E.PreviousRelease()=="1.8.8","1.8.9: its own notes, and 1.8.8 before it")
+E.version="1.8.10"
+check(E.ReleaseVersion()=="1.8.10" and E.PreviousRelease()=="1.8.9","1.8.10: its own notes, and 1.8.9 before it (10 after 9, not after 1)")
 E.version="1.9.0"
-check(E.ReleaseVersion()=="1.8.9" and E.PreviousRelease()=="1.8.9","a version newer than every note: the newest notes, and they're the release before")
+check(E.ReleaseVersion()=="1.8.10" and E.PreviousRelease()=="1.8.10","a version newer than every note: the newest notes, and they're the release before")
 E.version="1.5.5"
 check(E.ReleaseVersion()=="1.5.5" and E.PreviousRelease()=="1.5.4","an older release: its own, and the one under it")
 E.version="dev"

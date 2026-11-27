@@ -713,6 +713,12 @@ function ns.RefreshDarkness()
     -- The Stat Tracker's edge (Modules/StatTracker.lua).
     local stats = EraUI.modules.StatTracker
     if stats and stats.Paint then stats:Paint() end
+    -- The Healer Mana panel's edge (Modules/HealerMana.lua).
+    local mana = EraUI.modules.HealerMana
+    if mana and mana.Paint then mana:Paint() end
+    -- The Trinket Bar's edge, and its list's (Modules/TrinketBar.lua).
+    local trinkets = EraUI.modules.TrinketBar
+    if trinkets and trinkets.Paint then trinkets:Paint() end
     if ns.RefreshDarkMenuBar then ns.RefreshDarkMenuBar() end
     ns.RefreshDarkWindows()
 end

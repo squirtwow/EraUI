@@ -13,6 +13,10 @@ local layouts = {
     comboPointPosition=true, energyBarPosition=true, resourceBarPositions=true,
     swingTimerPosition=true, rangedSwingTimerPosition=true, advancedCastBarPosition=true,
     statTrackerPosition=true, rewardProfiles=true,
+    -- Healer Mana's place (Modules/HealerMana.lua).
+    healerManaPosition=true,
+    -- The Trinket Bar's place (Modules/TrinketBar.lua).
+    trinketBarPosition=true,
     -- Ability Trail's places (yours, and each party slot's) and its ignore
     -- list (Modules/AbilityTrail.lua).
     abilityTrailPosition=true, abilityTrailPartyPositions=true, abilityTrailIgnore=true,
@@ -113,6 +117,34 @@ local function Rings(value)
     return out
 end
 P.Rings = Rings
+
+-- A character's trinket sets (Modules/TrinketSets.lua) for the backup: the
+-- version, and for each set its name, the item ID in each of the four slots
+-- and the Trinket Set key it answers to (Modules/TrinketKeys.lua: one of the
+-- ten, or none), nothing else (no icons and no item names: the game gives
+-- them again). There is no limit on how many sets a character keeps, and a
+-- set is about forty bytes, so hundreds of them fit well inside LIMIT.
+local function Sets(value)
+    if type(value) ~= "table" or type(value.sets) ~= "table" then return nil end
+    local out = {version = Finite(value.version) and value.version or 1, sets = {}}
+    for _, set in ipairs(value.sets) do
+        local name = type(set) == "table" and Short(set.name)
+        if name then
+            local key = set.key
+            if not (Finite(key) and key % 1 == 0 and key >= 1 and key <= 10) then key = nil end
+            local copy = {name = name, items = {}, key = key}
+            if type(set.items) == "table" then
+                for _, slot in ipairs({13, 14, 11, 12}) do
+                    local id = set.items[slot]
+                    if Finite(id) then copy.items[slot] = id end
+                end
+            end
+            out.sets[#out.sets + 1] = copy
+        end
+    end
+    return out
+end
+P.Sets = Sets
 
 -- A character's class tools for the backup, without the Training Guide's
 -- trainer quotes: a cache the next trainer visit fills again, and by far the
@@ -329,6 +361,9 @@ function P:LoadCharacter()
         -- Action Rings come back only when SavedVariables lost them.
         local rings = Rings(saved.actionRings)
         if rings and EraUIClassicCharDB.actionRings == nil then EraUIClassicCharDB.actionRings = rings end
+        -- The trinket sets the same way.
+        local sets = Sets(saved.trinketSets)
+        if sets and EraUIClassicCharDB.trinketSets == nil then EraUIClassicCharDB.trinketSets = sets end
         -- Best scores only rise: the higher of the backup's and SavedVariables'.
         local bests = Bests(saved.miniGames)
         if bests then
@@ -350,7 +385,8 @@ function P:Save()
         local char = EraUIClassicCharDB or {}
         self.store.characters[self.character] = {
             classTools=ToolsToKeep(char.classTools), onboarding=char.onboarding or {}, swing=E.charSettings or self.characterSwing or {},
-            minimapZoom=Zooms(char.minimapZoom), miniGames=Bests(char.miniGames), actionRings=Rings(char.actionRings), seen=self.seen,
+            minimapZoom=Zooms(char.minimapZoom), miniGames=Bests(char.miniGames), actionRings=Rings(char.actionRings),
+            trinketSets=Sets(char.trinketSets), seen=self.seen,
         }
     end
     local ok, payload = pcall(Encode, self.store)

@@ -32,7 +32,7 @@ function ns.PlatesHandedOver()
 end
 
 local SIMPLE = "nameplateSimplifiedTypes"
-local EVENTS = Look.Words([[NAME_PLATE_UNIT_ADDED UNIT_LEVEL PLAYER_TARGET_CHANGED DISPLAY_SIZE_CHANGED UI_SCALE_CHANGED
+local EVENTS = Look.Words([[NAME_PLATE_UNIT_ADDED NAME_PLATE_UNIT_REMOVED UNIT_LEVEL PLAYER_TARGET_CHANGED DISPLAY_SIZE_CHANGED UI_SCALE_CHANGED
     CVAR_UPDATE UNIT_SPELLCAST_START UNIT_SPELLCAST_STOP UNIT_SPELLCAST_CHANNEL_START UNIT_SPELLCAST_CHANNEL_STOP
     UNIT_SPELLCAST_INTERRUPTED UNIT_SPELLCAST_INTERRUPTIBLE UNIT_SPELLCAST_NOT_INTERRUPTIBLE UNIT_SPELLCAST_DELAYED]])
 local CASTS = {}
@@ -52,6 +52,13 @@ local driver
 -- own cast bar has drawn the cast (it resets the fill and colour).
 local castsDue = Look.Weak()
 
+-- A unit token safe to keep in a table. A secret value cannot be a table key
+-- on this client, so one is never used as one.
+local function Token(unit)
+    if type(unit) ~= "string" or Look.Secret(unit) then return nil end
+    return unit
+end
+
 local function OnEvent(_, event, unit)
     if not P.active then return end
     if CASTS[event] then
@@ -61,7 +68,21 @@ local function OnEvent(_, event, unit)
         if unitFrame then castsDue[unitFrame] = true end
     elseif event == "NAME_PLATE_UNIT_ADDED" then
         local unitFrame = P.ForUnit(unit)
-        if unitFrame then P.Dress(unitFrame) end
+        if unitFrame then
+            local token = Token(unit)
+            if token then P.byUnit[token] = unitFrame end
+            P.Dress(unitFrame)
+        end
+    elseif event == "NAME_PLATE_UNIT_REMOVED" then
+        -- The unit's plate frame goes back to the game's own pool. Without
+        -- this the look stays on that frame, so a mob that has died is still
+        -- on screen with its name and an empty bar (seen 26 Nov 2026). The
+        -- frame comes from what we were handed when the plate arrived,
+        -- because the game can already answer nothing for the token here.
+        local token = Token(unit)
+        local unitFrame = (token and P.byUnit[token]) or P.ForUnit(unit)
+        if token then P.byUnit[token] = nil end
+        if unitFrame then Look.Try(P.Release, unitFrame) end
     elseif event == "UNIT_LEVEL" then
         local unitFrame = P.ForUnit(unit)
         if unitFrame then P.Level(unitFrame) end
@@ -144,6 +165,7 @@ local function PlatesOff()
     if driver then driver:Hide() end
     LegacyStyle()
     for unitFrame in pairs(P.dressed) do Look.Try(P.Release, unitFrame) end
+    for token in pairs(P.byUnit) do P.byUnit[token] = nil end
     if applied then ns.needsReload = true end
 end
 

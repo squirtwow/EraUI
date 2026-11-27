@@ -6,6 +6,19 @@ local _, EraUI = ...
 
 local UPDATES = {
     {
+        version = "1.8.10",
+        sections = {
+            { "Added", {
+                "Trinket Bar (Action Bars > Trinkets): your trinkets and their cooldowns. Click a slot to swap from your bags.",
+                "Trinket sets: save the trinkets you wear and put them on with one key.",
+                "Healer Mana (Group & Invites): a small panel of your healers' mana, and who is drinking.",
+            } },
+            { "Fixed", {
+                "Nameplates no longer stay on screen after a mob dies.",
+            } },
+        },
+    },
+    {
         version = "1.8.9",
         sections = {
             { "Fixed", {

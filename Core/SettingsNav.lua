@@ -68,12 +68,24 @@ local TABS = {
     -- the editor's box under it (Modules/RingRows.lua, RingEditor.lua). All
     -- but the switch show only while it's on (SHOWN_WITH).
     actionBars = {name = "Action Bars", icon = "Interface\\Icons\\Ability_Warrior_BattleShout",
-        about = "The stone dock, the Classic action buttons and action rings.", subs = {
+        about = "The stone dock, the Classic action buttons, action rings and your trinkets.", subs = {
             {id = "bars", name = "Action Bars", sections = {
                 S("Action bars", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText", "upgradeSpellRanks"})}},
             {id = "rings", name = "Action Rings", sections = {
                 S("Action rings", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion"}),
                 S("Your rings", {"actionRingEditor"})}},
+            -- The Trinket Bar on a sub-tab of its own (Modules/TrinketBar.lua):
+            -- its switch, Move Bar, its ticks (the last four the cooldown
+            -- alerts, Modules/TrinketAlerts.lua), Open List, Icon Size, Icons
+            -- per Row and Reset Position, then Your Sets with your saved sets
+            -- under it (Modules/TrinketSetList.lua). All but the switch show
+            -- only while it's on (SHOWN_WITH).
+            {id = "trinkets", name = "Trinkets", sections = {
+                S("Trinket bar", {"trinketBar", "trinketBarUnlock", "trinketBarBoth", "trinketBarRings", "trinketBarGlow",
+                    "trinketBarTime", "trinketBarTwoRows", "trinketBarColumn", "trinketBarQueue", "trinketBarReady",
+                    "trinketBarWarn", "trinketBarChat", "trinketBarSound", "trinketBarOpen", "trinketBarTimeStyle",
+                    "trinketBarSize", "trinketGridColumns", "trinketBarPlace"}),
+                S("Your sets", {"trinketBarSets"})}},
         }},
     frames = {name = "Frames & Nameplates", icon = "Interface\\Icons\\INV_Helmet_03",
         about = "Unit frames, portraits and nameplates.", subs = {
@@ -154,11 +166,15 @@ local TABS = {
             -- it's on (SHOWN_WITH).
             S("Name in chat", {"nameInChat", "nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild",
                 "nameInChatSay"})}},
+    -- Healer Mana (Modules/HealerMana.lua): its switch, then its options,
+    -- shown only while it's on (SHOWN_WITH).
     group = {name = "Group & Invites", icon = "Interface\\Icons\\INV_Misc_GroupLooking",
-        about = "Friends, guild, group finder and invites.", sections = {
+        about = "Friends, guild, group finder, invites and healer mana.", sections = {
             S("Windows", {"socialWindows", "groupFinderPvp"}),
             S("Invites and requests", {"blockDuels", "blockPartyInvites", "partyFromFriends", "inviteFromWhispers",
-                "autoSummon", "autoResurrect", "releasePvP"})}},
+                "autoSummon", "autoResurrect", "releasePvP"}),
+            S("Healer mana", {"healerMana", "healerManaUnlock", "healerManaSelf", "healerManaAll", "healerManaParty",
+                "healerManaRaid", "healerManaWidth", "healerManaScale", "healerManaLow", "healerManaPlace"})}},
     screen = {name = "Screen & Cursor", icon = "Interface\\Icons\\Spell_Nature_FarSight",
         about = "The screen, your cursor, the AFK screen and mini-games.", subs = {
             {id = "screenmain", name = "Screen", sections = {S("Screen", {"hideZoneText", "maxCameraZoom", "damageFont", "damageTextScale"})}},

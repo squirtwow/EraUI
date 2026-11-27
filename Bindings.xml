@@ -3,8 +3,9 @@
 	     The first three each click a window's named button (Look/SpellLayer.lua, Look/QuestLogOpen.lua,
 	     Look/TalentModule.lua). EraUI puts a key on one of them itself only when the player clicks
 	     Use N in the classic talents key offer (Look/TalentKey.lua). The ten Action Ring entries each
-	     click a ring's named button (Modules/RingSecure.lua); EraUI never sets a key on them. The names
-	     shown are set in Core/Init.lua. -->
+	     click a ring's named button (Modules/RingSecure.lua); EraUI never sets a key on them. The ten
+	     Trinket Set entries do the same for a saved trinket set (Modules/TrinketKeys.lua): you point a
+	     set at one of them in /era and set the key here. The names shown are set in Core/Init.lua. -->
 	<Binding name="CLICK EraUIClassicSpellBookBind:LeftButton" header="ERAUI" category="ADDONS"/>
 	<Binding name="CLICK EraUIClassicQuestLogBind:LeftButton" category="ADDONS"/>
 	<Binding name="CLICK EraUIClassicTalentsBind:LeftButton" category="ADDONS"/>
@@ -18,4 +19,14 @@
 	<Binding name="CLICK EraUIRingButton8:LeftButton" category="ADDONS"/>
 	<Binding name="CLICK EraUIRingButton9:LeftButton" category="ADDONS"/>
 	<Binding name="CLICK EraUIRingButton10:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton1:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton2:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton3:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton4:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton5:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton6:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton7:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton8:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton9:LeftButton" category="ADDONS"/>
+	<Binding name="CLICK EraUITrinketSetButton10:LeftButton" category="ADDONS"/>
 </Bindings>

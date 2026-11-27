@@ -21,6 +21,19 @@ function EraUI:SetRingBindingName(slot, ringName)
     local named = type(ringName) == "string" and ringName ~= ""
     _G["BINDING_NAME_CLICK EraUIRingButton" .. slot .. ":LeftButton"] = named and (plain .. ": " .. ringName) or plain
 end
+-- Trinket sets (Modules/TrinketKeys.lua): ten more entries, each clicking a
+-- set key's named button. You keep as many sets as you like and point any of
+-- them at one of these ten keys in /era > Action Bars > Trinkets > Your Sets;
+-- the key itself is yours to set here, and EraUI never sets one.
+for i = 1, 10 do _G["BINDING_NAME_CLICK EraUITrinketSetButton" .. i .. ":LeftButton"] = "Trinket Set " .. i end
+-- A set's name in Key Bindings: "Trinket Set 3: Fire fight"; nil puts the
+-- plain name back. The game reads it each time the list shows a row.
+function EraUI:SetTrinketSetBindingName(slot, setName)
+    if type(slot) ~= "number" or slot < 1 or slot > 10 or slot % 1 ~= 0 then return end
+    local plain = "Trinket Set " .. slot
+    local named = type(setName) == "string" and setName ~= ""
+    _G["BINDING_NAME_CLICK EraUITrinketSetButton" .. slot .. ":LeftButton"] = named and (plain .. ": " .. setName) or plain
+end
 
 EraUI.name = ADDON_NAME
 -- The version is the .toc's own "## Version", read as the addon loads, so it
@@ -210,6 +223,42 @@ local defaults = {
     actionRingNames = true, -- Slice Names: the name of the slice you point at, under the ring
     actionRingCooldowns = true, -- Cooldowns & Counts: cooldown sweeps and item counts on the icons
     actionRingMotion = true, -- Ring Motion: the icons swirl in as a ring opens and out as it closes
+    -- Trinket Bar (Modules/TrinketBar.lua, /era > Action Bars > Trinkets): a
+    -- small bar of your trinket slots, each with its cooldown. A left-click
+    -- opens the grid of what you carry for that slot (Modules/TrinketList.lua),
+    -- a right-click the quick menu of these options; using a trinket stays on
+    -- your action bars. Off by default, applies live, in a fight as well. Its
+    -- place (trinketBarPosition) is kept once you move it. Your saved sets are
+    -- this character's own (EraUIClassicCharDB.trinketSets) and any of them can
+    -- answer to one of the ten Trinket Set keys above (Modules/TrinketKeys.lua).
+    trinketBar = false,
+    trinketBarBoth = true, -- Show Both Slots: both trinkets, not the first alone
+    trinketBarRings = false, -- Show Your Rings: your two ring slots as well
+    trinketBarGlow = true, -- Ready Glow: a slot glows for a few seconds as its cooldown runs out
+    trinketBarTime = true, -- Time Left on Icon: the seconds left on a slot's icon
+    -- How that time is written: "short" (18m, then seconds under a minute) or
+    -- "clock" (17:43). Short to start with, the way a cooldown manager writes
+    -- it, since a trinket's cooldown is minutes and the clock form is more
+    -- than anyone reads at a glance.
+    trinketBarTimeStyle = "short",
+    trinketBarTwoRows = false, -- Two Rows: the slots in two lines instead of one
+    trinketBarColumn = false, -- Up and Down: the slots in a column instead of a row
+    trinketBarOpen = "hover", -- Open List: "hover" (point at a slot) or "click" (left-click it)
+    trinketBarSize = 36, -- Icon Size: 24 to 56 (pixels)
+    trinketGridColumns = 6, -- Icons per Row: how many tiles the swap list holds across (3 to 8)
+    -- Queue in a Fight: the game refuses a gear swap in a fight, so a click in
+    -- the grid keeps that trinket for the slot and it goes on the moment the
+    -- fight ends. On, because it only acts where the grid used to refuse.
+    trinketBarQueue = true,
+    -- The cooldown alerts (Modules/TrinketAlerts.lua), all off: a short line
+    -- in the middle of the screen as a trinket on the bar comes off cooldown,
+    -- another thirty seconds before it does, the same words in your chat as
+    -- well, and a small sound with them. Worn trinkets only, never what you
+    -- carry.
+    trinketBarReady = false, -- Say When One Is Ready
+    trinketBarWarn = false, -- Warn Thirty Seconds Before
+    trinketBarChat = false, -- Say It In Chat Too
+    trinketBarSound = false, -- Play A Sound
     hideZoneText = false,
     maxCameraZoom = false,
 
@@ -264,6 +313,17 @@ local defaults = {
     statTrackerSpirit = false, statTrackerAttackPower = true, statTrackerCrit = true, statTrackerHit = true,
     statTrackerSpellPower = false, statTrackerSpellCrit = false, statTrackerArmor = true, statTrackerDodge = true,
     statTrackerParry = false, statTrackerBlock = false, statTrackerSpeed = true, statTrackerDurability = false,
+    -- Healer Mana (Modules/HealerMana.lua, /era > Group & Invites > Healer
+    -- mana): a floating panel of your healers' mana in a party or raid; off
+    -- by default, applies live. Its place (healerManaPosition) is kept once
+    -- you move it.
+    healerMana = false,
+    healerManaSelf = false, -- Include Me: your own line too, when you count as a healer
+    healerManaAll = false, -- Every Mana User: everyone who uses mana, not just healers
+    healerManaParty = true, healerManaRaid = true, -- Show in Party, Show in Raid
+    healerManaWidth = 130, -- Bar Width, 100 to 240 pixels
+    healerManaScale = 100, -- Size, 50 to 150 (percent)
+    healerManaLow = 30, -- Low Mana Colour: amber at or under this percent, 0 (off) to 60
     classColors = true,
     hideStatusMessages = true,
     afkScreen = true,        -- AFK Screen; on by default (the user's call), a saved choice is kept

@@ -141,6 +141,19 @@ end
 for _, key in ipairs({"nameInChatName", "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"}) do
     SHOWN_WITH[key] = "nameInChat"
 end
+-- Healer Mana's buttons, ticks and sliders, shown while it's on.
+for _, key in ipairs({"healerManaUnlock", "healerManaSelf", "healerManaAll", "healerManaParty", "healerManaRaid",
+    "healerManaWidth", "healerManaScale", "healerManaLow", "healerManaPlace"}) do
+    SHOWN_WITH[key] = "healerMana"
+end
+-- The Trinket Bar's button, ticks, choice, two sliders and its Your Sets
+-- heading (with the sets panel under it), shown while it's on.
+for _, key in ipairs({"trinketBarUnlock", "trinketBarBoth", "trinketBarRings", "trinketBarGlow", "trinketBarTime",
+    "trinketBarTwoRows", "trinketBarColumn", "trinketBarQueue", "trinketBarReady", "trinketBarWarn",
+    "trinketBarChat", "trinketBarSound", "trinketBarOpen", "trinketBarTimeStyle", "trinketBarSize",
+    "trinketGridColumns", "trinketBarPlace", "trinketBarSets"}) do
+    SHOWN_WITH[key] = "trinketBar"
+end
 for _, stat in ipairs({"Strength", "Agility", "Stamina", "Intellect", "Spirit", "AttackPower", "Crit", "Hit", "SpellPower",
     "SpellCrit", "Armor", "Dodge", "Parry", "Block", "Speed", "Durability"}) do
     SHOWN_WITH["statTracker" .. stat] = "statTracker"
@@ -295,6 +308,35 @@ local settingHelp = {
     nameInChatRaid = "Your name before your raid messages and raid warnings.",
     nameInChatGuild = "Your name before your guild and officer messages.",
     nameInChatSay = "Your name before what you /say to players near you.",
+    healerMana = "A small panel of your healers' mana in a party or raid, a bar each with the mana left. Out of a fight it shows who's drinking.",
+    healerManaUnlock = "Unlock to drag the panel anywhere. It shows while unlocked, even out of a group. Lock, or right-click the panel, when you're done.",
+    healerManaSelf = "Your own mana on the panel too, when you count as a healer.",
+    healerManaAll = "Everyone who uses mana. Off, only healers: the Healer role, or priests, druids, paladins and shamans with no role set.",
+    healerManaParty = "The panel shows while you're in a party.",
+    healerManaRaid = "The panel shows while you're in a raid.",
+    healerManaWidth = "How long each mana bar is, in pixels.",
+    healerManaScale = "How big the whole panel is, from 50% to 150%. It stays where you put it.",
+    healerManaLow = "A bar turns amber at or under this much mana. In a fight the game can hide other players' mana, and then it stays blue.",
+    healerManaPlace = "Puts the panel back where it first showed, at the right of your screen.",
+    trinketBar = "A small bar of your trinket slots with their cooldowns. Left-click a slot to swap it from your bags, right-click it for these options.",
+    trinketBarUnlock = "Unlock to drag the bar anywhere. Lock, or right-click the bar, when you're done. A fight locks it too.",
+    trinketBarBoth = "Both trinket slots on the bar. Off keeps your first slot alone.",
+    trinketBarRings = "Your two ring slots on the bar as well, after the trinkets.",
+    trinketBarGlow = "A slot glows for a few seconds as its cooldown runs out, so you can see it is ready again.",
+    trinketBarTime = "The seconds left on a slot's icon while its cooldown runs. Off leaves the sweep alone to show it.",
+    trinketBarTwoRows = "The slots in two lines instead of one.",
+    trinketBarColumn = "The slots in a column instead of a row. Two Rows then makes it two columns.",
+    trinketBarQueue = "In a fight a click in the swap list keeps that item and puts it on the moment the fight ends. Off refuses the swap instead.",
+    trinketBarReady = "A line in the middle of the screen as a trinket on the bar comes off cooldown. It fades by itself.",
+    trinketBarWarn = "A line thirty seconds before a trinket is ready. One whose cooldown started in a fight is worked out at the fight's end.",
+    trinketBarChat = "The same lines in your own chat as well as on the screen.",
+    trinketBarSound = "A small sound with each line.",
+    trinketBarOpen = "Hover opens the list as you point at a slot. Click opens it on a left-click, which works either way.",
+    trinketBarTimeStyle = "Short writes whole minutes while over one, then seconds. Clock writes minutes and seconds together.",
+    trinketBarSize = "How big each slot is, in pixels. The bar grows with them.",
+    trinketGridColumns = "How many icons each row of the swap list holds. It goes on down for as many as you carry.",
+    trinketBarPlace = "Puts the bar back where it first showed, above your action bars.",
+    trinketBarSets = "Save the trinkets you have on as a set, then put them back on with one click or a Trinket Set key. Sets are this character's own.",
     cursorCastRing = "A ring round your cursor that fills as you cast and drains as you channel. With Cursor Ring on, it sits just outside it.",
     portraitDebuffs = "Crowd control on player, target, focus and party portraits, with a countdown on all but your own. Covers the level badge.",
     classColourBorders = "Player, target and focus frame borders in each player's class colour. Needs Dark Mode and Unit Frames.",
@@ -529,6 +571,14 @@ local function DefaultText(key)
     if key == "presets" or key == "rewardProfile" or key == "classTools" or key:find("^more") then return nil end
     if key == "miniGameWhack" or key == "miniGameBlast" or key == "miniGameReset" then return nil end
     if key == "abilityTrailIgnored" or key == "abilityTrailPlace" or key == "abilityTrailUnlock" or key == "actionRingEditor" then return nil end
+    if key == "healerManaUnlock" or key == "healerManaPlace" then return nil end
+    if key == "trinketBarUnlock" or key == "trinketBarPlace" or key == "trinketBarSets" then return nil end
+    if key == "trinketBarSize" then return "Default: 36 px." end
+    if key == "trinketGridColumns" then return "Default: 6." end
+    if key == "trinketBarOpen" then return "Default: Hover." end
+    if key == "trinketBarTimeStyle" then return "Default: Short." end
+    if key == "healerManaWidth" then return "Default: 130 px." end
+    if key == "healerManaLow" then return "Default: 30%." end
     if key == "abilityTrailDirection" or key == "abilityTrailPartyDirection" then return "Default: Right." end
     if key == "abilityTrailSeconds" then return "Default: 10 sec." end
     if key == "abilityTrailBorder" then return "Default: Match look." end
@@ -547,7 +597,7 @@ local function DefaultText(key)
     if key == "castBarCustomColour" then return "Default: light grey." end
     if key == "statTrackerLayout" then return "Default: List." end
     if key == "statTrackerShow" then return "Default: Always." end
-    if key == "statTrackerScale" or key == "squareMinimapScale" or key == "actionRingScale" then return "Default: 100%." end
+    if key == "statTrackerScale" or key == "squareMinimapScale" or key == "actionRingScale" or key == "healerManaScale" then return "Default: 100%." end
     if key == "statTrackerPerLine" then return "Default: All." end
     if key == "statTrackerNameColour" then return "Default: Match look." end
     if key == "statTrackerNameCustomColour" then return "Default: gold." end
@@ -891,6 +941,31 @@ local function MakeCheck(parent, label, key, icon, summary, unavailable)
         if key=="upgradeSpellRanks" then
             if EraUI.modules.SpellRanks then EraUI.modules.SpellRanks:Refresh() end
             EraUI:Status("Upgrade Spell Ranks "..(value and "enabled. The next rank you learn takes the old one's place on your bars." or "disabled."))
+            return
+        end
+        -- Healer Mana and its ticks change the panel at once
+        -- (Modules/HealerMana.lua); its switch opens or closes its rows.
+        if key:find("^healerMana") then
+            if key=="healerMana" and parent.RefreshFolds then parent:RefreshFolds() end
+            if EraUI.modules.HealerMana then EraUI.modules.HealerMana:Refresh() end
+            if key=="healerMana" then
+                EraUI:Status("Healer Mana "..(value and "enabled. It shows in a party or raid; Unlock under it to move it." or "disabled."))
+            else
+                EraUI:Status("Healer Mana: "..label..(value and " on." or " off."))
+            end
+            return
+        end
+        -- The Trinket Bar and its ticks change the bar at once
+        -- (Modules/TrinketBar.lua), in a fight as well; its switch opens or
+        -- closes its rows.
+        if key:find("^trinketBar") then
+            if key=="trinketBar" and parent.RefreshFolds then parent:RefreshFolds() end
+            if EraUI.modules.TrinketBar then EraUI.modules.TrinketBar:Refresh() end
+            if key=="trinketBar" then
+                EraUI:Status("Trinket Bar "..(value and "enabled. Move Bar under it puts it where you want." or "disabled."))
+            else
+                EraUI:Status("Trinket Bar: "..label..(value and " on." or " off."))
+            end
             return
         end
         -- The Stat Tracker and its ticks change the panel at once
@@ -1734,6 +1809,232 @@ local function BuildNameRows(frame)
         local row = MakeCheck(frame, tick[2], tick[1], nil, tick[3], false)
         row.searchText = row.searchText .. " name in chat brackets " .. tick[4]
     end
+end
+
+-- Group & Invites > Healer mana (Modules/HealerMana.lua): the switch, Move
+-- Panel (Unlock, then Lock), four ticks, Bar Width, Size and Low Mana
+-- Colour (sliders, live as they move) and Reset Position. All but the
+-- switch show only while it's on (SHOWN_WITH).
+local HEALER_TICKS = {
+    {"healerManaSelf", "Include Me", "Your own mana too, when you heal.", "me myself own"},
+    {"healerManaAll", "Every Mana User", "Everyone who uses mana, not just healers.", "all everyone mage warlock hunter"},
+    {"healerManaParty", "Show in Party", "The panel in a party.", "group"},
+    {"healerManaRaid", "Show in Raid", "The panel in a raid.", "group"},
+}
+local function BuildHealerRows(frame)
+    local function Module() return EraUI.modules.HealerMana end
+    local switch = MakeCheck(frame, "Healer Mana", "healerMana", nil, "A small panel of your healers' mana in a party or raid.", false)
+    switch.searchText = switch.searchText .. " healer healers heal mana bar bars percent drink drinking cup floating move movable"
+    -- Move Panel: Unlock shows the panel to drag; the button says Lock while
+    -- it's unlocked (a right-click on the panel, or a fight, locks it too:
+    -- the module says so through watch).
+    local unlock
+    local function Label(on) unlock.button.label:SetText(on and "Lock" or "Unlock") end
+    local function Watched()
+        local module = Module()
+        if module then module.watch = Label end
+        return module
+    end
+    unlock = Rows.ButtonRow(frame, "healerManaUnlock", "Move Panel", "Unlock", function()
+        local module = Watched()
+        if not module then return end
+        local on = not module.unlocked
+        if module:SetUnlocked(on) == false then
+            EraUI:Status("Healer Mana: switch it on first, then unlock.")
+            return
+        end
+        Label(on)
+        EraUI:Status(on and "Healer Mana: drag the panel to move it. Lock, or right-click it, when you're done." or "Healer Mana: panel locked.")
+    end)
+    unlock:HookScript("OnShow", function() local module = Watched(); Label(module and module.unlocked) end)
+    unlock.summary = "Drag the panel anywhere."
+    unlock.searchText = "healer mana move unlock lock drag panel position place"
+    for _, tick in ipairs(HEALER_TICKS) do
+        local row = MakeCheck(frame, tick[2], tick[1], nil, tick[3], false)
+        row.searchText = row.searchText .. " healer mana " .. tick[4]
+    end
+    local function Slider(key, label, low, high, step, default, format, summary, words)
+        local row = Rows.Slider(frame, key, label, {low = low, high = high, step = step, format = format,
+            read = function()
+                local value = tonumber(EraUI:GetSavedSetting(key))
+                if not value or value ~= value or math.abs(value) == math.huge then return default end
+                return value
+            end,
+            save = function(value)
+                EraUI:SetSetting(key, value)
+                local module = Module()
+                if module then module:Refresh() end
+            end})
+        row.searchText = "healer mana " .. string.lower(label) .. " " .. words
+        row.summary = summary
+        return row
+    end
+    Slider("healerManaWidth", "Bar Width", 100, 240, 10, 130, function(value) return value .. " px" end,
+        "How long each mana bar is.", "long longer short shorter wide narrow pixels")
+    Slider("healerManaScale", "Size", 50, 150, 5, 100, function(value) return value .. "%" end,
+        "How big the panel is.", "scale bigger smaller big small")
+    Slider("healerManaLow", "Low Mana Colour", 0, 60, 5, 30, function(value) return value == 0 and "Off" or value .. "%" end,
+        "Bars turn amber at or under this much mana.", "amber orange warning threshold")
+    local place = Rows.ButtonRow(frame, "healerManaPlace", "Reset Position", "Reset", function()
+        local module = Module()
+        if module then module:ResetPosition() end
+        EraUI:Status("Healer Mana: the panel is back where it starts.")
+    end)
+    place.summary = "The panel back where it starts."
+    place.searchText = "healer mana position place reset move back"
+end
+
+-- Action Bars > Trinkets (Modules/TrinketBar.lua): the switch, Move Bar
+-- (Unlock, then Lock), eleven ticks (the last four the cooldown alerts,
+-- Modules/TrinketAlerts.lua), Open List (a choice), Icon Size and Icons
+-- per Row (sliders, live as they move), Reset Position, and the whole-line
+-- Your Sets heading with your saved sets under it (Modules/TrinketSetList.lua),
+-- each able to answer to one of the ten Trinket Set keys in the game's own Key
+-- Bindings menu (Modules/TrinketKeys.lua).
+-- All but the switch show only while it's on (SHOWN_WITH). A right-click on
+-- the bar's own slot opens the first six of these ticks and Icon Size in its
+-- quick menu (Modules/TrinketMenu.lua), which also opens this page at Your
+-- Sets.
+local TRINKET_TICKS = {
+    {"trinketBarBoth", "Show Both Slots", "Both trinket slots, not the first alone.", "two both second slot slots"},
+    {"trinketBarRings", "Show Your Rings", "Your two ring slots as well.", "ring rings finger"},
+    {"trinketBarGlow", "Ready Glow", "A slot glows as its cooldown runs out.", "glow ready shine pulse"},
+    {"trinketBarTime", "Time Left on Icon", "The seconds left on a slot's icon.", "time left seconds number count"},
+    {"trinketBarTwoRows", "Two Rows", "The slots in two lines instead of one.", "row rows stack"},
+    {"trinketBarColumn", "Up and Down", "The slots in a column instead of a row.", "column up down turn vertical upright"},
+    {"trinketBarQueue", "Queue in a Fight", "A click in a fight keeps it for the fight's end.",
+        "queue queued wait waiting later fight combat swap"},
+    {"trinketBarReady", "Say When One Is Ready", "A line as a trinket comes off cooldown.",
+        "ready alert alerts line screen say tell cooldown off done"},
+    {"trinketBarWarn", "Warn Thirty Seconds Before", "A line thirty seconds before it is ready.",
+        "warn warning thirty seconds before early soon almost"},
+    {"trinketBarChat", "Say It In Chat Too", "The same lines in your chat.", "chat window text words too as well"},
+    {"trinketBarSound", "Play A Sound", "A small sound with each line.", "sound sounds noise play audio tick"},
+}
+local TRINKET_OPEN = {"hover", "click"}
+local function BuildTrinketRows(frame)
+    local function Module() return EraUI.modules.TrinketBar end
+    local switch = MakeCheck(frame, "Trinket Bar", "trinketBar", nil, "A small bar of your trinket slots.", false)
+    switch.searchText = switch.searchText .. " trinket trinkets bar slot slots swap equip cooldown ring rings bags"
+    -- Move Bar: Unlock shows the gold box to drag; the button says Lock while
+    -- it's unlocked (a right-click on the bar, or a fight, locks it too: the
+    -- module says so through watch).
+    local unlock
+    local function Label(on) unlock.button.label:SetText(on and "Lock" or "Unlock") end
+    local function Watched()
+        local module = Module()
+        if module then module.watch = Label end
+        return module
+    end
+    unlock = Rows.ButtonRow(frame, "trinketBarUnlock", "Move Bar", "Unlock", function()
+        local module = Watched()
+        if not module then return end
+        local on = not module.unlocked
+        if module:SetUnlocked(on) == false then
+            EraUI:Status(InCombatLockdown() and "Trinket Bar: you can't move it in a fight."
+                or "Trinket Bar: switch it on first, then unlock.")
+            return
+        end
+        Label(on)
+        EraUI:Status(on and "Trinket Bar: drag it to move it. Lock, or right-click it, when you're done." or "Trinket Bar: locked.")
+    end)
+    unlock:HookScript("OnShow", function() local module = Watched(); Label(module and module.unlocked) end)
+    unlock.summary = "Drag the bar anywhere."
+    unlock.searchText = "trinket bar move unlock lock drag position place"
+    for _, tick in ipairs(TRINKET_TICKS) do
+        local row = MakeCheck(frame, tick[2], tick[1], nil, tick[3], false)
+        row.searchText = row.searchText .. " trinket bar " .. tick[4]
+    end
+    local choice
+    local function Index()
+        local saved = EraUI:GetSavedSetting("trinketBarOpen")
+        for i, id in ipairs(TRINKET_OPEN) do if id == saved then return i end end
+        return 1
+    end
+    choice = Rows.Choice(frame, "trinketBarOpen", "Open List", {"Hover", "Click"}, function(index)
+        if choice.dependencyDisabled then choice:SetChecked(); return end
+        local id = TRINKET_OPEN[index] or TRINKET_OPEN[1]
+        EraUI:SetSetting("trinketBarOpen", id)
+        choice:SetChecked()
+        local module = Module()
+        if module then module:Refresh() end
+        EraUI:Status(id == "hover" and "Trinket Bar: the list opens as you point at a slot."
+            or "Trinket Bar: left-click a slot to open the list.")
+    end)
+    choice.SetChecked = function() Rows.SelectChoice(choice, Index()) end
+    choice:HookScript("OnShow", function() choice:SetChecked() end)
+    choice.summary = "How the swap list opens."
+    choice.searchText = "trinket bar open list hover point click swap"
+    -- How the time left is written. A trinket's cooldown is minutes, and
+    -- "17:43" is more than anyone reads at a glance, so Short is how it
+    -- starts (Squirt, 27 Nov 2026, wanting it the way a cooldown manager
+    -- writes it).
+    local timeStyle
+    local function StyleIndex()
+        return EraUI:GetSavedSetting("trinketBarTimeStyle") == "clock" and 2 or 1
+    end
+    timeStyle = Rows.Choice(frame, "trinketBarTimeStyle", "Time Style", {"Short", "Clock"}, function(index)
+        if timeStyle.dependencyDisabled then timeStyle:SetChecked(); return end
+        local id = index == 2 and "clock" or "short"
+        EraUI:SetSetting("trinketBarTimeStyle", id)
+        timeStyle:SetChecked()
+        local module = Module()
+        if module then module:Refresh() end
+        EraUI:Status(id == "clock" and "Trinket Bar: the time reads 17:43."
+            or "Trinket Bar: the time reads 18m, then seconds under a minute.")
+    end)
+    timeStyle.SetChecked = function() Rows.SelectChoice(timeStyle, StyleIndex()) end
+    timeStyle:HookScript("OnShow", function() timeStyle:SetChecked() end)
+    timeStyle.summary = "How the time left is written."
+    timeStyle.searchText = "trinket bar time style short clock minutes seconds countdown"
+    local size = Rows.Slider(frame, "trinketBarSize", "Icon Size", {low = 24, high = 56, step = 2,
+        format = function(value) return value .. " px" end,
+        read = function()
+            local value = tonumber(EraUI:GetSavedSetting("trinketBarSize"))
+            if not value or value ~= value or math.abs(value) == math.huge then return 36 end
+            return value
+        end,
+        save = function(value)
+            EraUI:SetSetting("trinketBarSize", value)
+            local module = Module()
+            if module then module:Refresh() end
+        end})
+    size.summary = "How big each slot is."
+    size.searchText = "trinket bar icon size bigger smaller pixels big small"
+    -- Icons per Row: how wide the swap list is. The open list follows at
+    -- once (Modules/TrinketList.lua), in a fight as well.
+    local columns = Rows.Slider(frame, "trinketGridColumns", "Icons per Row", {low = 3, high = 8, step = 1,
+        read = function() return tonumber(EraUI:GetSavedSetting("trinketGridColumns")) or 6 end,
+        save = function(value)
+            EraUI:SetSetting("trinketGridColumns", value)
+            local module = Module()
+            if module then module:Refresh() end
+        end})
+    columns.summary = "How many icons each row of the swap list holds."
+    columns.searchText = "trinket bar swap list grid icons per row columns across wide bags"
+    local place = Rows.ButtonRow(frame, "trinketBarPlace", "Reset Position", "Reset", function()
+        local module = Module()
+        if module then module:ResetPosition() end
+        EraUI:Status("Trinket Bar: it's back where it starts.")
+    end)
+    place.summary = "The bar back where it starts."
+    place.searchText = "trinket bar position place reset move back"
+    -- Your Sets: a whole line, with the sets panel under it on its page only
+    -- (never in search, which lists results instead of rows), as Action Rings
+    -- does with Your Rings (Modules/RingRows.lua, TrinketSetList.lua).
+    local sets = Rows.Heading(frame, "trinketBarSets", "Your Sets")
+    sets.summary = "Save a set of trinkets and put it back on with one click."
+    sets.searchText = "trinket trinkets sets set save load wearing gear swap kit name rename delete key keys binding bind"
+    sets.wideRow = true
+    sets.attachPanel = function()
+        local panel = EraUI.TrinketSetList
+        if panel and panel.Attach then panel.Attach(frame, sets) end
+    end
+    sets:HookScript("OnShow", function() if not frame.searching then sets.attachPanel() end end)
+    sets:HookScript("OnHide", function()
+        local panel = EraUI.TrinketSetList
+        if panel and panel.Hide then panel.Hide() end
+    end)
 end
 
 -- Cast Bar Colour (Casting): Match look, Yellow, Grey, Class or Custom on a
@@ -2863,8 +3164,10 @@ function SettingsModule:Initialize()
     BuildTrailRows(frame)
     BuildThankRows(frame)
     BuildNameRows(frame)
+    BuildHealerRows(frame)
     -- Action Bars > Action Rings (Modules/RingRows.lua), with this file's ticks.
     if EraUI.RingRows then EraUI.RingRows.Build(frame, MakeCheck) end
+    BuildTrinketRows(frame)
     BuildStatRows(frame)
     BuildCursorRows(frame)
     BuildScreenRows(frame)

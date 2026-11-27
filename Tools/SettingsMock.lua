@@ -192,6 +192,9 @@ function methods:GetMaxLines() return self.maxLines end
 function methods:EnableMouse(v) Guard(self); self.mouse = v end
 function methods:IsMouseEnabled() return self.mouse == true end
 function methods:EnableMouseWheel(v) Guard(self); self.wheel = v end
+-- The key catcher behind binding a trinket set's key in its own panel.
+function methods:EnableKeyboard(v) self.keyboard = v and true or false end
+function methods:SetPropagateKeyboardInput(v) self.propagate = v and true or false end
 function methods:RegisterForClicks(...) Guard(self); self.clicks = {...} end
 function methods:SetTextColor(r, g, b) Guard(self); self.colour = {r, g, b} end
 function methods:SetColorTexture(r, g, b, a) Guard(self); self.fill = {r, g, b, a or 1} end

@@ -18,6 +18,11 @@ Look.Plates = P
 P.active = false
 P.dressed = Look.Weak() -- unit frame: true while it wears the look
 P.pieces = Look.Weak()  -- unit frame: { border, level, skull, castLeft, castRight }
+-- unit token: the frame it was handed to us on, so the look can be taken off
+-- when that unit goes. The game can already answer nothing for the token by
+-- then, which is why the frame is remembered rather than asked for. Plain
+-- keys, not weak ones: the tokens are only ever nameplate1 to nameplate40.
+P.byUnit = {}
 
 -- The bundled border is the 128 x 32 original (the client's own is a wider
 -- redraw), used either way; Dark Mode greys it.
@@ -118,14 +123,19 @@ function P.Level(unitFrame)
     local level = UnitLevel(unit)
     if level == nil or Look.Secret(level) then
         pieces.level:SetText("")
+        pieces.level:Hide()
         pieces.skull:Hide()
     elseif Look.SkullLevel(level, unit) then
         pieces.level:SetText("")
+        pieces.level:Hide()
         pieces.skull:Show()
     else
         pieces.skull:Hide()
         pieces.level:SetText(tostring(level))
         pieces.level:SetTextColor(LevelColour(unit, level))
+        -- Shown here, not only at birth: a plate that left the look had this
+        -- hidden, and the game hands the same frame back for the next mob.
+        pieces.level:Show()
     end
 end
 
@@ -257,7 +267,40 @@ end
 -- or the look went off): EraUI's pieces hidden, the containers at scale 1,
 -- the faded pieces given their alpha back. The game lays the rest out
 -- again when the plate next takes a unit.
+-- A dead mob's plate. The game keeps one up for a while after the death
+-- (about 13 s mid-fight, and a corpse's plate can arrive and stay for 20 s,
+-- measured 27 Nov 2026) as a name over an empty bar, so the look hides it.
+-- The plate's own alpha is the game's (it put it back within a sweep), so
+-- its parts are faded instead, again on every sweep while it stays dead.
+P.deadHidden = Look.Weak()
+local DEAD_PARTS = Look.Words("HealthBarsContainer CastBarsContainer name AurasFrame RaidTargetFrame")
+
+local function DeadParts(unitFrame, alpha)
+    for _, key in ipairs(DEAD_PARTS) do Look.Alpha(unitFrame[key], alpha) end
+end
+
+function P.Dead(unitFrame)
+    local unit = unitFrame and unitFrame.unit
+    local dead = false
+    if type(unit) == "string" and not Look.Secret(unit) then
+        local fine, answer = pcall(UnitIsDead, unit)
+        if fine and Look.Secret(answer) then return end -- can't tell: leave it be
+        dead = fine and answer == true
+    end
+    if dead then
+        P.deadHidden[unitFrame] = true
+        DeadParts(unitFrame, 0)
+    elseif P.deadHidden[unitFrame] then
+        P.deadHidden[unitFrame] = nil
+        DeadParts(unitFrame, 1)
+    end
+end
+
 function P.Release(unitFrame)
+    if P.deadHidden[unitFrame] then
+        P.deadHidden[unitFrame] = nil
+        DeadParts(unitFrame, 1)
+    end
     if not P.dressed[unitFrame] then return end
     P.dressed[unitFrame] = nil
     local pieces = P.pieces[unitFrame]
@@ -301,6 +344,7 @@ function P.Dress(unitFrame)
     DressHealth(unitFrame, health, pieces)
     if castBar and pieces.castLeft then DressCast(castBox, castBar, pieces) end
     P.dressed[unitFrame] = true
+    P.Dead(unitFrame)
 end
 
 function P.DressAll()
@@ -328,6 +372,7 @@ function P.Keep(unitFrame)
     local fill = health and (health.barTexture or (health.GetStatusBarTexture and health:GetStatusBarTexture()))
     if Atlased(fill) then Shade(fill) end
     P.Colour(unitFrame)
+    P.Dead(unitFrame)
 end
 
 -- The cast bar's look alone, put back after the game's own cast bar has

@@ -308,8 +308,9 @@ do
     Equal(first.created, 1, "no FEN: EraUI's own plate driver")
     local events = 0
     for _ in pairs(first.frame.events) do events = events + 1 end
-    -- (Fourteen since audit A13 added the cast's interruptible and delayed events.)
-    Equal(events, 14, "no FEN: its fourteen events")
+    -- (Fourteen since audit A13 added the cast's interruptible and delayed
+    -- events; fifteen since a plate going away got its own, 26 Nov 2026.)
+    Equal(events, 15, "no FEN: its fifteen events")
     Equal(first.frame.scripts.OnUpdate ~= nil and first.frame:IsShown(), true, "no FEN: and its sweep, running")
     Equal(first.calls:find("plate1.HealthBarsContainer:SetScale", 1, true) ~= nil, true, "no FEN: the plates are laid out")
     Equal(first.calls:find("plate2.healthBar:SetStatusBarColor", 1, true) ~= nil, true, "no FEN: a player's plate coloured")
@@ -786,6 +787,59 @@ do
     Equal(Count(calls, "plate2.HealthBarsContainer:SetScale") - scaled, 0, "A13: and is left alone after that")
     Proto.ClearAllPoints, Proto.SetPoint, Proto.SetTexture, Proto.SetAtlas = clear, point, texture, atlas
     Proto.GetNumPoints, Proto.GetAtlas = nil, nil
+end
+
+-- A plate's unit going away -----------------------------------------------------
+-- The driver used to listen for a plate arriving and never for one leaving, so
+-- the look stayed on a frame the game had put back in its pool and a mob that
+-- had died was still on screen with its name and an empty bar. Seen in game on
+-- 26 Nov 2026. The old suite fired only ADDED at this driver, which is how it
+-- went unnoticed, so the registration itself is asserted here too.
+do
+    World()
+    Addons("none")
+    local ns, E = Classic({ namePlates = true, classColorPlates = false, fullPlates = false })
+    Pass(ns)
+    local P = E.Look.Plates
+    local driver, uf = created[1], plates[1].UnitFrame
+    Equal(driver.events["NAME_PLATE_UNIT_REMOVED"], true, "the driver listens for a plate going away")
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+    Equal(P.dressed[uf], true, "a plate that arrives wears the look")
+    Equal(P.byUnit["nameplate1"] == uf, true, "and its frame is kept against its token")
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_REMOVED", "nameplate1")
+    Equal(P.dressed[uf], nil, "its unit going away takes the look off again")
+    Equal(P.byUnit["nameplate1"], nil, "and forgets the token")
+    -- By the time the game says the unit has gone it can already answer
+    -- nothing for that token, so the look must come off the frame we were
+    -- handed rather than one we ask for now.
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+    local back = P.dressed[uf] == true
+    -- Taking the look off hides our level, and the game hands the very same
+    -- frame back for the next mob, so dressing it again has to show it.
+    Equal(ownState[P.pieces[uf].level].shown, true, "the level comes back on a frame used again")
+    local forUnit = C_NamePlate.GetNamePlateForUnit
+    C_NamePlate.GetNamePlateForUnit = function() return nil end
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_REMOVED", "nameplate1")
+    Equal(back and P.dressed[uf] == nil, true, "the look comes off even when the game no longer knows the token")
+    C_NamePlate.GetNamePlateForUnit = forUnit
+    -- A dead mob's plate, which the game keeps up mid-fight, is hidden, and
+    -- shown again when it goes back to the game.
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_ADDED", "nameplate1")
+    local isDead = _G.UnitIsDead
+    _G.UnitIsDead = function(unit) return unit == "nameplate1" end
+    P.Keep(uf)
+    Equal(Last(uf.HealthBarsContainer, "SetAlpha")[1], 0, "a dead mob's bar hidden")
+    Equal(Last(uf.CastBarsContainer, "SetAlpha")[1], 0, "and its cast bar")
+    _G.UnitIsDead = function() return SECRET end
+    P.Keep(uf)
+    Equal(Last(uf.HealthBarsContainer, "SetAlpha")[1], 0, "a secret answer changes nothing")
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_REMOVED", "nameplate1")
+    Equal(Last(uf.HealthBarsContainer, "SetAlpha")[1], 1, "shown again once the game takes the plate back")
+    _G.UnitIsDead = isDead
+    -- A secret token is never used as a table key, and nothing breaks.
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_ADDED", SECRET)
+    driver.scripts.OnEvent(driver, "NAME_PLATE_UNIT_REMOVED", SECRET)
+    Equal(P.byUnit[1] == nil, true, "a secret token is never kept")
 end
 
 Equal(table.concat(reported, " || "), "", "no error handed to the game's error handler")

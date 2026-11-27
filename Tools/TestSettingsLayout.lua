@@ -30,11 +30,19 @@ local EXPECTED = {
     "classColourBorders", "castBarClassBorder", "plainNameStrip"}}}}}},
   -- Action Rings on a sub-tab of its own (2026-11-07): its switch and
   -- options, then Your Rings (the editor's box opens under it: Tools/TestRings.lua).
-  {"actionBars", "Action Bars", "The stone dock, the Classic action buttons and action rings.", {
+  {"actionBars", "Action Bars", "The stone dock, the Classic action buttons, action rings and your trinkets.", {
    {"bars", "Action Bars", {{"ACTION BARS", {"actionBars", "gryphons", "hideEmptyActionSlots", "hideKeybindText", "hideMacroText",
     "upgradeSpellRanks"}}}},
    {"rings", "Action Rings", {{"ACTION RINGS", {"actionRings", "actionRingScale", "actionRingNames", "actionRingCooldowns", "actionRingMotion"}},
-    {"YOUR RINGS", {"actionRingEditor"}}}}}},
+    {"YOUR RINGS", {"actionRingEditor"}}}},
+   -- The Trinket Bar's own sub-tab: its switch, then its options while it's
+   -- on (the last four ticks its cooldown alerts), then Your Sets with your
+   -- saved sets under it (Tools/TestTrinketBar.lua has its rows and its panel).
+   {"trinkets", "Trinkets", {{"TRINKET BAR", {"trinketBar", "trinketBarUnlock", "trinketBarBoth", "trinketBarRings",
+    "trinketBarGlow", "trinketBarTime", "trinketBarTwoRows", "trinketBarColumn", "trinketBarQueue", "trinketBarReady",
+    "trinketBarWarn", "trinketBarChat", "trinketBarSound", "trinketBarOpen", "trinketBarTimeStyle",
+    "trinketBarSize", "trinketGridColumns", "trinketBarPlace"}},
+    {"YOUR SETS", {"trinketBarSets"}}}}}},
   {"frames", "Frames & Nameplates", "Unit frames, portraits and nameplates.", {
    {"unit", "Unit Frames", {{"UNIT FRAMES", {"unitFrames", "matchFocusSize", "disableAggroHighlight", "portraitDebuffs",
     "classIconPortraitMine", "classIconPortraitOthers", "hideRestInCities"}}}},
@@ -84,9 +92,14 @@ local EXPECTED = {
     "showWelcomeOnLogin", "updateCheck"}}, {"THANK FOR BUFFS", {"thankBuffs", "thankBuffsMessage", "thankBuffsSkipGroup", "thankBuffsSkipGuild",
     "thankBuffsSkipFriends", "thankBuffsSkipCombat", "thankBuffsSkipInstances"}}, {"NAME IN CHAT", {"nameInChat", "nameInChatName",
     "nameInChatParty", "nameInChatRaid", "nameInChatGuild", "nameInChatSay"}}}}}},
-  {"group", "Group & Invites", "Friends, guild, group finder and invites.", {
+  -- Healer Mana (2026-11-22, Squirt: "i want it as floating so i can move
+  -- it where ever"): its switch, then its options while it's on
+  -- (Tools/TestHealerMana.lua has its rows).
+  {"group", "Group & Invites", "Friends, guild, group finder, invites and healer mana.", {
    {"main", nil, {{"WINDOWS", {"socialWindows", "groupFinderPvp"}}, {"INVITES AND REQUESTS", {"blockDuels", "blockPartyInvites",
-    "partyFromFriends", "inviteFromWhispers", "autoSummon", "autoResurrect", "releasePvP"}}}}}},
+    "partyFromFriends", "inviteFromWhispers", "autoSummon", "autoResurrect", "releasePvP"}}, {"HEALER MANA", {"healerMana",
+    "healerManaUnlock", "healerManaSelf", "healerManaAll", "healerManaParty", "healerManaRaid", "healerManaWidth", "healerManaScale",
+    "healerManaLow", "healerManaPlace"}}}}}},
  }},
  {group = "EXTRAS", tabs = {
   {"screen", "Screen & Cursor", "The screen, your cursor, the AFK screen and mini-games.", {
@@ -2340,6 +2353,8 @@ do
  E.settings.classColourFriends = true
  E.settings.actionRings = true
  E.settings.bagItemLevels = true
+ E.settings.healerMana = true
+ E.settings.trinketBar = true
  local ONE_OF = {abilityTrailSeconds = true, abilityTrailBorderColour = true}
  equal(#f.groupHeadings, 4, "four groups")
  local icons, abouts, index = {}, {}, 0
@@ -3592,6 +3607,8 @@ do
  E.settings.squareMinimap = true
  E.settings.abilityTrail = true
  E.settings.actionRings = true
+ E.settings.healerMana = true
+ E.settings.trinketBar = true
  local sliders = 0
  for key, row in pairs(f.checks) do
   if row.rowKind == "slider" then
@@ -3610,14 +3627,17 @@ do
    sliders = sliders + 1
   end
  end
- equal(sliders, 17, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
-  .. " and Stats per Line, Square Minimap's Square Size, Ability Trail's Speed, Travel Distance and Show For, Action Rings' Ring Size; its lines' sliders in their own block)")
+ equal(sliders, 22, "every slider row measured (Darkness, damage text size, seven cursor sliders, the drawer's icons per row, the Stat Tracker's Panel Size"
+  .. " and Stats per Line, Square Minimap's Square Size, Ability Trail's Speed, Travel Distance and Show For, Action Rings' Ring Size, Healer Mana's"
+  .. " Bar Width, Size and Low Mana Colour, the Trinket Bar's Icon Size and Icons per Row; its lines' sliders in their own block)")
  E.settings.cursorRing, E.settings.cursorCastRing, E.settings.cursorTrail = nil, nil, nil
  E.settings.cleanMinimap, E.settings.cleanMinimapStyle = nil, nil
  E.settings.statTracker = nil
  E.settings.squareMinimap = nil
  E.settings.abilityTrail, E.settings.abilityTrailScroll = nil, nil
  E.settings.actionRings = nil
+ E.settings.healerMana = nil
+ E.settings.trinketBar = nil
  Open(f, "quests")
  equal(f.checks.rewardProfile.text:GetText():find("^Reward Profile: ") ~= nil, true, "the reward profile row in Title Case")
 end

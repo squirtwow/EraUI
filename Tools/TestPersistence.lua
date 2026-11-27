@@ -1497,4 +1497,42 @@ do
     flush()
     character="Hunter"
 end
+-- Trinket sets (Modules/TrinketSets.lua): each character's sets in its
+-- record, only the version, each set's name, the item ID in each of its four
+-- slots and the Trinket Set key it answers to (one of the ten, or none).
+-- There is no limit on how many sets a character keeps. Read back only when
+-- SavedVariables lost them.
+do
+    for k in pairs(cvars) do cvars[k]=nil end
+    character,realm="Hunter","RealmOne"
+    local function classic() return {erauiMigrated=true,erauiSettingsMenuMigrated=true} end
+    E,flush,fire=Session({},{},classic())
+    local many={}
+    for i=1,40 do many[i]={name="Set "..i,items={[13]=4500+i}} end
+    many[41]={name="Fire fight",items={[13]=4500,[14]=4502,[11]=4700,[5]=99},icon="art.junk",key=3}
+    many[42]={items={[13]=4500}}
+    many[2].key=99
+    EraUIClassicCharDB.trinketSets={version=1,sets=many}
+    E:SaveSettings();flush()
+    E,flush,fire=Session()
+    local sets=EraUIClassicCharDB.trinketSets
+    equal(sets and sets.version.." "..#sets.sets.." "..sets.sets[1].name.." "..sets.sets[1].items[13],"1 41 Set 1 4501",
+        "both SavedVariables lost: all forty-one named sets come back, nothing capping how many")
+    local kit=sets.sets[41]
+    equal(kit.name.." "..kit.items[13].." "..kit.items[14].." "..kit.items[11].." "..tostring(kit.items[12])
+        .." "..tostring(kit.items[5]).." "..tostring(kit.icon).." "..kit.key,"Fire fight 4500 4502 4700 nil nil nil 3",
+        "each set's name, its own four slots and the key it answers to, nothing else kept and no slot of the game's own")
+    equal(tostring(sets.sets[2].key),"nil","a key that is not one of the ten goes")
+    flush()
+    -- SavedVariables there: theirs stay.
+    E,flush,fire=Session(copy(EraUIDB),{trinketSets={version=1,sets={{name="Mine",items={[13]=4502}}}}},classic())
+    equal(#EraUIClassicCharDB.trinketSets.sets.." "..EraUIClassicCharDB.trinketSets.sets[1].name,"1 Mine",
+        "SavedVariables kept: the backup never writes over them")
+    flush()
+    character="Mage"
+    E,flush,fire=Session()
+    equal(EraUIClassicCharDB.trinketSets,nil,"another character doesn't get them")
+    flush()
+    character="Hunter"
+end
 print("Persistence recovery checks passed: " .. checks .. " assertions.")
